@@ -1,0 +1,43 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+import AppKit
+import SwiftUI
+import UniformTypeIdentifiers
+
+/// Subtitle export choice, shown in a popover from the export options button.
+struct EntryExportOptions: View {
+    let entry: Entry
+    let isRunning: Bool
+    let engine: Engine?
+    let setSubtitles: (Bool) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Export options").font(.headline)
+            if entry.timesSentences {
+                Toggle(
+                    "Include subtitles (SRT)",
+                    isOn: Binding(get: { entry.subtitles }, set: { setSubtitles($0) })
+                )
+                .toggleStyle(.checkbox)
+                .disabled(isRunning)
+                Text(
+                    "Corrections appear in the text export. Subtitles keep the original words and timings."
+                )
+                .font(.callout).foregroundStyle(.secondary)
+            } else if let engine, let profile = engine.audioCpp {
+                Text(
+                    "\(engine.name) places timestamps every \(Int(profile.timestampSpacing)) seconds. Sentence-level subtitles are unavailable."
+                )
+                .font(.callout).foregroundStyle(.secondary)
+            }
+            Divider()
+            Text(
+                "Export creates a separate file. Your corrections are saved automatically in the library."
+            )
+            .font(.callout).foregroundStyle(.secondary)
+        }
+        .padding(20)
+        .frame(width: 340)
+    }
+}

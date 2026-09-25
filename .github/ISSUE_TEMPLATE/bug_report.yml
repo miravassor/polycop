@@ -1,0 +1,39 @@
+name: Bug report
+description: Something does not work as expected.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Please do not attach lecture recordings or their transcripts. A short synthetic clip is enough.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Polycop version
+      placeholder: "0.2.0"
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version and Mac
+      placeholder: "macOS 26.6, MacBook Air M4, 16 GB"
+    validations:
+      required: true
+  - type: input
+    id: model
+    attributes:
+      label: Model
+      placeholder: "Qwen3-ASR 1.7B"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Optional. In Console, filter on the process Polycop.
+      render: text

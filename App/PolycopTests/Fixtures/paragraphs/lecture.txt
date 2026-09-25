@@ -1,0 +1,12 @@
+[00:00:00] Bonjour à tous, on commence le cours sur les cartes. Une carte choisit toujours ce qu'elle montre. Et ce qu'elle laisse de côté, n'est-ce pas ?
+
+[00:00:12] Prenons un exemple simple, la carte du métro de Londres. Elle ne respecte ni les distances ni les directions réelles, et pourtant tout le monde s'y retrouve sans effort. Le dessinateur a gardé une seule information utile au voyageur : l'ordre des stations et les correspondances entre les lignes. Tout le reste a disparu, les rues, les parcs, la Tamise presque entière. On appelle cela une généralisation, et c'est un choix assumé. Une carte routière fait le même travail avec d'autres priorités, elle agrandit les routes pour qu'on puisse les lire à l'échelle. Une route dessinée à la bonne largeur serait invisible sur le papier. Donc la carte ment un peu pour mieux nous renseigner, et cette tension traverse toute l'histoire de la discipline, des portulans du Moyen Âge jusqu'aux applications de nos téléphones, qui recalculent la carte à chaque instant, pour chacun d'entre nous…
+
+[00:01:08] Voilà pour le principe général. Passons maintenant aux projections, le vrai problème des cartographes. La Terre est ronde et la feuille est plate. Aucune méthode ne peut aplatir une sphère sans la déformer.
+
+[00:01:23] Mercator a choisi de garder les angles, pour les marins. Le prix à payer, ce sont les surfaces : le Groenland paraît immense. Il est pourtant quatorze fois plus petit que l'Afrique !
+
+[00:59:58] On reprend après la pause. Qui se souvient de la question de la dernière fois ? Il s'agissait de savoir si une carte peut être neutre.
+
+[01:00:11] Un étudiant avait répondu « jamais » et c'est la réponse que je défendrai aujourd'hui. Merci, à la semaine prochaine.
+

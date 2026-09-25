@@ -1,0 +1,206 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+import Foundation
+import os
+
+nonisolated enum DownloadError: LocalizedError {
+    case httpFailure(Int)
+    case checksumMismatch(Model)
+    case tooLarge
+
+    var errorDescription: String? {
+        switch self {
+        case .tooLarge:
+            String(localized: "The download exceeded the model's expected size and was stopped.")
+        case .httpFailure(let code):
+            String(localized: "The download failed (code \(code)).")
+        case .checksumMismatch(let model):
+            String(
+                localized:
+                    "The file received does not match \(model.name) and was not installed."
+            )
+        }
+    }
+}
+
+/// Downloads a model into the store, with progress, and continues an
+/// interrupted transfer rather than starting it again.
+///
+/// Uses a session delegate rather than `download(from:delegate:)`. The
+/// asynchronous convenience methods deliver only the callbacks their own
+/// handler does not cover, so a delegate passed to them never sees progress.
+nonisolated enum ModelDownloader {
+    static func download(
+        _ model: Model,
+        onProgress: @escaping @Sendable (Double) -> Void = { _ in }
+    ) async throws -> URL {
+        let destination = ModelStore.location(of: model)
+        if ModelStore.isInstalled(model) {
+            return destination
+        }
+
+        try FileManager.default.createDirectory(
+            at: ModelStore.directory, withIntermediateDirectories: true)
+        let resumeFile = ModelStore.directory.appending(path: model.id + ".resume")
+        let transfer = Transfer(limit: model.bytes, onProgress: onProgress)
+
+        let received: URL
+        do {
+            received = try await transfer.run(
+                url: model.url, resumeFrom: try? Data(contentsOf: resumeFile))
+        } catch {
+            // URLSession hands back the bytes it managed to fetch, so the next
+            // attempt does not start from zero.
+            if let resumeData = (error as NSError).userInfo[NSURLSessionDownloadTaskResumeData]
+                as? Data
+            {
+                try? resumeData.write(to: resumeFile)
+            } else {
+                // Resume data the server refuses would otherwise fail every retry.
+                try? FileManager.default.removeItem(at: resumeFile)
+            }
+            throw error
+        }
+        try? FileManager.default.removeItem(at: resumeFile)
+
+        // What arrived is removed on every path but a successful install.
+        var installed = false
+        defer {
+            if !installed { try? FileManager.default.removeItem(at: received) }
+        }
+
+        // The transfer may already be finished when the stop arrives.
+        try Task.checkCancellation()
+        if let code = transfer.statusCode, !(200..<300).contains(code) {
+            throw DownloadError.httpFailure(code)
+        }
+
+        // The hash is the only proof that these are the pinned weights.
+        guard try await ModelStore.sha256(of: received) == model.sha256 else {
+            throw DownloadError.checksumMismatch(model)
+        }
+        // A stop can arrive after hashing and before publication.
+        try Task.checkCancellation()
+
+        try ModelStore.publish(received, as: destination)
+        installed = true
+        return destination
+    }
+
+    /// Drives one download task and turns its callbacks into a single
+    /// asynchronous call. The session holds this object until it is invalidated.
+    private final class Transfer: NSObject, URLSessionDownloadDelegate, Sendable {
+        private let onProgress: @Sendable (Double) -> Void
+        private let limit: Int64
+        private let waiting = OSAllocatedUnfairLock(
+            initialState: CheckedContinuation<URL, any Error>?.none)
+        private let status = OSAllocatedUnfairLock(initialState: Int?.none)
+        private let running = OSAllocatedUnfairLock(initialState: Run())
+
+        /// A stop and the transfer it must reach, under one lock, so a stop that
+        /// arrives before the transfer starts is not lost.
+        private struct Run {
+            var cancelled = false
+            var task: URLSessionDownloadTask?
+        }
+
+        var statusCode: Int? { status.withLock { $0 } }
+
+        init(limit: Int64, onProgress: @escaping @Sendable (Double) -> Void) {
+            self.limit = limit
+            self.onProgress = onProgress
+        }
+
+        func run(url: URL, resumeFrom resumeData: Data?) async throws -> URL {
+            let session = URLSession(configuration: .default, delegate: self, delegateQueue: nil)
+            defer { session.finishTasksAndInvalidate() }
+
+            return try await withTaskCancellationHandler {
+                try await withCheckedThrowingContinuation { continuation in
+                    waiting.withLock { $0 = continuation }
+                    let task =
+                        if let resumeData {
+                            session.downloadTask(withResumeData: resumeData)
+                        } else {
+                            session.downloadTask(with: url)
+                        }
+                    // Published under the lock, so a stop is either seen here,
+                    // before the transfer starts, or delivered to it.
+                    let started = running.withLock { state -> Bool in
+                        guard !state.cancelled else { return false }
+                        state.task = task
+                        return true
+                    }
+                    if started {
+                        task.resume()
+                    } else {
+                        task.cancel()
+                        finish(.failure(CancellationError()))
+                    }
+                }
+            } onCancel: {
+                // Cancelling the Swift task has to reach the transfer itself,
+                // which otherwise keeps running and installs after the stop.
+                running.withLock {
+                    $0.cancelled = true
+                    $0.task?.cancel()
+                }
+            }
+        }
+
+        /// Whichever callback arrives first resumes the call, exactly once.
+        private func finish(_ result: Result<URL, any Error>) {
+            let continuation = waiting.withLock { waiting -> CheckedContinuation<URL, any Error>? in
+                defer { waiting = nil }
+                return waiting
+            }
+            if let continuation {
+                continuation.resume(with: result)
+            } else if case .success(let file) = result {
+                try? FileManager.default.removeItem(at: file)
+            }
+        }
+
+        func urlSession(
+            _ session: URLSession,
+            downloadTask: URLSessionDownloadTask,
+            didWriteData bytesWritten: Int64,
+            totalBytesWritten: Int64,
+            totalBytesExpectedToWrite: Int64
+        ) {
+            guard totalBytesWritten <= limit else {
+                downloadTask.cancel()
+                finish(.failure(DownloadError.tooLarge))
+                return
+            }
+            guard totalBytesExpectedToWrite > 0 else { return }
+            onProgress(Double(totalBytesWritten) / Double(totalBytesExpectedToWrite))
+        }
+
+        func urlSession(
+            _ session: URLSession,
+            downloadTask: URLSessionDownloadTask,
+            didFinishDownloadingTo location: URL
+        ) {
+            status.withLock { $0 = (downloadTask.response as? HTTPURLResponse)?.statusCode }
+
+            // The temporary file is removed as soon as this returns.
+            let kept = URL.temporaryDirectory.appending(path: UUID().uuidString)
+            do {
+                try FileManager.default.moveItem(at: location, to: kept)
+                finish(.success(kept))
+            } catch {
+                finish(.failure(error))
+            }
+        }
+
+        func urlSession(
+            _ session: URLSession,
+            task: URLSessionTask,
+            didCompleteWithError error: (any Error)?
+        ) {
+            guard let error else { return }
+            finish(.failure(error))
+        }
+    }
+}

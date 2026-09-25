@@ -1,0 +1,119 @@
+1
+00:00:00,000 --> 00:00:03,570
+Bonjour à tous, on commence le cours sur les cartes.
+
+2
+00:00:03,770 --> 00:00:06,290
+Une carte  choisit toujours ce qu'elle montre.
+
+3
+00:00:06,590 --> 00:00:09,810
+Et ce qu'elle laisse de côté, n'est-ce pas ?
+
+4
+00:00:12,110 --> 00:00:15,680
+Prenons un exemple simple, la carte du métro de Londres.
+
+5
+00:00:16,080 --> 00:00:19,650
+Elle ne respecte ni les distances ni les directions réelles,
+
+6
+00:00:19,750 --> 00:00:22,970
+et pourtant tout le monde s'y retrouve sans effort.
+
+7
+00:00:23,570 --> 00:00:27,490
+Le dessinateur a gardé une seule information utile au voyageur :
+
+8
+00:00:27,690 --> 00:00:30,910
+l'ordre des stations et les correspondances entre les lignes.
+
+9
+00:00:31,410 --> 00:00:36,030
+Tout le reste a disparu, les rues, les parcs, la Tamise presque entière.
+
+10
+00:00:36,330 --> 00:00:39,900
+On appelle cela une généralisation, et c'est un choix assumé.
+
+11
+00:00:40,300 --> 00:00:43,870
+Une carte routière fait le même travail avec d'autres priorités,
+
+12
+00:00:43,970 --> 00:00:47,890
+elle agrandit les routes pour qu'on puisse les lire à l'échelle.
+
+13
+00:00:48,390 --> 00:00:52,660
+Une route dessinée à la bonne largeur serait invisible sur le papier.
+
+14
+00:00:52,960 --> 00:00:56,530
+Donc la carte ment un peu pour mieux nous renseigner,
+
+15
+00:00:56,730 --> 00:00:59,950
+et cette tension traverse toute l'histoire de la discipline,
+
+16
+00:01:00,050 --> 00:01:03,620
+des portulans du Moyen Âge jusqu'aux applications de nos téléphones,
+
+17
+00:01:03,820 --> 00:01:07,740
+qui recalculent la carte à chaque instant, pour chacun d'entre nous…
+
+18
+00:01:08,140 --> 00:01:09,960
+Voilà pour le principe général.
+
+19
+00:01:10,260 --> 00:01:13,480
+Passons maintenant aux projections, le vrai problème des cartographes.
+
+20
+00:01:14,970 --> 00:01:18,190
+La Terre est ronde et la feuille est plate.
+
+21
+00:01:18,390 --> 00:01:21,960
+Aucune méthode ne peut aplatir une sphère sans la déformer.
+
+22
+00:01:23,470 --> 00:01:27,040
+Mercator a choisi de garder les angles, pour les marins.
+
+23
+00:01:27,340 --> 00:01:31,960
+Le prix à payer, ce sont les surfaces : le Groenland paraît immense.
+
+24
+00:01:32,160 --> 00:01:35,730
+Il est pourtant quatorze fois plus petit que l'Afrique !
+
+25
+00:59:58,500 --> 01:00:00,320
+On reprend après la pause.
+
+26
+01:00:00,920 --> 01:00:04,840
+Qui se souvient de la question de la dernière fois ?
+
+27
+01:00:05,140 --> 01:00:08,710
+Il s'agissait de savoir si une carte peut être neutre.
+
+28
+01:00:11,910 --> 01:00:14,430
+Un étudiant avait répondu « jamais »
+
+29
+01:00:14,630 --> 01:00:17,500
+et c'est la réponse que je défendrai aujourd'hui.
+
+30
+01:00:17,900 --> 01:00:19,720
+Merci, à la semaine prochaine.

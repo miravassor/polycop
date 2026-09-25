@@ -1,0 +1,77 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Builds a release from a version tag such as v0.2.0 and drafts it on GitHub.
+# Dependencies are built from their pinned sources, without cache.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: xcode-27
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Use the runner's Xcode
+        run: |
+          echo "DEVELOPER_DIR=$(xcode-select -p)" >> "$GITHUB_ENV"
+          xcodebuild -version
+          xcodebuild -version | grep -q '^Xcode 27' || { echo "::error::Xcode 27 is required"; exit 1; }
+
+      - name: Install GnuPG
+        run: command -v gpg >/dev/null || brew install gnupg
+
+      - name: Check the tag against the app version
+        run: |
+          version=$(sed -n 's/.*MARKETING_VERSION = \(.*\);/\1/p' App/Polycop.xcodeproj/project.pbxproj | sort -u)
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match MARKETING_VERSION $version"
+            exit 1
+          fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+      - name: Extract the release notes
+        run: |
+          awk -v heading="## $VERSION" '
+            index($0, heading) == 1 { found = 1; next }
+            found && /^## / { exit }
+            found { print }
+          ' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
+          if ! grep -q '[^[:space:]]' "$RUNNER_TEMP/notes.md"; then
+            echo "::error::CHANGELOG.md has no section for $VERSION"
+            exit 1
+          fi
+
+      - name: Build ffmpeg and audio.cpp
+        run: |
+          Tools/build-ffmpeg.sh
+          Tools/build-audiocpp.sh
+
+      - name: Test
+        run: >
+          xcodebuild test
+          -project App/Polycop.xcodeproj
+          -scheme Polycop
+          -destination 'platform=macOS,arch=arm64'
+          SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
+
+      - name: Package
+        run: Tools/package.sh
+
+      - name: Draft the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          folder="build/releases/Polycop-$VERSION"
+          gh release create "$GITHUB_REF_NAME" \
+            "$folder/Polycop-$VERSION.zip" "$folder/Polycop-$VERSION.zip.sha256" \
+            --title "Polycop $VERSION" --notes-file "$RUNNER_TEMP/notes.md" --draft

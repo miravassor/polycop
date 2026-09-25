@@ -1,0 +1,51 @@
+# Recordings and subtitles, except the synthetic test fixtures
+*.3gp
+*.aac
+*.aif
+*.aiff
+*.amr
+*.caf
+*.flac
+*.m4a
+*.m4v
+*.mkv
+*.mov
+*.mp3
+*.mp4
+*.oga
+*.ogg
+*.opus
+*.srt
+*.vtt
+*.wav
+*.webm
+*.wma
+!App/PolycopTests/Fixtures/**
+
+# Models
+*.bin
+*.gguf
+# Silero ships inside the app: strip silence has to work offline, and 885 kB
+# is small enough to carry rather than download.
+!App/Polycop/Resources/*.bin
+*.mlmodelc/
+
+# Built from pinned source by Tools/build-audiocpp.sh
+Packages/AudioCppFramework/audiocpp.xcframework/
+
+# Xcode and Swift
+build/
+DerivedData/
+xcuserdata/
+*.xcuserstate
+.build/
+.swiftpm/
+
+# macOS
+.DS_Store
+
+# Release archives
+*.zip
+
+# Personal agent instructions
+CLAUDE.local.md
