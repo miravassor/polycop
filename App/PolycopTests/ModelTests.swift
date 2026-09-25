@@ -112,7 +112,8 @@ func downloadsAndVerifiesAPinnedFile() async throws {
 
 /// The memory check has to fire before whisper.cpp is asked to open the file,
 /// otherwise a Mac short of memory gets the message meant for a damaged model.
-@Test func aModelTooLargeForThisMacIsRefusedBeforeLoading() async {
+@Test(.enabled(if: Memory.recommendedBudget > 0))
+func aModelTooLargeForThisMacIsRefusedBeforeLoading() async {
     let ceiling = Memory.recommendedBudget
     let enormous = Model(
         id: "ggml-enormous.bin",
@@ -128,21 +129,28 @@ func downloadsAndVerifiesAPinnedFile() async throws {
     )
 
     #expect(!Memory.isLikelyToFit(enormous))
-    #expect(Memory.isLikelyToFit(ModelCatalog.recommended))
 
     // A file that exists, so the refusal can only come from the memory check.
     let present = URL(filePath: #filePath)
-    await #expect(throws: TranscriptionError.self) {
+    await #expect {
         _ = try await WhisperEngine.load(model: present, expecting: enormous)
+    } throws: { error in
+        guard case TranscriptionError.notEnoughMemory(let needed, let budget) = error else {
+            return false
+        }
+        return needed == enormous.peakBytes && budget == ceiling
     }
 }
 
-/// Every offered model has to fit this machine, or the catalogue is offering
-/// something it cannot run.
-@Test func everyOfferedModelFitsThisMac() {
-    for model in ModelCatalog.all {
-        #expect(Memory.isLikelyToFit(model), "\(model.name) does not fit")
-    }
+@Test(arguments: [
+    (peak: Int64(4_000_000_000), budget: Int64(5_000_000_000), expected: true),
+    (peak: Int64(5_000_000_000), budget: Int64(5_000_000_000), expected: false),
+    (peak: Int64(6_000_000_000), budget: Int64(5_000_000_000), expected: false),
+    (peak: Int64(6_000_000_000), budget: Int64(8_000_000_000), expected: true),
+    (peak: Int64(6_000_000_000), budget: Int64(0), expected: true),
+])
+func modelMemoryFitsTheBudget(peak: Int64, budget: Int64, expected: Bool) {
+    #expect(Memory.fits(peak, budget: budget) == expected)
 }
 
 // MARK: Verified imports

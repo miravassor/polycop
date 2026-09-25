@@ -19,16 +19,15 @@ nonisolated enum Memory {
     }
 
     static func isLikelyToFit(_ model: Model) -> Bool {
-        fits(model.peakBytes)
+        fits(model.peakBytes, budget: recommendedBudget)
     }
 
     /// For models loaded together, whose peaks add up.
     static func areLikelyToFit(_ models: Model...) -> Bool {
-        fits(models.reduce(0) { $0 + $1.peakBytes })
+        fits(models.reduce(0) { $0 + $1.peakBytes }, budget: recommendedBudget)
     }
 
-    private static func fits(_ peak: Int64) -> Bool {
-        let budget = recommendedBudget
+    static func fits(_ peak: Int64, budget: Int64) -> Bool {
         return budget == 0 || peak < budget
     }
 
