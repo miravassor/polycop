@@ -75,6 +75,8 @@ final class AppModel {
     }
     private(set) var imported: [ModelStore.Imported] = []
     let player = Player()
+    /// Where each course's remembered corrections are kept; tests use their own.
+    var courseCorrectionsFolder = GlossaryStore.directory
 
     /// The file name of the chosen model. A name rather than a value, because
     /// the choice can be a catalogue entry or a file the user imported.

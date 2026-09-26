@@ -59,7 +59,7 @@ extension AppModel {
     func deleteGlossary(named name: String) throws {
         defer { refreshGlossaries() }
         try GlossaryStore.delete(named: name)
-        CourseCorrections.delete(for: name)
+        CourseCorrections.delete(for: name, in: courseCorrectionsFolder)
         unsavedGlossaries[name] = nil
         if !hasUnsavedHistory { storageFailure = nil }
     }
@@ -117,11 +117,34 @@ extension AppModel {
         updateEntry(id) { $0.glossaryWarning = warning }
     }
 
+    /// The corrections remembered for a transcript's course.
+    func courseCorrections(for entry: Entry) -> [CourseCorrection] {
+        entry.glossary.map { courseCorrections(forCourse: $0) } ?? []
+    }
+
+    func courseCorrections(forCourse name: String) -> [CourseCorrection] {
+        CourseCorrections.all(for: name, in: courseCorrectionsFolder)
+    }
+
+    /// Whether a transcript's only changes are its course's corrections. Those
+    /// are applied again after its paragraphs are rebuilt, so they do not stand
+    /// in the way of repairing repeats or putting credits back.
+    func hasOnlyCourseCorrections(_ entry: Entry) -> Bool {
+        guard entry.isEdited else { return true }
+        let corrections = courseCorrections(for: entry)
+        guard !corrections.isEmpty else { return false }
+        var uncorrected = entry
+        uncorrected.paragraphs = entry.original
+        uncorrected.isEdited = false
+        CourseCorrections.apply(corrections, to: &uncorrected)
+        return uncorrected.paragraphs == entry.paragraphs
+    }
+
     /// Remembers a replacement for the course of a transcript, for its next ones.
     func remember(_ correction: CourseCorrection, forCourseOf id: Entry.ID) {
         guard let name = entry(id)?.glossary else { return }
         do {
-            try CourseCorrections.remember(correction, for: name)
+            try CourseCorrections.remember(correction, for: name, in: courseCorrectionsFolder)
         } catch {
             report(error)
         }
@@ -129,7 +152,7 @@ extension AppModel {
 
     func forget(_ correction: CourseCorrection, forCourse name: String) {
         do {
-            try CourseCorrections.forget(correction, for: name)
+            try CourseCorrections.forget(correction, for: name, in: courseCorrectionsFolder)
         } catch {
             report(error)
         }

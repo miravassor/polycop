@@ -159,7 +159,7 @@ struct GlossaryEditor: View {
     }
 
     private func reloadCorrections() {
-        corrections = selection.map { CourseCorrections.all(for: $0) } ?? []
+        corrections = selection.map { model.courseCorrections(forCourse: $0) } ?? []
     }
 
     @ViewBuilder

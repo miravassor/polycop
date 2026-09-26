@@ -210,3 +210,41 @@ private func temporaryFolder() -> URL {
 
     #expect(GlossaryStore.all(in: folder).map(\.name) == ["Psychologie"])
 }
+
+/// A course's corrections do not stand in the way of putting credits back:
+/// the paragraphs are rebuilt and the corrections applied again.
+@MainActor
+@Test func courseCorrectionsSurviveRebuildingTheParagraphs() throws {
+    let root = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let course = "Psychologie"
+    try CourseCorrections.remember(
+        CourseCorrection(find: "bordereux", replacement: "borderline"), for: course, in: root)
+    var entry = Entry(
+        recording: root.appending(path: "cours.wav"), modelFile: ModelCatalog.recommended.id,
+        glossary: Glossary(name: course, text: "borderline"), skipsSilence: false,
+        subtitles: false)
+    entry.publish(
+        [
+            Segment(start: 0, end: 30, text: " Sous-titrage Société Radio-Canada"),
+            Segment(start: 31, end: 33, text: " Le trouble bordéreux."),
+        ], partial: false)
+    entry.state = .finished
+    CourseCorrections.apply(CourseCorrections.all(for: course, in: root), to: &entry)
+    try HistoryStore.write(entry, in: root)
+    let reloaded = AppModel(history: root)
+    reloaded.courseCorrectionsFolder = root
+    let stored = try #require(reloaded.entry(entry.id))
+    #expect(stored.isEdited)
+    #expect(reloaded.hasOnlyCourseCorrections(stored))
+    #expect(reloaded.canPutBackCredits(of: stored))
+
+    reloaded.putBackCredits(entry.id)
+
+    let restored = try #require(reloaded.entry(entry.id))
+    #expect(restored.showsCredits)
+    #expect(restored.paragraphs.map(\.text).joined().contains("borderline"))
+
+    reloaded.edit(entry.id, paragraphAt: 0, text: "Une correction à la main.")
+    #expect(!reloaded.hasOnlyCourseCorrections(try #require(reloaded.entry(entry.id))))
+}

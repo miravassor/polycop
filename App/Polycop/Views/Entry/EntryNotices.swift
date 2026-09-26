@@ -27,9 +27,11 @@ struct EntryNotices: View {
                     .textSelection(.enabled)
                 if !entry.repeats.isEmpty, engine?.skipsSilence == true {
                     Button("Transcribe the Repeats Again") { model.repairRepeats(entry.id) }
-                        .disabled(isRunning || entry.isEdited || model.stage.isBusy)
+                        .disabled(
+                            isRunning || !model.canRepairRepeats(of: entry) || model.stage.isBusy
+                        )
                         .help(
-                            entry.isEdited
+                            !model.hasOnlyCourseCorrections(entry)
                                 ? Text("Transcribing them again would undo your corrections.")
                                 : Text("Skips the silences over those passages only.")
                         )
@@ -102,7 +104,7 @@ struct EntryNotices: View {
                 Button("Put back") { model.putBackCredits(entry.id) }
                     .disabled(!model.canPutBackCredits(of: entry))
                     .help(
-                        entry.isEdited || model.canUndo(entry.id)
+                        !model.hasOnlyCourseCorrections(entry) || model.canUndo(entry.id)
                             ? Text("Putting the lines back would undo your corrections.") : Text("")
                     )
             }

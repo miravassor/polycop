@@ -10,7 +10,7 @@ extension AppModel {
     /// repair needs silence removal, which only the entry's own engine
     /// supports, and text the user has not corrected.
     func canRepairRepeats(of entry: Entry) -> Bool {
-        !entry.isEdited && !entry.repeats.isEmpty
+        hasOnlyCourseCorrections(entry) && !entry.repeats.isEmpty
             && (ModelCatalog.model(entry.modelFile)?.engine.skipsSilence ?? false)
     }
 
@@ -87,9 +87,11 @@ extension AppModel {
                     stage = .repairing(Double(done + 1) / Double(ranges.count))
                 }
                 corrections[id] = nil
+                let courseCorrections = courseCorrections(for: entry)
                 updateEntry(id) {
                     $0.publish(repaired, partial: entry.isPartial)
                     $0.state = .finished
+                    CourseCorrections.apply(courseCorrections, to: &$0)
                 }
                 finish()
             } catch is CancellationError {
