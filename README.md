@@ -60,8 +60,9 @@ unless they agree to more.
   text.
 * **Audio player** made for proofreading: playback speed, a timeline with the
   paragraphs, the next or previous paragraph from the keyboard, and the text
-  following playback until you scroll away. The keyboard media keys, Control
-  Center and headphone buttons control it too.
+  following playback until you scroll away. Space plays and pauses when you are
+  not typing, and Esc leaves the text. The keyboard media keys, Control Center
+  and headphone buttons control it too.
 * **Review marks** on passages to check later.
 * **Export** to text with or without timestamps, or to Markdown, with hesitations
   such as "euh" left out if you want, and to SRT subtitles when the model times

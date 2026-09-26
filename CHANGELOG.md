@@ -4,6 +4,10 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ## Unreleased
 
+### Added
+
+* Space plays and pauses when no text is being edited, as in any player, and Esc leaves the text. Shift Command Space still works while typing.
+
 ### Fixed
 
 * Pausing, resuming, jumping and stopping no longer click: the audio fades out and back in over a few hundredths of a second.

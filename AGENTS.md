@@ -96,6 +96,9 @@ Every page speaks the same visual language. The shared pieces live in
 * Typed text stays in the paragraph's text view and reaches the model after a pause,
   or before any click, shortcut, menu or quit (`TypingBuffer`). Code that reads a
   transcript outside those, such as a timer, calls `TypingBuffer.flush()` first.
+* Space plays and pauses through a key monitor (`SpaceToPlay`) unless text being
+  edited or a control reached with the keyboard has it. A new view that needs Space
+  must be one of those, or the player takes the key.
 * Engines call C APIs on their own serial queue. Keep every whisper.cpp and audio.cpp
   call on that queue and respect the object lifetimes documented next to them.
 * The app must work offline. The only network uses are downloading catalog models and
