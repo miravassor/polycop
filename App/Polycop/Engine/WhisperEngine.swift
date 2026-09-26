@@ -292,8 +292,8 @@ nonisolated final class WhisperEngine: TranscriptionEngine, @unchecked Sendable 
                             return nil
                         }
                         return Token(
-                            text: String(
-                                cString: whisper_full_get_token_text(context, index, token)),
+                            bytes: Self.bytes(
+                                of: whisper_full_get_token_text(context, index, token)),
                             probability: whisper_full_get_token_p(context, index, token),
                             start: whisper_full_get_token_t0(context, index, token),
                             end: whisper_full_get_token_t1(context, index, token))
@@ -317,8 +317,8 @@ nonisolated final class WhisperEngine: TranscriptionEngine, @unchecked Sendable 
                         return nil
                     }
                     return Token(
-                        text: String(
-                            cString: whisper_full_get_token_text_from_state(
+                        bytes: bytes(
+                            of: whisper_full_get_token_text_from_state(
                                 context, state, index, token)),
                         probability: whisper_full_get_token_p_from_state(state, index, token),
                         start: whisper_full_get_token_t0_from_state(state, index, token),
@@ -328,9 +328,10 @@ nonisolated final class WhisperEngine: TranscriptionEngine, @unchecked Sendable 
     }
 
     /// One token as whisper.cpp reports it, times in hundredths of a second
-    /// on the recording's timeline.
+    /// on the recording's timeline. Bytes rather than text: a character can be
+    /// split between two tokens, and only the whole word decodes.
     struct Token {
-        let text: String
+        let bytes: [UInt8]
         let probability: Float
         let start: Int64
         let end: Int64
@@ -340,21 +341,26 @@ nonisolated final class WhisperEngine: TranscriptionEngine, @unchecked Sendable 
     /// confidence is the mean probability of its tokens.
     static func words(from tokens: [Token]) -> [Segment.Word] {
         var groups: [[Token]] = []
-        for token in tokens where !token.text.isEmpty {
-            if token.text.hasPrefix(" ") || groups.isEmpty {
+        for token in tokens where !token.bytes.isEmpty {
+            if token.bytes.first == UInt8(ascii: " ") || groups.isEmpty {
                 groups.append([token])
             } else {
                 groups[groups.count - 1].append(token)
             }
         }
         return groups.compactMap { group in
-            let text = group.map(\.text).joined().trimmingCharacters(in: .whitespaces)
+            let text = String(decoding: group.flatMap(\.bytes), as: UTF8.self)
+                .trimmingCharacters(in: .whitespaces)
             guard !text.isEmpty, let first = group.first, let last = group.last else { return nil }
             return Segment.Word(
                 text: text, start: TimeInterval(first.start) / 100,
                 end: TimeInterval(max(first.start, last.end)) / 100,
                 confidence: group.map(\.probability).reduce(0, +) / Float(group.count))
         }
+    }
+
+    private static func bytes(of text: UnsafePointer<CChar>) -> [UInt8] {
+        Array(UnsafeRawBufferPointer(start: text, count: strlen(text)))
     }
 
     /// What the C callbacks need, reachable through one pointer.

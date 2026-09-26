@@ -9,10 +9,10 @@ import Testing
 /// punctuation stays with the word before it.
 @Test func tokensJoinIntoWordsWithTheirMeanConfidence() {
     let tokens = [
-        WhisperEngine.Token(text: " Bon", probability: 0.9, start: 0, end: 20),
-        WhisperEngine.Token(text: "jour", probability: 0.7, start: 20, end: 40),
-        WhisperEngine.Token(text: ",", probability: 0.8, start: 40, end: 42),
-        WhisperEngine.Token(text: " à", probability: 0.3, start: 50, end: 60),
+        WhisperEngine.Token(bytes: Array(" Bon".utf8), probability: 0.9, start: 0, end: 20),
+        WhisperEngine.Token(bytes: Array("jour".utf8), probability: 0.7, start: 20, end: 40),
+        WhisperEngine.Token(bytes: Array(",".utf8), probability: 0.8, start: 40, end: 42),
+        WhisperEngine.Token(bytes: Array(" à".utf8), probability: 0.3, start: 50, end: 60),
     ]
 
     let words = WhisperEngine.words(from: tokens)
@@ -22,6 +22,16 @@ import Testing
     #expect(words.map(\.end) == [0.42, 0.6])
     #expect(abs((words.first?.confidence ?? 0) - 0.8) < 0.0001)
     #expect(words.last?.confidence == 0.3)
+}
+
+/// A character split between two tokens is decoded with the whole word.
+@Test func aCharacterSplitBetweenTokensStaysWhole() {
+    let heart = Array(" cœur".utf8)
+    let tokens = [
+        WhisperEngine.Token(bytes: Array(heart[..<3]), probability: 1, start: 0, end: 10),
+        WhisperEngine.Token(bytes: Array(heart[3...]), probability: 1, start: 10, end: 20),
+    ]
+    #expect(WhisperEngine.words(from: tokens).map(\.text) == ["cœur"])
 }
 
 @Test func wordsAreFoundInTheirParagraphInOrder() {
@@ -43,6 +53,20 @@ import Testing
     #expect(corrected.map(\.start) == [0, 0.2, 1.2, 1.4])
     let stillUncertain = corrected.contains { $0.isUncertain }
     #expect(!stillUncertain)
+}
+
+/// The words after a long insertion are found again, and a short word is
+/// never found inside another: "a" is not placed in "la".
+@Test func wordsAreFoundAgainAfterALongInsertion() {
+    let words = [
+        Segment.Word(text: "Freud", start: 0, end: 0.5),
+        Segment.Word(text: "a", start: 0.5, end: 0.6),
+        Segment.Word(text: "écrit", start: 0.6, end: 1),
+        Segment.Word(text: "tard.", start: 1, end: 1.5),
+    ]
+    let text = "Freud, le fondateur de la psychanalyse selon la plupart des auteurs, a écrit tard."
+
+    #expect(WordLayout.place(words, in: text).map(\.start) == [0, 0.6, 1])
 }
 
 @Test func theWordPlayingIsTheLastOneStarted() {

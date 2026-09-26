@@ -16,15 +16,18 @@ nonisolated enum WordLayout {
     }
 
     /// The words of `segments`, grouped by the paragraph whose time span holds
-    /// their start.
+    /// their start. Words come in time order, so the paragraph only moves on.
     static func grouped(
         _ segments: [Segment], into paragraphs: [Transcript.Paragraph]
     ) -> [[Segment.Word]] {
         var groups = Array(repeating: [Segment.Word](), count: paragraphs.count)
         guard !paragraphs.isEmpty else { return groups }
         let starts = paragraphs.map(\.seconds)
-        for word in segments.flatMap({ $0.words ?? [] }) {
-            let index = starts.lastIndex { $0 <= word.start + 0.001 } ?? 0
+        var index = 0
+        for word in segments.lazy.flatMap({ $0.words ?? [] }) {
+            while index + 1 < starts.count, starts[index + 1] <= word.start + 0.001 {
+                index += 1
+            }
             groups[index].append(word)
         }
         return groups
@@ -35,19 +38,40 @@ nonisolated enum WordLayout {
     static func place(_ words: [Segment.Word], in text: String) -> [Placed] {
         let string = text as NSString
         var cursor = 0
+        // A few words of slack, so a deleted word does not match much later.
+        // Each word not found doubles it, so the search catches up after an
+        // insertion or a rewrite.
+        var slack = 40
         var placed: [Placed] = []
         for word in words {
             let length = (word.text as NSString).length
             guard length > 0, cursor < string.length else { continue }
-            // A few words of slack, so a deleted word does not match much later.
             let window = NSRange(
-                location: cursor, length: min(string.length - cursor, length + 40))
-            let found = string.range(of: word.text, options: [], range: window)
-            guard found.location != NSNotFound else { continue }
+                location: cursor, length: min(string.length - cursor, length + slack))
+            guard let found = find(word.text, in: string, within: window) else {
+                slack *= 2
+                continue
+            }
             placed.append(Placed(range: found, start: word.start, confidence: word.confidence))
             cursor = NSMaxRange(found)
+            slack = 40
         }
         return placed
+    }
+
+    /// The first time `word` stands as a word in `window`, so that "a" is not
+    /// found inside "la".
+    private static func find(_ word: String, in text: NSString, within window: NSRange) -> NSRange?
+    {
+        var searched = window
+        while searched.length > 0 {
+            let found = text.range(of: word, options: [], range: searched)
+            guard found.location != NSNotFound else { return nil }
+            if TranscriptSearch.isWholeWord(found, in: text) { return found }
+            let next = NSMaxRange(found)
+            searched = NSRange(location: next, length: NSMaxRange(window) - next)
+        }
+        return nil
     }
 
     /// The word being played at `position`.
