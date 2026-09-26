@@ -8,6 +8,7 @@ import UniformTypeIdentifiers
 /// above the transcript text.
 struct EntryNotices: View {
     let entry: Entry
+    let findings: Entry.Findings
     let model: AppModel
     let isRunning: Bool
     let engine: Engine?
@@ -19,16 +20,18 @@ struct EntryNotices: View {
                 .foregroundStyle(.orange)
                 .textSelection(.enabled)
         }
-        if let warning = entry.repetitionWarning {
+        if let warning = findings.repetitionWarning {
             HStack(spacing: 12) {
                 Label(warning, systemImage: "exclamationmark.triangle")
                     .font(.callout)
                     .foregroundStyle(.orange)
                     .textSelection(.enabled)
-                if !entry.repeats.isEmpty, engine?.skipsSilence == true {
+                // The repeats and the engine are checked here, so only the
+                // corrections decide.
+                if !findings.repeats.isEmpty, engine?.skipsSilence == true {
                     Button("Transcribe the Repeats Again") { model.repairRepeats(entry.id) }
                         .disabled(
-                            isRunning || !model.canRepairRepeats(of: entry) || model.stage.isBusy
+                            isRunning || !entry.hasOnlyCourseCorrections || model.stage.isBusy
                         )
                         .help(
                             !entry.hasOnlyCourseCorrections
@@ -92,8 +95,11 @@ struct EntryNotices: View {
             .foregroundStyle(.orange)
         }
         ForEach(
-            [Credits.notice(entry.hiddenCredits), Degeneration.loopNotice(entry.shortenedLoops)]
-                .compactMap { $0 },
+            [
+                Credits.notice(findings.hiddenCredits),
+                Degeneration.loopNotice(findings.shortenedLoops),
+            ]
+            .compactMap { $0 },
             id: \.self
         ) { notice in
             HStack(spacing: 12) {

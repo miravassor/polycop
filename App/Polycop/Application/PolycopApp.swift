@@ -138,6 +138,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        // Typing not handed over yet reaches the model before it is saved.
+        TypingBuffer.flush()
         guard let model else { return .terminateNow }
         guard !model.isShuttingDown else { return .terminateLater }
         if model.hasWork {

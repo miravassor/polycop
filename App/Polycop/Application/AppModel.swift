@@ -63,6 +63,8 @@ final class AppModel {
     var pane = Pane.new {
         didSet {
             guard pane != oldValue else { return }
+            // Leaving a transcript writes what was typed in it.
+            savePending()
             player.stop()
             failure = nil
         }
@@ -188,6 +190,10 @@ final class AppModel {
     /// Corrections already made, oldest first, so one can be stepped back. It
     /// lives as long as the app does: what is on disk is what was last seen.
     var corrections: [Entry.ID: [[Transcript.Paragraph]]] = [:]
+    /// Entries typed into and not written yet, and the write waiting for a
+    /// pause in the typing.
+    @ObservationIgnored var pendingSaves: Set<Entry.ID> = []
+    @ObservationIgnored var pendingSave: Task<Void, Never>?
 
     /// What a transcription needs to continue after a pause. It lives as long
     /// as the app does: quitting loses a paused job, by decision, and its entry
@@ -263,18 +269,45 @@ final class AppModel {
     }
 
     /// Every change reaches the disk at once, so nothing waits on a save to
-    /// survive quitting. A write that fails is kept in memory instead, and the
-    /// queue waits until it can be retried.
-    func updateEntry(_ id: Entry.ID, _ update: (inout Entry) -> Void) {
+    /// survive quitting. Typing is the exception: encoding a whole transcript
+    /// at each key made typing stutter, so it is written after a pause, and
+    /// quitting writes what is left. A write that fails is kept in memory
+    /// instead, and the queue waits until it can be retried.
+    func updateEntry(
+        _ id: Entry.ID, whileTyping: Bool = false, _ update: (inout Entry) -> Void
+    ) {
         guard let index = entries.firstIndex(where: { $0.id == id }) else { return }
         let before = entries[index]
         update(&entries[index])
-        if entries[index] != before {
+        guard entries[index] != before else { return }
+        if whileTyping {
+            saveAfterPause(id)
+        } else {
             store(entries[index])
         }
     }
 
+    private func saveAfterPause(_ id: Entry.ID) {
+        pendingSaves.insert(id)
+        pendingSave?.cancel()
+        pendingSave = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(1))
+            guard !Task.isCancelled else { return }
+            self?.savePending()
+        }
+    }
+
+    /// Writes the entries typed into since their last write.
+    func savePending() {
+        pendingSave?.cancel()
+        pendingSave = nil
+        for entry in entries where pendingSaves.contains(entry.id) {
+            store(entry)
+        }
+    }
+
     func store(_ entry: Entry) {
+        pendingSaves.remove(entry.id)
         do {
             try HistoryStore.write(entry, in: history)
             let recovered = unsavedHistory.remove(entry.id) != nil
@@ -290,6 +323,7 @@ final class AppModel {
 
     @discardableResult
     func retrySavingHistory() -> Bool {
+        savePending()
         for glossary in Array(unsavedGlossaries.values) {
             try? saveGlossary(glossary)
         }

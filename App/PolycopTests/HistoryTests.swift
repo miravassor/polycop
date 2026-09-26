@@ -384,3 +384,53 @@ private func entry(_ name: String, in folder: URL, added: Date = .now) -> Entry 
     model.setTextLayout(.markdown, for: entry.id)
     #expect(model.exportState(of: try #require(model.entry(entry.id))) == .outOfDate)
 }
+
+/// Typing is written after a pause rather than at each key, and what is left
+/// is written before quitting.
+@MainActor
+@Test func typingIsWrittenAfterAPause() async throws {
+    let history = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: history) }
+    var entry = Entry(
+        recording: history.appending(path: "cours.wav"), modelFile: ModelCatalog.recommended.id,
+        glossary: nil, skipsSilence: false, subtitles: false)
+    entry.publish([Segment(start: 0, end: 4, text: "Bonjour à tous.")], partial: false)
+    entry.state = .finished
+    try HistoryStore.write(entry, in: history)
+    let model = AppModel(history: history)
+    let file = history.appending(path: entry.id.uuidString + ".json")
+    func written() throws -> String? {
+        try JSONDecoder().decode(Entry.self, from: Data(contentsOf: file)).paragraphs.first?.text
+    }
+
+    model.edit(entry.id, paragraphAt: 0, text: "Bonjour à toutes.")
+    #expect(try written() == "Bonjour à tous.")
+    try await Task.sleep(for: .seconds(1.5))
+    #expect(try written() == "Bonjour à toutes.")
+
+    model.edit(entry.id, paragraphAt: 0, text: "Bonsoir à toutes.")
+    #expect(model.retrySavingHistory())
+    #expect(try written() == "Bonsoir à toutes.")
+}
+
+/// The notices' findings, worked out in one pass, say what each said alone.
+@Test func findingsMatchWhatEachNoticeSaid() {
+    var entry = Entry(
+        recording: URL(filePath: "/tmp/cours.wav"), modelFile: ModelCatalog.recommended.id,
+        glossary: nil, skipsSilence: false, subtitles: false)
+    let looped = (0..<12).map {
+        Segment(
+            start: 10 + Double($0), end: 11 + Double($0), text: " On voit bien ici le principe.")
+    }
+    entry.publish(
+        [Segment(start: 0, end: 5, text: " Sous-titrage Société Radio-Canada")] + looped
+            + [Segment(start: 30, end: 33, text: " Fin du cours.")], partial: false)
+
+    let findings = entry.findings
+
+    #expect(!findings.hiddenCredits.isEmpty)
+    #expect(findings.repetitionWarning == entry.repetitionWarning)
+    #expect(findings.repeats == entry.repeats)
+    #expect(findings.hiddenCredits == entry.hiddenCredits)
+    #expect(findings.shortenedLoops == entry.shortenedLoops)
+}

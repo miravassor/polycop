@@ -251,6 +251,26 @@ nonisolated struct Entry: Identifiable, Equatable, Codable, Sendable {
     }
     var repetitionWarning: String? { Degeneration.check(shown).map(Degeneration.warning) }
 
+    /// What the notices above a transcript report. Each reads the whole
+    /// transcript, and typing changes none of them, so a page works them out
+    /// once per change of the segments rather than at each key.
+    struct Findings: Equatable {
+        let repetitionWarning: String?
+        let repeats: [ClosedRange<Int>]
+        let hiddenCredits: [Segment]
+        let shortenedLoops: [Segment]
+    }
+
+    var findings: Findings {
+        let cleaned = cleaned
+        return Findings(
+            repetitionWarning: Degeneration.check(showsCredits ? decoded : cleaned.speech)
+                .map(Degeneration.warning),
+            repeats: repeats,
+            hiddenCredits: showsCredits ? [] : cleaned.credits,
+            shortenedLoops: showsCredits ? [] : cleaned.looped)
+    }
+
     /// Stretches where one phrase repeats in a row, which can be transcribed
     /// again. Read from the raw segments, which is what a repair replaces.
     var repeats: [ClosedRange<Int>] { Degeneration.repeats(in: decoded) }

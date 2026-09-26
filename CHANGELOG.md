@@ -2,6 +2,17 @@
 
 All notable changes are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
+## Unreleased
+
+### Added
+
+* Space plays and pauses when no text is being edited, as in any player, and Esc leaves the text. Shift Command Space still works while typing.
+
+### Fixed
+
+* Pausing, resuming, jumping and stopping no longer click: the audio fades out and back in over a few hundredths of a second.
+* Typing in a long transcript no longer lags: a key redraws only the text being typed, the transcript takes it after a short pause or before anything reads it, and it is written to disk after a pause of a second, when you leave the transcript, or when you quit.
+
 ## 0.3.0 (2026-09-26)
 
 Polycop now grows as a transcription and editing suite: this release is mostly

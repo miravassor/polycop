@@ -16,6 +16,8 @@ struct TranscriptView: View {
     let isEditable: Bool
     let play: (TimeInterval) -> Void
     let edit: (Int, String) -> Void
+    /// Called at each key typed in a paragraph.
+    let typing: () -> Void
     /// The paragraph under the pointer, for the timeline below.
     let hover: (Int?) -> Void
     /// The transcript as the engine wrote it, to show what was corrected.
@@ -56,6 +58,7 @@ struct TranscriptView: View {
                         LazyVStack(alignment: .leading, spacing: 20) {
                             ForEach(paragraphs.indices, id: \.self) { index in
                                 row(index)
+                                    .equatable()
                                     .id(index)
                                     .onGeometryChange(for: CGRect.self) {
                                         $0.frame(in: .named("transcript"))
@@ -116,14 +119,76 @@ struct TranscriptView: View {
         }
     }
 
-    private func row(_ index: Int) -> some View {
+    private func row(_ index: Int) -> TranscriptRow {
+        TranscriptRow(
+            index: index, paragraph: paragraphs[index], written: written(at: index),
+            player: player, isEditable: isEditable, isComparing: isComparing, size: size,
+            isPlaying: playing == index, isFocused: focused == index, isActive: active == index,
+            isReviewed: review.contains(index), isResumed: resumed.contains(index),
+            matches: matches.filter { $0.paragraph == index }.map(\.range),
+            currentMatch: currentMatch?.paragraph == index ? currentMatch?.range : nil,
+            words: index < words.count ? words[index] : [],
+            showsUncertainWords: showsUncertainWords, timeColumnWidth: timeColumnWidth,
+            play: play, edit: edit, typing: typing, hover: hover, activate: activate,
+            suspendFollowing: suspendFollowing, toggleReview: toggleReview)
+    }
+
+    private func written(at index: Int) -> String {
+        index < original.count ? original[index].text : paragraphs[index].text
+    }
+}
+
+/// One paragraph of the transcript. Compared by what it shows, not by its
+/// actions, so that typing redraws the paragraph being typed in rather than
+/// every one on screen. The page is rebuilt for each transcript, so the
+/// actions of a row that is not redrawn still belong to it.
+private struct TranscriptRow: View, Equatable {
+    let index: Int
+    let paragraph: Transcript.Paragraph
+    /// The paragraph as the engine wrote it.
+    let written: String
+    let player: Player
+    let isEditable: Bool
+    let isComparing: Bool
+    let size: CGFloat
+    let isPlaying: Bool
+    let isFocused: Bool
+    let isActive: Bool
+    let isReviewed: Bool
+    let isResumed: Bool
+    let matches: [NSRange]
+    let currentMatch: NSRange?
+    let words: [Segment.Word]
+    let showsUncertainWords: Bool
+    let timeColumnWidth: CGFloat
+    let play: (TimeInterval) -> Void
+    let edit: (Int, String) -> Void
+    let typing: () -> Void
+    let hover: (Int?) -> Void
+    let activate: (Int) -> Void
+    let suspendFollowing: () -> Void
+    let toggleReview: (Int) -> Void
+
+    static func == (lhs: TranscriptRow, rhs: TranscriptRow) -> Bool {
+        lhs.index == rhs.index && lhs.paragraph == rhs.paragraph && lhs.written == rhs.written
+            && lhs.player === rhs.player && lhs.isEditable == rhs.isEditable
+            && lhs.isComparing == rhs.isComparing && lhs.size == rhs.size
+            && lhs.isPlaying == rhs.isPlaying && lhs.isFocused == rhs.isFocused
+            && lhs.isActive == rhs.isActive && lhs.isReviewed == rhs.isReviewed
+            && lhs.isResumed == rhs.isResumed && lhs.matches == rhs.matches
+            && lhs.currentMatch == rhs.currentMatch && lhs.words == rhs.words
+            && lhs.showsUncertainWords == rhs.showsUncertainWords
+            && lhs.timeColumnWidth == rhs.timeColumnWidth
+    }
+
+    var body: some View {
         HStack(alignment: .top, spacing: 16) {
             VStack(alignment: .leading, spacing: 4) {
                 ParagraphTime(
-                    player: player, paragraph: paragraphs[index], isCurrent: playing == index,
+                    player: player, paragraph: paragraph, isCurrent: isPlaying,
                     play: {
                         activate(index)
-                        play(paragraphs[index].seconds)
+                        play(paragraph.seconds)
                     },
                     hover: { hover($0 ? index : nil) }
                 )
@@ -132,18 +197,18 @@ struct TranscriptView: View {
                     activate(index)
                     toggleReview(index)
                 } label: {
-                    Image(systemName: review.contains(index) ? "flag.fill" : "flag")
+                    Image(systemName: isReviewed ? "flag.fill" : "flag")
                         .frame(width: 24, height: 24)
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(review.contains(index) ? Color.accentColor : Color.secondary)
+                .foregroundStyle(isReviewed ? Color.accentColor : Color.secondary)
                 .disabled(!isEditable)
                 .accessibilityLabel(
-                    review.contains(index)
+                    isReviewed
                         ? "Mark paragraph as reviewed" : "Mark paragraph for review"
                 )
-                .help(review.contains(index) ? "Remove review flag" : "Review this passage later")
-                if resumed.contains(index) {
+                .help(isReviewed ? "Remove review flag" : "Review this passage later")
+                if isResumed {
                     Image(systemName: "arrow.clockwise")
                         .foregroundStyle(.orange)
                         .accessibilityLabel("Transcription resumed here after a pause")
@@ -153,7 +218,7 @@ struct TranscriptView: View {
             .frame(width: timeColumnWidth, alignment: .leading)
             if isComparing {
                 ParagraphEditor(
-                    text: written(at: index), original: paragraphs[index].text,
+                    text: written, original: paragraph.text,
                     size: size, isEditable: false, isRemoved: true, edit: { _ in }
                 )
                 .padding(.horizontal, 8)
@@ -163,18 +228,17 @@ struct TranscriptView: View {
                 .accessibilityLabel("Original paragraph \(index + 1)")
             }
             ParagraphText(
-                player: player, isCurrent: playing == index,
-                words: WordLayout.place(
-                    index < words.count ? words[index] : [], in: paragraphs[index].text),
+                player: player, isCurrent: isPlaying,
+                words: WordLayout.place(words, in: paragraph.text),
                 editor: ParagraphEditor(
-                    text: paragraphs[index].text,
-                    original: written(at: index),
+                    text: paragraph.text,
+                    original: written,
                     size: size,
                     isEditable: isEditable,
                     edit: { edit(index, $0) },
                     showsChanges: isComparing,
-                    matches: matches.filter { $0.paragraph == index }.map(\.range),
-                    currentMatch: currentMatch?.paragraph == index ? currentMatch?.range : nil,
+                    matches: matches,
+                    currentMatch: currentMatch,
                     activate: {
                         suspendFollowing()
                         activate(index)
@@ -183,7 +247,8 @@ struct TranscriptView: View {
                     playFrom: { time in
                         activate(index)
                         play(time)
-                    }
+                    },
+                    typing: typing
                 )
             )
             .padding(.horizontal, isComparing ? 8 : 0)
@@ -195,25 +260,21 @@ struct TranscriptView: View {
         .padding(.horizontal, 6)
         .padding(.vertical, 2)
         .overlay(alignment: .leading) {
-            if playing == index {
+            if isPlaying {
                 RoundedRectangle(cornerRadius: 1).fill(.tint).frame(width: 2)
             }
         }
         .background(
-            playing == index
+            isPlaying
                 ? Color.accentColor.opacity(0.08)
-                : focused == index ? Color.primary.opacity(0.04) : .clear,
+                : isFocused ? Color.primary.opacity(0.04) : .clear,
             in: RoundedRectangle(cornerRadius: 6)
         )
         .overlay {
             RoundedRectangle(cornerRadius: 6)
-                .strokeBorder(active == index ? Color.primary.opacity(0.12) : .clear)
+                .strokeBorder(isActive ? Color.primary.opacity(0.12) : .clear)
                 .allowsHitTesting(false)
         }
-    }
-
-    private func written(at index: Int) -> String {
-        index < original.count ? original[index].text : paragraphs[index].text
     }
 }
 

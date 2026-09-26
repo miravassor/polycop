@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+import AppKit
 import SwiftUI
 
 /// The player at the foot of a transcript, whether or not a file is open.
@@ -50,13 +51,7 @@ struct PlayerBar: View {
                 .disabled(player.isPreparing || duration <= 0)
                 .help("Back five seconds")
                 .accessibilityLabel("Back five seconds")
-                Button {
-                    if player.isOpen {
-                        player.toggle()
-                    } else {
-                        play(position)
-                    }
-                } label: {
+                Button(action: playOrPause) {
                     Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
                         .frame(width: 16)
                 }
@@ -65,7 +60,7 @@ struct PlayerBar: View {
                 .controlSize(.large)
                 .disabled(player.isPreparing)
                 .keyboardShortcut(.space, modifiers: [.command, .shift])
-                .help("Play or pause (Shift-Command-Space)")
+                .help("Play or pause (Space, or Shift-Command-Space while editing text)")
                 .accessibilityLabel(player.isPlaying ? "Pause" : "Play")
 
                 Button {
@@ -105,6 +100,15 @@ struct PlayerBar: View {
             }
         }
         .panel()
+        .background(SpaceToPlay(isEnabled: !player.isPreparing, action: playOrPause))
+    }
+
+    private func playOrPause() {
+        if player.isOpen {
+            player.toggle()
+        } else {
+            play(position)
+        }
     }
 
     private func seek(_ time: TimeInterval) {
@@ -270,5 +274,63 @@ nonisolated struct TimelineScale {
     func time(at x: CGFloat) -> TimeInterval {
         guard trackWidth > 0, duration.isFinite, duration > 0, x.isFinite else { return 0 }
         return min(1, max(0, (x - inset) / trackWidth)) * duration
+    }
+}
+
+/// Space plays or pauses, as in any player, unless the keyboard is somewhere
+/// Space already means something: text being edited, or a button reached with
+/// the keyboard. Other windows, sheets and popovers keep Space to themselves.
+struct SpaceToPlay: NSViewRepresentable {
+    let isEnabled: Bool
+    let action: () -> Void
+
+    func makeNSView(context: Context) -> Watcher { Watcher() }
+
+    func updateNSView(_ view: Watcher, context: Context) {
+        view.isEnabled = isEnabled
+        view.action = action
+    }
+
+    static func dismantleNSView(_ view: Watcher, coordinator: ()) {
+        view.stopWatching()
+    }
+
+    final class Watcher: NSView {
+        var isEnabled = true
+        var action: () -> Void = {}
+        private var monitor: Any?
+
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            stopWatching()
+            guard window != nil else { return }
+            monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+                guard let self, plays(on: event) else { return event }
+                // Holding Space plays or pauses once.
+                if !event.isARepeat { action() }
+                return nil
+            }
+        }
+
+        func stopWatching() {
+            if let monitor { NSEvent.removeMonitor(monitor) }
+            monitor = nil
+        }
+
+        func plays(on event: NSEvent) -> Bool {
+            guard isEnabled, let window, event.window === window,
+                event.charactersIgnoringModifiers == " ",
+                event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+                    .subtracting(.capsLock).isEmpty
+            else { return false }
+            switch window.firstResponder {
+            case let text as NSText: return !text.isEditable
+            case is NSTableView: return true
+            case is NSControl: return false
+            default: return true
+            }
+        }
     }
 }

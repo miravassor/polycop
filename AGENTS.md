@@ -81,6 +81,9 @@ Every page speaks the same visual language. The shared pieces live in
 * One prominent button per area, for its main action; the rest use the default style.
 * A wide window, as in full screen, uses its width through columns rather than one
   narrow column beside empty space. Check a change in a narrow and a wide window.
+* No `.frame(minWidth:minHeight:)` around a whole page: SwiftUI asks for the minimum
+  after every change, and such a frame measures the page to answer. The window and the
+  detail column give theirs with `minimumSize` in `ContentView`.
 
 ## Things that break silently
 
@@ -90,6 +93,12 @@ Every page speaks the same visual language. The shared pieces live in
   change their meaning: existing libraries must still load.
 * Model files are identified by catalog id and verified by size and SHA-256. Changing
   a catalog entry means a new pinned file, never an edited hash.
+* Typed text stays in the paragraph's text view and reaches the model after a pause,
+  or before any click, shortcut, menu or quit (`TypingBuffer`). Code that reads a
+  transcript outside those, such as a timer, calls `TypingBuffer.flush()` first.
+* Space plays and pauses through a key monitor (`SpaceToPlay`) unless text being
+  edited or a control reached with the keyboard has it. A new view that needs Space
+  must be one of those, or the player takes the key.
 * Engines call C APIs on their own serial queue. Keep every whisper.cpp and audio.cpp
   call on that queue and respect the object lifetimes documented next to them.
 * The app must work offline. The only network uses are downloading catalog models and

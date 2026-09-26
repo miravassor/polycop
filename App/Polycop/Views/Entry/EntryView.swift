@@ -28,6 +28,8 @@ struct EntryView: View {
     /// The timed words of each paragraph, grouped when the paragraphs change
     /// rather than on every update of the page.
     @State private var words: [[Segment.Word]] = []
+    /// The notices' findings, worked out when the segments change.
+    @State private var findings: Entry.Findings?
 
     private var original: [Transcript.Paragraph] { entry.original }
     @State private var confirmingRemoval = false
@@ -43,7 +45,9 @@ struct EntryView: View {
         VStack(alignment: .leading, spacing: 16) {
             header
             state
-            EntryNotices(entry: entry, model: model, isRunning: isRunning, engine: engine)
+            EntryNotices(
+                entry: entry, findings: findings ?? entry.findings, model: model,
+                isRunning: isRunning, engine: engine)
             if entry.paragraphs.isEmpty {
                 placeholder
                 Spacer(minLength: 0)
@@ -53,15 +57,14 @@ struct EntryView: View {
                     paragraphs: entry.paragraphs, resumed: entry.resumedParagraphs,
                     player: model.player, isEditable: !isRunning,
                     play: { model.replay(entry.id, from: $0) },
-                    edit: {
-                        model.player.pauseForTyping()
-                        model.edit(entry.id, paragraphAt: $0, text: $1)
-                    },
+                    edit: { model.edit(entry.id, paragraphAt: $0, text: $1) },
+                    typing: { model.player.pauseForTyping() },
                     hover: { focused = $0 },
                     original: original, isComparing: isComparing, isFollowing: isFollowing,
                     suspendFollowing: suspendFollowing,
                     jump: $jump, focused: focused, size: size,
-                    active: activeParagraph, activate: { activeParagraph = $0 },
+                    active: activeParagraph,
+                    activate: { if activeParagraph != $0 { activeParagraph = $0 } },
                     review: entry.reviewParagraphs,
                     toggleReview: { model.toggleReview(entry.id, paragraphAt: $0) },
                     matches: matches, currentMatch: currentMatch,
@@ -76,8 +79,18 @@ struct EntryView: View {
         .onChange(of: model.player.isOpen) { _, isOpen in
             if !isOpen { isFollowSuspended = false }
         }
-        .onChange(of: entry.paragraphs, initial: true) {
-            words = WordLayout.grouped(entry.shown, into: entry.paragraphs)
+        // Words hang on the segments and on where paragraphs open, which
+        // typing leaves alone, so they are not regrouped at each key.
+        .onChange(of: entry.paragraphs.map(\.start), initial: true) { regroupWords() }
+        .onChange(of: entry.decoded, initial: true) {
+            regroupWords()
+            findings = entry.findings
+        }
+        .onChange(of: entry.showsCredits) {
+            regroupWords()
+            findings = entry.findings
+        }
+        .onChange(of: entry.paragraphs) {
             refreshSearch(navigate: false)
             if let activeParagraph, !entry.paragraphs.indices.contains(activeParagraph) {
                 self.activeParagraph = nil
@@ -388,6 +401,10 @@ struct EntryView: View {
             activeParagraph = currentMatch.paragraph
             jump = currentMatch.paragraph
         }
+    }
+
+    private func regroupWords() {
+        words = WordLayout.grouped(entry.shown, into: entry.paragraphs)
     }
 
     /// Stops following while the reader looks elsewhere, and offers the way back.
