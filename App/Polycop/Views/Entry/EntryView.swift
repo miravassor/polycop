@@ -28,6 +28,8 @@ struct EntryView: View {
     /// The timed words of each paragraph, grouped when the paragraphs change
     /// rather than on every update of the page.
     @State private var words: [[Segment.Word]] = []
+    /// The notices' findings, worked out when the segments change.
+    @State private var findings: Entry.Findings?
 
     private var original: [Transcript.Paragraph] { entry.original }
     @State private var confirmingRemoval = false
@@ -43,7 +45,9 @@ struct EntryView: View {
         VStack(alignment: .leading, spacing: 16) {
             header
             state
-            EntryNotices(entry: entry, model: model, isRunning: isRunning, engine: engine)
+            EntryNotices(
+                entry: entry, findings: findings ?? entry.findings, model: model,
+                isRunning: isRunning, engine: engine)
             if entry.paragraphs.isEmpty {
                 placeholder
                 Spacer(minLength: 0)
@@ -79,8 +83,14 @@ struct EntryView: View {
         // Words hang on the segments and on where paragraphs open, which
         // typing leaves alone, so they are not regrouped at each key.
         .onChange(of: entry.paragraphs.map(\.start), initial: true) { regroupWords() }
-        .onChange(of: entry.decoded) { regroupWords() }
-        .onChange(of: entry.showsCredits) { regroupWords() }
+        .onChange(of: entry.decoded, initial: true) {
+            regroupWords()
+            findings = entry.findings
+        }
+        .onChange(of: entry.showsCredits) {
+            regroupWords()
+            findings = entry.findings
+        }
         .onChange(of: entry.paragraphs) {
             refreshSearch(navigate: false)
             if let activeParagraph, !entry.paragraphs.indices.contains(activeParagraph) {

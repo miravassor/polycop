@@ -412,3 +412,25 @@ private func entry(_ name: String, in folder: URL, added: Date = .now) -> Entry 
     #expect(model.retrySavingHistory())
     #expect(try written() == "Bonsoir à toutes.")
 }
+
+/// The notices' findings, worked out in one pass, say what each said alone.
+@Test func findingsMatchWhatEachNoticeSaid() {
+    var entry = Entry(
+        recording: URL(filePath: "/tmp/cours.wav"), modelFile: ModelCatalog.recommended.id,
+        glossary: nil, skipsSilence: false, subtitles: false)
+    let looped = (0..<12).map {
+        Segment(
+            start: 10 + Double($0), end: 11 + Double($0), text: " On voit bien ici le principe.")
+    }
+    entry.publish(
+        [Segment(start: 0, end: 5, text: " Sous-titrage Société Radio-Canada")] + looped
+            + [Segment(start: 30, end: 33, text: " Fin du cours.")], partial: false)
+
+    let findings = entry.findings
+
+    #expect(!findings.hiddenCredits.isEmpty)
+    #expect(findings.repetitionWarning == entry.repetitionWarning)
+    #expect(findings.repeats == entry.repeats)
+    #expect(findings.hiddenCredits == entry.hiddenCredits)
+    #expect(findings.shortenedLoops == entry.shortenedLoops)
+}
