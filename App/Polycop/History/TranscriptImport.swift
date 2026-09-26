@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import Foundation
+import AppKit
 
-/// Parses an externally authored transcript (SRT, VTT, timestamped TXT, or a
-/// Whisper/audio.cpp JSON export) into cues for `Entry`.
+/// Parses an externally authored transcript (SRT, VTT, timestamped TXT or Word
+/// document, or a Whisper/audio.cpp JSON export) into cues for `Entry`.
 nonisolated enum TranscriptImport {
     static let maximumBytes = 5 << 20
 
@@ -18,7 +18,7 @@ nonisolated enum TranscriptImport {
             case .unsupported:
                 String(
                     localized:
-                        "Choose a timestamped TXT, SRT, VTT, or supported Whisper/audio.cpp JSON file. Plain text without timestamps cannot be aligned yet."
+                        "Choose a timestamped TXT or Word document, an SRT or VTT file, or a supported Whisper/audio.cpp JSON file. Plain text without timestamps cannot be aligned yet."
                 )
             case .tooLarge:
                 String(localized: "The transcript exceeds the 5 MB import limit.")
@@ -107,6 +107,8 @@ nonisolated enum TranscriptImport {
         let parsed: Parsed
         if suffix.lowercased() == "json" {
             parsed = try json(data)
+        } else if suffix.lowercased() == "docx" {
+            parsed = try timestamped(tidied(wordText(data)))
         } else {
             let encoding: String.Encoding =
                 data.starts(with: [0xff, 0xfe]) || data.starts(with: [0xfe, 0xff]) ? .utf16 : .utf8
@@ -114,10 +116,7 @@ nonisolated enum TranscriptImport {
             else {
                 throw Failure.unsupported
             }
-            let text = decoded.replacingOccurrences(of: "\r\n", with: "\n")
-                .replacingOccurrences(of: "\r", with: "\n")
-                .trimmingCharacters(
-                    in: .whitespacesAndNewlines.union(CharacterSet(charactersIn: "\u{feff}")))
+            let text = tidied(decoded)
             switch suffix.lowercased() {
             case "srt", "vtt": parsed = try subtitles(text)
             case "txt":
@@ -130,6 +129,27 @@ nonisolated enum TranscriptImport {
         }
         try validate(parsed.cues)
         return parsed
+    }
+
+    private static func tidied(_ text: String) -> String {
+        text.replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+            .trimmingCharacters(
+                in: .whitespacesAndNewlines.union(CharacterSet(charactersIn: "\u{feff}")))
+    }
+
+    /// The text of a Word document, as recorder apps export their transcripts.
+    /// The system importer builds it whole, so the text is checked for size
+    /// after it expands.
+    private static func wordText(_ data: Data) throws -> String {
+        guard
+            let text = try? NSAttributedString(
+                data: data, options: [.documentType: NSAttributedString.DocumentType.officeOpenXML],
+                documentAttributes: nil
+            ).string
+        else { throw Failure.unsupported }
+        guard text.utf8.count <= maximumBytes else { throw Failure.tooLarge }
+        return text
     }
 
     private static func validate(_ cues: [Cue]) throws {
@@ -210,8 +230,27 @@ nonisolated enum TranscriptImport {
                         in: .whitespacesAndNewlines)))
             lines.removeAll(keepingCapacity: true)
         }
+        // Lines before the first time, such as a title and a date, are left
+        // out; a file with no time at all imports nothing and is refused. The
+        // first time decides the style, bracketed or bare as recorder apps
+        // write it ("00:03:30 Bonjour"), so text that opens on a time is not
+        // read as one.
+        var isBracketed: Bool?
         for line in text.components(separatedBy: "\n") {
-            if line.hasPrefix("["), let close = line.firstIndex(of: "]") {
+            if isBracketed != true,
+                let bare = line.wholeMatch(
+                    of: /(\d{1,2}:\d{2}(?::\d{2})?(?:[.,]\d+)?)(?:\s+(.*))?/)
+            {
+                isBracketed = false
+                appendCue()
+                timing = (try clock(String(bare.output.1)), nil)
+                if let text = bare.output.2 {
+                    lines.append(String(text).trimmingCharacters(in: .whitespaces))
+                }
+            } else if isBracketed != false, line.hasPrefix("["),
+                let close = line.firstIndex(of: "]")
+            {
+                isBracketed = true
                 appendCue()
                 let stamp = String(line[line.index(after: line.startIndex)..<close])
                 if stamp.contains("-->") {
@@ -223,8 +262,6 @@ nonisolated enum TranscriptImport {
                     String(line[line.index(after: close)...]).trimmingCharacters(in: .whitespaces))
             } else if timing != nil {
                 lines.append(line)
-            } else if !line.trimmingCharacters(in: .whitespaces).isEmpty {
-                throw Failure.unsupported
             }
         }
         appendCue()

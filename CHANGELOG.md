@@ -15,10 +15,12 @@ about working on the text once it is written.
 * Text export with or without timestamps, or as Markdown, and an option to leave out hesitations such as "euh" or "hum". Words that can carry meaning stay.
 * Word timings for new Whisper transcripts, and for Qwen3-ASR with the aligner: Option-click a word to play from it, and the word being played is highlighted. Words Whisper was unsure of are underlined, which can be turned off. Earlier transcripts have no word timings.
 * Replace All can remember a correction for the course, applied to whole words in its next transcripts as your own corrections. The glossary editor lists them, and each can be forgotten.
+* A transcript exported as a Word document with timestamps, as recorder apps write it, can be imported with its recording.
 * Follow playback steps aside when you scroll, search or click in the text, and Return to playback takes you back. The timeline marks the paragraph being played.
 
 ### Changed
 
+* Importing a transcript made elsewhere has its own card on the New transcription page, and the page uses two columns in a wide window.
 * Changing the text layout or the subtitles after an export asks where to export again, instead of offering an update that could not be written.
 
 ### Fixed

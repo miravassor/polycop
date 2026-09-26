@@ -24,7 +24,7 @@ struct TranscriptImportView: View {
             fileRow("Transcript", file: transcript, transcript: true)
             fileRow("Recording", file: audio, transcript: false)
             Text(
-                "Timestamped TXT, SRT, VTT and Whisper/audio.cpp JSON. audio.cpp sample offsets use 16 kHz unless the JSON declares a sample rate."
+                "Timestamped TXT or Word document, SRT, VTT and Whisper/audio.cpp JSON. audio.cpp sample offsets use 16 kHz unless the JSON declares a sample rate."
             )
             .font(.caption).foregroundStyle(.secondary)
             Text(

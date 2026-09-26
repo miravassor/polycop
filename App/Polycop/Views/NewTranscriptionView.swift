@@ -23,20 +23,20 @@ struct NewTranscriptionView: View {
                     Text("Add recordings, choose your settings, then start.")
                         .foregroundStyle(.secondary)
                 }
-                dropZone
-                Button("Import Transcript and Audio…") { model.chooseTranscriptImport() }
-                    .disabled(model.stage.isBusy)
-                    .help("Edit an existing timestamped transcript with its recording")
-                if let failure = model.failure {
-                    Label(failure, systemImage: "exclamationmark.circle")
-                        .font(.callout)
-                        .foregroundStyle(.red)
-                        .textSelection(.enabled)
+                // Two columns when the window is wide, as in full screen, rather
+                // than one narrow column beside empty space.
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .top, spacing: 40) {
+                        start.frame(minWidth: 460, maxWidth: 620)
+                        settings.frame(minWidth: 460, maxWidth: 560)
+                    }
+                    VStack(alignment: .leading, spacing: 28) {
+                        start
+                        settings
+                    }
+                    .frame(maxWidth: 680, alignment: .leading)
                 }
-                settings
-                queue
             }
-            .frame(maxWidth: 680, alignment: .leading)
             .padding(28)
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
@@ -66,6 +66,67 @@ struct NewTranscriptionView: View {
             case .failure(let error): model.report(error)
             }
         }
+    }
+
+    /// The two ways in, and what waits to start.
+    private var start: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            sectionHeader(
+                "Recordings",
+                detail: "Transcribe new recordings, or correct a transcript made elsewhere.")
+            dropZone
+            importTranscript
+            if let failure = model.failure {
+                Label(failure, systemImage: "exclamationmark.circle")
+                    .font(.callout)
+                    .foregroundStyle(.red)
+                    .textSelection(.enabled)
+            }
+            queue
+        }
+    }
+
+    /// A transcript made elsewhere, corrected here against its recording. A
+    /// card of its own, so it does not read as another way to add recordings.
+    private var importTranscript: some View {
+        HStack(spacing: 20) {
+            importLabel.frame(maxWidth: .infinity, alignment: .leading)
+            importButton
+        }
+        .panel()
+    }
+
+    /// The same heading above each part of the page, so the parts read apart.
+    private func sectionHeader(_ title: LocalizedStringKey, detail: LocalizedStringKey)
+        -> some View
+    {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title).font(.title3.weight(.semibold))
+            Text(detail).font(.callout).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var importLabel: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "doc.text")
+                .font(.title2)
+                .foregroundStyle(.tint)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Correct an existing transcript").font(.headline)
+                Text("A TXT, Word, SRT, VTT or JSON transcript, with its recording.")
+                    .font(.callout).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private var importButton: some View {
+        Button("Import Transcript and Audio…") { model.chooseTranscriptImport() }
+            .disabled(model.stage.isBusy)
+            .fixedSize()
+            .help("Listen to a transcript made elsewhere and correct it here")
     }
 
     /// What has been added and not yet started. Transcribing takes the machine
@@ -105,28 +166,11 @@ struct NewTranscriptionView: View {
     }
 
     private var dropZone: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 20) {
-                dropLabel
-                Spacer(minLength: 12)
-                chooseRecordings
-            }
-            VStack(alignment: .leading, spacing: 12) {
-                dropLabel
-                chooseRecordings
-            }
+        HStack(spacing: 20) {
+            dropLabel.frame(maxWidth: .infinity, alignment: .leading)
+            chooseRecordings
         }
-        .padding(20)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            targeted ? Color.accentColor.opacity(0.08) : Color.primary.opacity(0.025),
-            in: RoundedRectangle(cornerRadius: 8)
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: 8)
-                .strokeBorder(
-                    targeted ? Color.accentColor : Color.primary.opacity(0.15), lineWidth: 1)
-        }
+        .panel(isHighlighted: targeted)
         .dropDestination(for: URL.self) { urls, _ in
             model.transcribe(urls)
             return !urls.isEmpty
@@ -145,6 +189,7 @@ struct NewTranscriptionView: View {
                 Text("Add recordings").font(.headline)
                 Text("Drop audio or video files here.")
                     .font(.callout).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
@@ -180,10 +225,18 @@ struct NewTranscriptionView: View {
 
     /// Defaults for recordings that have not started.
     private var settings: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Text("Recordings already started keep their settings.")
-                .font(.caption).foregroundStyle(.secondary)
-            Divider()
+        VStack(alignment: .leading, spacing: 16) {
+            sectionHeader(
+                "Settings",
+                detail: "For recordings not started yet. Those already started keep theirs.")
+            settingRows.panel()
+        }
+        .pickerStyle(.menu)
+        .controlSize(.regular)
+    }
+
+    private var settingRows: some View {
+        VStack(alignment: .leading, spacing: 16) {
             settingRow("Model") { transcriptionModel }
             Divider()
             settingRow("Language") {
@@ -197,7 +250,7 @@ struct NewTranscriptionView: View {
                         }
                     }
                     .labelsHidden()
-                    .frame(width: 240, alignment: .leading)
+                    .fixedSize()
                     .disabled(model.selectedCatalogue?.engine.audioCpp?.setsLanguage == false)
                     if model.selectedCatalogue?.engine.audioCpp?.setsLanguage == false {
                         Text("This model detects the spoken language automatically.")
@@ -207,11 +260,11 @@ struct NewTranscriptionView: View {
             }
             Divider()
             settingRow("Glossary") { glossary }
-            Divider()
-            if model.silenceApplies { options }
+            if model.silenceApplies {
+                Divider()
+                options
+            }
         }
-        .pickerStyle(.menu)
-        .controlSize(.regular)
     }
 
     private func settingRow<Content: View>(
@@ -243,7 +296,7 @@ struct NewTranscriptionView: View {
                     }
                 }
                 .labelsHidden()
-                .frame(width: 240, alignment: .leading)
+                .fixedSize()
                 .disabled(!model.glossaryApplies)
                 .accessibilityHint("Used for recordings that have not started.")
                 Button("Manage…") { editingGlossaries = true }
@@ -273,7 +326,7 @@ struct NewTranscriptionView: View {
                     }
                 }
                 .labelsHidden()
-                .frame(width: 240, alignment: .leading)
+                .fixedSize()
                 Button("Manage…") { managingModels = true }
                     .accessibilityLabel("Manage models")
             }
@@ -355,4 +408,20 @@ func modelLicense(_ item: Model) -> some View {
 
 func formattedFileSize(_ bytes: Int64) -> String {
     ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+}
+
+extension View {
+    /// The card every part of the New transcription page sits in.
+    fileprivate func panel(isHighlighted: Bool = false) -> some View {
+        padding(20)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                isHighlighted ? Color.accentColor.opacity(0.08) : Color.primary.opacity(0.03),
+                in: RoundedRectangle(cornerRadius: 10)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 10)
+                    .strokeBorder(isHighlighted ? Color.accentColor : Color.primary.opacity(0.12))
+            }
+    }
 }
