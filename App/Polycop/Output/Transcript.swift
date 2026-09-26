@@ -3,13 +3,12 @@
 import CryptoKit
 import Foundation
 
-/// Writes a finished transcription to disk, as paragraphs of plain text (each
-/// opening on its timestamp) and as SubRip captions for a player.
+/// Writes a finished transcription to disk, as paragraphs of text in the
+/// layout chosen for it and as SubRip captions for a player.
 ///
-/// Captions keep the times the engine reported. An earlier approach split a
-/// long segment by counting words, which assumed an even speaking rate and
-/// placed words at times no measurement supports; finer captions would need
-/// `whisper_full_get_token_t0`.
+/// Captions keep the segment times the engine reported. Splitting a long
+/// segment by counting words would assume an even speaking rate and place
+/// words at times no measurement supports.
 nonisolated enum Transcript {
 
     /// One paragraph of the text, opening `start` milliseconds into the recording.

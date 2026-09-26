@@ -4,6 +4,9 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ## Unreleased
 
+Polycop now grows as a transcription and editing suite: this release is mostly
+about working on the text once it is written.
+
 ### Added
 
 * Find and replace in a transcript, with Replace All (Option Command F). A replacement is one correction to undo, and it matches every spelling that differs only in case or accents.
@@ -11,7 +14,16 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 * Option Command Down and Up play the next and previous paragraph, counted from the one playing.
 * Text export with or without timestamps, or as Markdown, and an option to leave out hesitations such as "euh" or "hum". Words that can carry meaning stay.
 * Word timings for new Whisper transcripts, and for Qwen3-ASR with the aligner: Option-click a word to play from it, and the word being played is highlighted. Words Whisper was unsure of are underlined, which can be turned off. Earlier transcripts have no word timings.
-* Replace All can remember a correction for the course, applied to its next transcripts as your own corrections. The glossary editor lists them, and each can be forgotten.
+* Replace All can remember a correction for the course, applied to whole words in its next transcripts as your own corrections. The glossary editor lists them, and each can be forgotten.
+* Follow playback steps aside when you scroll, search or click in the text, and Return to playback takes you back. The timeline marks the paragraph being played.
+
+### Changed
+
+* Changing the text layout or the subtitles after an export asks where to export again, instead of offering an update that could not be written.
+
+### Fixed
+
+* The system controls can only set the playback speeds the app offers.
 
 ## 0.2.1 (2026-09-26)
 

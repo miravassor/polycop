@@ -15,6 +15,10 @@ both check what it does. That is what makes it a tool both sides can trust.
 
 Lectures are what it was made for, but it transcribes any audio or video file.
 
+A transcript is only a first draft, so Polycop is growing into a transcription
+and editing suite: everything needed to listen to the text, correct it and export
+it clean, in the same window as the recording. New work goes into both halves.
+
 ![The New transcription page of Polycop](.github/screenshot.png)
 
 A lecture belongs to the people who give it. Record and transcribe one only
@@ -23,31 +27,44 @@ unless they agree to more.
 
 ## Features
 
-* **Transcription on your Mac.** No account, no upload, no tracking. The network
-  is only used to download models and to check for a new version, when you ask
-  or once a day if you allow it.
+### Transcription
+
+* **On your Mac.** No account, no upload, no tracking. The network is only used
+  to download models and to check for a new version, when you ask or once a day
+  if you allow it.
 * **Several models**, each downloaded from inside the app and checked before
   use (see below).
-* **Correction while listening.** Click a timestamp to hear the passage, fix the
-  text in place, step back one correction at a time, or return to the original.
-* **Changes shown as a diff** between what the model wrote and your corrected
-  text.
-* **Audio player** made for proofreading: playback speed, a timeline with the
-  paragraphs, and the text following playback. The keyboard media keys, Control
-  Center and headphone buttons control it too.
 * **Course glossaries** for the models that use them: type the terms, import a
   list, or let the app suggest them from your course documents (PDF, Word, RTF,
   plain text).
-* **Search** in a transcript, and **review marks** on passages to check later.
 * **Import** of a transcript made elsewhere (TXT, SRT, VTT, Whisper or audio.cpp
   JSON) with its recording, to correct it the same way.
-* **Export** to text in timestamped paragraphs, and to SRT subtitles when the
-  model times its sentences.
 * **Library** of transcripts, sorted in folders. Your recordings stay where they
   are.
 * **Safeguards**: a passage where a model repeats itself is shortened, stretches
   that need a second listen are marked, and the Mac stays awake during a long
   job.
+
+### Editing
+
+* **Correction while listening.** Click a timestamp, or Option-click a word, to
+  hear the passage; the word being heard is highlighted. Playback pauses when you
+  start typing and steps back a little when it resumes. Fix the text in place,
+  step back one correction at a time, or return to the original.
+* **Words the model was unsure of** are underlined, for Whisper transcripts.
+* **Find and replace**, with Replace All as one correction to undo. A
+  replacement can be remembered for a course and applied to its next
+  transcripts.
+* **Changes shown as a diff** between what the model wrote and your corrected
+  text.
+* **Audio player** made for proofreading: playback speed, a timeline with the
+  paragraphs, the next or previous paragraph from the keyboard, and the text
+  following playback until you scroll away. The keyboard media keys, Control
+  Center and headphone buttons control it too.
+* **Review marks** on passages to check later.
+* **Export** to text with or without timestamps, or to Markdown, with hesitations
+  such as "euh" left out if you want, and to SRT subtitles when the model times
+  its sentences.
 
 ## Models
 
@@ -118,9 +135,12 @@ its release page.
 1. Download a model from inside the app. Start with Whisper Large v3 turbo.
 2. Choose a course glossary if you have one, then add your recordings. They are
    transcribed one after another, with no conversion on your side.
-3. Listen back and correct the text. Corrections are saved in the library.
-4. Export the text, with subtitles if you want them. Subtitles keep the model's
-   words and timings; your corrections go into the text file.
+3. Listen back and correct the text: Option-click a word to hear it, and use Find
+   and Replace for a name the model keeps mishearing. Corrections are saved in
+   the library.
+4. Export the text in the layout you want, with subtitles if you want them.
+   Subtitles keep the model's words and timings; your corrections go into the
+   text file.
 
 ## Good to know
 
