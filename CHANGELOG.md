@@ -2,7 +2,7 @@
 
 All notable changes are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
-## Unreleased
+## 0.3.0 (2026-09-26)
 
 Polycop now grows as a transcription and editing suite: this release is mostly
 about working on the text once it is written.
