@@ -248,3 +248,32 @@ private func temporaryFolder() -> URL {
     reloaded.edit(entry.id, paragraphAt: 0, text: "Une correction à la main.")
     #expect(!reloaded.hasOnlyCourseCorrections(try #require(reloaded.entry(entry.id))))
 }
+
+/// A remembered correction replaces whole words only: nobody reviews its
+/// matches in the next transcripts.
+@Test func courseCorrectionsLeaveOtherWordsAlone() {
+    var entry = Entry(
+        recording: URL(filePath: "/tmp/cours.wav"), modelFile: ModelCatalog.recommended.id,
+        glossary: nil, skipsSilence: false, subtitles: false)
+    entry.publish([Segment(start: 0, end: 4, text: "Carl dit ca, et l'ego ca.")], partial: false)
+
+    CourseCorrections.apply([CourseCorrection(find: "ca", replacement: "ça")], to: &entry)
+
+    #expect(entry.paragraphs.first?.text == "Carl dit ça, et l'ego ça.")
+}
+
+/// The corrections are read from disk once, and again after a change.
+@MainActor
+@Test func forgettingACorrectionIsSeenAtOnce() throws {
+    let root = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let correction = CourseCorrection(find: "Froid", replacement: "Freud")
+    try CourseCorrections.remember(correction, for: "Psychologie", in: root)
+    let model = AppModel(history: root)
+    model.courseCorrectionsFolder = root
+    #expect(model.courseCorrections(forCourse: "Psychologie") == [correction])
+
+    model.forget(correction, forCourse: "Psychologie")
+
+    #expect(model.courseCorrections(forCourse: "Psychologie").isEmpty)
+}

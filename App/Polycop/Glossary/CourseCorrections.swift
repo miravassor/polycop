@@ -44,11 +44,13 @@ nonisolated enum CourseCorrections {
     }
 
     /// Applies each correction as the user's own, so it can be compared with
-    /// what the engine wrote and undone.
+    /// what the engine wrote and undone. Only whole words are replaced: no
+    /// one reviews these matches the way they review a Replace All.
     static func apply(_ corrections: [CourseCorrection], to entry: inout Entry) {
         for correction in corrections {
             entry.replace(
-                TranscriptSearch.matches(in: entry.paragraphs, query: correction.find),
+                TranscriptSearch.matches(
+                    in: entry.paragraphs, query: correction.find, wholeWords: true),
                 with: correction.replacement)
         }
     }

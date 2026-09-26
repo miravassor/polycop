@@ -60,6 +60,7 @@ extension AppModel {
         defer { refreshGlossaries() }
         try GlossaryStore.delete(named: name)
         CourseCorrections.delete(for: name, in: courseCorrectionsFolder)
+        readCourseCorrections[name] = nil
         unsavedGlossaries[name] = nil
         if !hasUnsavedHistory { storageFailure = nil }
     }
@@ -123,7 +124,10 @@ extension AppModel {
     }
 
     func courseCorrections(forCourse name: String) -> [CourseCorrection] {
-        CourseCorrections.all(for: name, in: courseCorrectionsFolder)
+        if let read = readCourseCorrections[name] { return read }
+        let read = CourseCorrections.all(for: name, in: courseCorrectionsFolder)
+        readCourseCorrections[name] = read
+        return read
     }
 
     /// Whether a transcript's only changes are its course's corrections. Those
@@ -143,6 +147,7 @@ extension AppModel {
     /// Remembers a replacement for the course of a transcript, for its next ones.
     func remember(_ correction: CourseCorrection, forCourseOf id: Entry.ID) {
         guard let name = entry(id)?.glossary else { return }
+        defer { readCourseCorrections[name] = nil }
         do {
             try CourseCorrections.remember(correction, for: name, in: courseCorrectionsFolder)
         } catch {
@@ -151,6 +156,7 @@ extension AppModel {
     }
 
     func forget(_ correction: CourseCorrection, forCourse name: String) {
+        defer { readCourseCorrections[name] = nil }
         do {
             try CourseCorrections.forget(correction, for: name, in: courseCorrectionsFolder)
         } catch {
