@@ -2,7 +2,7 @@
 
 All notable changes are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
-## Unreleased
+## 0.3.0 (2026-09-26)
 
 Polycop now grows as a transcription and editing suite: this release is mostly
 about working on the text once it is written.
@@ -20,6 +20,8 @@ about working on the text once it is written.
 
 ### Changed
 
+* Polycop can run as two copies at once. Each keeps the edits it made last, and a copy leaves the other's downloads and playback files alone.
+* Cards and header buttons share one size and one shape across the app.
 * Importing a transcript made elsewhere has its own card on the New transcription page, and the page uses two columns in a wide window.
 * Changing the text layout or the subtitles after an export asks where to export again, instead of offering an update that could not be written.
 

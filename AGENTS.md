@@ -19,10 +19,13 @@ Tools/package.sh           # locally signed app and zip with its sources, in bui
 ```
 
 * The test suite takes about 6 minutes. Run it once per change set, not after each edit.
-* Tests fail while a copy of Polycop is running: the app allows one instance. Quit it first.
+* Tests can run while Polycop is open. Two copies share the library, so each keeps the
+  edits it made last; a copy does not clear leftover files while another runs.
 * Tests that need a model skip themselves when that model is not installed.
-* A release is published by pushing a tag `vX.Y.Z` that matches `MARKETING_VERSION`;
-  `.github/workflows/release.yml` builds, tests and drafts the GitHub release.
+* A release starts on a branch `release/X.Y.Z` that sets `MARKETING_VERSION`, raises
+  `CURRENT_PROJECT_VERSION`, and turns the changelog's "Unreleased" into "X.Y.Z (date)".
+  Once it is merged, pushing the tag `vX.Y.Z` makes `.github/workflows/release.yml`
+  build, test and draft the GitHub release.
 
 ## Layout
 
@@ -62,6 +65,23 @@ Tools/                 build, fixture and packaging scripts
 * Interface strings are in English. No emoji, and no dashes as punctuation, in the
   interface or the documentation.
 
+## Interface
+
+Every page speaks the same visual language. The shared pieces live in
+`Views/Styles.swift`; use them rather than a new variant.
+
+* Cards: `panel()`, corners of 10, 16 points of padding, one fill and border.
+  Controls and rows inside a card have corners of 6.
+* Header icon buttons and menus: `iconControl()`, 32 by 28.
+* Spacing: 28 points around a page, 16 between blocks, 12 between a card's label and
+  its buttons. Sheets have 24 points of padding, popovers 20.
+* Type: a page title in `.title2` semibold, a section heading in `.title3` semibold
+  with a `.callout` line under it, a card title in `.headline` with a `.callout`
+  line. Text styles only, no fixed point sizes.
+* One prominent button per area, for its main action; the rest use the default style.
+* A wide window, as in full screen, uses its width through columns rather than one
+  narrow column beside empty space. Check a change in a narrow and a wide window.
+
 ## Things that break silently
 
 * `Entry`, `Segment`, `Transcript.Paragraph`, `TranscriptFolder`, glossaries and the
@@ -82,7 +102,11 @@ Tools/                 build, fixture and packaging scripts
 
 * Tests use Swift Testing. Add a test with each behaviour change.
 * Fixtures are synthetic, made with `Tools/fixtures.sh` and the macOS `say` voices.
-* Never commit recordings, transcripts of real lectures, or model weights.
+* Never commit recordings, transcripts of real lectures, or model weights, nor a
+  screenshot that shows a real library: blur course names first.
+* Tests never touch the user's library, preferences or Trash: use a temporary folder or
+  an injected one, and register preference values in a suite rather than setting them,
+  since a set value leaves a file behind.
 
 ## Commits and pull requests
 

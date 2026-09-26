@@ -96,11 +96,11 @@ struct ModelManagerView: View {
                         Text(LocalizedStringKey(family.features(aligned: model.canAlignQwen)))
                             .font(.caption).foregroundStyle(.secondary)
                     }
-                    .padding(12)
+                    .padding(16)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(
                         familyColor(family).opacity(0.08),
-                        in: RoundedRectangle(cornerRadius: 6)
+                        in: RoundedRectangle(cornerRadius: 10)
                     )
                     ForEach(ModelCatalog.all.filter { $0.engine == family }) { item in
                         Divider()

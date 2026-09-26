@@ -104,13 +104,7 @@ struct PlayerBar: View {
                 speed
             }
         }
-        .padding(12)
-        .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 10))
-        .overlay {
-            RoundedRectangle(cornerRadius: 10)
-                .strokeBorder(Color.primary.opacity(0.08))
-                .allowsHitTesting(false)
-        }
+        .panel()
     }
 
     private func seek(_ time: TimeInterval) {

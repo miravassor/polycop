@@ -10,33 +10,23 @@ struct PolycopApp: App {
     @Environment(\.openWindow) private var openWindow
 
     init() {
-        // One process at a time: a second would load its own weights, sweep away
-        // the files the first is writing, and write the same history. macOS runs
-        // one copy of an app opened twice, but not a copy stored elsewhere or a
-        // test run, so the younger process hands over before touching anything.
-        if let older = PolycopApp.olderInstance() {
-            older.activate()
-            exit(0)
-        }
         // Leftovers of a run that did not quit normally, removed once at launch
         // and before the model reads the folders. Not in the model itself: tests
-        // and previews create models while files are being written.
-        ModelStore.sweep()
-        Player.sweep()
+        // and previews create models while files are being written. Skipped
+        // while another copy runs, since its downloads and playback copies are
+        // in those folders; two copies otherwise work side by side.
+        if !PolycopApp.isAnotherCopyRunning {
+            ModelStore.sweep()
+            Player.sweep()
+        }
         _model = State(initialValue: AppModel())
     }
 
-    /// Another Polycop started before this one. Comparing launch dates, then
-    /// process numbers, means two started together cannot both leave.
-    private static func olderInstance() -> NSRunningApplication? {
-        guard let identifier = Bundle.main.bundleIdentifier else { return nil }
-        let current = NSRunningApplication.current
-        let order = { (app: NSRunningApplication) in
-            (app.launchDate ?? .distantPast, app.processIdentifier)
-        }
-        return NSRunningApplication.runningApplications(withBundleIdentifier: identifier).first {
-            $0.processIdentifier != current.processIdentifier && order($0) < order(current)
-        }
+    private static var isAnotherCopyRunning: Bool {
+        guard let identifier = Bundle.main.bundleIdentifier else { return false }
+        let current = NSRunningApplication.current.processIdentifier
+        return NSRunningApplication.runningApplications(withBundleIdentifier: identifier)
+            .contains { $0.processIdentifier != current }
     }
 
     var body: some Scene {
