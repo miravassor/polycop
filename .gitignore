@@ -31,7 +31,7 @@
 *.mlmodelc/
 
 # Built from pinned source by Tools/build-audiocpp.sh
-Packages/AudioCppFramework/audiocpp.xcframework/
+Packages/AudioCppFramework/audiocpp.xcframework
 
 # Xcode and Swift
 build/
