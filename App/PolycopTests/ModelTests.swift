@@ -219,3 +219,22 @@ func modelMemoryFitsTheBudget(peak: Int64, budget: Int64, expected: Bool) {
         try await ModelStore.verify(model, at: file)
     }
 }
+
+@Test(arguments: [
+    (installed: [String](), expected: ModelCatalog.recommended.id),
+    (installed: [ModelCatalog.turbo.id], expected: ModelCatalog.turbo.id),
+    (installed: [ModelCatalog.qwen.id, ModelCatalog.turbo.id], expected: ModelCatalog.turbo.id),
+    (installed: [ModelCatalog.qwen.id], expected: ModelCatalog.qwen.id),
+    (
+        installed: [ModelCatalog.moss.id, ModelCatalog.largeV3.id],
+        expected: ModelCatalog.largeV3.id
+    ),
+    (installed: [ModelCatalog.qwenAligner.id], expected: ModelCatalog.recommended.id),
+])
+func launchStartsOnTheRecommendedModelOrAnInstalledOne(installed: [String], expected: String) {
+    #expect(ModelCatalog.startingModel(installed: Set(installed)).id == expected)
+}
+
+@Test func whisperTurboIsRecommended() {
+    #expect(ModelCatalog.recommended == ModelCatalog.turbo)
+}

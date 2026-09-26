@@ -105,6 +105,16 @@ nonisolated enum ModelCatalog {
     /// The default: fast, and it reads a glossary.
     static let recommended = turbo
 
+    /// The model selected at launch: the recommended one when it is installed
+    /// or when nothing is, so that its download is offered, and otherwise the
+    /// first installed model in catalogue order.
+    static func startingModel(installed: Set<String>) -> Model {
+        guard !installed.contains(recommended.id),
+            let available = all.first(where: { installed.contains($0.id) })
+        else { return recommended }
+        return available
+    }
+
     /// Named by role rather than by technical label, so the user does not
     /// have to choose between quantisations to transcribe a lecture.
     static let all = [turbo, turboQuantized, largeV3, qwen, moss, voxtral]
