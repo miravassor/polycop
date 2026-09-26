@@ -23,20 +23,20 @@ struct NewTranscriptionView: View {
                     Text("Add recordings, choose your settings, then start.")
                         .foregroundStyle(.secondary)
                 }
-                dropZone
-                Button("Import Transcript and Audio…") { model.chooseTranscriptImport() }
-                    .disabled(model.stage.isBusy)
-                    .help("Edit an existing timestamped transcript with its recording")
-                if let failure = model.failure {
-                    Label(failure, systemImage: "exclamationmark.circle")
-                        .font(.callout)
-                        .foregroundStyle(.red)
-                        .textSelection(.enabled)
+                // Two columns when the window is wide, as in full screen, rather
+                // than one narrow column beside empty space.
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .top, spacing: 40) {
+                        start.frame(minWidth: 460, maxWidth: 620)
+                        settings.frame(minWidth: 460, maxWidth: 560)
+                    }
+                    VStack(alignment: .leading, spacing: 28) {
+                        start
+                        settings
+                    }
+                    .frame(maxWidth: 680, alignment: .leading)
                 }
-                settings
-                queue
             }
-            .frame(maxWidth: 680, alignment: .leading)
             .padding(28)
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
@@ -66,6 +66,64 @@ struct NewTranscriptionView: View {
             case .failure(let error): model.report(error)
             }
         }
+    }
+
+    /// The two ways in, and what waits to start.
+    private var start: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            dropZone
+            importTranscript
+            if let failure = model.failure {
+                Label(failure, systemImage: "exclamationmark.circle")
+                    .font(.callout)
+                    .foregroundStyle(.red)
+                    .textSelection(.enabled)
+            }
+            queue
+        }
+    }
+
+    /// A transcript made elsewhere, corrected here against its recording. A
+    /// card of its own, so it does not read as another way to add recordings.
+    private var importTranscript: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 20) {
+                importLabel
+                Spacer(minLength: 12)
+                importButton
+            }
+            VStack(alignment: .leading, spacing: 12) {
+                importLabel
+                importButton
+            }
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .overlay {
+            RoundedRectangle(cornerRadius: 8).strokeBorder(Color.primary.opacity(0.15))
+        }
+    }
+
+    private var importLabel: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "doc.text")
+                .font(.title2)
+                .foregroundStyle(.tint)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Correct an existing transcript").font(.headline)
+                Text("A TXT, SRT, VTT or JSON transcript, with its recording.")
+                    .font(.callout).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private var importButton: some View {
+        Button("Import Transcript and Audio…") { model.chooseTranscriptImport() }
+            .disabled(model.stage.isBusy)
+            .fixedSize()
+            .help("Listen to a transcript made elsewhere and correct it here")
     }
 
     /// What has been added and not yet started. Transcribing takes the machine
@@ -181,8 +239,11 @@ struct NewTranscriptionView: View {
     /// Defaults for recordings that have not started.
     private var settings: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text("Recordings already started keep their settings.")
-                .font(.caption).foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Settings").font(.headline)
+                Text("Recordings already started keep their settings.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             Divider()
             settingRow("Model") { transcriptionModel }
             Divider()
