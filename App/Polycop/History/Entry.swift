@@ -307,6 +307,26 @@ nonisolated struct Entry: Identifiable, Equatable, Codable, Sendable {
         isSaved = false
     }
 
+    /// Replaces each match with `replacement`. Ranges are replaced from the end
+    /// of each paragraph so the earlier ones stay valid.
+    mutating func replace(_ matches: [TranscriptSearch.Match], with replacement: String) {
+        var replaced = paragraphs
+        for (index, inParagraph) in Dictionary(grouping: matches, by: \.paragraph)
+        where replaced.indices.contains(index) {
+            let text = NSMutableString(string: replaced[index].text)
+            for match in inParagraph.sorted(by: { $0.range.location > $1.range.location })
+            where NSMaxRange(match.range) <= text.length {
+                text.replaceCharacters(in: match.range, with: replacement)
+            }
+            replaced[index].text = text as String
+        }
+        guard replaced != paragraphs else { return }
+        if originalParagraphs == nil { originalParagraphs = original }
+        paragraphs = replaced
+        isEdited = paragraphs != original
+        isSaved = false
+    }
+
     /// The text alone cannot prove a hidden line was not said, so the user
     /// decides whether to show it. Refused once the text is edited, since the
     /// paragraph layout has since changed.

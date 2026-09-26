@@ -15,6 +15,8 @@ struct EntryView: View {
     @State private var query = ""
     @State private var matches: [TranscriptSearch.Match] = []
     @State private var matchIndex = 0
+    @State private var isReplacing = false
+    @State private var replacement = ""
     @FocusState private var isSearchFocused: Bool
     @State private var isComparing = false
     @State private var isFollowing = false
@@ -212,6 +214,12 @@ struct EntryView: View {
             Menu {
                 Button("Undo Last Correction") { model.undo(entry.id) }
                     .disabled(isRunning || !model.canUndo(entry.id))
+                Button("Find and Replace") {
+                    searching = true
+                    isReplacing = true
+                    isSearchFocused = true
+                }
+                .keyboardShortcut("f", modifiers: [.command, .option])
                 Divider()
                 Button("Smaller text") { size = max(10, size - 1) }
                     .keyboardShortcut("-")
@@ -261,6 +269,13 @@ struct EntryView: View {
     }
 
     private var searchBar: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            findRow
+            if isReplacing { replaceRow }
+        }
+    }
+
+    private var findRow: some View {
         HStack(spacing: 12) {
             TextField("Find in your text", text: $query)
                 .textFieldStyle(.roundedBorder)
@@ -291,6 +306,8 @@ struct EntryView: View {
             .keyboardShortcut("g")
             .disabled(matches.isEmpty)
             .accessibilityLabel("Next search result")
+            Toggle("Replace", isOn: $isReplacing)
+                .toggleStyle(.checkbox)
             Button {
                 searching = false
                 query = ""
@@ -299,6 +316,28 @@ struct EntryView: View {
             }
             .accessibilityLabel("Close search")
         }
+    }
+
+    /// Replacement is literal, while finding ignores case and accents, so every
+    /// spelling of a misheard word is replaced by the same correction.
+    private var replaceRow: some View {
+        HStack(spacing: 12) {
+            TextField("Replace with", text: $replacement)
+                .textFieldStyle(.roundedBorder)
+                .onSubmit(replaceCurrentMatch)
+            Button("Replace", action: replaceCurrentMatch)
+                .disabled(currentMatch == nil || isRunning)
+            Button("Replace All") {
+                model.replace(entry.id, matches: matches, with: replacement)
+            }
+            .disabled(matches.isEmpty || isRunning)
+            .help("Replace every result. Undo Last Correction takes them all back.")
+        }
+    }
+
+    private func replaceCurrentMatch() {
+        guard let currentMatch else { return }
+        model.replace(entry.id, matches: [currentMatch], with: replacement)
     }
 
     private func refreshSearch(navigate: Bool = true) {

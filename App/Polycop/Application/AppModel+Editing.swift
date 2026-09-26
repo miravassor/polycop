@@ -35,6 +35,16 @@ extension AppModel {
         updateEntry(id) { $0.edit(paragraphAt: index, text: text) }
     }
 
+    /// Replaces matches as one correction, so a single undo takes all of them back.
+    func replace(_ id: Entry.ID, matches: [TranscriptSearch.Match], with replacement: String) {
+        guard id != busyEntry, !isShuttingDown, let entry = entry(id) else { return }
+        var replaced = entry
+        replaced.replace(matches, with: replacement)
+        guard replaced.paragraphs != entry.paragraphs else { return }
+        rememberCorrection(entry)
+        updateEntry(id) { $0.replace(matches, with: replacement) }
+    }
+
     private func rememberCorrection(_ entry: Entry) {
         var steps = corrections[entry.id] ?? []
         steps.append(entry.paragraphs)

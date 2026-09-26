@@ -18,6 +18,7 @@ struct ShortcutHelpView: View {
             }
             Section("Search in the current transcript") {
                 shortcut("Find", "⌘F")
+                shortcut("Find and replace", "⌥⌘F")
                 shortcut("Next result", "⌘G")
                 shortcut("Previous result", "⇧⌘G")
                 Text("Result navigation is available while the search bar is open.")
