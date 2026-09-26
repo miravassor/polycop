@@ -20,6 +20,8 @@ about working on the text once it is written.
 
 ### Changed
 
+* Polycop can run as two copies at once. Each keeps the edits it made last, and a copy leaves the other's downloads and playback files alone.
+* Cards and header buttons share one size and one shape across the app.
 * Importing a transcript made elsewhere has its own card on the New transcription page, and the page uses two columns in a wide window.
 * Changing the text layout or the subtitles after an export asks where to export again, instead of offering an update that could not be written.
 

@@ -19,7 +19,8 @@ Tools/package.sh           # locally signed app and zip with its sources, in bui
 ```
 
 * The test suite takes about 6 minutes. Run it once per change set, not after each edit.
-* Tests fail while a copy of Polycop is running: the app allows one instance. Quit it first.
+* Tests can run while Polycop is open. Two copies share the library, so each keeps the
+  edits it made last; a copy does not clear leftover files while another runs.
 * Tests that need a model skip themselves when that model is not installed.
 * A release is published by pushing a tag `vX.Y.Z` that matches `MARKETING_VERSION`;
   `.github/workflows/release.yml` builds, tests and drafts the GitHub release.
