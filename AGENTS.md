@@ -90,6 +90,9 @@ Every page speaks the same visual language. The shared pieces live in
   change their meaning: existing libraries must still load.
 * Model files are identified by catalog id and verified by size and SHA-256. Changing
   a catalog entry means a new pinned file, never an edited hash.
+* Typed text stays in the paragraph's text view and reaches the model after a pause,
+  or before any click, shortcut, menu or quit (`TypingBuffer`). Code that reads a
+  transcript outside those, such as a timer, calls `TypingBuffer.flush()` first.
 * Engines call C APIs on their own serial queue. Keep every whisper.cpp and audio.cpp
   call on that queue and respect the object lifetimes documented next to them.
 * The app must work offline. The only network uses are downloading catalog models and

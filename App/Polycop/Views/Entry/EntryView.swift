@@ -57,15 +57,14 @@ struct EntryView: View {
                     paragraphs: entry.paragraphs, resumed: entry.resumedParagraphs,
                     player: model.player, isEditable: !isRunning,
                     play: { model.replay(entry.id, from: $0) },
-                    edit: {
-                        model.player.pauseForTyping()
-                        model.edit(entry.id, paragraphAt: $0, text: $1)
-                    },
+                    edit: { model.edit(entry.id, paragraphAt: $0, text: $1) },
+                    typing: { model.player.pauseForTyping() },
                     hover: { focused = $0 },
                     original: original, isComparing: isComparing, isFollowing: isFollowing,
                     suspendFollowing: suspendFollowing,
                     jump: $jump, focused: focused, size: size,
-                    active: activeParagraph, activate: { activeParagraph = $0 },
+                    active: activeParagraph,
+                    activate: { if activeParagraph != $0 { activeParagraph = $0 } },
                     review: entry.reviewParagraphs,
                     toggleReview: { model.toggleReview(entry.id, paragraphAt: $0) },
                     matches: matches, currentMatch: currentMatch,

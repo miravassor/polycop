@@ -16,6 +16,8 @@ struct TranscriptView: View {
     let isEditable: Bool
     let play: (TimeInterval) -> Void
     let edit: (Int, String) -> Void
+    /// Called at each key typed in a paragraph.
+    let typing: () -> Void
     /// The paragraph under the pointer, for the timeline below.
     let hover: (Int?) -> Void
     /// The transcript as the engine wrote it, to show what was corrected.
@@ -127,7 +129,7 @@ struct TranscriptView: View {
             currentMatch: currentMatch?.paragraph == index ? currentMatch?.range : nil,
             words: index < words.count ? words[index] : [],
             showsUncertainWords: showsUncertainWords, timeColumnWidth: timeColumnWidth,
-            play: play, edit: edit, hover: hover, activate: activate,
+            play: play, edit: edit, typing: typing, hover: hover, activate: activate,
             suspendFollowing: suspendFollowing, toggleReview: toggleReview)
     }
 
@@ -161,6 +163,7 @@ private struct TranscriptRow: View, Equatable {
     let timeColumnWidth: CGFloat
     let play: (TimeInterval) -> Void
     let edit: (Int, String) -> Void
+    let typing: () -> Void
     let hover: (Int?) -> Void
     let activate: (Int) -> Void
     let suspendFollowing: () -> Void
@@ -244,7 +247,8 @@ private struct TranscriptRow: View, Equatable {
                     playFrom: { time in
                         activate(index)
                         play(time)
-                    }
+                    },
+                    typing: typing
                 )
             )
             .padding(.horizontal, isComparing ? 8 : 0)
