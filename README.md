@@ -81,13 +81,16 @@ speaker, so trying two models on your own recordings is worth it.
 
 ## Install
 
-1. Download `Polycop-X.Y.Z.zip` and its `.sha256` file from the
+1. Download `Polycop-X.Y.Z.dmg` and its `.sha256` file from the
    [latest release](https://github.com/miravassor/polycop/releases/latest).
-2. Check the archive: `shasum -a 256 -c Polycop-X.Y.Z.zip.sha256`.
-3. Unzip it and move `Polycop.app` to Applications. Replacing an older version
-   keeps your library in `~/Library/Application Support/Polycop/`.
+2. Check the disk image: `shasum -a 256 -c Polycop-X.Y.Z.dmg.sha256`.
+3. Open it and drag Polycop to Applications. Replacing an older version keeps
+   your library in `~/Library/Application Support/Polycop/`.
 4. Open the app. Polycop is not yet signed with an Apple Developer ID, so macOS
    refuses to open it the first time. See below.
+
+The release also offers `Polycop-X.Y.Z.zip`: the same app, with the source of
+every component it ships and the instructions to build it.
 
 Polycop does not update itself. On its second launch it asks whether to check for
 a new version once a day; you can change that in Settings, or choose **Check for

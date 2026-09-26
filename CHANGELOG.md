@@ -2,15 +2,16 @@
 
 All notable changes are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
-## Unreleased
+## 0.2.1 (2026-09-26)
+
+### Added
+
+* The keyboard media keys, Control Center and headphone buttons control playback: play and pause, five seconds back or forward, a chosen position and the playback speed.
+* Releases include a disk image: open it and drag Polycop to Applications.
 
 ### Changed
 
 * Whisper Large v3 turbo is the recommended model. The app starts on an installed model when the recommended one is not, and model descriptions state features and speed only.
-
-### Added 
-
-* The keyboard media keys, Control Center and headphone buttons control playback: play and pause, five seconds back or forward, a chosen position and the playback speed.
 
 ## 0.2.0 (2026-09-25)
 
