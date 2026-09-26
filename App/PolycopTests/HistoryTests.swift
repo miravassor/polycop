@@ -405,7 +405,10 @@ private func entry(_ name: String, in folder: URL, added: Date = .now) -> Entry 
 
     model.edit(entry.id, paragraphAt: 0, text: "Bonjour à toutes.")
     #expect(try written() == "Bonjour à tous.")
-    try await Task.sleep(for: .seconds(1.5))
+    for _ in 0..<100 {
+        if try written() == "Bonjour à toutes." { break }
+        try await Task.sleep(for: .milliseconds(50))
+    }
     #expect(try written() == "Bonjour à toutes.")
 
     model.edit(entry.id, paragraphAt: 0, text: "Bonsoir à toutes.")
