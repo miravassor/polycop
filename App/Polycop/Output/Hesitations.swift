@@ -9,7 +9,8 @@ import Foundation
 nonisolated enum Hesitations {
     /// Built where it is used, since a Regex is not Sendable.
     private static var sound: Regex<Substring> {
-        /\b(?:e+u+h+|h+e+u+|h+u+m+|h+m+|m+h+|bah|u+m+|u+h+|e+r+m+)\b[,…]*\s*/.ignoresCase()
+        /\b(?:e+u+h+|h+e+u+|h+u+m+|h+m+|m+h+|bah|u+m+|u+h+|e+r+m+)\b(?:,|…|\.\.\.)*\s*/
+            .ignoresCase()
     }
 
     /// The text without its hesitations. A sentence that opened on one opens
@@ -31,6 +32,10 @@ nonisolated enum Hesitations {
             result
             .replacingOccurrences(of: " ,", with: ",")
             .replacingOccurrences(of: " .", with: ".")
+            // A comma left before the end of the sentence goes with the hesitation.
+            .replacingOccurrences(of: ",.", with: ".")
+            .replacingOccurrences(of: ", ?", with: " ?")
+            .replacingOccurrences(of: ", !", with: " !")
             .replacingOccurrences(of: "  ", with: " ")
             .trimmingCharacters(in: .whitespaces)
     }
