@@ -57,6 +57,15 @@ final class Player {
     /// Whether playback was paused while playing, as opposed to moved while
     /// paused: only the first resumes a little earlier.
     @ObservationIgnored private var resumesEarlier = false
+    /// A position asked for and not yet reached, since the audio first fades.
+    @ObservationIgnored private var pendingSeek: TimeInterval?
+    /// The fade bringing the audio to what was asked, if one runs.
+    @ObservationIgnored private var transition: Task<Void, Never>?
+    /// A waveform cut in the middle is heard as a click, so the audio fades
+    /// around every change: briefly for a jump or a stop, longer for a pause
+    /// or a start, as a sentence would.
+    private static let cut: Duration = .milliseconds(30)
+    private static let fade: Duration = .milliseconds(80)
 
     /// Settings keys, shared with the Settings window.
     static let resumeRewindKey = "resumeRewind"
@@ -108,20 +117,73 @@ final class Player {
 
     func toggle() {
         guard let player else { return }
-        if player.rate == 0 {
-            if duration > 0, position >= duration - 0.05 {
-                seek(to: 0)
-            } else if resumesEarlier {
-                seek(to: position - resumeRewind)
-            }
-            player.rate = speed
-            resumesEarlier = false
-        } else {
-            player.pause()
+        if isPlaying {
             resumesEarlier = true
+            isPlaying = false
+            apply(player, fadeOut: Self.fade)
+        } else {
+            if duration > 0, position >= duration - 0.05 {
+                ask(for: 0)
+            } else if resumesEarlier {
+                ask(for: position - resumeRewind)
+            }
+            resumesEarlier = false
+            isPlaying = true
+            apply(player, fadeOut: Self.cut)
         }
-        isPlaying = player.rate != 0
         publishNowPlaying()
+    }
+
+    /// Records a position at once; `apply` takes the audio there.
+    private func ask(for time: TimeInterval) {
+        // Until the length is known, the longest recording the app accepts
+        // bounds the position.
+        let time = min(max(0, time), duration > 0 ? duration : AudioDecoder.longestRecording)
+        position = time
+        pendingSeek = time
+        resumesEarlier = false
+    }
+
+    /// Takes the audio to what was asked: the pending position, then playing
+    /// or paused. What was asked is already shown; the audio fades out first
+    /// when it sounds, and in when it starts. A later request cancels the fade
+    /// but never the position, which stays pending until reached.
+    private func apply(_ player: AVPlayer, fadeOut: Duration) {
+        transition?.cancel()
+        let sounds = player.rate != 0 && player.volume > 0
+        transition = Task { [weak self] in
+            if sounds {
+                await Self.ramp(player, to: 0, over: fadeOut)
+                guard !Task.isCancelled else { return }
+            }
+            guard let self, self.player === player else { return }
+            if let time = pendingSeek {
+                pendingSeek = nil
+                player.seek(
+                    to: CMTime(seconds: time, preferredTimescale: 1000), toleranceBefore: .zero,
+                    toleranceAfter: .zero, completionHandler: { _ in })
+            }
+            if isPlaying {
+                player.volume = 0
+                player.rate = speed
+                await Self.ramp(player, to: 1, over: sounds ? Self.cut : Self.fade)
+            } else {
+                player.pause()
+                player.volume = 1
+            }
+            if !Task.isCancelled { transition = nil }
+        }
+    }
+
+    /// Small steps, which the ear takes for a smooth fade.
+    private static func ramp(_ player: AVPlayer, to target: Float, over duration: Duration) async {
+        let start = player.volume
+        let steps = max(1, Int(duration / .milliseconds(5)))
+        for step in 1...steps {
+            try? await Task.sleep(for: duration / steps)
+            guard !Task.isCancelled else { return }
+            player.volume = start + (target - start) * Float(step) / Float(steps)
+        }
     }
 
     /// Pauses when the user starts typing a correction, unless the setting is off.
@@ -140,14 +202,8 @@ final class Player {
     /// Where the user asked to be, exactly, unlike a jump from a paragraph.
     func seek(to time: TimeInterval) {
         guard time.isFinite, let player else { return }
-        // Until the length is known, the longest recording the app accepts
-        // bounds the position.
-        let time = min(max(0, time), duration > 0 ? duration : AudioDecoder.longestRecording)
-        player.seek(
-            to: CMTime(seconds: time, preferredTimescale: 1000), toleranceBefore: .zero,
-            toleranceAfter: .zero)
-        position = time
-        resumesEarlier = false
+        ask(for: time)
+        apply(player, fadeOut: Self.cut)
         publishNowPlaying()
     }
 
@@ -156,10 +212,21 @@ final class Player {
         failure = nil
         preparation?.cancel()
         preparation = nil
+        transition?.cancel()
+        transition = nil
+        pendingSeek = nil
         nowPlaying.deactivate()
         if let observer { player?.removeTimeObserver(observer) }
         observer = nil
-        player?.pause()
+        if let player, player.rate != 0, player.volume > 0 {
+            // Let go at once, but faded out rather than cut.
+            Task { @MainActor in
+                await Self.ramp(player, to: 0, over: Self.cut)
+                player.pause()
+            }
+        } else {
+            player?.pause()
+        }
         player = nil
         if let copy { try? FileManager.default.removeItem(at: copy) }
         copy = nil
@@ -235,7 +302,9 @@ final class Player {
         guard let player, time.seconds.isFinite else { return }
         position = time.seconds
         let wasPlaying = isPlaying
-        isPlaying = player.rate != 0
+        // While a fade runs, what was asked stands; otherwise the player says,
+        // as at the end of the recording.
+        if transition == nil { isPlaying = player.rate != 0 }
         if isPlaying != wasPlaying { publishNowPlaying() }
         if player.currentItem?.status == .failed, let recording {
             failure = PlaybackError.unplayable(recording).localizedDescription
@@ -244,13 +313,9 @@ final class Player {
 
     /// Opens at the requested point; paragraph actions supply their own lead-in.
     private func seek(_ player: AVPlayer, to time: TimeInterval) {
-        let start = max(0, time)
-        player.seek(
-            to: CMTime(seconds: start, preferredTimescale: 1000), toleranceBefore: .zero,
-            toleranceAfter: .zero)
-        player.rate = speed
-        position = start
+        ask(for: time)
         isPlaying = true
+        apply(player, fadeOut: Self.cut)
         publishNowPlaying()
     }
 
