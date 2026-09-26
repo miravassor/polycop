@@ -40,8 +40,8 @@ nonisolated struct Model: Identifiable, Equatable, Sendable {
 /// The family of a model, which decides the library that runs it and what it
 /// can do. The window asks what a family can do, never which model it is.
 nonisolated enum Engine: CaseIterable, Sendable {
-    case qwen
     case whisper
+    case qwen
     case moss
     case voxtral
 
@@ -92,7 +92,7 @@ nonisolated enum Engine: CaseIterable, Sendable {
     var skipsSilence: Bool { self == .whisper }
 
     /// Whisper and MOSS time segments about a sentence long. Qwen and Voxtral
-    /// report one segment per window, accurate but too long for a subtitle.
+    /// report one segment per window, correct but too long for a subtitle.
     var timesSentences: Bool { self == .whisper || self == .moss }
 }
 
@@ -102,12 +102,12 @@ nonisolated enum Engine: CaseIterable, Sendable {
 /// MOSS-Transcribe-Diarize and Mistral's Voxtral, converted by the audio.cpp
 /// project.
 nonisolated enum ModelCatalog {
-    /// The most accurate model in the app's own testing.
-    static let recommended = qwen
+    /// The default: fast, and it reads a glossary.
+    static let recommended = turbo
 
     /// Named by role rather than by technical label, so the user does not
     /// have to choose between quantisations to transcribe a lecture.
-    static let all = [qwen, turbo, turboQuantized, largeV3, moss, voxtral]
+    static let all = [turbo, turboQuantized, largeV3, qwen, moss, voxtral]
 
     static func model(_ id: String) -> Model? {
         all.first { $0.id == id }
@@ -143,13 +143,12 @@ nonisolated enum ModelCatalog {
     private static let whisperCpp = "ggerganov/whisper.cpp"
     private static let whisperCppCommit = "5359861c739e955e79d9a303bcbc70fb988958b1"
 
-    /// Given the glossary as context, Qwen makes more errors and can copy the
-    /// glossary sentence into the transcript, so it reads none until a form
-    /// that helps is found.
+    /// Qwen is given no glossary: as context, it can copy the glossary
+    /// sentence into the transcript.
     static let qwen = Model(
         id: "qwen3-asr-1.7b-q8_0.gguf",
         name: "Qwen3-ASR 1.7B",
-        detail: "Recommended. The fewest errors, about twice as slow as Whisper",
+        detail: "Timestamps for each sentence with the optional aligner",
         bytes: 2_473_010_048,
         peakBytes: 3_870_000_000,
         sha256: "da4fc2ac7f24dee784d1684eb1f35836cdbf559519452ae11777670734c0a4f8",
@@ -161,13 +160,11 @@ nonisolated enum ModelCatalog {
         file: "Qwen3-ASR-1.7B-GGUF/qwen3-asr-1.7b-q8_0.gguf"
     )
 
-    /// More errors than Qwen or Whisper. Given the course glossary as
-    /// hotwords in the official form, the overall error rate rises slightly
-    /// but proper names are correct far more often.
+    /// Reads the course glossary as hotwords, in the form of the official toolkit.
     static let moss = Model(
         id: "moss-transcribe-diarize-q8_0.gguf",
         name: "MOSS-Transcribe-Diarize 0.9B",
-        detail: "Timestamps for each sentence. More errors than Qwen or Whisper",
+        detail: "Labels speaker turns and times each sentence",
         bytes: 1_132_110_560,
         peakBytes: 5_600_000_000,
         sha256: "93eea5865615e270b827752945f2dfd0f522ed673f4f551675e9013170173679",
@@ -183,8 +180,7 @@ nonisolated enum ModelCatalog {
     static let voxtral = Model(
         id: "voxtral-mini-4b-realtime-2602-q8_0.gguf",
         name: "Voxtral Mini 4B Realtime",
-        detail:
-            "About as many errors as Whisper, and as slow as the recording is long",
+        detail: "Streamed. Takes about as long as the recording",
         bytes: 5_104_567_264,
         peakBytes: 5_970_000_000,
         sha256: "0312a5ceafc6ee4a19a32da458cab6485e3b86b1b563c7bb7150aeae295c1769",
@@ -199,7 +195,7 @@ nonisolated enum ModelCatalog {
     static let turbo = Model(
         id: "ggml-large-v3-turbo.bin",
         name: "Whisper Large v3 turbo",
-        detail: "About twice as fast as Qwen, with more errors",
+        detail: "Recommended. Fast, and reads a glossary",
         bytes: 1_624_555_275,
         peakBytes: 2_810_000_000,
         sha256: "1fc70f774d38eb169993ac391eea357ef47c88757ef72ee5943879b7e8e2bc69",
@@ -212,7 +208,7 @@ nonisolated enum ModelCatalog {
     static let largeV3 = Model(
         id: "ggml-large-v3.bin",
         name: "Whisper Large v3",
-        detail: "Accurate but slow. About three times longer",
+        detail: "The full Whisper model. About three times slower than turbo",
         bytes: 3_095_033_483,
         peakBytes: 5_020_000_000,
         sha256: "64d182b440b98d5203c4f9bd541544d84c605196c4f7b845dfa11fb23594d1e2",
@@ -225,7 +221,7 @@ nonisolated enum ModelCatalog {
     static let turboQuantized = Model(
         id: "ggml-large-v3-turbo-q8_0.bin",
         name: "Whisper Large v3 turbo quantized",
-        detail: "Light. About half the download, a quarter less memory",
+        detail: "Fast. About half the download, a quarter less memory",
         bytes: 874_188_075,
         peakBytes: 2_040_000_000,
         sha256: "317eb69c11673c9de1e1f0d459b253999804ec71ac4c23c17ecf5fbe24e259a1",

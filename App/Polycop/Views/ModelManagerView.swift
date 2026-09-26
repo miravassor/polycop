@@ -99,14 +99,9 @@ struct ModelManagerView: View {
                     .padding(12)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(
-                        (familyColor(family)).opacity(0.08),
+                        familyColor(family).opacity(0.08),
                         in: RoundedRectangle(cornerRadius: 6)
                     )
-                    .overlay(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(familyColor(family))
-                            .frame(width: 3)
-                    }
                     ForEach(ModelCatalog.all.filter { $0.engine == family }) { item in
                         Divider()
                         HStack(alignment: .top, spacing: 16) {

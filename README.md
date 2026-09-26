@@ -51,25 +51,25 @@ unless they agree to more.
 
 ## Models
 
-| Model | Download | Memory at peak | Best for |
+| Model | Download | Memory at peak | Notes |
 |---|---:|---:|---|
-| Qwen3-ASR 1.7B (recommended) | 2.5 GB | 3.9 GB | the fewest mistakes on French lectures |
-| Whisper Large v3 turbo | 1.6 GB | 2.8 GB | about twice as fast; reads a glossary |
-| Whisper Large v3 turbo quantized | 0.9 GB | 2.0 GB | Macs with little memory |
-| Whisper Large v3 | 3.1 GB | 5.0 GB | the original Whisper, slower |
-| MOSS-Transcribe-Diarize 0.9B | 1.1 GB | 5.6 GB | telling speakers apart |
-| Voxtral Mini 4B Realtime | 5.1 GB | 6.0 GB | an alternative from Mistral |
+| Whisper Large v3 turbo (recommended) | 1.6 GB | 2.8 GB | fast; reads a glossary |
+| Whisper Large v3 turbo quantized | 0.9 GB | 2.0 GB | fast; half the download |
+| Whisper Large v3 | 3.1 GB | 5.0 GB | the full Whisper model, slower |
+| Qwen3-ASR 1.7B | 2.5 GB | 3.9 GB | sentence timings with the optional aligner |
+| MOSS-Transcribe-Diarize 0.9B | 1.1 GB | 5.6 GB | labels speaker turns |
+| Voxtral Mini 4B Realtime | 5.1 GB | 6.0 GB | streamed; takes about as long as the recording |
 
 The optional Qwen3 Forced Aligner (1.1 GB) times each sentence of a Qwen3-ASR
 transcript, which makes subtitles possible. Qwen3-ASR and Whisper are told the
 language (French or English); MOSS and Voxtral detect it. Every model has its own
 licence, shown before you download it.
 
-These choices come from many benchmarks. The default model, each engine's
-settings and every processing step, such as where long audio is cut, what a
-glossary is turned into and how repetitions are reduced, were measured on real
-lecture recordings against transcripts corrected by hand, and an option was kept
-only when it did at least as well as the one it replaced.
+Each engine's settings and every processing step, such as where long audio is
+cut, what a glossary is turned into and how repetitions are reduced, were chosen
+after benchmarks on real lecture recordings against transcripts corrected by
+hand. No model is best everywhere: results vary with the course, the room and the
+speaker, so trying two models on your own recordings is worth it.
 
 ## Requirements
 
@@ -112,7 +112,7 @@ its release page.
 
 ## Using it
 
-1. Download a model from inside the app. Start with Qwen3-ASR 1.7B.
+1. Download a model from inside the app. Start with Whisper Large v3 turbo.
 2. Choose a course glossary if you have one, then add your recordings. They are
    transcribed one after another, with no conversion on your side.
 3. Listen back and correct the text. Corrections are saved in the library.

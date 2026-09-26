@@ -14,6 +14,8 @@ private let clip = URL(filePath: #filePath)
     .deletingLastPathComponent()
     .appending(path: "Fixtures/formats/clip.wav")
 private let modelInstalled = ModelStore.isInstalled(ModelCatalog.recommended)
+/// Qwen cuts the recording into windows and times sentences with its aligner.
+private let qwenInstalled = ModelStore.isInstalled(ModelCatalog.qwen)
 /// Silence removal and the repair of repeats are whisper.cpp features.
 private let whisperInstalled = ModelStore.isInstalled(ModelCatalog.turbo)
 
@@ -529,13 +531,14 @@ extension LoadingAModel {
 
 extension LoadingAModel {
     @MainActor
-    @Test(.enabled(if: modelInstalled), arguments: [false, true])
+    @Test(.enabled(if: qwenInstalled), arguments: [false, true])
     func stoppingKeepsCompletedWindows(quitting: Bool) async throws {
         let folder = try recordings("short.wav")
         defer { try? FileManager.default.removeItem(at: folder) }
         let audio = try await longRecording(in: folder)
         let history = folder.appending(path: "History")
         try await withModel(history: history) { model in
+            model.selected = ModelCatalog.qwen.id
             model.transcribe([audio])
             model.start()
             let id = try #require(model.entries.first?.id)
