@@ -104,7 +104,7 @@ struct PlayerBar: View {
                 speed
             }
         }
-        .panel(padding: 12)
+        .panel(padding: 16)
     }
 
     private func seek(_ time: TimeInterval) {

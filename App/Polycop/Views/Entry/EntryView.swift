@@ -422,9 +422,8 @@ struct EntryView: View {
 
     private var recording: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Divider()
             HStack(spacing: 12) {
-                Text("Audio").font(.callout.weight(.medium))
+                Text("Audio").font(.headline)
                 if !entry.paragraphs.isEmpty {
                     replayPassage
                     paragraphStep(by: -1)
@@ -601,37 +600,43 @@ struct EntryView: View {
     @ViewBuilder
     private var actions: some View {
         if !isRunning && !entry.paragraphs.isEmpty {
-            VStack(alignment: .leading, spacing: 12) {
-                Divider()
-                HStack(spacing: 12) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(
-                            entry.subtitles && entry.timesSentences
-                                ? "Export text and original subtitles" : "Export text"
-                        )
-                        .font(.callout.weight(.medium))
-                        exported
-                    }
-                    Spacer(minLength: 8)
-                    Button {
-                        showingExportOptions = true
-                    } label: {
-                        Image(systemName: "slider.horizontal.3").frame(width: 16, height: 16)
-                    }
-                    .accessibilityLabel("Export options")
-                    .help("Export options")
-                    .popover(isPresented: $showingExportOptions) {
-                        EntryExportOptions(
-                            entry: entry, isRunning: isRunning, engine: engine,
-                            setSubtitles: { model.setSubtitles($0, for: entry.id) },
-                            setTextLayout: { model.setTextLayout($0, for: entry.id) },
-                            setRemovesHesitations: {
-                                model.setRemovesHesitations($0, for: entry.id)
-                            })
-                    }
-                    export
+            // A card like those of the New transcription page, the last step of
+            // the page.
+            HStack(spacing: 12) {
+                Image(systemName: "square.and.arrow.up")
+                    .font(.title2)
+                    .foregroundStyle(.tint)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(
+                        entry.subtitles && entry.timesSentences
+                            ? "Export text and original subtitles" : "Export text"
+                    )
+                    .font(.headline)
+                    exported
                 }
+                Spacer(minLength: 8)
+                Button {
+                    showingExportOptions = true
+                } label: {
+                    Image(systemName: "slider.horizontal.3").frame(width: 16, height: 16)
+                }
+                .buttonStyle(.plain)
+                .iconControl()
+                .accessibilityLabel("Export options")
+                .help("Export options")
+                .popover(isPresented: $showingExportOptions) {
+                    EntryExportOptions(
+                        entry: entry, isRunning: isRunning, engine: engine,
+                        setSubtitles: { model.setSubtitles($0, for: entry.id) },
+                        setTextLayout: { model.setTextLayout($0, for: entry.id) },
+                        setRemovesHesitations: {
+                            model.setRemovesHesitations($0, for: entry.id)
+                        })
+                }
+                export
             }
+            .panel(padding: 16)
         }
     }
 
@@ -661,10 +666,10 @@ struct EntryView: View {
         switch model.exportState(of: entry) {
         case .none:
             Text("Create a separate file to share or keep.")
-                .font(.caption).foregroundStyle(.secondary)
+                .font(.callout).foregroundStyle(.secondary)
         case .missing:
             Text("The previous export was moved or deleted.")
-                .font(.caption).foregroundStyle(.secondary)
+                .font(.callout).foregroundStyle(.secondary)
         case .current, .outOfDate:
             if let first = entry.saved.first {
                 Text(
@@ -672,7 +677,7 @@ struct EntryView: View {
                         ? "Export needs updating: \(first.lastPathComponent)"
                         : "Export is up to date: \(first.lastPathComponent)"
                 )
-                .font(.caption).foregroundStyle(.secondary)
+                .font(.callout).foregroundStyle(.secondary)
                 .lineLimit(1).truncationMode(.middle)
             }
         }
