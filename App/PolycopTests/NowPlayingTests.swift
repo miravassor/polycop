@@ -61,6 +61,12 @@ import Testing
     #expect(NowPlaying.seekAction(for: .endSeeking, offset: 5) == .ignore)
 }
 
+@Test func onlyTheOfferedSpeedsAreAccepted() {
+    #expect(NowPlaying.speedAction(for: 1.5) == .speed(1.5))
+    #expect(NowPlaying.speedAction(for: 0) == nil)
+    #expect(NowPlaying.speedAction(for: 1.1) == nil)
+}
+
 /// The actions change the player as the controls promise, on the synthetic clip.
 @MainActor
 @Test func remoteActionsDriveThePlayer() async throws {

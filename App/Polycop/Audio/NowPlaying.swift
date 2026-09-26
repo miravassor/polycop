@@ -62,6 +62,11 @@ final class NowPlaying {
         type == .beginSeeking ? .skip(offset) : .ignore
     }
 
+    /// Only the speeds the app offers. A rate of zero would leave playback unable to resume.
+    nonisolated static func speedAction(for rate: Float) -> RemoteAction? {
+        Player.speeds.contains(rate) ? .speed(rate) : nil
+    }
+
     func activate(for player: Player) {
         guard targets.isEmpty else { return }
         let center = MPRemoteCommandCenter.shared()
@@ -85,7 +90,9 @@ final class NowPlaying {
             }
         }
         handle(center.changePlaybackRateCommand, for: player) {
-            ($0 as? MPChangePlaybackRateCommandEvent).map { .speed($0.playbackRate) }
+            ($0 as? MPChangePlaybackRateCommandEvent).flatMap {
+                Self.speedAction(for: $0.playbackRate)
+            }
         }
         handle(center.changePlaybackPositionCommand, for: player) {
             ($0 as? MPChangePlaybackPositionCommandEvent).map { .seek($0.positionTime) }
