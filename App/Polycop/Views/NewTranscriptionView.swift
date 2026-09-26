@@ -89,7 +89,7 @@ struct NewTranscriptionView: View {
     /// A transcript made elsewhere, corrected here against its recording. A
     /// card of its own, so it does not read as another way to add recordings.
     private var importTranscript: some View {
-        HStack(spacing: 20) {
+        HStack(spacing: 12) {
             importLabel.frame(maxWidth: .infinity, alignment: .leading)
             importButton
         }
@@ -166,7 +166,7 @@ struct NewTranscriptionView: View {
     }
 
     private var dropZone: some View {
-        HStack(spacing: 20) {
+        HStack(spacing: 12) {
             dropLabel.frame(maxWidth: .infinity, alignment: .leading)
             chooseRecordings
         }

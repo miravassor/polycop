@@ -96,7 +96,7 @@ struct ModelManagerView: View {
                         Text(LocalizedStringKey(family.features(aligned: model.canAlignQwen)))
                             .font(.caption).foregroundStyle(.secondary)
                     }
-                    .padding(12)
+                    .padding(16)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(
                         familyColor(family).opacity(0.08),

@@ -40,7 +40,7 @@ struct EntryView: View {
     private var engine: Engine? { ModelCatalog.model(entry.modelFile)?.engine }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 16) {
             header
             state
             EntryNotices(entry: entry, model: model, isRunning: isRunning, engine: engine)
@@ -167,7 +167,6 @@ struct EntryView: View {
 
     private var editingTools: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Divider()
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 12) {
                     displayMode.fixedSize()
@@ -421,7 +420,7 @@ struct EntryView: View {
     }
 
     private var recording: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 12) {
                 Text("Audio").font(.headline)
                 if !entry.paragraphs.isEmpty {
@@ -636,7 +635,7 @@ struct EntryView: View {
                 }
                 export
             }
-            .panel(padding: 16)
+            .panel()
         }
     }
 
