@@ -4,11 +4,7 @@ import Foundation
 
 /// Matches transcript sentences to word timestamps without changing their text.
 nonisolated enum TimedWords {
-    struct Word: Equatable {
-        let text: String
-        let start: TimeInterval
-        let end: TimeInterval
-    }
+    typealias Word = Segment.Word
 
     /// Matches letters and digits despite differences in word boundaries or punctuation.
     /// Returns nil on a mismatch rather than assigning unsupported sentence times.
@@ -40,7 +36,10 @@ nonisolated enum TimedWords {
             guard needed > 0 else {
                 // Punctuation alone belongs to the sentence before it.
                 if let last = segments.popLast() {
-                    segments.append(last.replacing(text: last.text + " " + sentence))
+                    segments.append(
+                        Segment(
+                            start: last.start, end: last.end, text: last.text + " " + sentence,
+                            words: last.words))
                 } else {
                     return nil
                 }
@@ -53,7 +52,9 @@ nonisolated enum TimedWords {
             }
             guard needed == 0 else { return nil }
             segments.append(
-                Segment(start: words[first].start, end: words[next - 1].end, text: sentence))
+                Segment(
+                    start: words[first].start, end: words[next - 1].end, text: sentence,
+                    words: Array(words[first..<next])))
         }
         return segments
     }

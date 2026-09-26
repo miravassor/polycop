@@ -69,6 +69,10 @@ extension LoadingAModel {
         #expect(transcript.contains("Freud"))
         #expect(segments.first?.start == 0)
         #expect((segments.last?.end ?? 0) > 3)
+        let words = segments.flatMap { $0.words ?? [] }
+        #expect(words.map(\.text).joined(separator: " ").contains("Freud"))
+        #expect(words.allSatisfy { ($0.confidence ?? -1) >= 0 && ($0.confidence ?? 2) <= 1 })
+        #expect(words.allSatisfy { $0.start <= $0.end })
     }
 
     /// The engine must return what whisper-cli itself returns, called with the

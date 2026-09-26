@@ -36,6 +36,9 @@ struct TranscriptView: View {
     let toggleReview: (Int) -> Void
     let matches: [TranscriptSearch.Match]
     let currentMatch: TranscriptSearch.Match?
+    /// The timed words of each paragraph, empty for an engine that times none.
+    let words: [[Segment.Word]]
+    let showsUncertainWords: Bool
 
     /// The width of the column of times, shared with the headers above, so
     /// that each heading sits over its own text.
@@ -161,19 +164,29 @@ struct TranscriptView: View {
                 .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 6))
                 .accessibilityLabel("Original paragraph \(index + 1)")
             }
-            ParagraphEditor(
-                text: paragraphs[index].text,
-                original: written(at: index),
-                size: size,
-                isEditable: isEditable,
-                edit: { edit(index, $0) },
-                showsChanges: isComparing,
-                matches: matches.filter { $0.paragraph == index }.map(\.range),
-                currentMatch: currentMatch?.paragraph == index ? currentMatch?.range : nil,
-                activate: {
-                    suspendFollowing()
-                    activate(index)
-                }
+            ParagraphText(
+                player: player, isCurrent: playing == index,
+                words: WordLayout.place(
+                    index < words.count ? words[index] : [], in: paragraphs[index].text),
+                editor: ParagraphEditor(
+                    text: paragraphs[index].text,
+                    original: written(at: index),
+                    size: size,
+                    isEditable: isEditable,
+                    edit: { edit(index, $0) },
+                    showsChanges: isComparing,
+                    matches: matches.filter { $0.paragraph == index }.map(\.range),
+                    currentMatch: currentMatch?.paragraph == index ? currentMatch?.range : nil,
+                    activate: {
+                        suspendFollowing()
+                        activate(index)
+                    },
+                    showsUncertainWords: showsUncertainWords,
+                    playFrom: { time in
+                        activate(index)
+                        play(time)
+                    }
+                )
             )
             .padding(.horizontal, isComparing ? 8 : 0)
             .padding(.vertical, isComparing ? 4 : 0)
@@ -203,6 +216,22 @@ struct TranscriptView: View {
 
     private func written(at index: Int) -> String {
         index < original.count ? original[index].text : paragraphs[index].text
+    }
+}
+
+/// A paragraph's editor, which reads the player's position only while its
+/// paragraph is playing, so the other rows are not redrawn four times a second.
+private struct ParagraphText: View {
+    let player: Player
+    let isCurrent: Bool
+    let words: [WordLayout.Placed]
+    let editor: ParagraphEditor
+
+    var body: some View {
+        var editor = editor
+        editor.words = words
+        editor.playingWord = isCurrent ? WordLayout.playing(words, at: player.position) : nil
+        return editor
     }
 }
 

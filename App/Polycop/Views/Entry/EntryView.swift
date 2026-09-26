@@ -23,6 +23,7 @@ struct EntryView: View {
     @State private var isFollowSuspended = false
     @State private var jump: Int?
     @AppStorage("transcriptTextSize") private var size = 13.0
+    @AppStorage("showsUncertainWords") private var showsUncertainWords = true
 
     private var original: [Transcript.Paragraph] { entry.original }
     @State private var confirmingRemoval = false
@@ -64,7 +65,9 @@ struct EntryView: View {
                     active: activeParagraph, activate: { activeParagraph = $0 },
                     review: entry.reviewParagraphs,
                     toggleReview: { model.toggleReview(entry.id, paragraphAt: $0) },
-                    matches: matches, currentMatch: currentMatch)
+                    matches: matches, currentMatch: currentMatch,
+                    words: WordLayout.grouped(entry.shown, into: entry.paragraphs),
+                    showsUncertainWords: showsUncertainWords)
             }
             recording
             actions
@@ -223,6 +226,7 @@ struct EntryView: View {
                     isSearchFocused = true
                 }
                 .keyboardShortcut("f", modifiers: [.command, .option])
+                Toggle("Underline Uncertain Words", isOn: $showsUncertainWords)
                 Divider()
                 Button("Smaller text") { size = max(10, size - 1) }
                     .keyboardShortcut("-")

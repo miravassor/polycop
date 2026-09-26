@@ -17,10 +17,16 @@ struct ParagraphEditor: NSViewRepresentable {
     var matches: [NSRange] = []
     var currentMatch: NSRange?
     var activate: () -> Void = {}
+    /// The timed words found in the text, for playing from one and marking
+    /// the uncertain ones.
+    var words: [WordLayout.Placed] = []
+    var playingWord: NSRange?
+    var showsUncertainWords = true
+    var playFrom: (TimeInterval) -> Void = { _ in }
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
-    func makeNSView(context: Context) -> NSTextView {
+    func makeNSView(context: Context) -> WordTextView {
         // TextKit 1 on purpose: the height of the laid out text, which decides
         // the height of the row, is read from its layout manager.
         let storage = NSTextStorage()
@@ -31,7 +37,7 @@ struct ParagraphEditor: NSViewRepresentable {
         container.lineFragmentPadding = 0
         manager.addTextContainer(container)
         storage.addLayoutManager(manager)
-        let view = NSTextView(frame: .zero, textContainer: container)
+        let view = WordTextView(frame: .zero, textContainer: container)
         view.delegate = context.coordinator
         view.isRichText = false
         view.drawsBackground = false
@@ -43,12 +49,23 @@ struct ParagraphEditor: NSViewRepresentable {
         return view
     }
 
-    func updateNSView(_ view: NSTextView, context: Context) {
+    func updateNSView(_ view: WordTextView, context: Context) {
         context.coordinator.parent = self
         context.coordinator.updating = true
         defer { context.coordinator.updating = false }
         view.isEditable = isEditable
         view.isSelectable = true
+        let words = words
+        let playFrom = playFrom
+        view.playFromCharacter = { index in
+            guard
+                let word = words.first(where: {
+                    index >= $0.range.location && index <= NSMaxRange($0.range)
+                })
+            else { return false }
+            playFrom(word.start)
+            return true
+        }
         if view.string != text {
             // Native undo ranges belong to the previous text after an external revert.
             view.breakUndoCoalescing()
@@ -71,14 +88,16 @@ struct ParagraphEditor: NSViewRepresentable {
         }
         let signature = Style(
             text: text, original: original, size: size, isRemoved: isRemoved,
-            showsChanges: showsChanges, matches: matches, currentMatch: currentMatch)
+            showsChanges: showsChanges, matches: matches, currentMatch: currentMatch,
+            uncertain: showsUncertainWords ? words.filter(\.isUncertain).map(\.range) : [],
+            playingWord: playingWord)
         guard context.coordinator.styled != signature else { return }
         style(view)
         context.coordinator.styled = signature
     }
 
     func sizeThatFits(
-        _ proposal: ProposedViewSize, nsView view: NSTextView, context: Context
+        _ proposal: ProposedViewSize, nsView view: WordTextView, context: Context
     ) -> CGSize? {
         // Fall back to the current width when SwiftUI leaves it unspecified.
         // AppKit's unbounded intrinsic height would create an endless scroll area.
@@ -123,6 +142,22 @@ struct ParagraphEditor: NSViewRepresentable {
                 .backgroundColor,
                 value: NSColor.systemYellow.withAlphaComponent(0.22), range: range)
         }
+        if showsUncertainWords {
+            for word in words where word.isUncertain && NSMaxRange(word.range) <= whole.length {
+                storage.addAttributes(
+                    [
+                        .underlineStyle: NSUnderlineStyle.single.rawValue
+                            | NSUnderlineStyle.patternDot.rawValue,
+                        .underlineColor: NSColor.systemOrange,
+                        .toolTip: String(localized: "The model was unsure of this word"),
+                    ], range: word.range)
+            }
+        }
+        if let playingWord, NSMaxRange(playingWord) <= whole.length {
+            storage.addAttribute(
+                .backgroundColor, value: NSColor.controlAccentColor.withAlphaComponent(0.18),
+                range: playingWord)
+        }
         if let currentMatch, currentMatch.location >= 0, NSMaxRange(currentMatch) <= whole.length {
             storage.addAttribute(
                 .backgroundColor,
@@ -142,6 +177,8 @@ struct ParagraphEditor: NSViewRepresentable {
         let showsChanges: Bool
         let matches: [NSRange]
         let currentMatch: NSRange?
+        let uncertain: [NSRange]
+        let playingWord: NSRange?
     }
 
     final class Coordinator: NSObject, NSTextViewDelegate {
@@ -172,5 +209,20 @@ struct ParagraphEditor: NSViewRepresentable {
             styled = nil
             parent.edit(view.string)
         }
+    }
+}
+
+/// A text view that plays the recording from a word clicked with Option held.
+/// A plain click still places the cursor for editing.
+final class WordTextView: NSTextView {
+    /// Plays from the word at a character index; false when no word is there.
+    var playFromCharacter: ((Int) -> Bool)?
+
+    override func mouseDown(with event: NSEvent) {
+        if event.modifierFlags.contains(.option), let playFromCharacter {
+            let index = characterIndexForInsertion(at: convert(event.locationInWindow, from: nil))
+            if playFromCharacter(index) { return }
+        }
+        super.mouseDown(with: event)
     }
 }

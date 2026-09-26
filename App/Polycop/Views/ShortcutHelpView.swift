@@ -10,6 +10,7 @@ struct ShortcutHelpView: View {
                 shortcut("Replay active paragraph", "⌥⌘R")
                 shortcut("Play next paragraph", "⌥⌘↓")
                 shortcut("Play previous paragraph", "⌥⌘↑")
+                shortcut("Play from a word", "⌥ Click")
                 shortcut("Undo typing in the active paragraph", "⌘Z")
                 shortcut("Smaller text", "⌘−")
                 shortcut("Larger text", "⌘+")

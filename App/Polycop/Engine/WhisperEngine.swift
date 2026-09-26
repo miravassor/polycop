@@ -231,6 +231,9 @@ nonisolated final class WhisperEngine: TranscriptionEngine, @unchecked Sendable 
         parameters.print_progress = false
         parameters.print_realtime = false
         parameters.print_timestamps = false
+        // Word times and probabilities, for playing from a word and marking
+        // the uncertain ones.
+        parameters.token_timestamps = true
         parameters.print_special = false
 
         let handlers = Handlers(progress: onProgress, segment: onSegment, cancelled: cancelled)
@@ -243,12 +246,13 @@ nonisolated final class WhisperEngine: TranscriptionEngine, @unchecked Sendable 
         }
         parameters.progress_callback_user_data = pointer
 
-        parameters.new_segment_callback = { _, state, count, data in
-            guard let data, let state else { return }
+        parameters.new_segment_callback = { context, state, count, data in
+            guard let data, let context, let state else { return }
             let handlers = Unmanaged<Handlers>.fromOpaque(data).takeUnretainedValue()
             let total = whisper_full_n_segments_from_state(state)
             for index in (total - count)..<total {
-                handlers.segment(WhisperEngine.segment(state: state, index: index))
+                handlers.segment(
+                    WhisperEngine.segment(context: context, state: state, index: index))
             }
         }
         parameters.new_segment_callback_user_data = pointer
@@ -276,22 +280,81 @@ nonisolated final class WhisperEngine: TranscriptionEngine, @unchecked Sendable 
             throw TranscriptionError.failed(code)
         }
 
+        let end = whisper_token_eot(context)
         return (0..<whisper_full_n_segments(context)).map { index in
             Segment(
                 start: TimeInterval(whisper_full_get_segment_t0(context, index)) / 100,
                 end: TimeInterval(whisper_full_get_segment_t1(context, index)) / 100,
-                text: String(cString: whisper_full_get_segment_text(context, index))
+                text: String(cString: whisper_full_get_segment_text(context, index)),
+                words: Self.words(
+                    from: (0..<whisper_full_n_tokens(context, index)).compactMap { token in
+                        guard whisper_full_get_token_id(context, index, token) < end else {
+                            return nil
+                        }
+                        return Token(
+                            text: String(
+                                cString: whisper_full_get_token_text(context, index, token)),
+                            probability: whisper_full_get_token_p(context, index, token),
+                            start: whisper_full_get_token_t0(context, index, token),
+                            end: whisper_full_get_token_t1(context, index, token))
+                    })
             )
         }
     }
 
     /// Times are counted in hundredths of a second.
-    private static func segment(state: OpaquePointer, index: Int32) -> Segment {
-        Segment(
+    private static func segment(
+        context: OpaquePointer, state: OpaquePointer, index: Int32
+    ) -> Segment {
+        let end = whisper_token_eot(context)
+        return Segment(
             start: TimeInterval(whisper_full_get_segment_t0_from_state(state, index)) / 100,
             end: TimeInterval(whisper_full_get_segment_t1_from_state(state, index)) / 100,
-            text: String(cString: whisper_full_get_segment_text_from_state(state, index))
+            text: String(cString: whisper_full_get_segment_text_from_state(state, index)),
+            words: words(
+                from: (0..<whisper_full_n_tokens_from_state(state, index)).compactMap { token in
+                    guard whisper_full_get_token_id_from_state(state, index, token) < end else {
+                        return nil
+                    }
+                    return Token(
+                        text: String(
+                            cString: whisper_full_get_token_text_from_state(
+                                context, state, index, token)),
+                        probability: whisper_full_get_token_p_from_state(state, index, token),
+                        start: whisper_full_get_token_t0_from_state(state, index, token),
+                        end: whisper_full_get_token_t1_from_state(state, index, token))
+                })
         )
+    }
+
+    /// One token as whisper.cpp reports it, times in hundredths of a second
+    /// on the recording's timeline.
+    struct Token {
+        let text: String
+        let probability: Float
+        let start: Int64
+        let end: Int64
+    }
+
+    /// Tokens are pieces of words, and a new word starts with a space. A word's
+    /// confidence is the mean probability of its tokens.
+    static func words(from tokens: [Token]) -> [Segment.Word] {
+        var groups: [[Token]] = []
+        for token in tokens where !token.text.isEmpty {
+            if token.text.hasPrefix(" ") || groups.isEmpty {
+                groups.append([token])
+            } else {
+                groups[groups.count - 1].append(token)
+            }
+        }
+        return groups.compactMap { group in
+            let text = group.map(\.text).joined().trimmingCharacters(in: .whitespaces)
+            guard !text.isEmpty, let first = group.first, let last = group.last else { return nil }
+            return Segment.Word(
+                text: text, start: TimeInterval(first.start) / 100,
+                end: TimeInterval(max(first.start, last.end)) / 100,
+                confidence: group.map(\.probability).reduce(0, +) / Float(group.count))
+        }
     }
 
     /// What the C callbacks need, reachable through one pointer.

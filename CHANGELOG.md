@@ -10,6 +10,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 * Playback steps back 1.5 seconds when it resumes after a pause, and pauses when you start typing a correction. Both can be changed in Settings.
 * Option Command Down and Up play the next and previous paragraph, counted from the one playing.
 * Text export with or without timestamps, or as Markdown, and an option to leave out hesitations such as "euh" or "hum". Words that can carry meaning stay.
+* Word timings for new Whisper transcripts, and for Qwen3-ASR with the aligner: Option-click a word to play from it, and the word being played is highlighted. Words Whisper was unsure of are underlined, which can be turned off. Earlier transcripts have no word timings.
 
 ## 0.2.1 (2026-09-26)
 
