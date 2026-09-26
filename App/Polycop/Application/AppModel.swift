@@ -197,12 +197,7 @@ final class AppModel {
     init(history: URL = HistoryStore.directory) {
         self.history = history
         refreshInstalled()
-        // Starts on an installed model when the recommended one is not.
-        if !installed.contains(selected),
-            let available = ModelCatalog.all.first(where: { installed.contains($0.id) })
-        {
-            selected = available.id
-        }
+        selected = ModelCatalog.startingModel(installed: installed).id
         refreshGlossaries()
         let library = HistoryStore.all(in: history)
         entries = library.entries
