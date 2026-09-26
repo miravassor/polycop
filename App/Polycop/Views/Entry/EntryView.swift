@@ -48,7 +48,10 @@ struct EntryView: View {
                     paragraphs: entry.paragraphs, resumed: entry.resumedParagraphs,
                     player: model.player, isEditable: !isRunning,
                     play: { model.replay(entry.id, from: $0) },
-                    edit: { model.edit(entry.id, paragraphAt: $0, text: $1) },
+                    edit: {
+                        model.player.pauseForTyping()
+                        model.edit(entry.id, paragraphAt: $0, text: $1)
+                    },
                     hover: { focused = $0 },
                     original: original, isComparing: isComparing, isFollowing: isFollowing,
                     suspendFollowing: {

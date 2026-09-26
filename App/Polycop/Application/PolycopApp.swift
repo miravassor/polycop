@@ -111,6 +111,9 @@ struct PolycopApp: App {
                         .textSelection(.enabled)
                     }
                 }
+                Section("Playback") {
+                    PlaybackSettings()
+                }
                 Section("Updates") {
                     UpdateSettings()
                 }
@@ -192,5 +195,24 @@ private struct UpdateSettings: View {
             Text("Asks GitHub once a day whether a newer version is out.")
         }
         Button("Check Now") { UpdatePrompt.checkForUpdates() }
+    }
+}
+
+/// How playback helps correcting: a step back on resume, and a pause while typing.
+private struct PlaybackSettings: View {
+    @AppStorage(Player.resumeRewindKey) private var resumeRewind = Player.defaultResumeRewind
+    @AppStorage(Player.pausesWhileTypingKey) private var pausesWhileTyping = true
+
+    var body: some View {
+        Picker("Step back on resume", selection: $resumeRewind) {
+            Text("None").tag(0.0)
+            ForEach([0.5, 1, 1.5, 2, 3, 5], id: \.self) { seconds in
+                Text("\(seconds.formatted()) s").tag(seconds)
+            }
+        }
+        Toggle(isOn: $pausesWhileTyping) {
+            Text("Pause while typing a correction")
+            Text("Playback stops at the first key pressed in the transcript.")
+        }
     }
 }
