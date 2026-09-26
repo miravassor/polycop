@@ -76,8 +76,12 @@ struct EntryView: View {
         .onChange(of: model.player.isOpen) { _, isOpen in
             if !isOpen { isFollowSuspended = false }
         }
-        .onChange(of: entry.paragraphs, initial: true) {
-            words = WordLayout.grouped(entry.shown, into: entry.paragraphs)
+        // Words hang on the segments and on where paragraphs open, which
+        // typing leaves alone, so they are not regrouped at each key.
+        .onChange(of: entry.paragraphs.map(\.start), initial: true) { regroupWords() }
+        .onChange(of: entry.decoded) { regroupWords() }
+        .onChange(of: entry.showsCredits) { regroupWords() }
+        .onChange(of: entry.paragraphs) {
             refreshSearch(navigate: false)
             if let activeParagraph, !entry.paragraphs.indices.contains(activeParagraph) {
                 self.activeParagraph = nil
@@ -388,6 +392,10 @@ struct EntryView: View {
             activeParagraph = currentMatch.paragraph
             jump = currentMatch.paragraph
         }
+    }
+
+    private func regroupWords() {
+        words = WordLayout.grouped(entry.shown, into: entry.paragraphs)
     }
 
     /// Stops following while the reader looks elsewhere, and offers the way back.
