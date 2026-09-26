@@ -84,6 +84,8 @@ extension AppModel {
             entry.paragraphs = entry.original
             entry.isEdited = false
             entry.isSaved = false
+            // Rebuilt paragraphs would otherwise take the corrections back.
+            entry.courseCorrections = []
         }
     }
 
@@ -103,20 +105,13 @@ extension AppModel {
     /// Refused while corrections can be stepped back: rebuilding the
     /// paragraphs would discard them.
     func canPutBackCredits(of entry: Entry) -> Bool {
-        entry.id != busyEntry && hasOnlyCourseCorrections(entry) && !canUndo(entry.id)
+        entry.id != busyEntry && entry.hasOnlyCourseCorrections && !canUndo(entry.id)
     }
 
     func putBackCredits(_ id: Entry.ID) {
         guard !isShuttingDown, let entry = entry(id), canPutBackCredits(of: entry) else { return }
         var restored = false
-        let courseCorrections = courseCorrections(for: entry)
-        updateEntry(id) {
-            // Only course corrections can be there, and they are applied again.
-            $0.paragraphs = $0.original
-            $0.isEdited = false
-            restored = $0.putBackCredits()
-            CourseCorrections.apply(courseCorrections, to: &$0)
-        }
+        updateEntry(id) { restored = $0.putBackCredits() }
         // The paragraphs are rebuilt around the lines that came back, so the
         // corrections recorded against the old ones no longer fit. A refusal
         // changes nothing and keeps them.

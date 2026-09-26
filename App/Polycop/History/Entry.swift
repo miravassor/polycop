@@ -44,6 +44,9 @@ nonisolated struct Entry: Identifiable, Equatable, Codable, Sendable {
     var textLayout: Transcript.TextLayout?
     /// Whether the text export leaves out hesitation sounds.
     var removesHesitations: Bool?
+    /// The course corrections this transcript took when it started, applied
+    /// again whenever its paragraphs are rebuilt. Empty once the user reverts.
+    var courseCorrections: [CourseCorrection]?
     var state: State
 
     /// Everything the engine wrote, credit lines included.
@@ -144,6 +147,7 @@ nonisolated struct Entry: Identifiable, Equatable, Codable, Sendable {
         decoded = []
         paragraphs = []
         originalParagraphs = nil
+        courseCorrections = nil
         reviewMarks = nil
         showsCredits = false
         isPartial = false
@@ -284,6 +288,7 @@ nonisolated struct Entry: Identifiable, Equatable, Codable, Sendable {
         originalParagraphs = paragraphs
         isEdited = false
         isSaved = false
+        apply(courseCorrections ?? [])
     }
 
     var reviewParagraphs: Set<Int> {
@@ -335,19 +340,61 @@ nonisolated struct Entry: Identifiable, Equatable, Codable, Sendable {
         return true
     }
 
+    /// Applies each course correction as the user's own, so it can be compared
+    /// with what the engine wrote. Only whole words are replaced, since no one
+    /// reviews these matches, and a place that already reads as the
+    /// replacement, such as "Sigmund Freud" for "Freud", is left alone.
+    mutating func apply(_ corrections: [CourseCorrection]) {
+        for correction in corrections {
+            let matches = TranscriptSearch.matches(
+                in: paragraphs, query: correction.text, wholeWords: true
+            ).filter { !reads(correction.replacement, around: $0) }
+            replace(matches, with: correction.replacement)
+        }
+    }
+
+    /// Whether the text around a match already reads exactly as `replacement`.
+    private func reads(_ replacement: String, around match: TranscriptSearch.Match) -> Bool {
+        let text = paragraphs[match.paragraph].text as NSString
+        let options: String.CompareOptions = [.caseInsensitive, .diacriticInsensitive]
+        let inside = (replacement as NSString).range(
+            of: text.substring(with: match.range), options: options)
+        guard inside.location != NSNotFound else { return false }
+        let around = NSRange(
+            location: match.range.location - inside.location,
+            length: (replacement as NSString).length)
+        guard around.location >= 0, NSMaxRange(around) <= text.length else { return false }
+        return text.substring(with: around) == replacement
+    }
+
+    /// Whether the only changes are the course corrections. Those are applied
+    /// again after the paragraphs are rebuilt, so they do not stand in the way
+    /// of repairing repeats or putting credits back.
+    var hasOnlyCourseCorrections: Bool {
+        guard isEdited else { return true }
+        guard let courseCorrections, !courseCorrections.isEmpty else { return false }
+        var uncorrected = self
+        uncorrected.paragraphs = original
+        uncorrected.isEdited = false
+        uncorrected.apply(courseCorrections)
+        return uncorrected.paragraphs == paragraphs
+    }
+
     /// The text alone cannot prove a hidden line was not said, so the user
-    /// decides whether to show it. Refused once the text is edited, since the
-    /// paragraph layout has since changed.
+    /// decides whether to show it. Refused once the user has corrected the
+    /// text, since the paragraph layout has since changed.
     ///
     /// Returns whether credits were put back, so a caller can tell a refusal
     /// from a transcript that already showed them.
     @discardableResult
     mutating func putBackCredits() -> Bool {
-        guard !isEdited, !showsCredits else { return false }
+        guard hasOnlyCourseCorrections, !showsCredits else { return false }
         showsCredits = true
         paragraphs = Transcript.paragraphs(shown)
         originalParagraphs = paragraphs
+        isEdited = false
         isSaved = false
+        apply(courseCorrections ?? [])
         return true
     }
 }

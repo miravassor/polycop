@@ -130,20 +130,6 @@ extension AppModel {
         return read
     }
 
-    /// Whether a transcript's only changes are its course's corrections. Those
-    /// are applied again after its paragraphs are rebuilt, so they do not stand
-    /// in the way of repairing repeats or putting credits back.
-    func hasOnlyCourseCorrections(_ entry: Entry) -> Bool {
-        guard entry.isEdited else { return true }
-        let corrections = courseCorrections(for: entry)
-        guard !corrections.isEmpty else { return false }
-        var uncorrected = entry
-        uncorrected.paragraphs = entry.original
-        uncorrected.isEdited = false
-        CourseCorrections.apply(corrections, to: &uncorrected)
-        return uncorrected.paragraphs == entry.paragraphs
-    }
-
     /// Remembers a replacement for the course of a transcript, for its next ones.
     func remember(_ correction: CourseCorrection, forCourseOf id: Entry.ID) {
         guard let name = entry(id)?.glossary else { return }

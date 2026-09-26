@@ -362,7 +362,9 @@ struct EntryView: View {
             Button("Replace All") {
                 if remembersReplacement {
                     model.remember(
-                        CourseCorrection(find: query, replacement: replacement),
+                        CourseCorrection(
+                            text: query.trimmingCharacters(in: .whitespacesAndNewlines),
+                            replacement: replacement),
                         forCourseOf: entry.id)
                 }
                 model.replace(entry.id, matches: matches, with: replacement)

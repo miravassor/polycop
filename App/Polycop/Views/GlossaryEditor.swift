@@ -142,19 +142,25 @@ struct GlossaryEditor: View {
     private var correctionList: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Corrections applied to new transcripts").font(.headline)
-            ForEach(corrections, id: \.self) { correction in
-                HStack(spacing: 8) {
-                    Text("\(correction.find) → \(correction.replacement)")
-                        .textSelection(.enabled)
-                    Spacer()
-                    Button("Forget") {
-                        guard let selection else { return }
-                        model.forget(correction, forCourse: selection)
-                        reloadCorrections()
+            // Scrolls on its own, so a long list never squeezes the terms.
+            ScrollView {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(corrections, id: \.self) { correction in
+                        HStack(spacing: 8) {
+                            Text("\(correction.text) → \(correction.replacement)")
+                                .textSelection(.enabled)
+                            Spacer()
+                            Button("Forget") {
+                                guard let selection else { return }
+                                model.forget(correction, forCourse: selection)
+                                reloadCorrections()
+                            }
+                            .buttonStyle(.borderless)
+                        }
                     }
-                    .buttonStyle(.borderless)
                 }
             }
+            .frame(maxHeight: 110)
         }
     }
 

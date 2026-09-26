@@ -288,6 +288,12 @@ extension AppModel {
             return
         }
         let kept = entry.decoded
+        // Taken once, when the transcript starts, so every layout of its text
+        // gets the same corrections.
+        if entry.courseCorrections == nil {
+            let remembered = courseCorrections(for: entry)
+            if !remembered.isEmpty { updateEntry(id) { $0.courseCorrections = remembered } }
+        }
         let recording = recording(of: entry)
         let catalogued = ModelCatalog.model(entry.modelFile)
         var settings = DecodingSettings()
@@ -373,12 +379,10 @@ extension AppModel {
                 guard isCurrent(number) else { return }
 
                 let result = kept + collected.withLock { $0 }
-                let corrections = courseCorrections(for: entry)
                 updateEntry(id) {
                     $0.publish(result, partial: false)
                     $0.sentenceTimes = aligned ? true : nil
                     $0.state = .finished
-                    CourseCorrections.apply(corrections, to: &$0)
                 }
                 recordTimeSpent(since: started, on: id)
                 finish()

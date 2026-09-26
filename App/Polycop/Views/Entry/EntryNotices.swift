@@ -31,7 +31,7 @@ struct EntryNotices: View {
                             isRunning || !model.canRepairRepeats(of: entry) || model.stage.isBusy
                         )
                         .help(
-                            !model.hasOnlyCourseCorrections(entry)
+                            !entry.hasOnlyCourseCorrections
                                 ? Text("Transcribing them again would undo your corrections.")
                                 : Text("Skips the silences over those passages only.")
                         )
@@ -104,7 +104,7 @@ struct EntryNotices: View {
                 Button("Put back") { model.putBackCredits(entry.id) }
                     .disabled(!model.canPutBackCredits(of: entry))
                     .help(
-                        !model.hasOnlyCourseCorrections(entry) || model.canUndo(entry.id)
+                        !entry.hasOnlyCourseCorrections || model.canUndo(entry.id)
                             ? Text("Putting the lines back would undo your corrections.") : Text("")
                     )
             }

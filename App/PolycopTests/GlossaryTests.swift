@@ -171,17 +171,17 @@ private func temporaryFolder() -> URL {
 @Test func aCourseRemembersAndForgetsItsCorrections() throws {
     let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: folder) }
-    let first = CourseCorrection(find: "bordéreux", replacement: "borderline")
+    let first = CourseCorrection(text: "bordéreux", replacement: "borderline")
 
     try CourseCorrections.remember(first, for: "Psychologie", in: folder)
     try CourseCorrections.remember(
-        CourseCorrection(find: "Bordereux", replacement: "état limite"), for: "Psychologie",
+        CourseCorrection(text: "Bordereux", replacement: "état limite"), for: "Psychologie",
         in: folder)
     #expect(
         CourseCorrections.all(for: "Psychologie", in: folder).map(\.replacement) == ["état limite"])
 
     try CourseCorrections.forget(
-        CourseCorrection(find: "Bordereux", replacement: "état limite"), for: "Psychologie",
+        CourseCorrection(text: "Bordereux", replacement: "état limite"), for: "Psychologie",
         in: folder)
     #expect(CourseCorrections.all(for: "Psychologie", in: folder).isEmpty)
 }
@@ -193,8 +193,7 @@ private func temporaryFolder() -> URL {
     entry.publish([Segment(start: 0, end: 4, text: "Le trouble bordéreux.")], partial: false)
     let original = entry.paragraphs
 
-    CourseCorrections.apply(
-        [CourseCorrection(find: "bordereux", replacement: "borderline")], to: &entry)
+    entry.apply([CourseCorrection(text: "bordereux", replacement: "borderline")])
 
     #expect(entry.paragraphs.first?.text == "Le trouble borderline.")
     #expect(entry.isEdited)
@@ -206,7 +205,7 @@ private func temporaryFolder() -> URL {
     defer { try? FileManager.default.removeItem(at: folder) }
     try GlossaryStore.save(Glossary(name: "Psychologie", text: "Freud"), in: folder)
     try CourseCorrections.remember(
-        CourseCorrection(find: "Froid", replacement: "Freud"), for: "Psychologie", in: folder)
+        CourseCorrection(text: "Froid", replacement: "Freud"), for: "Psychologie", in: folder)
 
     #expect(GlossaryStore.all(in: folder).map(\.name) == ["Psychologie"])
 }
@@ -219,7 +218,7 @@ private func temporaryFolder() -> URL {
     defer { try? FileManager.default.removeItem(at: root) }
     let course = "Psychologie"
     try CourseCorrections.remember(
-        CourseCorrection(find: "bordereux", replacement: "borderline"), for: course, in: root)
+        CourseCorrection(text: "bordereux", replacement: "borderline"), for: course, in: root)
     var entry = Entry(
         recording: root.appending(path: "cours.wav"), modelFile: ModelCatalog.recommended.id,
         glossary: Glossary(name: course, text: "borderline"), skipsSilence: false,
@@ -229,14 +228,15 @@ private func temporaryFolder() -> URL {
             Segment(start: 0, end: 30, text: " Sous-titrage Société Radio-Canada"),
             Segment(start: 31, end: 33, text: " Le trouble bordéreux."),
         ], partial: false)
+    entry.courseCorrections = CourseCorrections.all(for: course, in: root)
+    entry.publish(entry.decoded, partial: false)
     entry.state = .finished
-    CourseCorrections.apply(CourseCorrections.all(for: course, in: root), to: &entry)
     try HistoryStore.write(entry, in: root)
     let reloaded = AppModel(history: root)
     reloaded.courseCorrectionsFolder = root
     let stored = try #require(reloaded.entry(entry.id))
     #expect(stored.isEdited)
-    #expect(reloaded.hasOnlyCourseCorrections(stored))
+    #expect(stored.hasOnlyCourseCorrections)
     #expect(reloaded.canPutBackCredits(of: stored))
 
     reloaded.putBackCredits(entry.id)
@@ -246,7 +246,7 @@ private func temporaryFolder() -> URL {
     #expect(restored.paragraphs.map(\.text).joined().contains("borderline"))
 
     reloaded.edit(entry.id, paragraphAt: 0, text: "Une correction à la main.")
-    #expect(!reloaded.hasOnlyCourseCorrections(try #require(reloaded.entry(entry.id))))
+    #expect(!(try #require(reloaded.entry(entry.id))).hasOnlyCourseCorrections)
 }
 
 /// A remembered correction replaces whole words only: nobody reviews its
@@ -257,7 +257,7 @@ private func temporaryFolder() -> URL {
         glossary: nil, skipsSilence: false, subtitles: false)
     entry.publish([Segment(start: 0, end: 4, text: "Carl dit ca, et l'ego ca.")], partial: false)
 
-    CourseCorrections.apply([CourseCorrection(find: "ca", replacement: "ça")], to: &entry)
+    entry.apply([CourseCorrection(text: "ca", replacement: "ça")])
 
     #expect(entry.paragraphs.first?.text == "Carl dit ça, et l'ego ça.")
 }
@@ -267,7 +267,7 @@ private func temporaryFolder() -> URL {
 @Test func forgettingACorrectionIsSeenAtOnce() throws {
     let root = URL.temporaryDirectory.appending(path: UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: root) }
-    let correction = CourseCorrection(find: "Froid", replacement: "Freud")
+    let correction = CourseCorrection(text: "Froid", replacement: "Freud")
     try CourseCorrections.remember(correction, for: "Psychologie", in: root)
     let model = AppModel(history: root)
     model.courseCorrectionsFolder = root
@@ -276,4 +276,62 @@ private func temporaryFolder() -> URL {
     model.forget(correction, forCourse: "Psychologie")
 
     #expect(model.courseCorrections(forCourse: "Psychologie").isEmpty)
+}
+
+/// A correction that holds its own words leaves the places already correct,
+/// and the list a transcript took is the one applied again, whatever the
+/// course remembers later.
+@Test func courseCorrectionsApplyOnceAndStayWithTheirTranscript() {
+    var entry = Entry(
+        recording: URL(filePath: "/tmp/cours.wav"), modelFile: ModelCatalog.recommended.id,
+        glossary: nil, skipsSilence: false, subtitles: false)
+    entry.courseCorrections = [CourseCorrection(text: "Freud", replacement: "Sigmund Freud")]
+    entry.publish(
+        [Segment(start: 0, end: 4, text: "Freud et Sigmund Freud, puis Froid.")], partial: false)
+
+    #expect(entry.paragraphs.first?.text == "Sigmund Freud et Sigmund Freud, puis Froid.")
+    #expect(entry.hasOnlyCourseCorrections)
+}
+
+/// Reverting drops the course corrections, so rebuilding the paragraphs,
+/// as putting credits back does, keeps the text the user went back to.
+@MainActor
+@Test func revertingKeepsTheCourseCorrectionsOut() throws {
+    let root = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: root) }
+    var entry = Entry(
+        recording: root.appending(path: "cours.wav"), modelFile: ModelCatalog.recommended.id,
+        glossary: nil, skipsSilence: false, subtitles: false)
+    entry.courseCorrections = [CourseCorrection(text: "Froid", replacement: "Freud")]
+    entry.publish(
+        [
+            Segment(start: 0, end: 30, text: " Sous-titrage Société Radio-Canada"),
+            Segment(start: 31, end: 33, text: " Froid parle."),
+        ], partial: false)
+    entry.state = .finished
+    try HistoryStore.write(entry, in: root)
+    let model = AppModel(history: root)
+
+    model.revert(entry.id)
+    let reverted = try #require(model.entry(entry.id))
+    #expect(reverted.paragraphs.map(\.text).joined().contains("Froid"))
+    var rebuilt = reverted
+    let restored = rebuilt.putBackCredits()
+    #expect(restored)
+    #expect(rebuilt.paragraphs.map(\.text).joined().contains("Froid"))
+}
+
+/// A file that cannot be read is never written over.
+@Test func anUnreadableCorrectionsFileIsKept() throws {
+    let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: folder) }
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    let file = folder.appending(path: "Psychologie.corrections.json")
+    try Data("not json".utf8).write(to: file)
+
+    #expect(throws: (any Error).self) {
+        try CourseCorrections.remember(
+            CourseCorrection(text: "Froid", replacement: "Freud"), for: "Psychologie", in: folder)
+    }
+    #expect(try Data(contentsOf: file) == Data("not json".utf8))
 }
