@@ -21,9 +21,13 @@ private func open(_ player: Player) async throws {
 
 @MainActor
 @Test func resumingStepsBackSoTheSentenceIsHeardAgain() async throws {
-    let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
+    let suite = UUID().uuidString
+    let defaults = try #require(UserDefaults(suiteName: suite))
     let player = Player(defaults: defaults)
-    defer { player.stop() }
+    defer {
+        player.stop()
+        defaults.removePersistentDomain(forName: suite)
+    }
     try await open(player)
 
     player.seek(to: 3)
@@ -47,9 +51,13 @@ private func open(_ player: Player) async throws {
 
 @MainActor
 @Test func typingPausesPlaybackUnlessTheSettingIsOff() async throws {
-    let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
+    let suite = UUID().uuidString
+    let defaults = try #require(UserDefaults(suiteName: suite))
     let player = Player(defaults: defaults)
-    defer { player.stop() }
+    defer {
+        player.stop()
+        defaults.removePersistentDomain(forName: suite)
+    }
     try await open(player)
     #expect(player.isPlaying)
 
