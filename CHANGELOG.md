@@ -6,7 +6,8 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ### Fixed
 
-* Typing in a long transcript no longer stutters: corrections are written after a pause of a second, and when you leave the transcript or quit.
+* Pausing, resuming, jumping and stopping no longer click: the audio fades out and back in over a few hundredths of a second.
+* Typing in a long transcript no longer lags: a key redraws only the text being typed, the transcript takes it after a short pause or before anything reads it, and it is written to disk after a pause of a second, when you leave the transcript, or when you quit.
 
 ## 0.3.0 (2026-09-26)
 
