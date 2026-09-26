@@ -28,7 +28,7 @@ import Testing
 
     @Test(arguments: [
         (current: Int?.none, offset: 1, expected: Int?.some(0)),
-        (current: Int?.none, offset: -1, expected: Int?.some(2)),
+        (current: Int?.none, offset: -1, expected: Int?.some(0)),
         (current: Int?.some(1), offset: 1, expected: Int?.some(2)),
         (current: Int?.some(1), offset: -1, expected: Int?.some(0)),
         (current: Int?.some(2), offset: 1, expected: Int?.some(2)),

@@ -95,8 +95,8 @@ struct TranscriptView: View {
         }
     }
 
-    /// Which column is which, kept in view while the transcript scrolls: the
-    /// two texts are alike enough that losing the heading loses the meaning.
+    /// Which column is which, above the scrolling transcript: the two texts are
+    /// alike enough that losing the heading loses the meaning.
     private var headers: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 16) {
@@ -114,8 +114,6 @@ struct TranscriptView: View {
             .padding(.bottom, 6)
             Divider()
         }
-        .padding(.top, 2)
-        .background(.background)
     }
 
     private func row(_ index: Int) -> some View {
@@ -248,7 +246,8 @@ private struct ParagraphTime: View {
         Button(action: play) {
             HStack(spacing: 4) {
                 Image(systemName: player.isPlaying ? "play.fill" : "pause.fill")
-                    .font(.system(size: 8, weight: .semibold))
+                    .font(.caption2.weight(.semibold))
+                    .imageScale(.small)
                     .frame(width: 8)
                     .opacity(isCurrent ? 1 : 0)
                     .accessibilityHidden(true)
@@ -301,6 +300,7 @@ private final class RowFrames {
     var values: [Int: CGRect] = [:]
 }
 
+/// Which paragraph plays, and when following needs to scroll to it.
 nonisolated enum TranscriptNavigation {
     static func needsScroll(frame: CGRect?, height: CGFloat) -> Bool {
         guard let frame, height > 0 else { return true }
@@ -314,10 +314,11 @@ nonisolated enum TranscriptNavigation {
     }
 
     /// The paragraph `offset` places away, kept inside the transcript. With no
-    /// current paragraph, moving forward starts at the first one.
+    /// current paragraph, as before the first one, both directions start at
+    /// the first one.
     static func paragraph(from current: Int?, offset: Int, count: Int) -> Int? {
         guard count > 0 else { return nil }
-        guard let current else { return offset >= 0 ? 0 : count - 1 }
+        guard let current else { return 0 }
         return min(max(0, current + offset), count - 1)
     }
 }
@@ -334,6 +335,10 @@ struct ManualScroll: NSViewRepresentable {
 
     func updateNSView(_ view: Observer, context: Context) {
         view.action = action
+    }
+
+    static func dismantleNSView(_ view: Observer, coordinator: ()) {
+        view.stopMonitoring()
     }
 
     final class Observer: NSView {
@@ -354,8 +359,7 @@ struct ManualScroll: NSViewRepresentable {
 
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
-            if let monitor { NSEvent.removeMonitor(monitor) }
-            monitor = nil
+            stopMonitoring()
             guard window != nil else { return }
             monitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) {
                 [weak self] event in
@@ -364,8 +368,15 @@ struct ManualScroll: NSViewRepresentable {
             }
         }
 
+        func stopMonitoring() {
+            if let monitor { NSEvent.removeMonitor(monitor) }
+            monitor = nil
+        }
+
+        /// Fingers resting on the trackpad send events that move nothing.
         private func wheeled(_ event: NSEvent) {
-            guard event.window === window, let scroll = enclosingScrollView,
+            guard event.scrollingDeltaX != 0 || event.scrollingDeltaY != 0,
+                event.window === window, let scroll = enclosingScrollView,
                 scroll.bounds.contains(scroll.convert(event.locationInWindow, from: nil))
             else { return }
             action()

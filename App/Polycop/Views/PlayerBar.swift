@@ -43,7 +43,7 @@ struct PlayerBar: View {
                 Button {
                     seek(max(0, position - 5))
                 } label: {
-                    Image(systemName: "gobackward.5").font(.system(size: 16)).frame(
+                    Image(systemName: "gobackward.5").font(.title3).frame(
                         width: 32, height: 32)
                 }
                 .buttonStyle(.borderless)
@@ -71,7 +71,7 @@ struct PlayerBar: View {
                 Button {
                     seek(min(duration, position + 5))
                 } label: {
-                    Image(systemName: "goforward.5").font(.system(size: 16)).frame(
+                    Image(systemName: "goforward.5").font(.title3).frame(
                         width: 32, height: 32)
                 }
                 .buttonStyle(.borderless)
@@ -82,7 +82,7 @@ struct PlayerBar: View {
                 Button {
                     player.stop()
                 } label: {
-                    Image(systemName: "stop.fill").font(.system(size: 14)).frame(
+                    Image(systemName: "stop.fill").font(.body).frame(
                         width: 32, height: 32)
                 }
                 .buttonStyle(.borderless)
@@ -141,7 +141,7 @@ struct PlayerBar: View {
         .fixedSize()
         .padding(.horizontal, 10)
         .frame(height: 32)
-        .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 6))
+        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 6))
         .help("Playing speed")
         .accessibilityLabel("Playing speed")
     }

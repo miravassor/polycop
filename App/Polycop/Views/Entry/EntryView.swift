@@ -25,6 +25,9 @@ struct EntryView: View {
     @State private var jump: Int?
     @AppStorage("transcriptTextSize") private var size = 13.0
     @AppStorage("showsUncertainWords") private var showsUncertainWords = true
+    /// The timed words of each paragraph, grouped when the paragraphs change
+    /// rather than on every update of the page.
+    @State private var words: [[Segment.Word]] = []
 
     private var original: [Transcript.Paragraph] { entry.original }
     @State private var confirmingRemoval = false
@@ -56,18 +59,13 @@ struct EntryView: View {
                     },
                     hover: { focused = $0 },
                     original: original, isComparing: isComparing, isFollowing: isFollowing,
-                    suspendFollowing: {
-                        if isFollowing {
-                            isFollowing = false
-                            isFollowSuspended = true
-                        }
-                    },
+                    suspendFollowing: suspendFollowing,
                     jump: $jump, focused: focused, size: size,
                     active: activeParagraph, activate: { activeParagraph = $0 },
                     review: entry.reviewParagraphs,
                     toggleReview: { model.toggleReview(entry.id, paragraphAt: $0) },
                     matches: matches, currentMatch: currentMatch,
-                    words: WordLayout.grouped(entry.shown, into: entry.paragraphs),
+                    words: words,
                     showsUncertainWords: showsUncertainWords)
             }
             recording
@@ -78,7 +76,8 @@ struct EntryView: View {
         .onChange(of: model.player.isOpen) { _, isOpen in
             if !isOpen { isFollowSuspended = false }
         }
-        .onChange(of: entry.paragraphs) {
+        .onChange(of: entry.paragraphs, initial: true) {
+            words = WordLayout.grouped(entry.shown, into: entry.paragraphs)
             refreshSearch(navigate: false)
             if let activeParagraph, !entry.paragraphs.indices.contains(activeParagraph) {
                 self.activeParagraph = nil
@@ -388,17 +387,24 @@ struct EntryView: View {
         matches = TranscriptSearch.matches(in: entry.paragraphs, query: query)
         matchIndex = navigate ? 0 : min(matchIndex, max(0, matches.count - 1))
         if navigate, let currentMatch {
-            isFollowing = false
+            suspendFollowing()
             activeParagraph = currentMatch.paragraph
             jump = currentMatch.paragraph
         }
+    }
+
+    /// Stops following while the reader looks elsewhere, and offers the way back.
+    private func suspendFollowing() {
+        guard isFollowing else { return }
+        isFollowing = false
+        isFollowSuspended = true
     }
 
     private func navigateMatch(forward: Bool) {
         guard !matches.isEmpty else { return }
         matchIndex = (matchIndex + (forward ? 1 : matches.count - 1)) % matches.count
         if let currentMatch {
-            isFollowing = false
+            suspendFollowing()
             jump = currentMatch.paragraph
             activeParagraph = currentMatch.paragraph
         }
@@ -411,7 +417,7 @@ struct EntryView: View {
             ? indices.first { $0 > (activeParagraph ?? -1) } ?? indices.first
             : indices.last { $0 < (activeParagraph ?? entry.paragraphs.count) } ?? indices.last
         guard let next else { return }
-        isFollowing = false
+        suspendFollowing()
         activeParagraph = next
         jump = next
     }
