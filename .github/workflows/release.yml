@@ -73,5 +73,6 @@ jobs:
         run: |
           folder="build/releases/Polycop-$VERSION"
           gh release create "$GITHUB_REF_NAME" \
+            "$folder/Polycop-$VERSION.dmg" "$folder/Polycop-$VERSION.dmg.sha256" \
             "$folder/Polycop-$VERSION.zip" "$folder/Polycop-$VERSION.zip.sha256" \
             --title "Polycop $VERSION" --notes-file "$RUNNER_TEMP/notes.md" --draft

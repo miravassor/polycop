@@ -120,11 +120,31 @@ NOTE
 
 ARCHIVE="$OUTPUT/Polycop-$VERSION.zip"
 ditto -c -k --sequesterRsrc --keepParent "$FOLDER" "$STAGE/package.zip"
-# A hard link publishes the complete archive without replacing any existing file.
+
+# The disk image holds the app and a link to Applications, to drag it there.
+# hdiutil fails now and then on busy runners, so it gets a few attempts.
+IMAGE="$OUTPUT/Polycop-$VERSION.dmg"
+mkdir "$STAGE/image"
+ditto "$FOLDER/Polycop.app" "$STAGE/image/Polycop.app"
+ln -s /Applications "$STAGE/image/Applications"
+for attempt in 1 2 3; do
+    hdiutil create -quiet -volname "Polycop $VERSION" -srcfolder "$STAGE/image" \
+        -format UDZO "$STAGE/package.dmg" && break
+    [ "$attempt" = 3 ] && { echo "Could not create the disk image" >&2; exit 1; }
+    sleep 5
+done
+
+# Hard links publish each complete file without replacing any existing one.
 ln "$STAGE/package.zip" "$ARCHIVE"
+ln "$STAGE/package.dmg" "$IMAGE"
 mv "$FOLDER/Polycop.app" "$OUTPUT/Polycop.app"
 cp "$FOLDER/READ-ME.txt" "$OUTPUT/READ-ME.txt"
-(cd "$OUTPUT" && shasum -a 256 "Polycop-$VERSION.zip" > "Polycop-$VERSION.zip.sha256")
+(
+    cd "$OUTPUT"
+    shasum -a 256 "Polycop-$VERSION.zip" > "Polycop-$VERSION.zip.sha256"
+    shasum -a 256 "Polycop-$VERSION.dmg" > "Polycop-$VERSION.dmg.sha256"
+)
 echo "Local app: $OUTPUT/Polycop.app"
-echo "Archive: $ARCHIVE"
-cat "$OUTPUT/Polycop-$VERSION.zip.sha256"
+echo "Disk image: $IMAGE"
+echo "Archive with sources: $ARCHIVE"
+cat "$OUTPUT/Polycop-$VERSION.dmg.sha256" "$OUTPUT/Polycop-$VERSION.zip.sha256"
