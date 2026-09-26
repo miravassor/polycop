@@ -140,7 +140,9 @@ final class Player {
     /// Where the user asked to be, exactly, unlike a jump from a paragraph.
     func seek(to time: TimeInterval) {
         guard time.isFinite, let player else { return }
-        let time = min(max(0, time), duration > 0 ? duration : time)
+        // Until the length is known, the longest recording the app accepts
+        // bounds the position.
+        let time = min(max(0, time), duration > 0 ? duration : AudioDecoder.longestRecording)
         player.seek(
             to: CMTime(seconds: time, preferredTimescale: 1000), toleranceBefore: .zero,
             toleranceAfter: .zero)
