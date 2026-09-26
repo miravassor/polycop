@@ -168,6 +168,7 @@ import Testing
         #expect(entry.importSource == "Synthetic.srt")
         #expect(entry.timesSentences)
         model.edit(entry.id, paragraphAt: 0, text: "Correction.")
+        model.savePending()
         let restored = try #require(AppModel(history: history).entry(entry.id))
         #expect(restored.paragraphs.first?.text == "Correction.")
         #expect(restored.original.first?.text == "Bonjour.")

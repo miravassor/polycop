@@ -32,7 +32,7 @@ extension AppModel {
             entry.paragraphs.indices.contains(index), entry.paragraphs[index].text != text
         else { return }
         rememberCorrection(entry)
-        updateEntry(id) { $0.edit(paragraphAt: index, text: text) }
+        updateEntry(id, whileTyping: true) { $0.edit(paragraphAt: index, text: text) }
     }
 
     /// Replaces matches as one correction, so a single undo takes all of them back.

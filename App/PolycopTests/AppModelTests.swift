@@ -128,6 +128,7 @@ extension LoadingAModel {
             let id = try #require(model.entries.first?.id)
 
             model.edit(id, paragraphAt: 0, text: "Premier essai.")
+            model.savePending()
             #expect(
                 HistoryStore.all(in: history).entries.first?.paragraphs.first?.text
                     == "Premier essai.")
@@ -315,8 +316,8 @@ extension LoadingAModel {
     model.pane = .entry(entry.id)
     try FileManager.default.setAttributes([.posixPermissions: 0o500], ofItemAtPath: history.path)
     model.edit(entry.id, paragraphAt: 0, text: "Correction.")
-    #expect(model.hasUnsavedHistory)
     model.pane = .new
+    #expect(model.hasUnsavedHistory)
     #expect(model.storageFailure != nil)
     await model.shutDown()
     #expect(!model.retrySavingHistory())
