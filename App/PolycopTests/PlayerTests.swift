@@ -21,13 +21,11 @@ private func open(_ player: Player) async throws {
 
 @MainActor
 @Test func resumingStepsBackSoTheSentenceIsHeardAgain() async throws {
-    let suite = UUID().uuidString
-    let defaults = try #require(UserDefaults(suiteName: suite))
+    // Settings are registered, which keeps them in memory: a set value would
+    // leave a preferences file behind.
+    let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
     let player = Player(defaults: defaults)
-    defer {
-        player.stop()
-        defaults.removePersistentDomain(forName: suite)
-    }
+    defer { player.stop() }
     try await open(player)
 
     player.seek(to: 3)
@@ -44,20 +42,18 @@ private func open(_ player: Player) async throws {
 
     player.seek(to: 3)
     player.toggle()
-    defaults.set(0.0, forKey: Player.resumeRewindKey)
+    defaults.register(defaults: [Player.resumeRewindKey: 0.0])
     player.toggle()
     #expect(player.position == 3)
 }
 
 @MainActor
 @Test func typingPausesPlaybackUnlessTheSettingIsOff() async throws {
-    let suite = UUID().uuidString
-    let defaults = try #require(UserDefaults(suiteName: suite))
+    // Settings are registered, which keeps them in memory: a set value would
+    // leave a preferences file behind.
+    let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
     let player = Player(defaults: defaults)
-    defer {
-        player.stop()
-        defaults.removePersistentDomain(forName: suite)
-    }
+    defer { player.stop() }
     try await open(player)
     #expect(player.isPlaying)
 
@@ -65,7 +61,7 @@ private func open(_ player: Player) async throws {
     #expect(!player.isPlaying)
 
     player.toggle()
-    defaults.set(false, forKey: Player.pausesWhileTypingKey)
+    defaults.register(defaults: [Player.pausesWhileTypingKey: false])
     player.pauseForTyping()
     #expect(player.isPlaying)
 }
