@@ -36,9 +36,13 @@ final class Player {
         didSet {
             guard isPlaying else { return }
             player?.rate = speed
+            publishNowPlaying()
         }
     }
     private(set) var failure: String?
+
+    /// The speeds offered by the player bar and to the system controls.
+    static let speeds: [Float] = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4]
 
     /// Decoded copies, emptied at launch in case a run did not quit normally.
     nonisolated static let copies = URL.temporaryDirectory.appending(path: "Polycop Replay")
@@ -48,6 +52,7 @@ final class Player {
     private var copy: URL?
     private var observer: Any?
     private var preparation: Task<Void, Never>?
+    @ObservationIgnored private let nowPlaying = NowPlaying()
 
     /// A file is open, playing or not.
     var isOpen: Bool { player != nil }
@@ -92,6 +97,12 @@ final class Player {
             player.pause()
         }
         isPlaying = player.rate != 0
+        publishNowPlaying()
+    }
+
+    /// Moves `offset` seconds from the current position, as the skip buttons do.
+    func skip(by offset: TimeInterval) {
+        seek(to: position + offset)
     }
 
     /// Where the user asked to be, exactly, unlike a jump from a paragraph.
@@ -102,6 +113,7 @@ final class Player {
             to: CMTime(seconds: time, preferredTimescale: 1000), toleranceBefore: .zero,
             toleranceAfter: .zero)
         position = time
+        publishNowPlaying()
     }
 
     /// Releases playback, deletes the temporary copy and clears recording-specific errors.
@@ -109,6 +121,7 @@ final class Player {
         failure = nil
         preparation?.cancel()
         preparation = nil
+        nowPlaying.deactivate()
         if let observer { player?.removeTimeObserver(observer) }
         observer = nil
         player?.pause()
@@ -170,6 +183,7 @@ final class Player {
                 let self, self.player === player, length.seconds.isFinite
             else { return }
             self.duration = max(0, length.seconds)
+            self.publishNowPlaying()
         }
         observer = player.addPeriodicTimeObserver(
             forInterval: CMTime(value: 1, timescale: 4), queue: .main
@@ -177,6 +191,7 @@ final class Player {
             MainActor.assumeIsolated { self?.update(time) }
         }
         self.player = player
+        nowPlaying.activate(for: self)
         seek(player, to: time)
     }
 
@@ -184,7 +199,9 @@ final class Player {
     private func update(_ time: CMTime) {
         guard let player, time.seconds.isFinite else { return }
         position = time.seconds
+        let wasPlaying = isPlaying
         isPlaying = player.rate != 0
+        if isPlaying != wasPlaying { publishNowPlaying() }
         if player.currentItem?.status == .failed, let recording {
             failure = PlaybackError.unplayable(recording).localizedDescription
         }
@@ -199,6 +216,14 @@ final class Player {
         player.rate = speed
         position = start
         isPlaying = true
+        publishNowPlaying()
+    }
+
+    private func publishNowPlaying() {
+        guard player != nil, let recording else { return }
+        nowPlaying.publish(
+            title: recording.deletingPathExtension().lastPathComponent, duration: duration,
+            position: position, speed: speed, isPlaying: isPlaying)
     }
 
     /// 16-bit audio is enough for playback, and half the size of the samples.

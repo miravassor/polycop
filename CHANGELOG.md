@@ -2,6 +2,12 @@
 
 All notable changes are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
+## Unreleased
+
+### Added
+
+* The keyboard media keys, Control Center and headphone buttons control playback: play and pause, five seconds back or forward, a chosen position and the playback speed.
+
 ## 0.2.0 (2026-09-25)
 
 ### Added
