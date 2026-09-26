@@ -230,10 +230,12 @@ extension LoadingAModel {
         of: "Bonjour à tous. L'encodage, d'abord ?", timedBy: words)
 
     #expect(
-        sentences == [
+        sentences?.map { $0.replacing(text: $0.text) } == [
             Segment(start: 0.2, end: 1.0, text: "Bonjour à tous."),
             Segment(start: 1.8, end: 3.1, text: "L'encodage, d'abord ?"),
         ])
+    // Each sentence keeps the words that time it, to play from one of them.
+    #expect(sentences?.map { $0.words?.count } == [3, 4])
 }
 
 /// Words that do not spell the text give no times rather than wrong ones.

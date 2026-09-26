@@ -223,7 +223,7 @@ private func finished(_ recording: URL, in history: URL, model: String, language
 
     model.setSubtitles(true, for: entry.id)
 
-    #expect(model.exportState(of: try #require(model.entry(entry.id))) == .outOfDate)
+    #expect(model.exportState(of: try #require(model.entry(entry.id))) == .none)
     model.export(entry.id, to: folder.appending(path: "cours.txt"))
     #expect(
         model.entry(entry.id)?.saved.map(\.lastPathComponent) == ["cours.txt", "cours.srt"])

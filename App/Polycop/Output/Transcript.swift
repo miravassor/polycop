@@ -3,13 +3,12 @@
 import CryptoKit
 import Foundation
 
-/// Writes a finished transcription to disk, as paragraphs of plain text (each
-/// opening on its timestamp) and as SubRip captions for a player.
+/// Writes a finished transcription to disk, as paragraphs of text in the
+/// layout chosen for it and as SubRip captions for a player.
 ///
-/// Captions keep the times the engine reported. An earlier approach split a
-/// long segment by counting words, which assumed an even speaking rate and
-/// placed words at times no measurement supports; finer captions would need
-/// `whisper_full_get_token_t0`.
+/// Captions keep the segment times the engine reported. Splitting a long
+/// segment by counting words would assume an even speaking rate and place
+/// words at times no measurement supports.
 nonisolated enum Transcript {
 
     /// One paragraph of the text, opening `start` milliseconds into the recording.
@@ -85,6 +84,24 @@ nonisolated enum Transcript {
 
     static func text(_ paragraphs: [Paragraph]) -> String {
         paragraphs.map { "[\($0.time)] \($0.text)\n\n" }.joined()
+    }
+
+    /// How the text export lays out paragraphs. Stored with each transcript.
+    nonisolated enum TextLayout: String, Codable, CaseIterable, Sendable {
+        case timestamped
+        case plain
+        case markdown
+
+        var suffix: String { self == .markdown ? "md" : "txt" }
+    }
+
+    static func text(_ paragraphs: [Paragraph], layout: TextLayout, title: String) -> String {
+        switch layout {
+        case .timestamped: text(paragraphs)
+        case .plain: paragraphs.map { "\($0.text)\n\n" }.joined()
+        case .markdown:
+            "# \(title)\n\n" + paragraphs.map { "**\($0.time)** \($0.text)\n\n" }.joined()
+        }
     }
 
     static func subRip(_ segments: [Segment]) -> String {

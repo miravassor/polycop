@@ -8,7 +8,11 @@ nonisolated enum TranscriptSearch {
         let range: NSRange
     }
 
-    static func matches(in paragraphs: [Transcript.Paragraph], query: String) -> [Match] {
+    /// With `wholeWords`, a match must not continue a word on either side, so
+    /// a correction remembered for "Ca" leaves "Carl" alone.
+    static func matches(
+        in paragraphs: [Transcript.Paragraph], query: String, wholeWords: Bool = false
+    ) -> [Match] {
         let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return [] }
         var result: [Match] = []
@@ -20,10 +24,25 @@ nonisolated enum TranscriptSearch {
                     of: query, options: [.caseInsensitive, .diacriticInsensitive],
                     range: NSRange(location: offset, length: text.length - offset))
                 guard range.location != NSNotFound, range.length > 0 else { break }
-                result.append(Match(paragraph: index, range: range))
+                if !wholeWords || isWholeWord(range, in: text) {
+                    result.append(Match(paragraph: index, range: range))
+                }
                 offset = NSMaxRange(range)
             }
         }
         return result
+    }
+
+    /// Whether `range` neither starts nor ends in the middle of a word.
+    static func isWholeWord(_ range: NSRange, in text: NSString) -> Bool {
+        func isLetter(at index: Int) -> Bool {
+            guard index >= 0, index < text.length,
+                let scalar = UnicodeScalar(text.character(at: index))
+            else { return false }
+            return CharacterSet.alphanumerics.contains(scalar)
+        }
+        let end = NSMaxRange(range)
+        return !(isLetter(at: range.location - 1) && isLetter(at: range.location))
+            && !(isLetter(at: end - 1) && isLetter(at: end))
     }
 }

@@ -8,6 +8,9 @@ struct ShortcutHelpView: View {
             Section("Playback and correction") {
                 shortcut("Play or pause", "⇧⌘Space")
                 shortcut("Replay active paragraph", "⌥⌘R")
+                shortcut("Play next paragraph", "⌥⌘↓")
+                shortcut("Play previous paragraph", "⌥⌘↑")
+                shortcut("Play from a word", "⌥ Click")
                 shortcut("Undo typing in the active paragraph", "⌘Z")
                 shortcut("Smaller text", "⌘−")
                 shortcut("Larger text", "⌘+")
@@ -18,6 +21,7 @@ struct ShortcutHelpView: View {
             }
             Section("Search in the current transcript") {
                 shortcut("Find", "⌘F")
+                shortcut("Find and replace", "⌥⌘F")
                 shortcut("Next result", "⌘G")
                 shortcut("Previous result", "⇧⌘G")
                 Text("Result navigation is available while the search bar is open.")

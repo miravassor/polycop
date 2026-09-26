@@ -10,7 +10,7 @@ extension AppModel {
     /// repair needs silence removal, which only the entry's own engine
     /// supports, and text the user has not corrected.
     func canRepairRepeats(of entry: Entry) -> Bool {
-        !entry.isEdited && !entry.repeats.isEmpty
+        entry.hasOnlyCourseCorrections && !entry.repeats.isEmpty
             && (ModelCatalog.model(entry.modelFile)?.engine.skipsSilence ?? false)
     }
 

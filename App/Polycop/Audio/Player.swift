@@ -53,6 +53,24 @@ final class Player {
     private var observer: Any?
     private var preparation: Task<Void, Never>?
     @ObservationIgnored private let nowPlaying = NowPlaying()
+    @ObservationIgnored private let defaults: UserDefaults
+    /// Whether playback was paused while playing, as opposed to moved while
+    /// paused: only the first resumes a little earlier.
+    @ObservationIgnored private var resumesEarlier = false
+
+    /// Settings keys, shared with the Settings window.
+    static let resumeRewindKey = "resumeRewind"
+    static let pausesWhileTypingKey = "pausesWhileTyping"
+    /// How far back playback resumes after a pause, so the sentence is heard again.
+    static let defaultResumeRewind: TimeInterval = 1.5
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
+
+    private var resumeRewind: TimeInterval {
+        defaults.object(forKey: Self.resumeRewindKey) as? Double ?? Self.defaultResumeRewind
+    }
 
     /// A file is open, playing or not.
     var isOpen: Bool { player != nil }
@@ -91,13 +109,27 @@ final class Player {
     func toggle() {
         guard let player else { return }
         if player.rate == 0 {
-            if duration > 0, position >= duration - 0.05 { seek(to: 0) }
+            if duration > 0, position >= duration - 0.05 {
+                seek(to: 0)
+            } else if resumesEarlier {
+                seek(to: position - resumeRewind)
+            }
             player.rate = speed
+            resumesEarlier = false
         } else {
             player.pause()
+            resumesEarlier = true
         }
         isPlaying = player.rate != 0
         publishNowPlaying()
+    }
+
+    /// Pauses when the user starts typing a correction, unless the setting is off.
+    func pauseForTyping() {
+        guard isPlaying, defaults.object(forKey: Self.pausesWhileTypingKey) as? Bool ?? true else {
+            return
+        }
+        toggle()
     }
 
     /// Moves `offset` seconds from the current position, as the skip buttons do.
@@ -108,11 +140,14 @@ final class Player {
     /// Where the user asked to be, exactly, unlike a jump from a paragraph.
     func seek(to time: TimeInterval) {
         guard time.isFinite, let player else { return }
-        let time = min(max(0, time), duration > 0 ? duration : time)
+        // Until the length is known, the longest recording the app accepts
+        // bounds the position.
+        let time = min(max(0, time), duration > 0 ? duration : AudioDecoder.longestRecording)
         player.seek(
             to: CMTime(seconds: time, preferredTimescale: 1000), toleranceBefore: .zero,
             toleranceAfter: .zero)
         position = time
+        resumesEarlier = false
         publishNowPlaying()
     }
 

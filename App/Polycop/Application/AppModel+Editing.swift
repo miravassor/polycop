@@ -35,6 +35,15 @@ extension AppModel {
         updateEntry(id) { $0.edit(paragraphAt: index, text: text) }
     }
 
+    /// Replaces matches as one correction, so a single undo takes all of them back.
+    func replace(_ id: Entry.ID, matches: [TranscriptSearch.Match], with replacement: String) {
+        guard id != busyEntry, !isShuttingDown, let entry = entry(id) else { return }
+        var replaced = entry
+        guard replaced.replace(matches, with: replacement) else { return }
+        rememberCorrection(entry)
+        updateEntry(id) { $0 = replaced }
+    }
+
     private func rememberCorrection(_ entry: Entry) {
         var steps = corrections[entry.id] ?? []
         steps.append(entry.paragraphs)
@@ -75,6 +84,8 @@ extension AppModel {
             entry.paragraphs = entry.original
             entry.isEdited = false
             entry.isSaved = false
+            // Rebuilt paragraphs would otherwise take the corrections back.
+            entry.courseCorrections = []
         }
     }
 
@@ -94,7 +105,7 @@ extension AppModel {
     /// Refused while corrections can be stepped back: rebuilding the
     /// paragraphs would discard them.
     func canPutBackCredits(of entry: Entry) -> Bool {
-        entry.id != busyEntry && !entry.isEdited && !canUndo(entry.id)
+        entry.id != busyEntry && entry.hasOnlyCourseCorrections && !canUndo(entry.id)
     }
 
     func putBackCredits(_ id: Entry.ID) {
@@ -105,6 +116,22 @@ extension AppModel {
         // corrections recorded against the old ones no longer fit. A refusal
         // changes nothing and keeps them.
         if restored { corrections[id] = nil }
+    }
+
+    func setTextLayout(_ layout: Transcript.TextLayout, for id: Entry.ID) {
+        guard !isShuttingDown else { return }
+        updateEntry(id) {
+            $0.textLayout = layout
+            $0.isSaved = false
+        }
+    }
+
+    func setRemovesHesitations(_ on: Bool, for id: Entry.ID) {
+        guard !isShuttingDown else { return }
+        updateEntry(id) {
+            $0.removesHesitations = on
+            $0.isSaved = false
+        }
     }
 
     func setSubtitles(_ on: Bool, for id: Entry.ID) {

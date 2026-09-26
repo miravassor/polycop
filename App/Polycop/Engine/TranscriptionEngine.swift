@@ -52,12 +52,30 @@ nonisolated struct Segment: Equatable, Codable, Sendable {
     /// Who speaks, for a model that tells speakers apart, written as "S01",
     /// "S02" the way MOSS writes them, numbered afresh in each window it reads.
     var speaker: String? = nil
+    /// Each word with its times, for an engine that times words. Nil in records
+    /// written before words were kept.
+    var words: [Word]? = nil
 
-    func shifted(by offset: TimeInterval) -> Segment {
-        offset == 0
-            ? self : Segment(start: start + offset, end: end + offset, text: text, speaker: speaker)
+    nonisolated struct Word: Equatable, Codable, Sendable {
+        let text: String
+        let start: TimeInterval
+        let end: TimeInterval
+        /// From 0 to 1, for an engine that reports how sure it was.
+        var confidence: Float? = nil
     }
 
+    func shifted(by offset: TimeInterval) -> Segment {
+        guard offset != 0 else { return self }
+        return Segment(
+            start: start + offset, end: end + offset, text: text, speaker: speaker,
+            words: words?.map {
+                Word(
+                    text: $0.text, start: $0.start + offset, end: $0.end + offset,
+                    confidence: $0.confidence)
+            })
+    }
+
+    /// The words no longer match a new text, so they are dropped.
     func replacing(text: String) -> Segment {
         Segment(start: start, end: end, text: text, speaker: speaker)
     }

@@ -302,3 +302,85 @@ private func entry(_ name: String, in folder: URL, added: Date = .now) -> Entry 
     #expect(model.entry(entry.id)?.showsCredits == false)
     #expect(model.canUndo(entry.id))
 }
+
+@Test func replaceAllCorrectsEverySpellingOfAWord() {
+    var entry = Entry(
+        recording: URL(filePath: "/tmp/cours.wav"), modelFile: ModelCatalog.recommended.id,
+        glossary: nil, skipsSilence: false, subtitles: false)
+    entry.publish(
+        [
+            Segment(start: 0, end: 4, text: "Le trouble bordéreux et le Bordereux."),
+            Segment(start: 30, end: 34, text: "Un patient bordereux."),
+        ], partial: false)
+    let original = entry.paragraphs
+    let matches = TranscriptSearch.matches(in: entry.paragraphs, query: "bordereux")
+    #expect(matches.count == 3)
+
+    entry.replace(matches, with: "borderline")
+
+    #expect(entry.paragraphs.map(\.text).joined(separator: " ").contains("bordereux") == false)
+    #expect(entry.paragraphs.map(\.text).joined().components(separatedBy: "borderline").count == 4)
+    #expect(entry.isEdited)
+    #expect(entry.original == original)
+}
+
+@MainActor
+@Test func aReplacementIsOneCorrectionToUndo() throws {
+    let history = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: history) }
+    var entry = Entry(
+        recording: history.appending(path: "cours.wav"), modelFile: ModelCatalog.recommended.id,
+        glossary: nil, skipsSilence: false, subtitles: false)
+    entry.publish(
+        [
+            Segment(start: 0, end: 4, text: "Le trouble bordéreux."),
+            Segment(start: 30, end: 34, text: "Un patient bordereux."),
+        ], partial: false)
+    entry.state = .finished
+    try HistoryStore.write(entry, in: history)
+    let model = AppModel(history: history)
+    let before = try #require(model.entry(entry.id)).paragraphs
+
+    let unchanged = TranscriptSearch.matches(in: before, query: "patient")
+    model.replace(entry.id, matches: unchanged, with: "patient")
+    #expect(!model.canUndo(entry.id))
+
+    let matches = TranscriptSearch.matches(in: before, query: "bordereux")
+    model.replace(entry.id, matches: matches, with: "borderline")
+    #expect(model.entry(entry.id)?.paragraphs != before)
+    model.undo(entry.id)
+    #expect(model.entry(entry.id)?.paragraphs == before)
+    #expect(!model.canUndo(entry.id))
+}
+
+/// The export writes the layout chosen for this transcript, and a new layout
+/// makes the earlier export out of date.
+@MainActor
+@Test func theExportFollowsTheTranscriptsLayout() throws {
+    let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    let history = folder.appending(path: "History")
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: folder) }
+    var entry = Entry(
+        recording: folder.appending(path: "cours.wav"), modelFile: ModelCatalog.recommended.id,
+        glossary: nil, skipsSilence: false, subtitles: false)
+    entry.publish([Segment(start: 0, end: 4, text: "Euh, bonjour à tous.")], partial: false)
+    entry.state = .finished
+    try HistoryStore.write(entry, in: history)
+    let model = AppModel(history: history)
+
+    model.setTextLayout(.markdown, for: entry.id)
+    model.setRemovesHesitations(true, for: entry.id)
+    model.export(entry.id, to: folder.appending(path: "Cours.txt"))
+
+    let written = try String(contentsOf: folder.appending(path: "Cours.md"), encoding: .utf8)
+    #expect(written.hasPrefix("# cours\n"))
+    #expect(written.contains("**00:00:00** Bonjour à tous."))
+    let exported = try #require(model.entry(entry.id))
+    #expect(model.exportState(of: exported) == .current)
+
+    model.setTextLayout(.plain, for: entry.id)
+    #expect(model.exportState(of: try #require(model.entry(entry.id))) == .none)
+    model.setTextLayout(.markdown, for: entry.id)
+    #expect(model.exportState(of: try #require(model.entry(entry.id))) == .outOfDate)
+}

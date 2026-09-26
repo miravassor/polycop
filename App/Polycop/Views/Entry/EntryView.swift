@@ -15,11 +15,19 @@ struct EntryView: View {
     @State private var query = ""
     @State private var matches: [TranscriptSearch.Match] = []
     @State private var matchIndex = 0
+    @State private var isReplacing = false
+    @State private var replacement = ""
+    @State private var remembersReplacement = false
     @FocusState private var isSearchFocused: Bool
     @State private var isComparing = false
     @State private var isFollowing = false
+    @State private var isFollowSuspended = false
     @State private var jump: Int?
     @AppStorage("transcriptTextSize") private var size = 13.0
+    @AppStorage("showsUncertainWords") private var showsUncertainWords = true
+    /// The timed words of each paragraph, grouped when the paragraphs change
+    /// rather than on every update of the page.
+    @State private var words: [[Segment.Word]] = []
 
     private var original: [Transcript.Paragraph] { entry.original }
     @State private var confirmingRemoval = false
@@ -45,21 +53,31 @@ struct EntryView: View {
                     paragraphs: entry.paragraphs, resumed: entry.resumedParagraphs,
                     player: model.player, isEditable: !isRunning,
                     play: { model.replay(entry.id, from: $0) },
-                    edit: { model.edit(entry.id, paragraphAt: $0, text: $1) },
+                    edit: {
+                        model.player.pauseForTyping()
+                        model.edit(entry.id, paragraphAt: $0, text: $1)
+                    },
                     hover: { focused = $0 },
                     original: original, isComparing: isComparing, isFollowing: isFollowing,
+                    suspendFollowing: suspendFollowing,
                     jump: $jump, focused: focused, size: size,
                     active: activeParagraph, activate: { activeParagraph = $0 },
                     review: entry.reviewParagraphs,
                     toggleReview: { model.toggleReview(entry.id, paragraphAt: $0) },
-                    matches: matches, currentMatch: currentMatch)
+                    matches: matches, currentMatch: currentMatch,
+                    words: words,
+                    showsUncertainWords: showsUncertainWords)
             }
             recording
             actions
         }
         .padding(28)
         .onChange(of: query) { refreshSearch() }
-        .onChange(of: entry.paragraphs) {
+        .onChange(of: model.player.isOpen) { _, isOpen in
+            if !isOpen { isFollowSuspended = false }
+        }
+        .onChange(of: entry.paragraphs, initial: true) {
+            words = WordLayout.grouped(entry.shown, into: entry.paragraphs)
             refreshSearch(navigate: false)
             if let activeParagraph, !entry.paragraphs.indices.contains(activeParagraph) {
                 self.activeParagraph = nil
@@ -202,6 +220,13 @@ struct EntryView: View {
             Menu {
                 Button("Undo Last Correction") { model.undo(entry.id) }
                     .disabled(isRunning || !model.canUndo(entry.id))
+                Button("Find and Replace") {
+                    searching = true
+                    isReplacing = true
+                    isSearchFocused = true
+                }
+                .keyboardShortcut("f", modifiers: [.command, .option])
+                Toggle("Underline Uncertain Words", isOn: $showsUncertainWords)
                 Divider()
                 Button("Smaller text") { size = max(10, size - 1) }
                     .keyboardShortcut("-")
@@ -240,6 +265,30 @@ struct EntryView: View {
         .help("Replay the active paragraph with two seconds of context (Option-Command-R)")
     }
 
+    /// Plays the next or previous paragraph, counted from the one playing.
+    private func paragraphStep(by offset: Int) -> some View {
+        Button {
+            let starts = entry.paragraphs.map(\.seconds)
+            let current =
+                model.player.isOpen
+                ? TranscriptNavigation.paragraph(playingAt: model.player.position, starts: starts)
+                : activeParagraph
+            guard
+                let next = TranscriptNavigation.paragraph(
+                    from: current, offset: offset, count: starts.count)
+            else { return }
+            activeParagraph = next
+            jump = next
+            model.replay(entry.id, from: starts[next])
+        } label: {
+            Image(systemName: offset < 0 ? "chevron.up" : "chevron.down")
+        }
+        .keyboardShortcut(offset < 0 ? .upArrow : .downArrow, modifiers: [.command, .option])
+        .disabled(!entry.hasRecording)
+        .help(offset < 0 ? "Play the previous paragraph" : "Play the next paragraph")
+        .accessibilityLabel(offset < 0 ? "Play the previous paragraph" : "Play the next paragraph")
+    }
+
     private var findButton: some View {
         Button {
             searching = true
@@ -251,6 +300,13 @@ struct EntryView: View {
     }
 
     private var searchBar: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            findRow
+            if isReplacing { replaceRow }
+        }
+    }
+
+    private var findRow: some View {
         HStack(spacing: 12) {
             TextField("Find in your text", text: $query)
                 .textFieldStyle(.roundedBorder)
@@ -281,6 +337,8 @@ struct EntryView: View {
             .keyboardShortcut("g")
             .disabled(matches.isEmpty)
             .accessibilityLabel("Next search result")
+            Toggle("Replace", isOn: $isReplacing)
+                .toggleStyle(.checkbox)
             Button {
                 searching = false
                 query = ""
@@ -291,21 +349,62 @@ struct EntryView: View {
         }
     }
 
+    /// Replacement is literal, while finding ignores case and accents, so every
+    /// spelling of a misheard word is replaced by the same correction.
+    private var replaceRow: some View {
+        HStack(spacing: 12) {
+            TextField("Replace with", text: $replacement)
+                .textFieldStyle(.roundedBorder)
+                .onSubmit(replaceCurrentMatch)
+            Button("Replace", action: replaceCurrentMatch)
+                .disabled(currentMatch == nil || isRunning)
+            Button("Replace All") {
+                if remembersReplacement {
+                    model.remember(
+                        CourseCorrection(
+                            text: query.trimmingCharacters(in: .whitespacesAndNewlines),
+                            replacement: replacement),
+                        forCourseOf: entry.id)
+                }
+                model.replace(entry.id, matches: matches, with: replacement)
+            }
+            .disabled(matches.isEmpty || isRunning)
+            .help("Replace every result. Undo Last Correction takes them all back.")
+            if let course = entry.glossary {
+                Toggle("Remember for \(course)", isOn: $remembersReplacement)
+                    .toggleStyle(.checkbox)
+                    .help("Replace All also corrects this course's next transcripts.")
+            }
+        }
+    }
+
+    private func replaceCurrentMatch() {
+        guard let currentMatch else { return }
+        model.replace(entry.id, matches: [currentMatch], with: replacement)
+    }
+
     private func refreshSearch(navigate: Bool = true) {
         matches = TranscriptSearch.matches(in: entry.paragraphs, query: query)
         matchIndex = navigate ? 0 : min(matchIndex, max(0, matches.count - 1))
         if navigate, let currentMatch {
-            isFollowing = false
+            suspendFollowing()
             activeParagraph = currentMatch.paragraph
             jump = currentMatch.paragraph
         }
+    }
+
+    /// Stops following while the reader looks elsewhere, and offers the way back.
+    private func suspendFollowing() {
+        guard isFollowing else { return }
+        isFollowing = false
+        isFollowSuspended = true
     }
 
     private func navigateMatch(forward: Bool) {
         guard !matches.isEmpty else { return }
         matchIndex = (matchIndex + (forward ? 1 : matches.count - 1)) % matches.count
         if let currentMatch {
-            isFollowing = false
+            suspendFollowing()
             jump = currentMatch.paragraph
             activeParagraph = currentMatch.paragraph
         }
@@ -318,7 +417,7 @@ struct EntryView: View {
             ? indices.first { $0 > (activeParagraph ?? -1) } ?? indices.first
             : indices.last { $0 < (activeParagraph ?? entry.paragraphs.count) } ?? indices.last
         guard let next else { return }
-        isFollowing = false
+        suspendFollowing()
         activeParagraph = next
         jump = next
     }
@@ -327,14 +426,26 @@ struct EntryView: View {
         VStack(alignment: .leading, spacing: 12) {
             Divider()
             HStack(spacing: 12) {
-                Text("Recording").font(.callout.weight(.medium))
-                if !entry.paragraphs.isEmpty { replayPassage }
+                Text("Audio").font(.callout.weight(.medium))
+                if !entry.paragraphs.isEmpty {
+                    replayPassage
+                    paragraphStep(by: -1)
+                    paragraphStep(by: 1)
+                }
                 Spacer(minLength: 12)
                 if !entry.paragraphs.isEmpty {
-                    Toggle("Follow playback", isOn: $isFollowing)
-                        .toggleStyle(.checkbox)
-                        .font(.callout)
-                        .help("Scroll to the paragraph being played")
+                    if isFollowSuspended {
+                        Button("Return to playback", systemImage: "arrow.uturn.backward") {
+                            isFollowing = true
+                            isFollowSuspended = false
+                        }
+                        .disabled(!model.player.isOpen)
+                    } else {
+                        Toggle("Follow playback", isOn: $isFollowing)
+                            .toggleStyle(.checkbox)
+                            .font(.callout)
+                            .help("Scroll to the paragraph being played")
+                    }
                 }
             }
             PlayerBar(
@@ -514,7 +625,11 @@ struct EntryView: View {
                     .popover(isPresented: $showingExportOptions) {
                         EntryExportOptions(
                             entry: entry, isRunning: isRunning, engine: engine,
-                            setSubtitles: { model.setSubtitles($0, for: entry.id) })
+                            setSubtitles: { model.setSubtitles($0, for: entry.id) },
+                            setTextLayout: { model.setTextLayout($0, for: entry.id) },
+                            setRemovesHesitations: {
+                                model.setRemovesHesitations($0, for: entry.id)
+                            })
                     }
                     export
                 }
@@ -571,7 +686,9 @@ struct EntryView: View {
         let panel = NSSavePanel()
         panel.nameFieldStringValue = Transcript.suggestedName(
             for: entry.name, partial: entry.isPartial)
-        panel.allowedContentTypes = [.plainText]
+        panel.allowedContentTypes =
+            entry.textLayout == .markdown
+            ? [UTType(filenameExtension: "md") ?? .plainText] : [.plainText]
         panel.directoryURL = entry.location.deletingLastPathComponent()
         panel.canCreateDirectories = true
         if entry.subtitles && entry.timesSentences {

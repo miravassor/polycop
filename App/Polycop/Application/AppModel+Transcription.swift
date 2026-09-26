@@ -288,6 +288,12 @@ extension AppModel {
             return
         }
         let kept = entry.decoded
+        // Taken once, when the transcript starts, so every layout of its text
+        // gets the same corrections.
+        if entry.courseCorrections == nil {
+            let remembered = courseCorrections(for: entry)
+            if !remembered.isEmpty { updateEntry(id) { $0.courseCorrections = remembered } }
+        }
         let recording = recording(of: entry)
         let catalogued = ModelCatalog.model(entry.modelFile)
         var settings = DecodingSettings()

@@ -32,6 +32,9 @@ struct PlayerBar: View {
         VStack(alignment: .leading, spacing: 12) {
             Timeline(
                 duration: duration, position: position, marks: marks, highlighted: highlighted,
+                current: player.isOpen
+                    ? TranscriptNavigation.paragraph(playingAt: player.position, starts: marks)
+                    : nil,
                 hover: hover, jump: jump,
                 scrub: { scrubbed = $0 },
                 reach: seek
@@ -40,7 +43,8 @@ struct PlayerBar: View {
                 Button {
                     seek(max(0, position - 5))
                 } label: {
-                    Image(systemName: "gobackward.5").frame(width: 20, height: 20)
+                    Image(systemName: "gobackward.5").font(.title3).frame(
+                        width: 32, height: 32)
                 }
                 .buttonStyle(.borderless)
                 .disabled(player.isPreparing || duration <= 0)
@@ -67,7 +71,8 @@ struct PlayerBar: View {
                 Button {
                     seek(min(duration, position + 5))
                 } label: {
-                    Image(systemName: "goforward.5").frame(width: 20, height: 20)
+                    Image(systemName: "goforward.5").font(.title3).frame(
+                        width: 32, height: 32)
                 }
                 .buttonStyle(.borderless)
                 .disabled(player.isPreparing || duration <= 0)
@@ -77,7 +82,8 @@ struct PlayerBar: View {
                 Button {
                     player.stop()
                 } label: {
-                    Image(systemName: "stop.fill").frame(width: 16)
+                    Image(systemName: "stop.fill").font(.body).frame(
+                        width: 32, height: 32)
                 }
                 .buttonStyle(.borderless)
                 .disabled(!player.isOpen && !player.isPreparing)
@@ -100,6 +106,11 @@ struct PlayerBar: View {
         }
         .padding(12)
         .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 10))
+        .overlay {
+            RoundedRectangle(cornerRadius: 10)
+                .strokeBorder(Color.primary.opacity(0.08))
+                .allowsHitTesting(false)
+        }
     }
 
     private func seek(_ time: TimeInterval) {
@@ -128,6 +139,9 @@ struct PlayerBar: View {
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
+        .padding(.horizontal, 10)
+        .frame(height: 32)
+        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 6))
         .help("Playing speed")
         .accessibilityLabel("Playing speed")
     }
@@ -147,6 +161,7 @@ private struct Timeline: View {
     let position: TimeInterval
     let marks: [TimeInterval]
     let highlighted: Int?
+    let current: Int?
     let hover: (Int?) -> Void
     let jump: (Int) -> Void
     let scrub: (TimeInterval) -> Void
@@ -167,10 +182,15 @@ private struct Timeline: View {
                     .frame(width: max(0, played - scale.inset), height: 4)
                     .offset(x: scale.inset)
                 ForEach(marks.indices, id: \.self) { index in
-                    let strong = index == highlighted
+                    let strong = index == highlighted || index == current
                     Rectangle()
-                        .fill(strong ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
-                        .frame(width: strong ? 2 : 1, height: strong ? 16 : 9)
+                        .fill(
+                            index == current
+                                ? AnyShapeStyle(.tint)
+                                : index == highlighted
+                                    ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary)
+                        )
+                        .frame(width: strong ? 2 : 1.5, height: strong ? 18 : 12)
                         .position(x: scale.offset(for: marks[index]), y: 14)
                 }
                 Circle()

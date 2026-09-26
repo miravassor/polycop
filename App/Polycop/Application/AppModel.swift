@@ -75,6 +75,13 @@ final class AppModel {
     }
     private(set) var imported: [ModelStore.Imported] = []
     let player = Player()
+    /// Where each course's remembered corrections are kept; tests use their own.
+    var courseCorrectionsFolder = GlossaryStore.directory {
+        didSet { readCourseCorrections = [:] }
+    }
+    /// Each course's corrections, read from disk once: the transcript page
+    /// asks for them on every update.
+    @ObservationIgnored var readCourseCorrections: [String: [CourseCorrection]] = [:]
 
     /// The file name of the chosen model. A name rather than a value, because
     /// the choice can be a catalogue entry or a file the user imported.

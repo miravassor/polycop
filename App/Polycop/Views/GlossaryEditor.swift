@@ -9,6 +9,7 @@ struct GlossaryEditor: View {
     let model: AppModel
     @Environment(\.dismiss) private var dismiss
     @State private var selection: String?
+    @State private var corrections: [CourseCorrection] = []
     @State private var text = ""
     @State private var count = 0
     @State private var exact = false
@@ -131,8 +132,40 @@ struct GlossaryEditor: View {
                     Button("Terms from Documents…") { findingTerms = true }
                     Text("BETA").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                 }
+                if !corrections.isEmpty { correctionList }
             }
+            .task(id: selection) { reloadCorrections() }
         }
+    }
+
+    /// Replacements remembered from Replace All, applied to new transcripts.
+    private var correctionList: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Corrections applied to new transcripts").font(.headline)
+            // Scrolls on its own, so a long list never squeezes the terms.
+            ScrollView {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(corrections, id: \.self) { correction in
+                        HStack(spacing: 8) {
+                            Text("\(correction.text) → \(correction.replacement)")
+                                .textSelection(.enabled)
+                            Spacer()
+                            Button("Forget") {
+                                guard let selection else { return }
+                                model.forget(correction, forCourse: selection)
+                                reloadCorrections()
+                            }
+                            .buttonStyle(.borderless)
+                        }
+                    }
+                }
+            }
+            .frame(maxHeight: 110)
+        }
+    }
+
+    private func reloadCorrections() {
+        corrections = selection.map { model.courseCorrections(forCourse: $0) } ?? []
     }
 
     @ViewBuilder

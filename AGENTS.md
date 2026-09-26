@@ -1,8 +1,9 @@
 # AGENTS.md
 
-Polycop is a macOS app that transcribes lectures on Apple Silicon, fully
-offline once a model is downloaded. SwiftUI, Swift 6, macOS 14 or later, arm64
-only. Licence GPL-3.0-or-later.
+Polycop is a macOS transcription and editing suite for lectures on Apple
+Silicon, fully offline once a model is downloaded. New work goes into both: the
+transcription and the tools to listen, correct and export. SwiftUI, Swift 6,
+macOS 14 or later, arm64 only. Licence GPL-3.0-or-later.
 
 ## Commands
 
@@ -63,9 +64,10 @@ Tools/                 build, fixture and packaging scripts
 
 ## Things that break silently
 
-* `Entry`, `Segment`, `Transcript.Paragraph`, `TranscriptFolder` and glossaries are
-  stored as JSON in `~/Library/Application Support/Polycop/`. Never rename their
-  stored properties or change their meaning: existing libraries must still load.
+* `Entry`, `Segment`, `Transcript.Paragraph`, `TranscriptFolder`, glossaries and the
+  course corrections beside them (`<course>.corrections.json`) are stored as JSON in
+  `~/Library/Application Support/Polycop/`. Never rename their stored properties or
+  change their meaning: existing libraries must still load.
 * Model files are identified by catalog id and verified by size and SHA-256. Changing
   a catalog entry means a new pinned file, never an edited hash.
 * Engines call C APIs on their own serial queue. Keep every whisper.cpp and audio.cpp
