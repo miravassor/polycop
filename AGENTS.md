@@ -116,6 +116,9 @@ Every page speaks the same visual language. The shared pieces live in
 * Tests never touch the user's library, preferences or Trash: use a temporary folder or
   an injected one, and register preference values in a suite rather than setting them,
   since a set value leaves a file behind.
+* A test that waits for asynchronous work polls for its result with a bound, as
+  `open(_:)` in `PlayerTests` does, rather than sleeping a fixed time: tests run in
+  parallel, and on CI they keep the main actor busy for seconds.
 
 ## Commits and pull requests
 
