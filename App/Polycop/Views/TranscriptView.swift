@@ -42,7 +42,7 @@ struct TranscriptView: View {
     private let timeColumnWidth: CGFloat = 80
     @Environment(\.accessibilityReduceMotion) private var reducesMotion
     @State private var playing: Int?
-    @State private var frames: [Int: CGRect] = [:]
+    @State private var frames = RowFrames()
 
     var body: some View {
         VStack(spacing: 8) {
@@ -54,21 +54,17 @@ struct TranscriptView: View {
                             ForEach(paragraphs.indices, id: \.self) { index in
                                 row(index)
                                     .id(index)
-                                    .background {
-                                        GeometryReader { geometry in
-                                            Color.clear.preference(
-                                                key: ParagraphFrames.self,
-                                                value: [
-                                                    index: geometry.frame(in: .named("transcript"))
-                                                ])
-                                        }
+                                    .onGeometryChange(for: CGRect.self) {
+                                        $0.frame(in: .named("transcript"))
+                                    } action: {
+                                        frames.values[index] = $0
                                     }
+                                    .onDisappear { frames.values[index] = nil }
                             }
                         }
                         .background(ManualScroll(action: suspendFollowing))
                     }
                     .coordinateSpace(name: "transcript")
-                    .onPreferenceChange(ParagraphFrames.self) { frames = $0 }
                     // Keep timer updates away from the paragraph layout.
                     .overlay(alignment: .top) {
                         Follow(
@@ -89,9 +85,8 @@ struct TranscriptView: View {
     }
 
     private func scroll(to paragraph: Int, in view: ScrollViewProxy, height: CGFloat) {
-        guard TranscriptNavigation.needsScroll(frame: frames[paragraph], height: height) else {
-            return
-        }
+        let frame = frames.values[paragraph]
+        guard TranscriptNavigation.needsScroll(frame: frame, height: height) else { return }
         withAnimation(reducesMotion ? nil : .easeInOut(duration: 0.24)) {
             view.scrollTo(paragraph, anchor: .top)
         }
@@ -271,12 +266,10 @@ private struct Follow: View {
     }
 }
 
-private struct ParagraphFrames: PreferenceKey {
-    static let defaultValue: [Int: CGRect] = [:]
-
-    static func reduce(value: inout [Int: CGRect], nextValue: () -> [Int: CGRect]) {
-        value.merge(nextValue(), uniquingKeysWith: { _, next in next })
-    }
+/// Where each row on screen sits, read only when following jumps. A plain
+/// class rather than state, so rows moving during a scroll redraw nothing.
+private final class RowFrames {
+    var values: [Int: CGRect] = [:]
 }
 
 nonisolated enum TranscriptNavigation {
@@ -287,7 +280,9 @@ nonisolated enum TranscriptNavigation {
     }
 }
 
-/// Live scroll notifications distinguish the reader's gestures from our own jumps.
+/// Tells the reader's scrolling from the jumps of following. Wheel and
+/// trackpad scrolls are seen as events, since a mouse wheel starts no live
+/// scroll; dragging the scroller starts one.
 struct ManualScroll: NSViewRepresentable {
     let action: () -> Void
 
@@ -301,6 +296,7 @@ struct ManualScroll: NSViewRepresentable {
 
     final class Observer: NSView {
         var action: () -> Void
+        private var monitor: Any?
 
         init(action: @escaping () -> Void) {
             self.action = action
@@ -313,6 +309,25 @@ struct ManualScroll: NSViewRepresentable {
         required init?(coder: NSCoder) { nil }
 
         override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            if let monitor { NSEvent.removeMonitor(monitor) }
+            monitor = nil
+            guard window != nil else { return }
+            monitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) {
+                [weak self] event in
+                self?.wheeled(event)
+                return event
+            }
+        }
+
+        private func wheeled(_ event: NSEvent) {
+            guard event.window === window, let scroll = enclosingScrollView,
+                scroll.bounds.contains(scroll.convert(event.locationInWindow, from: nil))
+            else { return }
+            action()
+        }
 
         @objc private func scrolled(_ notification: Notification) {
             guard let scroll = notification.object as? NSScrollView,
