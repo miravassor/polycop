@@ -18,6 +18,7 @@ struct EntryView: View {
     @FocusState private var isSearchFocused: Bool
     @State private var isComparing = false
     @State private var isFollowing = false
+    @State private var isFollowSuspended = false
     @State private var jump: Int?
     @AppStorage("transcriptTextSize") private var size = 13.0
 
@@ -48,6 +49,12 @@ struct EntryView: View {
                     edit: { model.edit(entry.id, paragraphAt: $0, text: $1) },
                     hover: { focused = $0 },
                     original: original, isComparing: isComparing, isFollowing: isFollowing,
+                    suspendFollowing: {
+                        if isFollowing {
+                            isFollowing = false
+                            isFollowSuspended = true
+                        }
+                    },
                     jump: $jump, focused: focused, size: size,
                     active: activeParagraph, activate: { activeParagraph = $0 },
                     review: entry.reviewParagraphs,
@@ -59,6 +66,9 @@ struct EntryView: View {
         }
         .padding(28)
         .onChange(of: query) { refreshSearch() }
+        .onChange(of: model.player.isOpen) { _, isOpen in
+            if !isOpen { isFollowSuspended = false }
+        }
         .onChange(of: entry.paragraphs) {
             refreshSearch(navigate: false)
             if let activeParagraph, !entry.paragraphs.indices.contains(activeParagraph) {
@@ -327,14 +337,22 @@ struct EntryView: View {
         VStack(alignment: .leading, spacing: 12) {
             Divider()
             HStack(spacing: 12) {
-                Text("Recording").font(.callout.weight(.medium))
+                Text("Audio").font(.callout.weight(.medium))
                 if !entry.paragraphs.isEmpty { replayPassage }
                 Spacer(minLength: 12)
                 if !entry.paragraphs.isEmpty {
-                    Toggle("Follow playback", isOn: $isFollowing)
-                        .toggleStyle(.checkbox)
-                        .font(.callout)
-                        .help("Scroll to the paragraph being played")
+                    if isFollowSuspended {
+                        Button("Return to playback", systemImage: "arrow.uturn.backward") {
+                            isFollowing = true
+                            isFollowSuspended = false
+                        }
+                        .disabled(!model.player.isOpen)
+                    } else {
+                        Toggle("Follow playback", isOn: $isFollowing)
+                            .toggleStyle(.checkbox)
+                            .font(.callout)
+                            .help("Scroll to the paragraph being played")
+                    }
                 }
             }
             PlayerBar(
