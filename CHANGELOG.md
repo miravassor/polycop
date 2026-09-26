@@ -2,6 +2,12 @@
 
 All notable changes are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
+## Unreleased
+
+### Fixed
+
+* Typing in a long transcript no longer stutters: corrections are written after a pause of a second, and when you leave the transcript or quit.
+
 ## 0.3.0 (2026-09-26)
 
 Polycop now grows as a transcription and editing suite: this release is mostly
