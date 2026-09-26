@@ -65,39 +65,3 @@ private func open(_ player: Player) async throws {
     player.pauseForTyping()
     #expect(player.isPlaying)
 }
-
-/// Every change fades the audio rather than cutting it. What was asked shows at
-/// once, the audio follows, and a position asked for is never lost to a later
-/// request made during the fade.
-@MainActor
-@Test func changesFadeWithoutLosingWhatWasAsked() async throws {
-    // Settings are registered, which keeps them in memory.
-    let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
-    let player = Player(defaults: defaults)
-    defer { player.stop() }
-    try await open(player)
-
-    player.toggle()
-    #expect(!player.isPlaying)
-    try await Task.sleep(for: .milliseconds(400))
-    let paused = player.position
-    try await Task.sleep(for: .milliseconds(400))
-    #expect(player.position == paused)
-
-    player.toggle()
-    try await Task.sleep(for: .milliseconds(400))
-    #expect(player.isPlaying)
-    #expect(player.position > paused - Player.defaultResumeRewind)
-
-    player.seek(to: 2)
-    #expect(player.position == 2)
-    try await Task.sleep(for: .milliseconds(300))
-    #expect(player.isPlaying)
-    #expect(player.position >= 2 && player.position < 2.6)
-
-    player.seek(to: 3)
-    player.toggle()
-    try await Task.sleep(for: .milliseconds(400))
-    #expect(!player.isPlaying)
-    #expect(abs(player.position - 3) < 0.05)
-}

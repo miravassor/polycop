@@ -28,7 +28,9 @@ import Testing
     #expect(edits == ["Bonjour à tous."])
 
     type("Bonsoir à tous.")
-    try await Task.sleep(for: .seconds(1))
+    for _ in 0..<100 where edits.count < 2 {
+        try await Task.sleep(for: .milliseconds(50))
+    }
     #expect(edits == ["Bonjour à tous.", "Bonsoir à tous."])
 
     type("Bonsoir à toutes.")
