@@ -108,3 +108,10 @@ import Testing
     let older = Data(#"{"start": 1, "end": 2, "text": "Bonjour"}"#.utf8)
     #expect(try JSONDecoder().decode(Segment.self, from: older).words == nil)
 }
+
+/// A paragraph rewritten from end to end finds none of its words, and the
+/// search stops growing at the length of the text.
+@Test func aRewrittenParagraphPlacesNoWord() {
+    let words = (0..<120).map { Segment.Word(text: "mot\($0)", start: Double($0), end: Double($0)) }
+    #expect(WordLayout.place(words, in: "Passage inaudible, à réécouter.").isEmpty)
+}

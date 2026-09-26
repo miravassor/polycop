@@ -39,8 +39,8 @@ nonisolated enum WordLayout {
         let string = text as NSString
         var cursor = 0
         // A few words of slack, so a deleted word does not match much later.
-        // Each word not found doubles it, so the search catches up after an
-        // insertion or a rewrite.
+        // Each word not found doubles it, up to the whole text, so the search
+        // catches up after an insertion or a rewrite.
         var slack = 40
         var placed: [Placed] = []
         for word in words {
@@ -49,7 +49,7 @@ nonisolated enum WordLayout {
             let window = NSRange(
                 location: cursor, length: min(string.length - cursor, length + slack))
             guard let found = find(word.text, in: string, within: window) else {
-                slack *= 2
+                slack = min(slack * 2, string.length)
                 continue
             }
             placed.append(Placed(range: found, start: word.start, confidence: word.confidence))
