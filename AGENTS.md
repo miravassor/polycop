@@ -81,6 +81,9 @@ Every page speaks the same visual language. The shared pieces live in
 * One prominent button per area, for its main action; the rest use the default style.
 * A wide window, as in full screen, uses its width through columns rather than one
   narrow column beside empty space. Check a change in a narrow and a wide window.
+* No `.frame(minWidth:minHeight:)` around a whole page: SwiftUI asks for the minimum
+  after every change, and such a frame measures the page to answer. The window and the
+  detail column give theirs with `minimumSize` in `ContentView`.
 
 ## Things that break silently
 
