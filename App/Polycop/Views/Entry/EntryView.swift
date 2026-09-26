@@ -602,7 +602,11 @@ struct EntryView: View {
                     .popover(isPresented: $showingExportOptions) {
                         EntryExportOptions(
                             entry: entry, isRunning: isRunning, engine: engine,
-                            setSubtitles: { model.setSubtitles($0, for: entry.id) })
+                            setSubtitles: { model.setSubtitles($0, for: entry.id) },
+                            setTextLayout: { model.setTextLayout($0, for: entry.id) },
+                            setRemovesHesitations: {
+                                model.setRemovesHesitations($0, for: entry.id)
+                            })
                     }
                     export
                 }
@@ -659,7 +663,9 @@ struct EntryView: View {
         let panel = NSSavePanel()
         panel.nameFieldStringValue = Transcript.suggestedName(
             for: entry.name, partial: entry.isPartial)
-        panel.allowedContentTypes = [.plainText]
+        panel.allowedContentTypes =
+            entry.textLayout == .markdown
+            ? [UTType(filenameExtension: "md") ?? .plainText] : [.plainText]
         panel.directoryURL = entry.location.deletingLastPathComponent()
         panel.canCreateDirectories = true
         if entry.subtitles && entry.timesSentences {

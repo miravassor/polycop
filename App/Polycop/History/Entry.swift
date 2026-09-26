@@ -39,6 +39,11 @@ nonisolated struct Entry: Identifiable, Equatable, Codable, Sendable {
     private(set) var language: String?
     private(set) var skipsSilence: Bool
     var subtitles: Bool
+    /// Layout of the text export. Nil in records written before the choice
+    /// existed, which exported timestamped paragraphs.
+    var textLayout: Transcript.TextLayout?
+    /// Whether the text export leaves out hesitation sounds.
+    var removesHesitations: Bool?
     var state: State
 
     /// Everything the engine wrote, credit lines included.

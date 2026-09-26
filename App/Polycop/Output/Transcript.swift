@@ -87,6 +87,24 @@ nonisolated enum Transcript {
         paragraphs.map { "[\($0.time)] \($0.text)\n\n" }.joined()
     }
 
+    /// How the text export lays out paragraphs. Stored with each transcript.
+    nonisolated enum TextLayout: String, Codable, CaseIterable, Sendable {
+        case timestamped
+        case plain
+        case markdown
+
+        var suffix: String { self == .markdown ? "md" : "txt" }
+    }
+
+    static func text(_ paragraphs: [Paragraph], layout: TextLayout, title: String) -> String {
+        switch layout {
+        case .timestamped: text(paragraphs)
+        case .plain: paragraphs.map { "\($0.text)\n\n" }.joined()
+        case .markdown:
+            "# \(title)\n\n" + paragraphs.map { "**\($0.time)** \($0.text)\n\n" }.joined()
+        }
+    }
+
     static func subRip(_ segments: [Segment]) -> String {
         var lines: [String] = []
         for (index, segment) in segments.enumerated() {

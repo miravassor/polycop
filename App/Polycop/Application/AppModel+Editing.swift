@@ -117,6 +117,22 @@ extension AppModel {
         if restored { corrections[id] = nil }
     }
 
+    func setTextLayout(_ layout: Transcript.TextLayout, for id: Entry.ID) {
+        guard !isShuttingDown else { return }
+        updateEntry(id) {
+            $0.textLayout = layout
+            $0.isSaved = false
+        }
+    }
+
+    func setRemovesHesitations(_ on: Bool, for id: Entry.ID) {
+        guard !isShuttingDown else { return }
+        updateEntry(id) {
+            $0.removesHesitations = on
+            $0.isSaved = false
+        }
+    }
+
     func setSubtitles(_ on: Bool, for id: Entry.ID) {
         guard !isShuttingDown else { return }
         updateEntry(id) {

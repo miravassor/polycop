@@ -66,7 +66,19 @@ extension AppModel {
     }
 
     private func formats(of entry: Entry) -> [(suffix: String, contents: String)] {
-        var formats = [(suffix: "txt", contents: Transcript.text(entry.paragraphs))]
+        let layout = entry.textLayout ?? .timestamped
+        var paragraphs = entry.paragraphs
+        if entry.removesHesitations == true {
+            for index in paragraphs.indices {
+                paragraphs[index].text = Hesitations.removed(from: paragraphs[index].text)
+            }
+        }
+        var formats = [
+            (
+                suffix: layout.suffix,
+                contents: Transcript.text(paragraphs, layout: layout, title: entry.name)
+            )
+        ]
         if entry.subtitles, entry.timesSentences {
             formats.append((suffix: "srt", contents: Transcript.subRip(entry.shown)))
         }

@@ -463,3 +463,34 @@ func aShortCorrectResultIsNotReported(_ count: Int) {
     let expected = (0..<2000).map { "\($0) abc end " }.joined()
     #expect(Degeneration.shortened(source) == expected)
 }
+
+@Test(arguments: [
+    ("Euh, donc on commence.", "Donc on commence."),
+    ("Donc, euh, on commence.", "Donc, on commence."),
+    ("On commence euh.", "On commence."),
+    ("C'est bien. Hum… alors on voit.", "C'est bien. Alors on voit."),
+    ("Um, so we start.", "So we start."),
+    ("Le côté humain de l'heure.", "Le côté humain de l'heure."),
+    ("Ben voilà, du coup on arrête.", "Ben voilà, du coup on arrête."),
+])
+func hesitationsLeaveTheTextAndItsMeaning(text: String, expected: String) {
+    #expect(Hesitations.removed(from: text) == expected)
+}
+
+@Test func theTextExportFollowsTheChosenLayout() {
+    let paragraphs = [
+        Transcript.Paragraph(start: 0, text: "Bonjour à tous."),
+        Transcript.Paragraph(start: 65_000, text: "On commence."),
+    ]
+    #expect(
+        Transcript.text(paragraphs, layout: .timestamped, title: "Cours")
+            == "[00:00:00] Bonjour à tous.\n\n[00:01:05] On commence.\n\n")
+    #expect(
+        Transcript.text(paragraphs, layout: .plain, title: "Cours")
+            == "Bonjour à tous.\n\nOn commence.\n\n")
+    #expect(
+        Transcript.text(paragraphs, layout: .markdown, title: "Cours")
+            == "# Cours\n\n**00:00:00** Bonjour à tous.\n\n**00:01:05** On commence.\n\n")
+    #expect(Transcript.TextLayout.markdown.suffix == "md")
+    #expect(Transcript.TextLayout.plain.suffix == "txt")
+}

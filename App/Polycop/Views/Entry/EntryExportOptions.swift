@@ -4,16 +4,37 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Subtitle export choice, shown in a popover from the export options button.
+/// Export choices, shown in a popover from the export options button.
 struct EntryExportOptions: View {
     let entry: Entry
     let isRunning: Bool
     let engine: Engine?
     let setSubtitles: (Bool) -> Void
+    let setTextLayout: (Transcript.TextLayout) -> Void
+    let setRemovesHesitations: (Bool) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Export options").font(.headline)
+            Picker(
+                "Text",
+                selection: Binding(
+                    get: { entry.textLayout ?? .timestamped }, set: { setTextLayout($0) })
+            ) {
+                Text("With timestamps").tag(Transcript.TextLayout.timestamped)
+                Text("Without timestamps").tag(Transcript.TextLayout.plain)
+                Text("Markdown").tag(Transcript.TextLayout.markdown)
+            }
+            .disabled(isRunning)
+            Toggle(
+                "Leave out hesitations (euh, hum…)",
+                isOn: Binding(
+                    get: { entry.removesHesitations ?? false },
+                    set: { setRemovesHesitations($0) })
+            )
+            .toggleStyle(.checkbox)
+            .disabled(isRunning)
+            Divider()
             if entry.timesSentences {
                 Toggle(
                     "Include subtitles (SRT)",

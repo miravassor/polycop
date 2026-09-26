@@ -352,3 +352,33 @@ private func entry(_ name: String, in folder: URL, added: Date = .now) -> Entry 
     #expect(model.entry(entry.id)?.paragraphs == before)
     #expect(!model.canUndo(entry.id))
 }
+
+/// The export writes the layout chosen for this transcript, and a new layout
+/// makes the earlier export out of date.
+@MainActor
+@Test func theExportFollowsTheTranscriptsLayout() throws {
+    let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    let history = folder.appending(path: "History")
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: folder) }
+    var entry = Entry(
+        recording: folder.appending(path: "cours.wav"), modelFile: ModelCatalog.recommended.id,
+        glossary: nil, skipsSilence: false, subtitles: false)
+    entry.publish([Segment(start: 0, end: 4, text: "Euh, bonjour à tous.")], partial: false)
+    entry.state = .finished
+    try HistoryStore.write(entry, in: history)
+    let model = AppModel(history: history)
+
+    model.setTextLayout(.markdown, for: entry.id)
+    model.setRemovesHesitations(true, for: entry.id)
+    model.export(entry.id, to: folder.appending(path: "Cours.txt"))
+
+    let written = try String(contentsOf: folder.appending(path: "Cours.md"), encoding: .utf8)
+    #expect(written.hasPrefix("# "))
+    #expect(written.contains("**00:00:00** Bonjour à tous."))
+    let exported = try #require(model.entry(entry.id))
+    #expect(model.exportState(of: exported) == .current)
+
+    model.setTextLayout(.plain, for: entry.id)
+    #expect(model.exportState(of: try #require(model.entry(entry.id))) == .outOfDate)
+}
