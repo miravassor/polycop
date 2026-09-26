@@ -66,7 +66,8 @@ struct ParagraphEditor: NSViewRepresentable {
             playFrom(word.start)
             return true
         }
-        if view.string != text {
+        let replacesText = view.string != text
+        if replacesText {
             // Native undo ranges belong to the previous text after an external revert.
             view.breakUndoCoalescing()
             context.coordinator.undo.removeAllActions()
@@ -74,6 +75,10 @@ struct ParagraphEditor: NSViewRepresentable {
             view.string = text
             let end = (text as NSString).length
             view.setSelectedRange(NSRange(location: min(selected.location, end), length: 0))
+        }
+        if replacesText || context.coordinator.shownWord != playingWord {
+            show(playingWord, in: view)
+            context.coordinator.shownWord = playingWord
         }
         guard !view.hasMarkedText() else { return }
         if context.coordinator.revealed != currentMatch {
@@ -89,8 +94,7 @@ struct ParagraphEditor: NSViewRepresentable {
         let signature = Style(
             text: text, original: original, size: size, isRemoved: isRemoved,
             showsChanges: showsChanges, matches: matches, currentMatch: currentMatch,
-            uncertain: showsUncertainWords ? words.filter(\.isUncertain).map(\.range) : [],
-            playingWord: playingWord)
+            uncertain: showsUncertainWords ? words.filter(\.isUncertain).map(\.range) : [])
         guard context.coordinator.styled != signature else { return }
         style(view)
         context.coordinator.styled = signature
@@ -111,6 +115,19 @@ struct ParagraphEditor: NSViewRepresentable {
         let height = max(
             manager.usedRect(for: container).maxY, manager.extraLineFragmentRect.maxY)
         return CGSize(width: width, height: ceil(max(height, size * 1.5)))
+    }
+
+    /// The word being played, as a temporary attribute of the layout: it moves
+    /// several times a second, and restyling the text each time would compare
+    /// it with the original again.
+    private func show(_ word: NSRange?, in view: NSTextView) {
+        guard let manager = view.layoutManager else { return }
+        let whole = NSRange(location: 0, length: (view.string as NSString).length)
+        manager.removeTemporaryAttribute(.backgroundColor, forCharacterRange: whole)
+        guard let word, NSMaxRange(word) <= whole.length else { return }
+        manager.addTemporaryAttribute(
+            .backgroundColor, value: NSColor.controlAccentColor.withAlphaComponent(0.18),
+            forCharacterRange: word)
     }
 
     /// Corrections in their own colour, the rest as written.
@@ -153,11 +170,6 @@ struct ParagraphEditor: NSViewRepresentable {
                     ], range: word.range)
             }
         }
-        if let playingWord, NSMaxRange(playingWord) <= whole.length {
-            storage.addAttribute(
-                .backgroundColor, value: NSColor.controlAccentColor.withAlphaComponent(0.18),
-                range: playingWord)
-        }
         if let currentMatch, currentMatch.location >= 0, NSMaxRange(currentMatch) <= whole.length {
             storage.addAttribute(
                 .backgroundColor,
@@ -178,13 +190,13 @@ struct ParagraphEditor: NSViewRepresentable {
         let matches: [NSRange]
         let currentMatch: NSRange?
         let uncertain: [NSRange]
-        let playingWord: NSRange?
     }
 
     final class Coordinator: NSObject, NSTextViewDelegate {
         var parent: ParagraphEditor
         var styled: Style?
         var revealed: NSRange?
+        var shownWord: NSRange?
         var updating = false
         let undo = UndoManager()
 
