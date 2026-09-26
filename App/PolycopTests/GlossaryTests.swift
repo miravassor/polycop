@@ -167,3 +167,46 @@ private func temporaryFolder() -> URL {
     #expect(Glossary.terms(in: try #require(glossary.prompt(in: "en"))) == glossary.terms)
     #expect(Glossary.terms(in: try #require(glossary.prompt(in: "fr"))) == glossary.terms)
 }
+
+@Test func aCourseRemembersAndForgetsItsCorrections() throws {
+    let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let first = CourseCorrection(find: "bordéreux", replacement: "borderline")
+
+    try CourseCorrections.remember(first, for: "Psychologie", in: folder)
+    try CourseCorrections.remember(
+        CourseCorrection(find: "Bordereux", replacement: "état limite"), for: "Psychologie",
+        in: folder)
+    #expect(
+        CourseCorrections.all(for: "Psychologie", in: folder).map(\.replacement) == ["état limite"])
+
+    try CourseCorrections.forget(
+        CourseCorrection(find: "Bordereux", replacement: "état limite"), for: "Psychologie",
+        in: folder)
+    #expect(CourseCorrections.all(for: "Psychologie", in: folder).isEmpty)
+}
+
+@Test func courseCorrectionsBecomeTheUsersOwnCorrections() {
+    var entry = Entry(
+        recording: URL(filePath: "/tmp/cours.wav"), modelFile: ModelCatalog.recommended.id,
+        glossary: nil, skipsSilence: false, subtitles: false)
+    entry.publish([Segment(start: 0, end: 4, text: "Le trouble bordéreux.")], partial: false)
+    let original = entry.paragraphs
+
+    CourseCorrections.apply(
+        [CourseCorrection(find: "bordereux", replacement: "borderline")], to: &entry)
+
+    #expect(entry.paragraphs.first?.text == "Le trouble borderline.")
+    #expect(entry.isEdited)
+    #expect(entry.original == original)
+}
+
+@Test func theCorrectionsFileIsNotAGlossary() throws {
+    let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: folder) }
+    try GlossaryStore.save(Glossary(name: "Psychologie", text: "Freud"), in: folder)
+    try CourseCorrections.remember(
+        CourseCorrection(find: "Froid", replacement: "Freud"), for: "Psychologie", in: folder)
+
+    #expect(GlossaryStore.all(in: folder).map(\.name) == ["Psychologie"])
+}

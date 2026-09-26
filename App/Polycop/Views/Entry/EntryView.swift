@@ -17,6 +17,7 @@ struct EntryView: View {
     @State private var matchIndex = 0
     @State private var isReplacing = false
     @State private var replacement = ""
+    @State private var remembersReplacement = false
     @FocusState private var isSearchFocused: Bool
     @State private var isComparing = false
     @State private var isFollowing = false
@@ -359,10 +360,20 @@ struct EntryView: View {
             Button("Replace", action: replaceCurrentMatch)
                 .disabled(currentMatch == nil || isRunning)
             Button("Replace All") {
+                if remembersReplacement {
+                    model.remember(
+                        CourseCorrection(find: query, replacement: replacement),
+                        forCourseOf: entry.id)
+                }
                 model.replace(entry.id, matches: matches, with: replacement)
             }
             .disabled(matches.isEmpty || isRunning)
             .help("Replace every result. Undo Last Correction takes them all back.")
+            if let course = entry.glossary {
+                Toggle("Remember for \(course)", isOn: $remembersReplacement)
+                    .toggleStyle(.checkbox)
+                    .help("Replace All also corrects this course's next transcripts.")
+            }
         }
     }
 

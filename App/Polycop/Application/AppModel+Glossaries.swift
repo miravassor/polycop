@@ -59,6 +59,7 @@ extension AppModel {
     func deleteGlossary(named name: String) throws {
         defer { refreshGlossaries() }
         try GlossaryStore.delete(named: name)
+        CourseCorrections.delete(for: name)
         unsavedGlossaries[name] = nil
         if !hasUnsavedHistory { storageFailure = nil }
     }
@@ -115,4 +116,23 @@ extension AppModel {
         )
         updateEntry(id) { $0.glossaryWarning = warning }
     }
+
+    /// Remembers a replacement for the course of a transcript, for its next ones.
+    func remember(_ correction: CourseCorrection, forCourseOf id: Entry.ID) {
+        guard let name = entry(id)?.glossary else { return }
+        do {
+            try CourseCorrections.remember(correction, for: name)
+        } catch {
+            report(error)
+        }
+    }
+
+    func forget(_ correction: CourseCorrection, forCourse name: String) {
+        do {
+            try CourseCorrections.forget(correction, for: name)
+        } catch {
+            report(error)
+        }
+    }
+
 }

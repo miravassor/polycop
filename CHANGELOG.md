@@ -11,6 +11,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 * Option Command Down and Up play the next and previous paragraph, counted from the one playing.
 * Text export with or without timestamps, or as Markdown, and an option to leave out hesitations such as "euh" or "hum". Words that can carry meaning stay.
 * Word timings for new Whisper transcripts, and for Qwen3-ASR with the aligner: Option-click a word to play from it, and the word being played is highlighted. Words Whisper was unsure of are underlined, which can be turned off. Earlier transcripts have no word timings.
+* Replace All can remember a correction for the course, applied to its next transcripts as your own corrections. The glossary editor lists them, and each can be forgotten.
 
 ## 0.2.1 (2026-09-26)
 

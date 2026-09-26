@@ -373,10 +373,12 @@ extension AppModel {
                 guard isCurrent(number) else { return }
 
                 let result = kept + collected.withLock { $0 }
+                let corrections = entry.glossary.map { CourseCorrections.all(for: $0) } ?? []
                 updateEntry(id) {
                     $0.publish(result, partial: false)
                     $0.sentenceTimes = aligned ? true : nil
                     $0.state = .finished
+                    CourseCorrections.apply(corrections, to: &$0)
                 }
                 recordTimeSpent(since: started, on: id)
                 finish()
