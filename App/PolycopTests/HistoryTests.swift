@@ -374,11 +374,13 @@ private func entry(_ name: String, in folder: URL, added: Date = .now) -> Entry 
     model.export(entry.id, to: folder.appending(path: "Cours.txt"))
 
     let written = try String(contentsOf: folder.appending(path: "Cours.md"), encoding: .utf8)
-    #expect(written.hasPrefix("# "))
+    #expect(written.hasPrefix("# cours\n"))
     #expect(written.contains("**00:00:00** Bonjour à tous."))
     let exported = try #require(model.entry(entry.id))
     #expect(model.exportState(of: exported) == .current)
 
     model.setTextLayout(.plain, for: entry.id)
+    #expect(model.exportState(of: try #require(model.entry(entry.id))) == .none)
+    model.setTextLayout(.markdown, for: entry.id)
     #expect(model.exportState(of: try #require(model.entry(entry.id))) == .outOfDate)
 }

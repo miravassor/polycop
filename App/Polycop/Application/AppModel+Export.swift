@@ -27,11 +27,9 @@ extension AppModel {
                 FileManager.default.fileExists(atPath: $0.path(percentEncoded: false))
             })
         else { return .missing }
-        // A subtitle turned on or off changes which files an export is, so the
-        // update no longer has a target it can write over.
-        guard entry.saved.map(\.pathExtension) == formats(of: entry).map(\.suffix) else {
-            return .outOfDate
-        }
+        // A subtitle or a layout changed since means other files, so there is
+        // nothing to update: the export starts again from the save panel.
+        guard entry.saved.map(\.pathExtension) == suffixes(of: entry) else { return .none }
         return entry.isSaved ? .current : .outOfDate
     }
 
@@ -65,6 +63,12 @@ extension AppModel {
         }
     }
 
+    /// The files an export writes, without building their text.
+    private func suffixes(of entry: Entry) -> [String] {
+        [(entry.textLayout ?? .timestamped).suffix]
+            + (entry.subtitles && entry.timesSentences ? ["srt"] : [])
+    }
+
     private func formats(of entry: Entry) -> [(suffix: String, contents: String)] {
         let layout = entry.textLayout ?? .timestamped
         var paragraphs = entry.paragraphs
@@ -76,7 +80,9 @@ extension AppModel {
         var formats = [
             (
                 suffix: layout.suffix,
-                contents: Transcript.text(paragraphs, layout: layout, title: entry.name)
+                contents: Transcript.text(
+                    paragraphs, layout: layout,
+                    title: Transcript.suggestedName(for: entry.name, partial: entry.isPartial))
             )
         ]
         if entry.subtitles, entry.timesSentences {
