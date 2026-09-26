@@ -249,6 +249,7 @@ nonisolated final class WhisperEngine: TranscriptionEngine, @unchecked Sendable 
         parameters.new_segment_callback = { context, state, count, data in
             guard let data, let context, let state else { return }
             let handlers = Unmanaged<Handlers>.fromOpaque(data).takeUnretainedValue()
+            handlers.state = state
             let total = whisper_full_n_segments_from_state(state)
             for index in (total - count)..<total {
                 handlers.segment(
@@ -280,25 +281,12 @@ nonisolated final class WhisperEngine: TranscriptionEngine, @unchecked Sendable 
             throw TranscriptionError.failed(code)
         }
 
-        let end = whisper_token_eot(context)
-        return (0..<whisper_full_n_segments(context)).map { index in
-            Segment(
-                start: TimeInterval(whisper_full_get_segment_t0(context, index)) / 100,
-                end: TimeInterval(whisper_full_get_segment_t1(context, index)) / 100,
-                text: String(cString: whisper_full_get_segment_text(context, index)),
-                words: Self.words(
-                    from: (0..<whisper_full_n_tokens(context, index)).compactMap { token in
-                        guard whisper_full_get_token_id(context, index, token) < end else {
-                            return nil
-                        }
-                        return Token(
-                            bytes: Self.bytes(
-                                of: whisper_full_get_token_text(context, index, token)),
-                            probability: whisper_full_get_token_p(context, index, token),
-                            start: whisper_full_get_token_t0(context, index, token),
-                            end: whisper_full_get_token_t1(context, index, token))
-                    })
-            )
+        // whisper_full works on the context's own state, which the segment
+        // callback receives, so the result is read the same way. No callback
+        // means no segment.
+        guard let state = handlers.state else { return [] }
+        return (0..<whisper_full_n_segments_from_state(state)).map { index in
+            Self.segment(context: context, state: state, index: index)
         }
     }
 
@@ -368,6 +356,9 @@ nonisolated final class WhisperEngine: TranscriptionEngine, @unchecked Sendable 
         let progress: @Sendable (Double) -> Void
         let segment: @Sendable (Segment) -> Void
         let cancelled: OSAllocatedUnfairLock<Bool>
+        /// The state the segments are read from, set by the segment callback,
+        /// which runs within whisper_full on the same queue.
+        var state: OpaquePointer?
 
         init(
             progress: @escaping @Sendable (Double) -> Void,
