@@ -54,6 +54,9 @@ final class Player {
     private var preparation: Task<Void, Never>?
     @ObservationIgnored private let nowPlaying = NowPlaying()
     @ObservationIgnored private let defaults: UserDefaults
+    /// Whether playback was paused while playing, as opposed to moved while
+    /// paused: only the first resumes a little earlier.
+    @ObservationIgnored private var resumesEarlier = false
 
     /// Settings keys, shared with the Settings window.
     static let resumeRewindKey = "resumeRewind"
@@ -108,12 +111,14 @@ final class Player {
         if player.rate == 0 {
             if duration > 0, position >= duration - 0.05 {
                 seek(to: 0)
-            } else if position > 0 {
+            } else if resumesEarlier {
                 seek(to: position - resumeRewind)
             }
             player.rate = speed
+            resumesEarlier = false
         } else {
             player.pause()
+            resumesEarlier = true
         }
         isPlaying = player.rate != 0
         publishNowPlaying()
@@ -140,6 +145,7 @@ final class Player {
             to: CMTime(seconds: time, preferredTimescale: 1000), toleranceBefore: .zero,
             toleranceAfter: .zero)
         position = time
+        resumesEarlier = false
         publishNowPlaying()
     }
 

@@ -26,15 +26,21 @@ private func open(_ player: Player) async throws {
     defer { player.stop() }
     try await open(player)
 
-    player.toggle()
     player.seek(to: 3)
+    player.toggle()
     player.toggle()
     #expect(player.isPlaying)
     #expect(player.position == 3 - Player.defaultResumeRewind)
 
+    // Moved while paused: playback resumes exactly where the user chose.
+    player.toggle()
+    player.seek(to: 3)
+    player.toggle()
+    #expect(player.position == 3)
+
+    player.seek(to: 3)
     player.toggle()
     defaults.set(0.0, forKey: Player.resumeRewindKey)
-    player.seek(to: 3)
     player.toggle()
     #expect(player.position == 3)
 }
