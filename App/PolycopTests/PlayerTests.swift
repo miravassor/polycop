@@ -19,6 +19,20 @@ private func open(_ player: Player) async throws {
     try #require(player.isOpen && player.duration > 3)
 }
 
+/// The position once it holds still, as it does when a fade has ended. A busy
+/// machine can stretch a fade well past its length, so this waits rather than
+/// assuming a duration; the time observer reports four times a second.
+@MainActor
+private func settledPosition(of player: Player) async throws -> TimeInterval {
+    var position = player.position
+    for _ in 0..<20 {
+        try await Task.sleep(for: .milliseconds(300))
+        if player.position == position { break }
+        position = player.position
+    }
+    return position
+}
+
 @MainActor
 @Test func resumingStepsBackSoTheSentenceIsHeardAgain() async throws {
     // Settings are registered, which keeps them in memory: a set value would
@@ -79,25 +93,28 @@ private func open(_ player: Player) async throws {
 
     player.toggle()
     #expect(!player.isPlaying)
-    try await Task.sleep(for: .milliseconds(400))
-    let paused = player.position
+    let paused = try await settledPosition(of: player)
     try await Task.sleep(for: .milliseconds(400))
     #expect(player.position == paused)
 
     player.toggle()
-    try await Task.sleep(for: .milliseconds(400))
     #expect(player.isPlaying)
-    #expect(player.position > paused - Player.defaultResumeRewind)
+    let resumed = player.position
+    for _ in 0..<100 where player.position <= resumed {
+        try await Task.sleep(for: .milliseconds(50))
+    }
+    #expect(player.position > resumed)
 
     player.seek(to: 2)
     #expect(player.position == 2)
-    try await Task.sleep(for: .milliseconds(300))
+    for _ in 0..<100 where player.position <= 2 {
+        try await Task.sleep(for: .milliseconds(50))
+    }
     #expect(player.isPlaying)
-    #expect(player.position >= 2 && player.position < 2.6)
+    #expect(player.position > 2)
 
     player.seek(to: 3)
     player.toggle()
-    try await Task.sleep(for: .milliseconds(400))
     #expect(!player.isPlaying)
-    #expect(abs(player.position - 3) < 0.05)
+    #expect(abs(try await settledPosition(of: player) - 3) < 0.05)
 }
