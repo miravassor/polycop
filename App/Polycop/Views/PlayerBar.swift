@@ -32,7 +32,9 @@ struct PlayerBar: View {
         VStack(alignment: .leading, spacing: 12) {
             Timeline(
                 duration: duration, position: position, marks: marks, highlighted: highlighted,
-                current: player.isOpen ? marks.lastIndex { $0 <= player.position + 0.5 } : nil,
+                current: player.isOpen
+                    ? TranscriptNavigation.paragraph(playingAt: player.position, starts: marks)
+                    : nil,
                 hover: hover, jump: jump,
                 scrub: { scrubbed = $0 },
                 reach: seek

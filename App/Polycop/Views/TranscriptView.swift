@@ -262,7 +262,7 @@ private struct Follow: View {
 
     private var playing: Int? {
         guard player.isOpen else { return nil }
-        return starts.lastIndex { $0 <= player.position + 0.5 }
+        return TranscriptNavigation.paragraph(playingAt: player.position, starts: starts)
     }
 }
 
@@ -277,6 +277,19 @@ nonisolated enum TranscriptNavigation {
         guard let frame, height > 0 else { return true }
         // Long paragraphs only need their opening lines in view.
         return frame.minY < 0 || frame.minY + min(frame.height, 80) > height
+    }
+
+    /// The paragraph playing at `position`, with the half second of slack a jump takes.
+    static func paragraph(playingAt position: TimeInterval, starts: [TimeInterval]) -> Int? {
+        starts.lastIndex { $0 <= position + 0.5 }
+    }
+
+    /// The paragraph `offset` places away, kept inside the transcript. With no
+    /// current paragraph, moving forward starts at the first one.
+    static func paragraph(from current: Int?, offset: Int, count: Int) -> Int? {
+        guard count > 0 else { return nil }
+        guard let current else { return offset >= 0 ? 0 : count - 1 }
+        return min(max(0, current + offset), count - 1)
     }
 }
 

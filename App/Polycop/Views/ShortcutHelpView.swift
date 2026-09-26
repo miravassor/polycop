@@ -8,6 +8,8 @@ struct ShortcutHelpView: View {
             Section("Playback and correction") {
                 shortcut("Play or pause", "⇧⌘Space")
                 shortcut("Replay active paragraph", "⌥⌘R")
+                shortcut("Play next paragraph", "⌥⌘↓")
+                shortcut("Play previous paragraph", "⌥⌘↑")
                 shortcut("Undo typing in the active paragraph", "⌘Z")
                 shortcut("Smaller text", "⌘−")
                 shortcut("Larger text", "⌘+")

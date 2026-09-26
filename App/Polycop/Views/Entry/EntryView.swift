@@ -261,6 +261,30 @@ struct EntryView: View {
         .help("Replay the active paragraph with two seconds of context (Option-Command-R)")
     }
 
+    /// Plays the next or previous paragraph, counted from the one playing.
+    private func paragraphStep(by offset: Int) -> some View {
+        Button {
+            let starts = entry.paragraphs.map(\.seconds)
+            let current =
+                model.player.isOpen
+                ? TranscriptNavigation.paragraph(playingAt: model.player.position, starts: starts)
+                : activeParagraph
+            guard
+                let next = TranscriptNavigation.paragraph(
+                    from: current, offset: offset, count: starts.count)
+            else { return }
+            activeParagraph = next
+            jump = next
+            model.replay(entry.id, from: starts[next])
+        } label: {
+            Image(systemName: offset < 0 ? "chevron.up" : "chevron.down")
+        }
+        .keyboardShortcut(offset < 0 ? .upArrow : .downArrow, modifiers: [.command, .option])
+        .disabled(!entry.hasRecording)
+        .help(offset < 0 ? "Play the previous paragraph" : "Play the next paragraph")
+        .accessibilityLabel(offset < 0 ? "Play the previous paragraph" : "Play the next paragraph")
+    }
+
     private var findButton: some View {
         Button {
             searching = true
@@ -380,7 +404,11 @@ struct EntryView: View {
             Divider()
             HStack(spacing: 12) {
                 Text("Audio").font(.callout.weight(.medium))
-                if !entry.paragraphs.isEmpty { replayPassage }
+                if !entry.paragraphs.isEmpty {
+                    replayPassage
+                    paragraphStep(by: -1)
+                    paragraphStep(by: 1)
+                }
                 Spacer(minLength: 12)
                 if !entry.paragraphs.isEmpty {
                     if isFollowSuspended {

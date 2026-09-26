@@ -8,6 +8,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 * Find and replace in a transcript, with Replace All (Option Command F). A replacement is one correction to undo, and it matches every spelling that differs only in case or accents.
 * Playback steps back 1.5 seconds when it resumes after a pause, and pauses when you start typing a correction. Both can be changed in Settings.
+* Option Command Down and Up play the next and previous paragraph, counted from the one playing.
 
 ## 0.2.1 (2026-09-26)
 
