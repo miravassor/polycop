@@ -33,7 +33,8 @@ unless they agree to more.
 * **Changes shown as a diff** between what the model wrote and your corrected
   text.
 * **Audio player** made for proofreading: playback speed, a timeline with the
-  paragraphs, and the text following playback.
+  paragraphs, and the text following playback. The keyboard media keys, Control
+  Center and headphone buttons control it too.
 * **Course glossaries** for the models that use them: type the terms, import a
   list, or let the app suggest them from your course documents (PDF, Word, RTF,
   plain text).
