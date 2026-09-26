@@ -245,7 +245,8 @@ private struct ParagraphTime: View {
     var body: some View {
         Button(action: play) {
             HStack(spacing: 4) {
-                Image(systemName: player.isPlaying ? "play.fill" : "pause.fill")
+                // Read only in the current row, so play and pause redraw that row alone.
+                Image(systemName: isCurrent && player.isPlaying ? "play.fill" : "pause.fill")
                     .font(.caption2.weight(.semibold))
                     .imageScale(.small)
                     .frame(width: 8)
