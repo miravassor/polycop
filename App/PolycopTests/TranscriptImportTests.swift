@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import Foundation
+import AppKit
 import Testing
 
 @testable import Polycop
@@ -46,6 +46,38 @@ import Testing
         #expect(!entry.timesSentences)
         #expect(entry.importSource == "Course.txt")
         #expect(entry.hasValidHistory)
+    }
+
+    /// Recorder apps write bare times under a title and a date, in text or in
+    /// a Word document; the lines before the first time are left out.
+    @Test(arguments: ["txt", "docx"])
+    func recorderExportsImportWithBareTimes(suffix: String) throws {
+        let text =
+            "Cours synthétique\n2026-01-05 10:00:00\n00:00:00 Bonjour à tous.\n00:00:16 On commence."
+        let data =
+            suffix == "docx"
+            ? try NSAttributedString(string: text).data(
+                from: NSRange(location: 0, length: (text as NSString).length),
+                documentAttributes: [.documentType: NSAttributedString.DocumentType.officeOpenXML])
+            : Data(text.utf8)
+
+        let parsed = try TranscriptImport.parse(data, extension: suffix)
+
+        #expect(parsed.cues.map(\.start) == [0, 16])
+        #expect(parsed.cues.map(\.text) == ["Bonjour à tous.", "On commence."])
+    }
+
+    /// Once the times are bracketed, a line of text that opens on a time stays
+    /// text, and a bare time can sit alone above its words.
+    @Test func theFirstTimeDecidesTheStyle() throws {
+        let bracketed = try TranscriptImport.parse(
+            Data("[00:00:01] On se retrouve\n12:00 dans la salle B.".utf8), extension: "txt")
+        #expect(bracketed.cues.map(\.text) == ["On se retrouve\n12:00 dans la salle B."])
+
+        let alone = try TranscriptImport.parse(
+            Data("00:00:01\nBonjour.\n00:00:05\nSuite.".utf8), extension: "txt")
+        #expect(alone.cues.map(\.start) == [1, 5])
+        #expect(alone.cues.map(\.text) == ["Bonjour.", "Suite."])
     }
 
     @Test func wordAlignmentKeepsTheFullTextAndPunctuation() throws {

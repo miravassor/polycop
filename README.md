@@ -37,8 +37,9 @@ unless they agree to more.
 * **Course glossaries** for the models that use them: type the terms, import a
   list, or let the app suggest them from your course documents (PDF, Word, RTF,
   plain text).
-* **Import** of a transcript made elsewhere (TXT, SRT, VTT, Whisper or audio.cpp
-  JSON) with its recording, to correct it the same way.
+* **Import** of a transcript made elsewhere (TXT or Word document with
+  timestamps, SRT, VTT, Whisper or audio.cpp JSON) with its recording, to correct
+  it the same way.
 * **Library** of transcripts, sorted in folders. Your recordings stay where they
   are.
 * **Safeguards**: a passage where a model repeats itself is shortened, stretches
