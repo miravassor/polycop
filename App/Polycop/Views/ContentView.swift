@@ -44,7 +44,7 @@ struct ContentView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(
                             highlightsUnfiled ? Color.accentColor.opacity(0.25) : .clear,
-                            in: RoundedRectangle(cornerRadius: 4)
+                            in: RoundedRectangle(cornerRadius: 6)
                         )
                         .contextMenu { newFolder }
                         .dropDestination(for: String.self) { items, _ in
@@ -83,7 +83,7 @@ struct ContentView: View {
                                 .background(
                                     highlighted == folder.id
                                         ? Color.accentColor.opacity(0.25) : .clear,
-                                    in: RoundedRectangle(cornerRadius: 4)
+                                    in: RoundedRectangle(cornerRadius: 6)
                                 )
                                 .dropDestination(for: String.self) { items, _ in
                                     drop(items, into: folder.id)

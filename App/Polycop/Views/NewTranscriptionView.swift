@@ -409,19 +409,3 @@ func modelLicense(_ item: Model) -> some View {
 func formattedFileSize(_ bytes: Int64) -> String {
     ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
 }
-
-extension View {
-    /// The card every part of the New transcription page sits in.
-    fileprivate func panel(isHighlighted: Bool = false) -> some View {
-        padding(20)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                isHighlighted ? Color.accentColor.opacity(0.08) : Color.primary.opacity(0.03),
-                in: RoundedRectangle(cornerRadius: 10)
-            )
-            .overlay {
-                RoundedRectangle(cornerRadius: 10)
-                    .strokeBorder(isHighlighted ? Color.accentColor : Color.primary.opacity(0.12))
-            }
-    }
-}

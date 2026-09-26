@@ -152,8 +152,7 @@ struct EntryView: View {
                 Image(systemName: "info.circle").frame(width: 16, height: 16)
             }
             .buttonStyle(.plain)
-            .frame(width: 32, height: 28)
-            .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 6))
+            .iconControl()
             .accessibilityLabel("Transcription details")
             .help("Model, language and transcription settings")
             .popover(isPresented: $showingDetails) {
@@ -239,8 +238,7 @@ struct EntryView: View {
             }
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
-            .frame(width: 40, height: 24)
-            .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 6))
+            .iconControl()
             .accessibilityLabel("Text tools")
             .help("Text size and correction history")
         }

@@ -100,7 +100,7 @@ struct ModelManagerView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(
                         familyColor(family).opacity(0.08),
-                        in: RoundedRectangle(cornerRadius: 6)
+                        in: RoundedRectangle(cornerRadius: 10)
                     )
                     ForEach(ModelCatalog.all.filter { $0.engine == family }) { item in
                         Divider()

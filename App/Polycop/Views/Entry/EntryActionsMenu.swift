@@ -46,8 +46,7 @@ struct EntryActionsMenu: View {
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
-        .frame(width: 32, height: 28)
-        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 6))
+        .iconControl()
         .accessibilityLabel("Transcript actions")
         .help("Transcript actions")
     }
