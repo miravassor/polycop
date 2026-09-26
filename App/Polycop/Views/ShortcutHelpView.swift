@@ -6,7 +6,9 @@ struct ShortcutHelpView: View {
     var body: some View {
         Form {
             Section("Playback and correction") {
-                shortcut("Play or pause", "⇧⌘Space")
+                shortcut("Play or pause, outside the text", "Space")
+                shortcut("Play or pause, anywhere", "⇧⌘Space")
+                shortcut("Leave the text", "Esc")
                 shortcut("Replay active paragraph", "⌥⌘R")
                 shortcut("Play next paragraph", "⌥⌘↓")
                 shortcut("Play previous paragraph", "⌥⌘↑")
@@ -15,7 +17,7 @@ struct ShortcutHelpView: View {
                 shortcut("Smaller text", "⌘−")
                 shortcut("Larger text", "⌘+")
                 Text(
-                    "Replay starts two seconds before the active paragraph. Playback shortcuts work while you edit; Space remains available for typing."
+                    "Replay starts two seconds before the active paragraph. While you edit, Space types a space and the other shortcuts keep working; Esc leaves the text."
                 )
                 .font(.caption).foregroundStyle(.secondary)
             }

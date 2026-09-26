@@ -298,6 +298,11 @@ final class WordTextView: NSTextView {
         }
         super.mouseDown(with: event)
     }
+
+    /// Escape leaves the text, so that Space plays and pauses again.
+    override func cancelOperation(_ sender: Any?) {
+        window?.makeFirstResponder(nil)
+    }
 }
 
 /// Typing held in paragraph editors before the model has it. A click, a
