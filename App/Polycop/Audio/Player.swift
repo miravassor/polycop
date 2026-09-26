@@ -42,7 +42,7 @@ final class Player {
     private(set) var failure: String?
 
     /// The speeds offered by the player bar and to the system controls.
-    static let speeds: [Float] = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4]
+    nonisolated static let speeds: [Float] = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4]
 
     /// Decoded copies, emptied at launch in case a run did not quit normally.
     nonisolated static let copies = URL.temporaryDirectory.appending(path: "Polycop Replay")

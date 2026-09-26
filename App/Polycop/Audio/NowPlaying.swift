@@ -2,76 +2,115 @@
 
 import MediaPlayer
 
+/// What a system control asks of the player.
+nonisolated enum RemoteAction: Equatable, Sendable {
+    case togglePlayPause
+    case play
+    case pause
+    case stop
+    case skip(TimeInterval)
+    case seek(TimeInterval)
+    case speed(Float)
+    /// A held key being released: seeking happened when it went down.
+    case ignore
+
+    @MainActor
+    func apply(to player: Player) {
+        switch self {
+        case .togglePlayPause: player.toggle()
+        case .play: if !player.isPlaying { player.toggle() }
+        case .pause: if player.isPlaying { player.toggle() }
+        case .stop: player.stop()
+        case .skip(let offset): player.skip(by: offset)
+        case .seek(let time): player.seek(to: time)
+        case .speed(let speed): player.speed = speed
+        case .ignore: break
+        }
+    }
+}
+
 /// Makes Polycop the system's Now Playing app while a recording is open, so the
 /// keyboard media keys, Control Center and headphone buttons control the player.
 final class NowPlaying {
     /// The step of the player bar's skip buttons.
-    static let skipInterval: TimeInterval = 5
+    nonisolated static let skipInterval: TimeInterval = 5
 
     private var targets: [(command: MPRemoteCommand, target: Any)] = []
+
+    /// The controls whose action does not depend on their event.
+    static func fixedActions(
+        in center: MPRemoteCommandCenter
+    ) -> [(command: MPRemoteCommand, action: RemoteAction)] {
+        [
+            (center.togglePlayPauseCommand, .togglePlayPause),
+            (center.playCommand, .play),
+            (center.pauseCommand, .pause),
+            (center.stopCommand, .stop),
+            (center.skipForwardCommand, .skip(skipInterval)),
+            (center.skipBackwardCommand, .skip(-skipInterval)),
+            // The rewind and fast forward keys of a Mac keyboard send the track
+            // commands when pressed and the seek commands when held.
+            (center.nextTrackCommand, .skip(skipInterval)),
+            (center.previousTrackCommand, .skip(-skipInterval)),
+        ]
+    }
+
+    /// A held key seeks one step when it goes down.
+    nonisolated static func seekAction(for type: MPSeekCommandEventType, offset: TimeInterval)
+        -> RemoteAction
+    {
+        type == .beginSeeking ? .skip(offset) : .ignore
+    }
+
+    /// Only the speeds the app offers. A rate of zero would leave playback unable to resume.
+    nonisolated static func speedAction(for rate: Float) -> RemoteAction? {
+        Player.speeds.contains(rate) ? .speed(rate) : nil
+    }
 
     func activate(for player: Player) {
         guard targets.isEmpty else { return }
         let center = MPRemoteCommandCenter.shared()
-        handle(center.togglePlayPauseCommand, for: player) { $0.toggle() }
-        handle(center.playCommand, for: player) { if !$0.isPlaying { $0.toggle() } }
-        handle(center.pauseCommand, for: player) { if $0.isPlaying { $0.toggle() } }
-        handle(center.stopCommand, for: player) { $0.stop() }
-
         let interval = [NSNumber(value: Self.skipInterval)]
         center.skipForwardCommand.preferredIntervals = interval
         center.skipBackwardCommand.preferredIntervals = interval
-        handle(center.skipForwardCommand, for: player) { $0.skip(by: Self.skipInterval) }
-        handle(center.skipBackwardCommand, for: player) { $0.skip(by: -Self.skipInterval) }
-        // The rewind and fast forward keys of a Mac keyboard send the track
-        // commands when pressed and the seek commands when held.
-        handle(center.nextTrackCommand, for: player) { $0.skip(by: Self.skipInterval) }
-        handle(center.previousTrackCommand, for: player) { $0.skip(by: -Self.skipInterval) }
-        handle(
-            center.seekForwardCommand, for: player, read: Self.beginsSeeking,
-            perform: { if $1 { $0.skip(by: Self.skipInterval) } })
-        handle(
-            center.seekBackwardCommand, for: player, read: Self.beginsSeeking,
-            perform: { if $1 { $0.skip(by: -Self.skipInterval) } })
-
         center.changePlaybackRateCommand.supportedPlaybackRates = Player.speeds.map {
             NSNumber(value: $0)
         }
-        handle(
-            center.changePlaybackRateCommand, for: player,
-            read: { ($0 as? MPChangePlaybackRateCommandEvent)?.playbackRate },
-            perform: { $0.speed = $1 })
-        handle(
-            center.changePlaybackPositionCommand, for: player,
-            read: { ($0 as? MPChangePlaybackPositionCommandEvent)?.positionTime },
-            perform: { $0.seek(to: $1) })
-    }
-
-    /// Whether a held key went down, rather than up. It seeks one step when it
-    /// goes down.
-    private static let beginsSeeking: @Sendable (MPRemoteCommandEvent) -> Bool? = {
-        ($0 as? MPSeekCommandEvent).map { $0.type == .beginSeeking }
-    }
-
-    private func handle(
-        _ command: MPRemoteCommand, for player: Player,
-        _ action: @escaping @MainActor (Player) -> Void
-    ) {
-        handle(command, for: player, read: { _ in () }, perform: { player, _ in action(player) })
+        for (command, action) in Self.fixedActions(in: center) {
+            handle(command, for: player) { _ in action }
+        }
+        handle(center.seekForwardCommand, for: player) {
+            ($0 as? MPSeekCommandEvent).map {
+                Self.seekAction(for: $0.type, offset: Self.skipInterval)
+            }
+        }
+        handle(center.seekBackwardCommand, for: player) {
+            ($0 as? MPSeekCommandEvent).map {
+                Self.seekAction(for: $0.type, offset: -Self.skipInterval)
+            }
+        }
+        handle(center.changePlaybackRateCommand, for: player) {
+            ($0 as? MPChangePlaybackRateCommandEvent).flatMap {
+                Self.speedAction(for: $0.playbackRate)
+            }
+        }
+        handle(center.changePlaybackPositionCommand, for: player) {
+            ($0 as? MPChangePlaybackPositionCommandEvent).map { .seek($0.positionTime) }
+        }
     }
 
     /// MediaPlayer calls handlers on a queue of its choosing, so each one reads
-    /// what it needs from the event there and runs the action on the main actor.
-    private func handle<Value: Sendable>(
+    /// its action from the event there and applies it on the main actor. An
+    /// event that cannot be read fails the command.
+    private func handle(
         _ command: MPRemoteCommand, for player: Player,
-        read: @escaping @Sendable (MPRemoteCommandEvent) -> Value?,
-        perform action: @escaping @MainActor (Player, Value) -> Void
+        action read: @escaping @Sendable (MPRemoteCommandEvent) -> RemoteAction?
     ) {
         command.isEnabled = true
         let target = command.addTarget { @Sendable [weak player] event in
             guard let player else { return .noActionableNowPlayingItem }
-            guard let value = read(event) else { return .commandFailed }
-            Task { @MainActor in action(player, value) }
+            guard let action = read(event) else { return .commandFailed }
+            Task { @MainActor in action.apply(to: player) }
             return .success
         }
         targets.append((command, target))
