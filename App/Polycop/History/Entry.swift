@@ -313,8 +313,10 @@ nonisolated struct Entry: Identifiable, Equatable, Codable, Sendable {
     }
 
     /// Replaces each match with `replacement`. Ranges are replaced from the end
-    /// of each paragraph so the earlier ones stay valid.
-    mutating func replace(_ matches: [TranscriptSearch.Match], with replacement: String) {
+    /// of each paragraph so the earlier ones stay valid. Returns whether the
+    /// text changed.
+    @discardableResult
+    mutating func replace(_ matches: [TranscriptSearch.Match], with replacement: String) -> Bool {
         var replaced = paragraphs
         for (index, inParagraph) in Dictionary(grouping: matches, by: \.paragraph)
         where replaced.indices.contains(index) {
@@ -325,11 +327,12 @@ nonisolated struct Entry: Identifiable, Equatable, Codable, Sendable {
             }
             replaced[index].text = text as String
         }
-        guard replaced != paragraphs else { return }
+        guard replaced != paragraphs else { return false }
         if originalParagraphs == nil { originalParagraphs = original }
         paragraphs = replaced
         isEdited = paragraphs != original
         isSaved = false
+        return true
     }
 
     /// The text alone cannot prove a hidden line was not said, so the user
