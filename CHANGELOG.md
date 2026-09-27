@@ -7,6 +7,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 ### Added
 
 * Playback that typing paused resumes on its own once you stop typing, two seconds later by default, stepping back as any resume does. Settings offers other delays, or never.
+* A transcript opens where you left it, when you come back to it or reopen the app: at the paragraph you were reading, with playback ready to resume where it stopped.
 
 ### Fixed
 
