@@ -48,9 +48,12 @@ import Testing
     let uncertain = written.filter(\.isUncertain).map(\.start)
     #expect(uncertain == [0.6])
 
-    // A corrected word is no longer found, and the words after it still are.
-    let corrected = WordLayout.place(words, in: "Le trouble borderline est connu.")
-    #expect(corrected.map(\.start) == [0, 0.2, 1.2, 1.4])
+    // A corrected word takes the time of the word it replaced, is no longer
+    // uncertain, and the words after it are still found.
+    let text = "Le trouble borderline est connu."
+    let corrected = WordLayout.place(words, in: text)
+    #expect(corrected.map(\.start) == [0, 0.2, 0.6, 1.2, 1.4])
+    #expect(corrected[2].range == (text as NSString).range(of: "borderline"))
     let stillUncertain = corrected.contains { $0.isUncertain }
     #expect(!stillUncertain)
 }
@@ -73,19 +76,45 @@ import Testing
 }
 
 /// Deleting words, common ones among them, keeps the words after them in
-/// place: the "de la" deleted is not matched to the one further on.
+/// place: the "de la" deleted is not matched to the one further on. While the
+/// words deleted are heard, no word is lit, unless they are as brief as a
+/// hesitation.
 @Test func deletedWordsLeaveTheRestInPlace() {
-    let spoken = "Le patient de la clinique présente un trouble de la personnalité."
+    let spoken = "Le patient de la clinique présente euh un trouble de la personnalité."
     let words = spoken.split(separator: " ").enumerated().map {
-        Segment.Word(text: String($1), start: Double($0), end: Double($0) + 0.9)
+        Segment.Word(text: String($1), start: Double($0) * 0.5, end: Double($0) * 0.5 + 0.45)
     }
     let text = "Le patient présente un trouble de la personnalité."
     let placed = WordLayout.place(words, in: text)
     let string = text as NSString
 
-    #expect(placed.map(\.start) == [0, 1, 5, 6, 7, 8, 9, 10])
-    #expect(WordLayout.playing(placed, at: 5.5) == string.range(of: "présente"))
-    #expect(WordLayout.playing(placed, at: 10.2) == string.range(of: "personnalité"))
+    #expect(
+        placed.filter { $0.range.length > 0 }.map(\.start) == [0, 0.5, 2.5, 3.5, 4, 4.5, 5, 5.5])
+    #expect(WordLayout.playing(placed, at: 1.2)?.length == 0)
+    #expect(WordLayout.playing(placed, at: 2.7) == string.range(of: "présente"))
+    #expect(WordLayout.playing(placed, at: 3.2) == string.range(of: "présente"))
+    #expect(WordLayout.playing(placed, at: 5.6) == string.range(of: "personnalité"))
+
+    // A click where deleted words were plays the first word shown, not them.
+    let opening = WordLayout.place(words, in: "Présente un trouble de la personnalité.")
+    #expect(WordLayout.time(at: 0, in: opening, from: 0) == 2.5)
+}
+
+/// Words written in place of others take their time, spread over it, so the
+/// word lit goes on through a rewritten passage.
+@Test func rewrittenWordsTakeTheTimeOfThoseTheyReplace() {
+    let spoken =
+        "on parle de la mémoire de travail c'est-à-dire la capacité à garder une information"
+    let words = spoken.split(separator: " ").enumerated().map {
+        Segment.Word(text: String($1), start: Double($0), end: Double($0) + 0.9)
+    }
+    let text = "On parle de la mémoire de travail, soit retenir une information."
+    let placed = WordLayout.place(words, in: text)
+    let string = text as NSString
+
+    #expect(WordLayout.playing(placed, at: 7.5) == string.range(of: "soit"))
+    #expect(WordLayout.playing(placed, at: 10.5) == string.range(of: "retenir"))
+    #expect(WordLayout.playing(placed, at: 12.5) == string.range(of: "une"))
 }
 
 /// Words an aligner split and stripped are found inside the written ones, as
@@ -196,8 +225,11 @@ import Testing
     #expect(try JSONDecoder().decode(Segment.self, from: older).words == nil)
 }
 
-/// A paragraph rewritten from end to end finds none of its words.
-@Test func aRewrittenParagraphPlacesNoWord() {
+/// A paragraph rewritten from end to end finds none of its words, and its
+/// own words share the time the paragraph was said in.
+@Test func aRewrittenParagraphSpreadsItsWordsOverItsTime() {
     let words = (0..<120).map { Segment.Word(text: "mot\($0)", start: Double($0), end: Double($0)) }
-    #expect(WordLayout.place(words, in: "Passage inaudible, à réécouter.").isEmpty)
+    let placed = WordLayout.place(words, in: "Passage inaudible, à réécouter.")
+    #expect(placed.map(\.start) == [0, 29.75, 59.5, 89.25])
+    #expect(placed.allSatisfy { $0.confidence == nil })
 }
