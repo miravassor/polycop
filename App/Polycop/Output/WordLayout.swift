@@ -33,45 +33,94 @@ nonisolated enum WordLayout {
         return groups
     }
 
-    /// Finds the words in `text` in order. A word corrected since, and so no
-    /// longer found close to where it was, is left out.
+    /// Finds the words in `text` by aligning both, as a diff does, rather than
+    /// searching word by word, which let a short word such as "de" match far
+    /// ahead and pull the rest of the paragraph out of place. Words are compared
+    /// by their runs of letters and digits, lowercased, as `TimedWords` matches
+    /// them, since an aligner splits "L'encodage" into "L" and "encodage" and
+    /// drops punctuation.
     static func place(_ words: [Segment.Word], in text: String) -> [Placed] {
-        let string = text as NSString
-        var cursor = 0
-        // A few words of slack, so a deleted word does not match much later.
-        // Each word not found doubles it, up to the whole text, so the search
-        // catches up after an insertion or a rewrite.
-        var slack = 40
+        let written = runs(in: text)
+        let spoken = words.indices.flatMap { word in
+            runs(in: words[word].text).map { (key: $0.key, word: word) }
+        }
         var placed: [Placed] = []
-        for word in words {
-            let length = (word.text as NSString).length
-            guard length > 0, cursor < string.length else { continue }
-            let window = NSRange(
-                location: cursor, length: min(string.length - cursor, length + slack))
-            guard let found = find(word.text, in: string, within: window) else {
-                slack = min(slack * 2, string.length)
-                continue
+        var last: (word: Int, run: Int)?
+        for (heard, found) in Edits.pairs(spoken.map(\.key), written.map(\.key)) {
+            let word = spoken[heard].word
+            if let last, last.word == word {
+                // A word of several runs spans those found side by side.
+                guard last.run == found - 1, let previous = placed.popLast() else { continue }
+                placed.append(
+                    Placed(
+                        range: NSUnionRange(previous.range, written[found].range),
+                        start: previous.start, confidence: previous.confidence))
+            } else {
+                placed.append(
+                    Placed(
+                        range: written[found].range, start: words[word].start,
+                        confidence: words[word].confidence))
             }
-            placed.append(Placed(range: found, start: word.start, confidence: word.confidence))
-            cursor = NSMaxRange(found)
-            slack = 40
+            last = (word, found)
         }
         return placed
     }
 
-    /// The first time `word` stands as a word in `window`, so that "a" is not
-    /// found inside "la".
-    private static func find(_ word: String, in text: NSString, within window: NSRange) -> NSRange?
-    {
-        var searched = window
-        while searched.length > 0 {
-            let found = text.range(of: word, options: [], range: searched)
-            guard found.location != NSNotFound else { return nil }
-            if TranscriptSearch.isWholeWord(found, in: text) { return found }
-            let next = NSMaxRange(found)
-            searched = NSRange(location: next, length: NSMaxRange(window) - next)
+    /// The runs of letters and digits in `text`, lowercased, with their ranges.
+    private static func runs(in text: String) -> [(key: String, range: NSRange)] {
+        var runs: [(key: String, range: NSRange)] = []
+        var start: (index: String.Index, offset: Int)?
+        var offset = 0
+        func close(at end: String.Index) {
+            guard let first = start else { return }
+            runs.append(
+                (
+                    text[first.index..<end].lowercased(),
+                    NSRange(location: first.offset, length: offset - first.offset)
+                ))
+            start = nil
         }
-        return nil
+        for index in text.indices {
+            let character = text[index]
+            if character.isLetter || character.isNumber {
+                if start == nil { start = (index, offset) }
+            } else {
+                close(at: index)
+            }
+            offset += character.utf16.count
+        }
+        close(at: text.endIndex)
+        return runs
+    }
+
+    /// The index in `placedIn`, the text the words were placed in, of the
+    /// character at `index` in `current`: typing not handed over yet changed
+    /// one stretch of the text and moved what follows it.
+    static func index(_ index: Int, in current: String, placedIn: String) -> Int {
+        let current = current as NSString
+        let unchanged = (current.commonPrefix(with: placedIn) as NSString).length
+        guard index > unchanged else { return index }
+        return max(unchanged, index - (current.length - (placedIn as NSString).length))
+    }
+
+    /// Where a click at `index` plays from: the start of the word clicked, or,
+    /// in text written since, a time between the words still found around it,
+    /// in proportion to where the click falls. `start`, the paragraph's opening
+    /// second, stands before the first word.
+    static func time(at index: Int, in placed: [Placed], from start: TimeInterval) -> TimeInterval {
+        if let word = placed.first(where: {
+            index >= $0.range.location && index <= NSMaxRange($0.range)
+        }) {
+            return word.start
+        }
+        let before = placed.last { NSMaxRange($0.range) < index }
+        let location = before.map { NSMaxRange($0.range) } ?? 0
+        let time = before?.start ?? start
+        guard let after = placed.first(where: { $0.range.location > index }),
+            after.start > time
+        else { return time }
+        let share = Double(index - location) / Double(after.range.location - location)
+        return time + (after.start - time) * share
     }
 
     /// The word being played at `position`.

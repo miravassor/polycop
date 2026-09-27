@@ -243,6 +243,7 @@ private struct TranscriptRow: View, Equatable {
                         suspendFollowing()
                         activate(index)
                     },
+                    timedStart: words.isEmpty ? nil : paragraph.seconds,
                     showsUncertainWords: showsUncertainWords,
                     playFrom: { time in
                         activate(index)

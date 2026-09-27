@@ -65,8 +65,95 @@ import Testing
         Segment.Word(text: "tard.", start: 1, end: 1.5),
     ]
     let text = "Freud, le fondateur de la psychanalyse selon la plupart des auteurs, a écrit tard."
+    let placed = WordLayout.place(words, in: text)
 
-    #expect(WordLayout.place(words, in: text).map(\.start) == [0, 0.6, 1])
+    #expect(placed.map(\.start) == [0, 0.5, 0.6, 1])
+    let standalone = (text as NSString).range(of: " a ").location + 1
+    #expect(placed[1].range == NSRange(location: standalone, length: 1))
+}
+
+/// Deleting words, common ones among them, keeps the words after them in
+/// place: the "de la" deleted is not matched to the one further on.
+@Test func deletedWordsLeaveTheRestInPlace() {
+    let spoken = "Le patient de la clinique présente un trouble de la personnalité."
+    let words = spoken.split(separator: " ").enumerated().map {
+        Segment.Word(text: String($1), start: Double($0), end: Double($0) + 0.9)
+    }
+    let text = "Le patient présente un trouble de la personnalité."
+    let placed = WordLayout.place(words, in: text)
+    let string = text as NSString
+
+    #expect(placed.map(\.start) == [0, 1, 5, 6, 7, 8, 9, 10])
+    #expect(WordLayout.playing(placed, at: 5.5) == string.range(of: "présente"))
+    #expect(WordLayout.playing(placed, at: 10.2) == string.range(of: "personnalité"))
+}
+
+/// Words an aligner split and stripped are found inside the written ones, as
+/// Qwen3's aligner times "L'encodage" as "L" and "encodage"; a word written
+/// with its apostrophe spans it whole, and punctuation alone is not placed.
+@Test func splitWordsAreFoundInsideTheWrittenOnes() {
+    let text = "L'encodage, d'abord ?"
+    let string = text as NSString
+    let aligner = [
+        Segment.Word(text: "L", start: 1.8, end: 1.9),
+        Segment.Word(text: "encodage", start: 1.9, end: 2.5),
+        Segment.Word(text: "d", start: 2.5, end: 2.6),
+        Segment.Word(text: "abord", start: 2.6, end: 3.1),
+    ]
+    let whisper = [
+        Segment.Word(text: "L'encodage,", start: 1.8, end: 2.5),
+        Segment.Word(text: "d'abord", start: 2.5, end: 3.1),
+        Segment.Word(text: "?", start: 3.1, end: 3.2),
+    ]
+
+    #expect(
+        WordLayout.place(aligner, in: text).map(\.range) == [
+            NSRange(location: 0, length: 1), string.range(of: "encodage"),
+            NSRange(location: string.range(of: "d'abord").location, length: 1),
+            string.range(of: "abord"),
+        ])
+    #expect(
+        WordLayout.place(whisper, in: text).map(\.range) == [
+            string.range(of: "L'encodage"), string.range(of: "d'abord"),
+        ])
+}
+
+/// A click in text typed but not handed over yet finds where it stood in the
+/// text the words were placed in, whether typing added or removed words.
+@Test func aClickDuringTypingFindsItsPlaceInThePlacedText() {
+    let placed = "Le trouble est connu."
+    let typed = "Le trouble limite est connu."
+    let connu = (placed as NSString).range(of: "connu").location
+    let typedConnu = (typed as NSString).range(of: "connu").location
+
+    #expect(WordLayout.index(3, in: typed, placedIn: placed) == 3)
+    #expect(WordLayout.index(typedConnu, in: typed, placedIn: placed) == connu)
+    // Inside the typed word, the click stands where typing began.
+    #expect(WordLayout.index(13, in: typed, placedIn: placed) == 11)
+    #expect(WordLayout.index(connu, in: placed, placedIn: typed) == typedConnu)
+}
+
+/// A click on text written since plays from between the words still found
+/// around it, so a paragraph rewritten at length still plays from a click.
+@Test func aClickInRewrittenTextPlaysFromBetweenTheWordsAround() {
+    let words = [
+        Segment.Word(text: "Le", start: 10, end: 10.2),
+        Segment.Word(text: "trouble", start: 10.2, end: 10.6),
+        Segment.Word(text: "bordéreux", start: 10.6, end: 11.2),
+        Segment.Word(text: "est", start: 11.2, end: 11.4),
+        Segment.Word(text: "connu.", start: 11.4, end: 12),
+    ]
+    let text = "Nouvelle phrase. Le trouble limite, souvent appelé ainsi, est connu."
+    let placed = WordLayout.place(words, in: text)
+    let string = text as NSString
+
+    #expect(WordLayout.time(at: string.range(of: "trouble").location, in: placed, from: 9) == 10.2)
+    #expect(WordLayout.time(at: string.range(of: "phrase").location, in: placed, from: 9) < 10)
+    #expect(WordLayout.time(at: string.range(of: "phrase").location, in: placed, from: 9) > 9)
+    let rewritten = WordLayout.time(at: string.range(of: "appelé").location, in: placed, from: 9)
+    #expect(rewritten > 10.2 && rewritten < 11.2)
+    #expect(WordLayout.time(at: string.length, in: placed, from: 9) == 11.4)
+    #expect(WordLayout.time(at: 3, in: [], from: 9) == 9)
 }
 
 @Test func theWordPlayingIsTheLastOneStarted() {
@@ -109,8 +196,7 @@ import Testing
     #expect(try JSONDecoder().decode(Segment.self, from: older).words == nil)
 }
 
-/// A paragraph rewritten from end to end finds none of its words, and the
-/// search stops growing at the length of the text.
+/// A paragraph rewritten from end to end finds none of its words.
 @Test func aRewrittenParagraphPlacesNoWord() {
     let words = (0..<120).map { Segment.Word(text: "mot\($0)", start: Double($0), end: Double($0)) }
     #expect(WordLayout.place(words, in: "Passage inaudible, à réécouter.").isEmpty)

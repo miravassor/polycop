@@ -2,6 +2,13 @@
 
 All notable changes are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
+## Unreleased
+
+### Fixed
+
+* The word being heard stays highlighted in a paragraph where you deleted or rewrote words: a short word such as "de" could send the highlight astray for the rest of the paragraph.
+* Option-click plays from anywhere in an edited paragraph, including text you rewrote, from a time between the words still found around the click, and right after typing.
+
 ## 0.3.1 (2026-09-26)
 
 ### Added
