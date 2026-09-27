@@ -24,6 +24,8 @@ struct ParagraphEditor: NSViewRepresentable {
     /// in text written since still plays from about there.
     var timedStart: TimeInterval?
     var playingWord: NSRange?
+    /// Takes the text cursor along with the word being heard.
+    var movesCursor = false
     var showsUncertainWords = true
     var playFrom: (TimeInterval) -> Void = { _ in }
     /// Called at each key, before the model has the text.
@@ -88,6 +90,7 @@ struct ParagraphEditor: NSViewRepresentable {
         if replacesText || context.coordinator.shownWord != playingWord {
             show(playingWord, in: view)
             context.coordinator.shownWord = playingWord
+            if movesCursor, let playingWord { view.follow(playingWord) }
         }
         guard !view.hasMarkedText() else { return }
         if context.coordinator.revealed != currentMatch {
@@ -244,6 +247,7 @@ struct ParagraphEditor: NSViewRepresentable {
 
         func textDidChange(_ notification: Notification) {
             guard let view = notification.object as? NSTextView else { return }
+            WordTextView.holdsCursor = false
             styled = nil
             pending = view.string
             parent.typing()
@@ -292,12 +296,29 @@ final class WordTextView: NSTextView {
     /// Plays from the word at a character index; false when no word is there.
     var playFromCharacter: ((Int) -> Bool)?
 
+    /// A click puts the cursor where the reader wants it: it stays there until
+    /// they type, rather than follow playback.
+    static var holdsCursor = false
+
     override func mouseDown(with event: NSEvent) {
         if event.modifierFlags.contains(.option), let playFromCharacter {
             let index = characterIndexForInsertion(at: convert(event.locationInWindow, from: nil))
             if playFromCharacter(index) { return }
         }
+        Self.holdsCursor = true
         super.mouseDown(with: event)
+    }
+
+    /// Takes the cursor to the end of `word`, the one being heard, while the
+    /// reader is editing the transcript with nothing selected, into this
+    /// paragraph if the word is here.
+    func follow(_ word: NSRange) {
+        guard word.length > 0, !Self.holdsCursor, let window,
+            let editing = window.firstResponder as? WordTextView,
+            editing.selectedRange().length == 0, NSMaxRange(word) <= (string as NSString).length
+        else { return }
+        if editing !== self { window.makeFirstResponder(self) }
+        setSelectedRange(NSRange(location: NSMaxRange(word), length: 0))
     }
 
     /// Escape leaves the text, so that Space plays and pauses again.

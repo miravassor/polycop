@@ -86,3 +86,37 @@ private final class FocusableControl: NSControl {
     watcher.isEnabled = false
     #expect(!watcher.plays(on: try key(" ")))
 }
+
+/// While the reader edits, the cursor follows the word heard into its
+/// paragraph, but not after a click placed it, nor over a selection.
+@MainActor
+@Test func theCursorFollowsTheWordHeardAfterTyping() {
+    let window = NSWindow(
+        contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled],
+        backing: .buffered, defer: false)
+    let first = WordTextView(frame: NSRect(x: 0, y: 0, width: 300, height: 100))
+    let second = WordTextView(frame: NSRect(x: 0, y: 150, width: 300, height: 100))
+    first.string = "Bonjour à tous."
+    second.string = "Le cours commence."
+    for view in [first, second] { window.contentView?.addSubview(view) }
+    defer { WordTextView.holdsCursor = false }
+
+    window.makeFirstResponder(first)
+    WordTextView.holdsCursor = false
+    second.follow(NSRange(location: 3, length: 5))
+    #expect(window.firstResponder === second)
+    #expect(second.selectedRange() == NSRange(location: 8, length: 0))
+
+    WordTextView.holdsCursor = true
+    second.follow(NSRange(location: 9, length: 8))
+    #expect(second.selectedRange() == NSRange(location: 8, length: 0))
+
+    WordTextView.holdsCursor = false
+    second.setSelectedRange(NSRange(location: 0, length: 2))
+    second.follow(NSRange(location: 9, length: 8))
+    #expect(second.selectedRange() == NSRange(location: 0, length: 2))
+
+    window.makeFirstResponder(nil)
+    first.follow(NSRange(location: 0, length: 7))
+    #expect(window.firstResponder === window)
+}
