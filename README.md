@@ -50,8 +50,9 @@ unless they agree to more.
 
 * **Correction while listening.** Click a timestamp, or Option-click a word, to
   hear the passage; the word being heard is highlighted. Playback pauses when you
-  start typing and steps back a little when it resumes. Fix the text in place,
-  step back one correction at a time, or return to the original.
+  start typing, resumes on its own once you stop, and steps back a little so the
+  sentence is heard again. Fix the text in place, step back one correction at a
+  time, or return to the original.
 * **Words the model was unsure of** are underlined, for Whisper transcripts.
 * **Find and replace**, with Replace All as one correction to undo. A
   replacement can be remembered for a course and applied to its next

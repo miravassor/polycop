@@ -4,6 +4,10 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ## Unreleased
 
+### Added
+
+* Playback that typing paused resumes on its own once you stop typing, two seconds later by default, stepping back as any resume does. Settings offers other delays, or never.
+
 ### Fixed
 
 * The word being heard stays highlighted in a paragraph where you deleted or rewrote words: a short word such as "de" could send the highlight astray for the rest of the paragraph.
