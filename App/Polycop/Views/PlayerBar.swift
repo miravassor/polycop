@@ -17,6 +17,8 @@ struct PlayerBar: View {
     let highlighted: Int?
     /// The length the transcription measured, used until a file is open.
     let length: TimeInterval
+    /// Where playback stood when the transcript was last left, until a file is open.
+    let resume: TimeInterval
     /// Opens the recording at a point and plays from there.
     let play: (TimeInterval) -> Void
     /// The mark the pointer is over, so the text can show which paragraph it is.
@@ -27,7 +29,9 @@ struct PlayerBar: View {
     @State private var scrubbed: TimeInterval?
 
     private var duration: TimeInterval { player.duration > 0 ? player.duration : length }
-    private var position: TimeInterval { scrubbed ?? player.position }
+    private var position: TimeInterval {
+        scrubbed ?? (player.isOpen ? player.position : resume)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {

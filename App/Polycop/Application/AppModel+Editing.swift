@@ -11,6 +11,19 @@ extension AppModel {
         player.play(recording(of: entry), from: max(0, time - leadIn))
     }
 
+    /// Keeps where the reader was in the transcript of `pane`, read and heard,
+    /// with the next save.
+    func rememberPlace(in pane: Pane) {
+        guard case .entry(let id) = pane else { return }
+        let paragraph = readingParagraph
+        let position = player.isOpen ? player.position : nil
+        readingParagraph = nil
+        updateEntry(id, whileTyping: true) { entry in
+            if let paragraph { entry.readingParagraph = paragraph }
+            if let position { entry.playbackPosition = position }
+        }
+    }
+
     /// Points a transcript at its recording again, after the user found it
     /// themselves. Nothing is transcribed again, and the text is untouched.
     func locateRecording(_ id: Entry.ID, at file: URL) {

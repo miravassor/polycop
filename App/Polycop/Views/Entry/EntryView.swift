@@ -62,7 +62,8 @@ struct EntryView: View {
                     hover: { focused = $0 },
                     original: original, isComparing: isComparing, isFollowing: isFollowing,
                     suspendFollowing: suspendFollowing,
-                    jump: $jump, focused: focused, size: size,
+                    jump: $jump, start: entry.readingParagraph,
+                    scrolled: { model.readingParagraph = $0 }, focused: focused, size: size,
                     active: activeParagraph,
                     activate: { if activeParagraph != $0 { activeParagraph = $0 } },
                     review: entry.reviewParagraphs,
@@ -466,6 +467,7 @@ struct EntryView: View {
                 marks: entry.paragraphs.map(\.seconds),
                 highlighted: focused,
                 length: entry.duration ?? 0,
+                resume: entry.playbackPosition ?? 0,
                 play: { model.replay(entry.id, from: $0, leadIn: 0) },
                 hover: { focused = $0 },
                 jump: { jump = $0 })

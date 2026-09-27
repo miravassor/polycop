@@ -63,4 +63,17 @@ import Testing
             name: NSScrollView.willStartLiveScrollNotification, object: scroll)
         #expect(suspensions == 1)
     }
+
+    /// The row at the top of the page is the one across its top edge, or the
+    /// next one once the edge falls in the spacing between them.
+    @Test func theRowAtTheTopIsTheOneAcrossTheEdge() {
+        func row(_ top: CGFloat, _ height: CGFloat) -> CGRect {
+            CGRect(x: 0, y: top, width: 400, height: height)
+        }
+        #expect(TranscriptNavigation.isAtTop(row(-100, 150), spacing: 20))
+        #expect(!TranscriptNavigation.isAtTop(row(70, 100), spacing: 20))
+        #expect(!TranscriptNavigation.isAtTop(row(-160, 150), spacing: 20))
+        #expect(TranscriptNavigation.isAtTop(row(10, 100), spacing: 20))
+        #expect(TranscriptNavigation.isAtTop(row(0, 100), spacing: 20))
+    }
 }
