@@ -19,7 +19,7 @@ nonisolated enum RemoteAction: Equatable, Sendable {
         switch self {
         case .togglePlayPause: player.toggle()
         case .play: if !player.isPlaying { player.toggle() }
-        case .pause: if player.isPlaying { player.toggle() }
+        case .pause: player.pause()
         case .stop: player.stop()
         case .skip(let offset): player.skip(by: offset)
         case .seek(let time): player.seek(to: time)

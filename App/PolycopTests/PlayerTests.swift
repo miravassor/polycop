@@ -9,6 +9,15 @@ private let clip = URL(filePath: #filePath)
     .deletingLastPathComponent()
     .appending(path: "Fixtures/clip-fr.wav")
 
+/// Settings kept in memory for one test: a set value would leave a preferences
+/// file behind, and a registered one is shared by every test running at once.
+private nonisolated final class Settings: UserDefaults, @unchecked Sendable {
+    // Written by the test and read by the player, both on the main actor.
+    var values: [String: Any] = [:]
+
+    override func object(forKey key: String) -> Any? { values[key] }
+}
+
 /// Opens the synthetic clip and waits until its duration is known.
 @MainActor
 private func open(_ player: Player) async throws {
@@ -21,10 +30,8 @@ private func open(_ player: Player) async throws {
 
 @MainActor
 @Test func resumingStepsBackSoTheSentenceIsHeardAgain() async throws {
-    // Settings are registered, which keeps them in memory: a set value would
-    // leave a preferences file behind.
-    let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
-    let player = Player(defaults: defaults)
+    let settings = Settings()
+    let player = Player(defaults: settings)
     defer { player.stop() }
     try await open(player)
 
@@ -42,17 +49,15 @@ private func open(_ player: Player) async throws {
 
     player.seek(to: 3)
     player.toggle()
-    defaults.register(defaults: [Player.resumeRewindKey: 0.0])
+    settings.values[Player.resumeRewindKey] = 0.0
     player.toggle()
     #expect(player.position == 3)
 }
 
 @MainActor
 @Test func typingPausesPlaybackUnlessTheSettingIsOff() async throws {
-    // Settings are registered, which keeps them in memory: a set value would
-    // leave a preferences file behind.
-    let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
-    let player = Player(defaults: defaults)
+    let settings = Settings()
+    let player = Player(defaults: settings)
     defer { player.stop() }
     try await open(player)
     #expect(player.isPlaying)
@@ -61,7 +66,50 @@ private func open(_ player: Player) async throws {
     #expect(!player.isPlaying)
 
     player.toggle()
-    defaults.register(defaults: [Player.pausesWhileTypingKey: false])
+    settings.values[Player.pausesWhileTypingKey] = false
     player.pauseForTyping()
     #expect(player.isPlaying)
+}
+
+/// Playback that typing paused resumes once typing stops. Playback the user
+/// paused, a command given meanwhile, or a delay set to never keeps it paused.
+@MainActor
+@Test func playbackResumesOnceTypingStops() async throws {
+    let settings = Settings()
+    settings.values[Player.resumeAfterTypingKey] = 0.2
+    let player = Player(defaults: settings)
+    defer { player.stop() }
+    try await open(player)
+
+    player.pauseForTyping()
+    #expect(!player.isPlaying)
+    for _ in 0..<100 where !player.isPlaying {
+        try await Task.sleep(for: .milliseconds(50))
+    }
+    #expect(player.isPlaying)
+
+    // What must not happen is waited for over twice the delay.
+    player.toggle()
+    player.pauseForTyping()
+    try await Task.sleep(for: .milliseconds(500))
+    #expect(!player.isPlaying)
+
+    player.toggle()
+    player.pauseForTyping()
+    player.seek(to: 1)
+    player.pauseForTyping()
+    try await Task.sleep(for: .milliseconds(500))
+    #expect(!player.isPlaying)
+
+    player.toggle()
+    player.pauseForTyping()
+    player.pause()
+    try await Task.sleep(for: .milliseconds(500))
+    #expect(!player.isPlaying)
+
+    settings.values[Player.resumeAfterTypingKey] = 0.0
+    player.toggle()
+    player.pauseForTyping()
+    try await Task.sleep(for: .milliseconds(500))
+    #expect(!player.isPlaying)
 }

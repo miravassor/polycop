@@ -190,10 +190,13 @@ private struct UpdateSettings: View {
     }
 }
 
-/// How playback helps correcting: a step back on resume, and a pause while typing.
+/// How playback helps correcting: a step back on resume, a pause while typing,
+/// and a resume once typing stops.
 private struct PlaybackSettings: View {
     @AppStorage(Player.resumeRewindKey) private var resumeRewind = Player.defaultResumeRewind
     @AppStorage(Player.pausesWhileTypingKey) private var pausesWhileTyping = true
+    @AppStorage(Player.resumeAfterTypingKey) private var resumeAfterTyping =
+        Player.defaultResumeAfterTyping
 
     var body: some View {
         Picker("Step back on resume", selection: $resumeRewind) {
@@ -206,5 +209,12 @@ private struct PlaybackSettings: View {
             Text("Pause while typing a correction")
             Text("Playback stops at the first key pressed in the transcript.")
         }
+        Picker("Resume after typing stops", selection: $resumeAfterTyping) {
+            Text("Never").tag(0.0)
+            ForEach([1, 1.5, 2, 3, 5], id: \.self) { seconds in
+                Text("\(seconds.formatted()) s").tag(seconds)
+            }
+        }
+        .disabled(!pausesWhileTyping)
     }
 }

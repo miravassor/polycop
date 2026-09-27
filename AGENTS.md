@@ -114,8 +114,9 @@ Every page speaks the same visual language. The shared pieces live in
 * Never commit recordings, transcripts of real lectures, or model weights, nor a
   screenshot that shows a real library: blur course names first.
 * Tests never touch the user's library, preferences or Trash: use a temporary folder or
-  an injected one, and register preference values in a suite rather than setting them,
-  since a set value leaves a file behind.
+  an injected one, and give a test its own settings in memory, as `PlayerTests` does:
+  a set value leaves a file behind, and a registered one is shared by every test
+  running at once.
 * A test that waits for asynchronous work polls for its result with a bound, as
   `open(_:)` in `PlayerTests` does, rather than sleeping a fixed time: tests run in
   parallel, and on CI they keep the main actor busy for seconds.
