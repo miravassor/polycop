@@ -63,12 +63,17 @@ final class AppModel {
     var pane = Pane.new {
         didSet {
             guard pane != oldValue else { return }
-            // Leaving a transcript writes what was typed in it.
+            rememberPlace(in: oldValue)
+            // Leaving a transcript writes what was typed in it, and where it was left.
             savePending()
             player.stop()
             failure = nil
         }
     }
+    /// The paragraph at the top of the transcript on screen, reported as the
+    /// reader scrolls and kept with the entry only when it is left, so that
+    /// scrolling writes nothing.
+    @ObservationIgnored var readingParagraph: Int?
     private(set) var installed: Set<String> = []
     /// Whether Qwen3 Forced Aligner is installed, so that Qwen times sentences.
     private(set) var alignerInstalled = false

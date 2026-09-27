@@ -29,6 +29,10 @@ struct TranscriptView: View {
     let suspendFollowing: () -> Void
     /// A paragraph to show at once, chosen on the timeline below.
     @Binding var jump: Int?
+    /// The paragraph to open on, where the reader left the transcript.
+    let start: Int?
+    /// Told which paragraph is at the top of the page as the reader scrolls.
+    let scrolled: (Int) -> Void
     /// The paragraph under the pointer, here or on the timeline.
     let focused: Int?
     let size: CGFloat
@@ -45,6 +49,7 @@ struct TranscriptView: View {
     /// The width of the column of times, shared with the headers above, so
     /// that each heading sits over its own text.
     private let timeColumnWidth: CGFloat = 80
+    private let rowSpacing: CGFloat = 20
     @Environment(\.accessibilityReduceMotion) private var reducesMotion
     @State private var playing: Int?
     @State private var frames = RowFrames()
@@ -55,7 +60,7 @@ struct TranscriptView: View {
             GeometryReader { viewport in
                 ScrollViewReader { view in
                     ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 20) {
+                        LazyVStack(alignment: .leading, spacing: rowSpacing) {
                             ForEach(paragraphs.indices, id: \.self) { index in
                                 row(index)
                                     .equatable()
@@ -64,6 +69,14 @@ struct TranscriptView: View {
                                         $0.frame(in: .named("transcript"))
                                     } action: {
                                         frames.values[index] = $0
+                                        // Rows gone from the page keep their last
+                                        // frame, so the top is the row that says so.
+                                        if TranscriptNavigation.isAtTop($0, spacing: rowSpacing),
+                                            frames.top != index
+                                        {
+                                            frames.top = index
+                                            scrolled(index)
+                                        }
                                     }
                                     .onDisappear { frames.values[index] = nil }
                             }
@@ -78,6 +91,11 @@ struct TranscriptView: View {
                             isEnabled: isFollowing, update: { playing = $0 }
                         ) { paragraph in
                             scroll(to: paragraph, in: view, height: viewport.size.height)
+                        }
+                    }
+                    .onAppear {
+                        if let start, paragraphs.indices.contains(start) {
+                            view.scrollTo(start, anchor: .top)
                         }
                     }
                     .onChange(of: jump) { _, paragraph in
@@ -361,6 +379,8 @@ private struct Follow: View {
 /// class rather than state, so rows moving during a scroll redraw nothing.
 private final class RowFrames {
     var values: [Int: CGRect] = [:]
+    /// The paragraph at the top of the page, kept while rows come and go.
+    var top: Int?
 }
 
 /// Which paragraph plays, and when following needs to scroll to it.
@@ -369,6 +389,12 @@ nonisolated enum TranscriptNavigation {
         guard let frame, height > 0 else { return true }
         // Long paragraphs only need their opening lines in view.
         return frame.minY < 0 || frame.minY + min(frame.height, 80) > height
+    }
+
+    /// Whether a row is the one at the top of the page: across its top edge, or
+    /// just below it, within the spacing before the next row.
+    static func isAtTop(_ frame: CGRect, spacing: CGFloat) -> Bool {
+        frame.maxY > 0 && frame.minY <= spacing
     }
 
     /// The paragraph playing at `position`, with the half second of slack a jump takes.

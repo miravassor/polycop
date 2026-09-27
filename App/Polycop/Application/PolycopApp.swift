@@ -141,6 +141,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Typing not handed over yet reaches the model before it is saved.
         TypingBuffer.flush()
         guard let model else { return .terminateNow }
+        model.rememberPlace(in: model.pane)
         guard !model.isShuttingDown else { return .terminateLater }
         if model.hasWork {
             let alert = NSAlert()

@@ -80,6 +80,10 @@ nonisolated struct Entry: Identifiable, Equatable, Codable, Sendable {
     var savedDigests: [String] = []
     var isSaved = false
     var folderID: UUID?
+    /// Where the reader left the transcript: the paragraph at the top of the
+    /// page, and where playback stood, to take them back there.
+    var readingParagraph: Int?
+    var playbackPosition: TimeInterval?
 
     init(
         recording: URL, modelFile: String, glossary: Glossary?, skipsSilence: Bool,

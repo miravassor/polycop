@@ -437,3 +437,44 @@ private func entry(_ name: String, in folder: URL, added: Date = .now) -> Entry 
     #expect(findings.hiddenCredits == entry.hiddenCredits)
     #expect(findings.shortenedLoops == entry.shortenedLoops)
 }
+
+/// Leaving a transcript keeps where it was read and heard, on disk as well, and
+/// a transcript left before anything was reported keeps its earlier place.
+@MainActor
+@Test func leavingATranscriptKeepsWhereItWasLeft() async throws {
+    let history = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: history) }
+    var entry = Entry(
+        recording: URL(filePath: #filePath).deletingLastPathComponent().appending(
+            path: "Fixtures/clip-fr.wav"),
+        modelFile: ModelCatalog.recommended.id, glossary: nil, skipsSilence: false,
+        subtitles: false)
+    entry.publish(
+        [
+            Segment(start: 0, end: 2, text: "Bonjour."),
+            Segment(start: 3, end: 4, text: "Au revoir."),
+        ],
+        partial: false)
+    entry.state = .finished
+    try HistoryStore.write(entry, in: history)
+    let model = AppModel(history: history)
+    defer { model.player.stop() }
+
+    model.pane = .entry(entry.id)
+    model.readingParagraph = 1
+    model.replay(entry.id, from: 2, leadIn: 0)
+    for _ in 0..<100 where !model.player.isOpen {
+        try await Task.sleep(for: .milliseconds(50))
+    }
+    try #require(model.player.isOpen)
+    model.pane = .new
+
+    let left = try #require(model.entry(entry.id))
+    #expect(left.readingParagraph == 1)
+    #expect((left.playbackPosition ?? 0) >= 2 && (left.playbackPosition ?? 0) < 3)
+    #expect(AppModel(history: history).entry(entry.id)?.readingParagraph == 1)
+
+    model.pane = .entry(entry.id)
+    model.pane = .new
+    #expect(model.entry(entry.id)?.readingParagraph == 1)
+}
