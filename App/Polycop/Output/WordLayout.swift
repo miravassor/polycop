@@ -40,9 +40,11 @@ nonisolated enum WordLayout {
     /// them, since an aligner splits "L'encodage" into "L" and "encodage" and
     /// drops punctuation.
     static func place(_ words: [Segment.Word], in text: String) -> [Placed] {
-        let written = runs(in: text)
-        let spoken = words.indices.flatMap { word in
-            runs(in: words[word].text).map { (key: $0.key, word: word) }
+        var written: [(key: String, range: NSRange)] = []
+        runs(in: text) { written.append(($0, $1)) }
+        var spoken: [(key: String, word: Int)] = []
+        for (index, word) in words.enumerated() {
+            runs(in: word.text) { key, _ in spoken.append((key, index)) }
         }
         var placed: [Placed] = []
         var last: (word: Int, run: Int)?
@@ -66,31 +68,31 @@ nonisolated enum WordLayout {
         return placed
     }
 
-    /// The runs of letters and digits in `text`, lowercased, with their ranges.
-    private static func runs(in text: String) -> [(key: String, range: NSRange)] {
-        var runs: [(key: String, range: NSRange)] = []
+    /// Visits each run of letters and digits in `text`, lowercased, with its
+    /// range. Scalars are read rather than characters, which is faster; an
+    /// accent written apart is a mark, and stays in the run of its letter.
+    private static func runs(in text: String, _ visit: (String, NSRange) -> Void) {
+        let letters = CharacterSet.alphanumerics
+        let scalars = text.unicodeScalars
         var start: (index: String.Index, offset: Int)?
         var offset = 0
         func close(at end: String.Index) {
             guard let first = start else { return }
-            runs.append(
-                (
-                    text[first.index..<end].lowercased(),
-                    NSRange(location: first.offset, length: offset - first.offset)
-                ))
+            visit(
+                text[first.index..<end].lowercased(),
+                NSRange(location: first.offset, length: offset - first.offset))
             start = nil
         }
-        for index in text.indices {
-            let character = text[index]
-            if character.isLetter || character.isNumber {
+        for index in scalars.indices {
+            let scalar = scalars[index]
+            if letters.contains(scalar) {
                 if start == nil { start = (index, offset) }
             } else {
                 close(at: index)
             }
-            offset += character.utf16.count
+            offset += scalar.utf16.count
         }
-        close(at: text.endIndex)
-        return runs
+        close(at: scalars.endIndex)
     }
 
     /// The index in `placedIn`, the text the words were placed in, of the
