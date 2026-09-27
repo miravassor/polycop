@@ -2,6 +2,12 @@
 
 All notable changes are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
+## Unreleased
+
+### Fixed
+
+* Jumping to a paragraph or along the timeline while playing no longer shows the old position again for a moment before the new one.
+
 ## 0.3.2 (2026-09-27)
 
 ### Added
