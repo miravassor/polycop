@@ -20,6 +20,9 @@ struct ParagraphEditor: NSViewRepresentable {
     /// The timed words found in the text, for playing from one and marking
     /// the uncertain ones.
     var words: [WordLayout.Placed] = []
+    /// The paragraph's opening second when its words are timed, so that a click
+    /// in text written since still plays from about there.
+    var timedStart: TimeInterval?
     var playingWord: NSRange?
     var showsUncertainWords = true
     var playFrom: (TimeInterval) -> Void = { _ in }
@@ -58,17 +61,15 @@ struct ParagraphEditor: NSViewRepresentable {
         view.isEditable = isEditable
         view.isSelectable = true
         let words = words
+        let timedStart = timedStart
         let playFrom = playFrom
         let placedIn = text
         view.playFromCharacter = { [weak view] index in
-            // The words were placed in the model's text; typing not handed
-            // over yet may have moved them.
-            guard view?.string == placedIn,
-                let word = words.first(where: {
-                    index >= $0.range.location && index <= NSMaxRange($0.range)
-                })
-            else { return false }
-            playFrom(word.start)
+            guard let view, let timedStart else { return false }
+            // The words were placed in the model's text, which does not have
+            // yet the typing this click has just handed over.
+            let index = WordLayout.index(index, in: view.string, placedIn: placedIn)
+            playFrom(WordLayout.time(at: index, in: words, from: timedStart))
             return true
         }
         // While typing, the text view is ahead of the model: nothing here may

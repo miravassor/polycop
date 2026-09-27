@@ -118,6 +118,44 @@ import Testing
         ])
 }
 
+/// A click in text typed but not handed over yet finds where it stood in the
+/// text the words were placed in, whether typing added or removed words.
+@Test func aClickDuringTypingFindsItsPlaceInThePlacedText() {
+    let placed = "Le trouble est connu."
+    let typed = "Le trouble limite est connu."
+    let connu = (placed as NSString).range(of: "connu").location
+    let typedConnu = (typed as NSString).range(of: "connu").location
+
+    #expect(WordLayout.index(3, in: typed, placedIn: placed) == 3)
+    #expect(WordLayout.index(typedConnu, in: typed, placedIn: placed) == connu)
+    // Inside the typed word, the click stands where typing began.
+    #expect(WordLayout.index(13, in: typed, placedIn: placed) == 11)
+    #expect(WordLayout.index(connu, in: placed, placedIn: typed) == typedConnu)
+}
+
+/// A click on text written since plays from between the words still found
+/// around it, so a paragraph rewritten at length still plays from a click.
+@Test func aClickInRewrittenTextPlaysFromBetweenTheWordsAround() {
+    let words = [
+        Segment.Word(text: "Le", start: 10, end: 10.2),
+        Segment.Word(text: "trouble", start: 10.2, end: 10.6),
+        Segment.Word(text: "bordéreux", start: 10.6, end: 11.2),
+        Segment.Word(text: "est", start: 11.2, end: 11.4),
+        Segment.Word(text: "connu.", start: 11.4, end: 12),
+    ]
+    let text = "Nouvelle phrase. Le trouble limite, souvent appelé ainsi, est connu."
+    let placed = WordLayout.place(words, in: text)
+    let string = text as NSString
+
+    #expect(WordLayout.time(at: string.range(of: "trouble").location, in: placed, from: 9) == 10.2)
+    #expect(WordLayout.time(at: string.range(of: "phrase").location, in: placed, from: 9) < 10)
+    #expect(WordLayout.time(at: string.range(of: "phrase").location, in: placed, from: 9) > 9)
+    let rewritten = WordLayout.time(at: string.range(of: "appelé").location, in: placed, from: 9)
+    #expect(rewritten > 10.2 && rewritten < 11.2)
+    #expect(WordLayout.time(at: string.length, in: placed, from: 9) == 11.4)
+    #expect(WordLayout.time(at: 3, in: [], from: 9) == 9)
+}
+
 @Test func theWordPlayingIsTheLastOneStarted() {
     let placed = WordLayout.place(
         [

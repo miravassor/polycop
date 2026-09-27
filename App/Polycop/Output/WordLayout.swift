@@ -93,6 +93,36 @@ nonisolated enum WordLayout {
         return runs
     }
 
+    /// The index in `placedIn`, the text the words were placed in, of the
+    /// character at `index` in `current`: typing not handed over yet changed
+    /// one stretch of the text and moved what follows it.
+    static func index(_ index: Int, in current: String, placedIn: String) -> Int {
+        let current = current as NSString
+        let unchanged = (current.commonPrefix(with: placedIn) as NSString).length
+        guard index > unchanged else { return index }
+        return max(unchanged, index - (current.length - (placedIn as NSString).length))
+    }
+
+    /// Where a click at `index` plays from: the start of the word clicked, or,
+    /// in text written since, a time between the words still found around it,
+    /// in proportion to where the click falls. `start`, the paragraph's opening
+    /// second, stands before the first word.
+    static func time(at index: Int, in placed: [Placed], from start: TimeInterval) -> TimeInterval {
+        if let word = placed.first(where: {
+            index >= $0.range.location && index <= NSMaxRange($0.range)
+        }) {
+            return word.start
+        }
+        let before = placed.last { NSMaxRange($0.range) < index }
+        let location = before.map { NSMaxRange($0.range) } ?? 0
+        let time = before?.start ?? start
+        guard let after = placed.first(where: { $0.range.location > index }),
+            after.start > time
+        else { return time }
+        let share = Double(index - location) / Double(after.range.location - location)
+        return time + (after.start - time) * share
+    }
+
     /// The word being played at `position`.
     static func playing(_ placed: [Placed], at position: TimeInterval) -> NSRange? {
         placed.last { $0.start <= position }?.range
