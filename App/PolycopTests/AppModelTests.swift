@@ -354,6 +354,24 @@ extension LoadingAModel {
     #expect(model.failure != nil)
 }
 
+@MainActor
+@Test func removingAnEntryForgetsItsPendingSave() throws {
+    let history = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: history) }
+    var entry = Entry(
+        recording: clip, modelFile: ModelCatalog.recommended.id, glossary: nil,
+        skipsSilence: false, subtitles: false)
+    entry.publish([Segment(start: 0, end: 3, text: "Original.")], partial: false)
+    entry.state = .finished
+    try HistoryStore.write(entry, in: history)
+    let model = AppModel(history: history)
+    model.edit(entry.id, paragraphAt: 0, text: "Correction.")
+    #expect(model.pendingSaves.contains(entry.id))
+    model.removeEntry(entry.id)
+    #expect(model.pendingSaves.isEmpty)
+    #expect(HistoryStore.all(in: history).entries.isEmpty)
+}
+
 extension LoadingAModel {
     @MainActor
     @Test(.enabled(if: modelInstalled))
