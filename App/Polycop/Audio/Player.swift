@@ -61,6 +61,9 @@ final class Player {
     @ObservationIgnored private var pendingSeek: TimeInterval?
     /// The fade bringing the audio to what was asked, if one runs.
     @ObservationIgnored private var transition: Task<Void, Never>?
+    /// Resumes playback that typing paused, once typing stops. Any command of
+    /// the user's own cancels it.
+    @ObservationIgnored private var resumeAfterTyping: Task<Void, Never>?
     /// A waveform cut in the middle is heard as a click, so the audio fades
     /// around every change: briefly for a jump or a stop, longer for a pause
     /// or a start, as a sentence would.
@@ -70,8 +73,11 @@ final class Player {
     /// Settings keys, shared with the Settings window.
     static let resumeRewindKey = "resumeRewind"
     static let pausesWhileTypingKey = "pausesWhileTyping"
+    static let resumeAfterTypingKey = "resumeAfterTyping"
     /// How far back playback resumes after a pause, so the sentence is heard again.
     static let defaultResumeRewind: TimeInterval = 1.5
+    /// How long typing must stop before playback it paused resumes, in seconds.
+    static let defaultResumeAfterTyping: TimeInterval = 2
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -86,6 +92,7 @@ final class Player {
 
     func play(_ recording: URL, from time: TimeInterval) {
         guard time.isFinite else { return }
+        cancelResumeAfterTyping()
         failure = nil
         if recording == self.recording, let player {
             seek(player, to: time)
@@ -117,6 +124,7 @@ final class Player {
 
     func toggle() {
         guard let player else { return }
+        cancelResumeAfterTyping()
         if isPlaying {
             resumesEarlier = true
             isPlaying = false
@@ -186,12 +194,44 @@ final class Player {
         }
     }
 
-    /// Pauses when the user starts typing a correction, unless the setting is off.
+    /// Pauses when the user starts typing a correction, unless the setting is
+    /// off, and resumes once typing has stopped for the delay set, stepping
+    /// back as any resume does. Playback the user paused stays paused.
     func pauseForTyping() {
-        guard isPlaying, defaults.object(forKey: Self.pausesWhileTypingKey) as? Bool ?? true else {
+        if isPlaying {
+            guard defaults.object(forKey: Self.pausesWhileTypingKey) as? Bool ?? true else {
+                return
+            }
+            toggle()
+        } else if resumeAfterTyping == nil {
             return
         }
-        toggle()
+        resumeAfterTyping?.cancel()
+        let delay =
+            defaults.object(forKey: Self.resumeAfterTypingKey) as? Double
+            ?? Self.defaultResumeAfterTyping
+        guard delay > 0 else {
+            resumeAfterTyping = nil
+            return
+        }
+        // Each key typed starts the wait again.
+        resumeAfterTyping = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(delay))
+            guard !Task.isCancelled, let self, !isPlaying else { return }
+            resumeAfterTyping = nil
+            toggle()
+        }
+    }
+
+    /// Pauses, and keeps paused what typing was about to resume.
+    func pause() {
+        cancelResumeAfterTyping()
+        if isPlaying { toggle() }
+    }
+
+    private func cancelResumeAfterTyping() {
+        resumeAfterTyping?.cancel()
+        resumeAfterTyping = nil
     }
 
     /// Moves `offset` seconds from the current position, as the skip buttons do.
@@ -202,6 +242,7 @@ final class Player {
     /// Where the user asked to be, exactly, unlike a jump from a paragraph.
     func seek(to time: TimeInterval) {
         guard time.isFinite, let player else { return }
+        cancelResumeAfterTyping()
         ask(for: time)
         apply(player, fadeOut: Self.cut)
         publishNowPlaying()
@@ -215,6 +256,7 @@ final class Player {
         transition?.cancel()
         transition = nil
         pendingSeek = nil
+        cancelResumeAfterTyping()
         nowPlaying.deactivate()
         if let observer { player?.removeTimeObserver(observer) }
         observer = nil

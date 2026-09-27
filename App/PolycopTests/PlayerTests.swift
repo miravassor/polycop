@@ -70,3 +70,46 @@ private func open(_ player: Player) async throws {
     player.pauseForTyping()
     #expect(player.isPlaying)
 }
+
+/// Playback that typing paused resumes once typing stops. Playback the user
+/// paused, a command given meanwhile, or a delay set to never keeps it paused.
+@MainActor
+@Test func playbackResumesOnceTypingStops() async throws {
+    let settings = Settings()
+    settings.values[Player.resumeAfterTypingKey] = 0.2
+    let player = Player(defaults: settings)
+    defer { player.stop() }
+    try await open(player)
+
+    player.pauseForTyping()
+    #expect(!player.isPlaying)
+    for _ in 0..<100 where !player.isPlaying {
+        try await Task.sleep(for: .milliseconds(50))
+    }
+    #expect(player.isPlaying)
+
+    // What must not happen is waited for over twice the delay.
+    player.toggle()
+    player.pauseForTyping()
+    try await Task.sleep(for: .milliseconds(500))
+    #expect(!player.isPlaying)
+
+    player.toggle()
+    player.pauseForTyping()
+    player.seek(to: 1)
+    player.pauseForTyping()
+    try await Task.sleep(for: .milliseconds(500))
+    #expect(!player.isPlaying)
+
+    player.toggle()
+    player.pauseForTyping()
+    player.pause()
+    try await Task.sleep(for: .milliseconds(500))
+    #expect(!player.isPlaying)
+
+    settings.values[Player.resumeAfterTypingKey] = 0.0
+    player.toggle()
+    player.pauseForTyping()
+    try await Task.sleep(for: .milliseconds(500))
+    #expect(!player.isPlaying)
+}
