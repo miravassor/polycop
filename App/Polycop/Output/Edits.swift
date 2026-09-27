@@ -11,10 +11,9 @@ nonisolated enum Edits {
         return Set(after.indices).subtracting(paired)
     }
 
-    /// The pairs of equal words along a longest common subsequence, each
-    /// matched as early as it can be, which reads better in the text. Past
-    /// 250,000 cells, as after a large paste, only the equal words at both
-    /// ends are paired, to bound time and memory.
+    /// The pairs of equal words a shortest edit from `before` to `after` keeps,
+    /// in order. Past 250,000 cells, as after a large paste, only the equal
+    /// words at both ends are paired, to bound time and memory.
     static func pairs<Word: Hashable>(_ before: [Word], _ after: [Word]) -> [(Int, Int)] {
         // Numbered, words compare in one step rather than character by character.
         var numbers: [Word: Int] = [:]
@@ -25,46 +24,35 @@ nonisolated enum Edits {
         }
         let old = before.map(number)
         let new = after.map(number)
+        guard !old.isEmpty, !new.isEmpty else { return [] }
 
-        // An unedited stretch at the start pairs as the walk below would,
-        // without a table: most paragraphs are not edited at all.
-        var first = 0
-        while first < min(old.count, new.count), old[first] == new[first] { first += 1 }
-        var pairs = (0..<first).map { ($0, $0) }
-        let rows = old.count - first
-        let columns = new.count - first + 1
-        guard rows > 0, columns > 1 else { return pairs }
-
-        guard rows <= 250_000 / columns else {
+        guard old.count <= 250_000 / new.count else {
+            var first = 0
+            while first < min(old.count, new.count), old[first] == new[first] { first += 1 }
             var tail = 0
-            while tail < min(rows, columns - 1),
+            while tail < min(old.count, new.count) - first,
                 old[old.count - tail - 1] == new[new.count - tail - 1]
             { tail += 1 }
-            return pairs + (0..<tail).reversed().map { (old.count - 1 - $0, new.count - 1 - $0) }
+            return (0..<first).map { ($0, $0) }
+                + (0..<tail).reversed().map { (old.count - 1 - $0, new.count - 1 - $0) }
         }
 
-        // Filled from the end, so the walk forward keeps the earliest match.
-        var table = [Int](repeating: 0, count: (rows + 1) * columns)
-        for i in stride(from: rows - 1, through: 0, by: -1) {
-            for j in stride(from: columns - 2, through: 0, by: -1) {
-                table[i * columns + j] =
-                    old[first + i] == new[first + j]
-                    ? table[(i + 1) * columns + j + 1] + 1
-                    : max(table[(i + 1) * columns + j], table[i * columns + j + 1])
+        // The standard library's diff takes time in proportion to the edits,
+        // which are few, rather than to the square of the length.
+        var removed = Set<Int>()
+        var inserted = Set<Int>()
+        for change in new.difference(from: old) {
+            switch change {
+            case .remove(let offset, _, _): removed.insert(offset)
+            case .insert(let offset, _, _): inserted.insert(offset)
             }
         }
-        var i = 0
-        var j = 0
-        while i < rows, j < columns - 1 {
-            if old[first + i] == new[first + j] {
-                pairs.append((first + i, first + j))
-                i += 1
-                j += 1
-            } else if table[(i + 1) * columns + j] >= table[i * columns + j + 1] {
-                i += 1
-            } else {
-                j += 1
-            }
+        var pairs: [(Int, Int)] = []
+        var next = 0
+        for index in old.indices where !removed.contains(index) {
+            while inserted.contains(next) { next += 1 }
+            pairs.append((index, next))
+            next += 1
         }
         return pairs
     }
