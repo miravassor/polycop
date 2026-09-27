@@ -12,6 +12,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 * The word being heard stays highlighted in a paragraph where you deleted or rewrote words: a short word such as "de" could send the highlight astray for the rest of the paragraph.
 * Option-click plays from anywhere in an edited paragraph, including text you rewrote, from a time between the words still found around the click, and right after typing.
+* In a passage you rewrote, the highlight moves through your words while the original ones are heard, and while a passage you deleted is heard no word is lit, rather than the word before it staying lit as if playback were stuck.
 
 ## 0.3.1 (2026-09-26)
 

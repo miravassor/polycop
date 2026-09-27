@@ -6,7 +6,13 @@ import Foundation
 nonisolated enum WordLayout {
     /// Below this confidence a word is marked as uncertain.
     static let uncertainty: Float = 0.5
+    /// Below this length, a stretch said but removed from the text, such as a
+    /// hesitation left out, keeps the word before it lit rather than none.
+    static let briefRemoval: TimeInterval = 1
 
+    /// A timed word and where the text shows it: a word found, text written in
+    /// place of words said, which has no confidence, or words said but removed,
+    /// whose range is empty.
     struct Placed: Equatable {
         let range: NSRange
         let start: TimeInterval
@@ -39,6 +45,11 @@ nonisolated enum WordLayout {
     /// by their runs of letters and digits, lowercased, as `TimedWords` matches
     /// them, since an aligner splits "L'encodage" into "L" and "encodage" and
     /// drops punctuation.
+    ///
+    /// Where words said are missing from the text, the text written in their
+    /// place takes their time, spread over it, so the word lit goes on through
+    /// a correction. Words said but removed get an empty range: while they are
+    /// heard, no word is lit rather than the one before them.
     static func place(_ words: [Segment.Word], in text: String) -> [Placed] {
         var written: [(key: String, range: NSRange)] = []
         runs(in: text) { written.append(($0, $1)) }
@@ -46,25 +57,57 @@ nonisolated enum WordLayout {
         for (index, word) in words.enumerated() {
             runs(in: word.text) { key, _ in spoken.append((key, index)) }
         }
-        var placed: [Placed] = []
-        var last: (word: Int, run: Int)?
-        for (heard, found) in Edits.pairs(spoken.map(\.key), written.map(\.key)) {
+        // Each word found, with the runs of the text it spans.
+        var found: [(word: Int, runs: ClosedRange<Int>)] = []
+        for (heard, run) in Edits.pairs(spoken.map(\.key), written.map(\.key)) {
             let word = spoken[heard].word
-            if let last, last.word == word {
-                // A word of several runs spans those found side by side.
-                guard last.run == found - 1, let previous = placed.popLast() else { continue }
-                placed.append(
-                    Placed(
-                        range: NSUnionRange(previous.range, written[found].range),
-                        start: previous.start, confidence: previous.confidence))
-            } else {
-                placed.append(
-                    Placed(
-                        range: written[found].range, start: words[word].start,
-                        confidence: words[word].confidence))
+            guard let last = found.last, last.word == word else {
+                found.append((word, run...run))
+                continue
             }
-            last = (word, found)
+            // A word of several runs spans those found side by side.
+            if last.runs.upperBound == run - 1 {
+                found[found.count - 1].runs = last.runs.lowerBound...run
+            }
         }
+
+        // Punctuation said alone, such as a word "?", has nothing to be missing.
+        var said = [Bool](repeating: false, count: words.count)
+        for run in spoken { said[run.word] = true }
+        var placed: [Placed] = []
+        var nextWord = 0
+        var nextRun = 0
+        func fill(before word: Int, run: Int, until end: TimeInterval) {
+            let missing = (nextWord..<word).filter { said[$0] }
+            guard let first = missing.first, let last = missing.last else { return }
+            let start = words[first].start
+            let replacing = written[nextRun..<run]
+            guard !replacing.isEmpty else {
+                // Measured on the words removed, not on the pause after them.
+                guard words[last].end - start >= briefRemoval else { return }
+                let after = placed.last.map { NSMaxRange($0.range) } ?? 0
+                placed.append(
+                    Placed(
+                        range: NSRange(location: after, length: 0), start: start, confidence: nil))
+                return
+            }
+            for (offset, run) in replacing.enumerated() {
+                let share = Double(offset) / Double(replacing.count)
+                placed.append(
+                    Placed(range: run.range, start: start + (end - start) * share, confidence: nil))
+            }
+        }
+        for (word, runs) in found {
+            fill(before: word, run: runs.lowerBound, until: words[word].start)
+            placed.append(
+                Placed(
+                    range: NSUnionRange(
+                        written[runs.lowerBound].range, written[runs.upperBound].range),
+                    start: words[word].start, confidence: words[word].confidence))
+            nextWord = word + 1
+            nextRun = runs.upperBound + 1
+        }
+        fill(before: words.count, run: written.count, until: words.last?.end ?? 0)
         return placed
     }
 
@@ -110,6 +153,8 @@ nonisolated enum WordLayout {
     /// in proportion to where the click falls. `start`, the paragraph's opening
     /// second, stands before the first word.
     static func time(at index: Int, in placed: [Placed], from start: TimeInterval) -> TimeInterval {
+        // Words said but removed have no place in the text to be clicked.
+        let placed = placed.filter { $0.range.length > 0 }
         if let word = placed.first(where: {
             index >= $0.range.location && index <= NSMaxRange($0.range)
         }) {
@@ -125,7 +170,8 @@ nonisolated enum WordLayout {
         return time + (after.start - time) * share
     }
 
-    /// The word being played at `position`.
+    /// The word being played at `position`: an empty range while words removed
+    /// from the text are heard.
     static func playing(_ placed: [Placed], at position: TimeInterval) -> NSRange? {
         placed.last { $0.start <= position }?.range
     }
