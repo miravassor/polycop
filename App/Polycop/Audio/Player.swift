@@ -342,7 +342,8 @@ final class Player {
     /// Called four times a second, and whenever playback starts or stops.
     private func update(_ time: CMTime) {
         guard let player, time.seconds.isFinite else { return }
-        position = time.seconds
+        // A position asked for stands until the audio has gone there.
+        if pendingSeek == nil { position = time.seconds }
         let wasPlaying = isPlaying
         // While a fade runs, what was asked stands; otherwise the player says,
         // as at the end of the recording.

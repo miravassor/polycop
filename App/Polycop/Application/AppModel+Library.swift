@@ -20,6 +20,7 @@ extension AppModel {
             unsavedHistory.remove(id)
             scheduled.remove(id)
             corrections[id] = nil
+            pendingSaves.remove(id)
             if !hasUnsavedHistory { storageFailure = nil }
             if pane == .entry(id) { pane = .new }
         } catch {
