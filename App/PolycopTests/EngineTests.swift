@@ -3,6 +3,7 @@
 import AVFoundation
 import Foundation
 import Testing
+import os
 
 @testable import Polycop
 
@@ -43,6 +44,13 @@ private func samples(of audio: URL) throws -> [Float] {
 /// engine and the command line tool.
 private func words(_ text: String) -> [String] {
     text.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }
+}
+
+/// whisper.cpp reports progress before it checks whether the audio has ended.
+@Test func progressNeverLeavesZeroToOne() {
+    #expect(WhisperEngine.fraction(ofPercent: 150) == 1)
+    #expect(WhisperEngine.fraction(ofPercent: -5) == 0)
+    #expect(WhisperEngine.fraction(ofPercent: 40) == 0.4)
 }
 
 @Test func reportsAModelItCannotRead() async {
@@ -138,6 +146,23 @@ extension LoadingAModel {
 
         #expect(short > 0)
         #expect(long > short)
+    }
+
+    /// whisper.cpp reports its first progress before its first check for a
+    /// stop, so a call stopped before it started would still run.
+    @Test(.enabled(if: modelInstalled))
+    func aTranscriptionStoppedBeforeItStartsDoesNotRun() async throws {
+        let engine = try await WhisperEngine.load(model: model)
+        let clip = try samples(of: fixture)
+        let reported = OSAllocatedUnfairLock(initialState: false)
+        let task = Task {
+            withUnsafeCurrentTask { $0?.cancel() }
+            return try await engine.transcribe(
+                samples: clip, settings: DecodingSettings(),
+                onProgress: { _ in reported.withLock { $0 = true } })
+        }
+        await #expect(throws: CancellationError.self) { try await task.value }
+        #expect(!reported.withLock { $0 })
     }
 
     /// A pause right at the end resumes with nothing left to decode. Otherwise
