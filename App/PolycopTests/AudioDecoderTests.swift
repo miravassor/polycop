@@ -67,6 +67,49 @@ func decodesEveryFormat(_ name: String) async throws {
     }
 }
 
+/// Only a file that is not there has moved. One the app may not read is
+/// reported as unreadable, so the user is not told to look for it.
+@Test func aRecordingInAFolderWithoutAccessIsUnreadableNotMissing() async throws {
+    let folder = URL.temporaryDirectory.appending(path: "locked-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    let recording = folder.appending(path: "clip.wav")
+    try Data().write(to: recording)
+    let path = folder.path(percentEncoded: false)
+    try FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: path)
+    defer {
+        try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: path)
+        try? FileManager.default.removeItem(at: folder)
+    }
+
+    do {
+        _ = try await AudioDecoder.samples(of: recording)
+        Issue.record("A file in a folder without access was decoded")
+    } catch AudioError.unreadable {
+    } catch {
+        Issue.record("Expected unreadable, got \(error)")
+    }
+}
+
+/// ffmpeg can log every frame of a damaged file while writing no sample for
+/// a long time, so the log is capped on a timer, not as samples arrive.
+@Test func theErrorLogIsCappedWhileNoSampleArrives() async throws {
+    let log = URL.temporaryDirectory.appending(path: "log-\(UUID().uuidString).log")
+    FileManager.default.createFile(atPath: log.path(percentEncoded: false), contents: nil)
+    defer { try? FileManager.default.removeItem(at: log) }
+    let handle = try FileHandle(forWritingTo: log)
+    defer { try? handle.close() }
+    try handle.write(contentsOf: Data(count: AudioDecoder.logLimit + 1))
+
+    let stopCapping = AudioDecoder.capping(handle, every: 0.01)
+    defer { stopCapping() }
+    var waited = 0
+    while try handle.offset() > 0, waited < 500 {
+        try await Task.sleep(for: .milliseconds(10))
+        waited += 1
+    }
+    #expect(try handle.offset() == 0)
+}
+
 /// A stop that arrives before ffmpeg starts must not be lost, or such a decode
 /// runs to completion and returns every sample.
 @Test func aDecodeCancelledBeforeItStartsDoesNotRun() async {

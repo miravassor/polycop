@@ -110,6 +110,10 @@ nonisolated final class WhisperEngine: TranscriptionEngine, @unchecked Sendable 
             try await withCheckedThrowingContinuation { continuation in
                 queue.async {
                     do {
+                        // whisper.cpp first checks for a stop after its first
+                        // encoder pass, seconds into a long recording, so a
+                        // stop that came while this call waited ends it here.
+                        if cancelled.withLock({ $0 }) { throw CancellationError() }
                         let segments = try self.decode(
                             samples[first...], settings, cancelled, onProgress,
                             { onSegment($0.shifted(by: shift)) })
@@ -242,7 +246,7 @@ nonisolated final class WhisperEngine: TranscriptionEngine, @unchecked Sendable 
         parameters.progress_callback = { _, _, progress, data in
             guard let data else { return }
             Unmanaged<Handlers>.fromOpaque(data).takeUnretainedValue().progress(
-                Double(progress) / 100)
+                WhisperEngine.fraction(ofPercent: progress))
         }
         parameters.progress_callback_user_data = pointer
 
@@ -288,6 +292,12 @@ nonisolated final class WhisperEngine: TranscriptionEngine, @unchecked Sendable 
         return (0..<whisper_full_n_segments_from_state(state)).map { index in
             Self.segment(context: context, state: state, index: index)
         }
+    }
+
+    /// whisper.cpp reports progress before checking whether the audio has
+    /// ended, so the last window can report more than 100 percent.
+    static func fraction(ofPercent percent: Int32) -> Double {
+        min(1, max(0, Double(percent) / 100))
     }
 
     /// Times are counted in hundredths of a second.

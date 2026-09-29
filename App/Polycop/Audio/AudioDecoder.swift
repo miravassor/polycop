@@ -56,7 +56,7 @@ nonisolated enum AudioDecoder {
     /// How much of ffmpeg's diagnostic is kept on disk, and how much of it
     /// reaches a message. A damaged file can make ffmpeg log a line per
     /// frame, more than is worth storing or reading.
-    private static let logLimit = 4 << 20
+    static let logLimit = 4 << 20
     private static let logTail = 8 << 10
 
     /// How long a stopped ffmpeg is given to end before it is killed. It only
@@ -82,9 +82,17 @@ nonisolated enum AudioDecoder {
         guard maximumDuration.isFinite, recording.isFileURL else {
             throw AudioError.unreadable(recording, detail: "Expected a local file")
         }
-        guard
-            let regular = try? recording.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile
-        else { throw AudioError.missing(recording) }
+        // Only a file that is not there has moved; a folder without access
+        // or a volume that fails is reported as it is.
+        let values: URLResourceValues
+        do {
+            values = try recording.resourceValues(forKeys: [.isRegularFileKey])
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+            throw AudioError.missing(recording)
+        } catch {
+            throw AudioError.unreadable(recording, detail: error.localizedDescription)
+        }
+        guard let regular = values.isRegularFile else { throw AudioError.missing(recording) }
         guard regular else {
             throw AudioError.unreadable(recording, detail: "Expected a regular file")
         }
@@ -169,6 +177,8 @@ nonisolated enum AudioDecoder {
             state.process = process
         }
         defer { run.withLock { $0.process = nil } }
+        let stopCapping = capping(errors)
+        defer { stopCapping() }
 
         // A pipe holds 64 kB and an hour of speech is 230 MB, so the samples are
         // read while ffmpeg writes them. They go straight into the array the
@@ -187,7 +197,6 @@ nonisolated enum AudioDecoder {
                 throw AudioError.tooLong
             }
             collect(chunk, into: &samples, carrying: &partialSample)
-            capLog(errors)
         }
         process.waitUntilExit()
 
@@ -236,6 +245,24 @@ nonisolated enum AudioDecoder {
         }
         partial = Array(bytes[whole...])
     }
+
+    /// Caps the log every second while ffmpeg runs, not only as samples
+    /// arrive: a damaged file can make ffmpeg log every frame while it writes
+    /// nothing for a long time. What it returns stops the checks and waits
+    /// for one under way, so the handle can be closed after it.
+    static func capping(_ errors: FileHandle, every interval: TimeInterval = 1) -> () -> Void {
+        let timer = DispatchSource.makeTimerSource(queue: loggingQueue)
+        timer.schedule(deadline: .now() + interval, repeating: interval)
+        timer.setEventHandler { capLog(errors) }
+        timer.resume()
+        return {
+            timer.cancel()
+            loggingQueue.sync {}
+        }
+    }
+
+    private static let loggingQueue = DispatchQueue(
+        label: "io.github.miravassor.Polycop.audio.log")
 
     /// Caps the diagnostic log so it does not grow without bound. A file
     /// damaged frame by frame makes ffmpeg complain about every one of them;
