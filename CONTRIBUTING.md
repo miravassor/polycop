@@ -16,7 +16,7 @@ open App/Polycop.xcodeproj  # then run the Polycop scheme
 ## Before a pull request
 
 ```sh
-xcrun swift-format lint --strict --recursive App Packages
+Tools/lint.sh
 xcodebuild test -project App/Polycop.xcodeproj -scheme Polycop -destination 'platform=macOS,arch=arm64'
 ```
 

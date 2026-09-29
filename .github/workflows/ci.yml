@@ -58,7 +58,7 @@ jobs:
         run: cmp THIRD_PARTY_NOTICES.md App/Polycop/Resources/Licenses/ThirdPartyNotices.txt
 
       - name: Lint
-        run: xcrun swift-format lint --strict --recursive App Packages
+        run: Tools/lint.sh
 
       - name: Test
         run: >

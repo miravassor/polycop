@@ -13,7 +13,7 @@ Run from the repository root. Xcode 27 is required; the scripts set
 ```sh
 Tools/build-ffmpeg.sh      # once: LGPL ffmpeg helper into build/ffmpeg (needs GnuPG)
 Tools/build-audiocpp.sh    # once: audio.cpp framework into Packages/AudioCppFramework (needs CMake)
-xcrun swift-format lint --strict --recursive App Packages
+Tools/lint.sh              # swift-format for style, SwiftLint (pinned, downloaded once) for size
 xcodebuild test -project App/Polycop.xcodeproj -scheme Polycop -destination 'platform=macOS,arch=arm64'
 Tools/package.sh           # locally signed app and zip with its sources, in build/releases/
 ```
@@ -60,7 +60,12 @@ Tools/                 build, fixture and packaging scripts
 * The build has no warnings: CI compiles with `SWIFT_TREAT_WARNINGS_AS_ERRORS=YES`.
 * Comments are English, short, and say why, not what. No dates, no measurement stories.
 * Every file starts with `// SPDX-License-Identifier: GPL-3.0-or-later` (`#` in scripts).
-* Formatting follows `.swift-format`; the lint must stay clean.
+* Formatting follows `.swift-format`; the lint must stay clean. No force unwrap or
+  `try!`: where a value can never be missing, such as a URL built from literals, say
+  why in a comment above a `swift-format-ignore` for that one rule.
+* Size and complexity follow `.swiftlint.yml`. A warning there is debt: do not add
+  one, and split code rather than raise a limit. When a split brings the largest
+  case down, lower the error limit to just above what remains.
 * No abstraction before a second use exists. Prefer the simplest code that reads well.
 * Interface strings are in English. No emoji, and no dashes as punctuation, in the
   interface or the documentation.
