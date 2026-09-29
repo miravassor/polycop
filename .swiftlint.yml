@@ -18,6 +18,8 @@ included:
   - App
   - Packages
 
+# A test suite that groups every test of one subject may be longer: it says
+# so at its top with a disable comment for file_length.
 file_length:
   warning: 400
   error: 750

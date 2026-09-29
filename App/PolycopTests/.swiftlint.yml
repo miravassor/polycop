@@ -1,7 +1,0 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
-#
-# A suite groups every test of one subject, so its file may be long.
-
-disabled_rules:
-  - file_length
-  - type_body_length
