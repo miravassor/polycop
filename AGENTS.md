@@ -23,6 +23,10 @@ Tools/package.sh           # locally signed app and zip with its sources, in bui
 * Tests can run while Polycop is open. Two copies share the library, so each keeps the
   edits it made last; a copy does not clear leftover files while another runs.
 * Tests that need a model skip themselves when that model is not installed.
+* CI runs the suite under the thread and address sanitizers, but has no model, so it
+  never reaches the engines. After changing `Engine/`, `Audio/` or any code that uses
+  unsafe pointers, run the suite locally with the models installed, once with
+  `-enableThreadSanitizer YES` and once with `-enableAddressSanitizer YES`.
 * A release starts on a branch `release/X.Y.Z` that sets `MARKETING_VERSION`, raises
   `CURRENT_PROJECT_VERSION`, and turns the changelog's "Unreleased" into "X.Y.Z (date)".
   Once it is merged, pushing the tag `vX.Y.Z` makes `.github/workflows/release.yml`
