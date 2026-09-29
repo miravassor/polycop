@@ -33,6 +33,7 @@ nonisolated struct Model: Identifiable, Equatable, Sendable {
     /// Pinned to a commit, so the file behind it can never change.
     var url: URL {
         // Every component is a literal of this file, so the URL is always valid.
+        // swift-format-ignore: NeverForceUnwrap
         URL(string: "https://huggingface.co/\(repository)/resolve/\(commit)/\(file)")!
     }
 }
@@ -240,5 +241,4 @@ nonisolated enum ModelCatalog {
         commit: whisperCppCommit,
         file: "ggml-large-v3-turbo-q8_0.bin"
     )
-
 }

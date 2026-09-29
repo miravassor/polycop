@@ -175,7 +175,7 @@ nonisolated enum AudioDecoder {
         // engine is given, because holding the bytes and a copy of them at
         // once would cost twice the memory of the recording, 1.8 GB at the
         // four-hour limit.
-        var samples = [Float]()
+        var samples: [Float] = []
         var partialSample: [UInt8] = []
         let sampleLimit = byteLimit / MemoryLayout<Float>.size
         let reading = output.fileHandleForReading
@@ -187,7 +187,7 @@ nonisolated enum AudioDecoder {
                 throw AudioError.tooLong
             }
             collect(chunk, into: &samples, carrying: &partialSample)
-            capLog(log, errors)
+            capLog(errors)
         }
         process.waitUntilExit()
 
@@ -222,12 +222,17 @@ nonisolated enum AudioDecoder {
     ) {
         var bytes = partial
         bytes.append(contentsOf: chunk)
-        let whole = bytes.count - bytes.count % MemoryLayout<Float>.size
-        bytes.withUnsafeBytes { raw in
-            let floats = raw.bindMemory(to: Float.self)
-            samples.append(
-                contentsOf: UnsafeBufferPointer(
-                    start: floats.baseAddress, count: whole / MemoryLayout<Float>.size))
+        let size = MemoryLayout<Float>.size
+        let whole = bytes.count - bytes.count % size
+        let first = samples.count
+        samples.append(contentsOf: repeatElement(0, count: whole / size))
+        // Copied as bytes into the floats: memory holding bytes cannot be read
+        // as floats in place without breaking Swift's rules for typed memory.
+        samples.withUnsafeMutableBytes { destination in
+            bytes.withUnsafeBytes { source in
+                UnsafeMutableRawBufferPointer(rebasing: destination[(first * size)...])
+                    .copyMemory(from: UnsafeRawBufferPointer(rebasing: source[..<whole]))
+            }
         }
         partial = Array(bytes[whole...])
     }
@@ -236,7 +241,7 @@ nonisolated enum AudioDecoder {
     /// damaged frame by frame makes ffmpeg complain about every one of them;
     /// the last lines are the ones worth reading, and the handle is shared
     /// with ffmpeg, so rewinding it is what makes it overwrite the older ones.
-    private static func capLog(_ log: URL, _ errors: FileHandle) {
+    private static func capLog(_ errors: FileHandle) {
         guard let size = try? errors.offset(), size > logLimit else { return }
         try? errors.truncate(atOffset: 0)
         try? errors.seek(toOffset: 0)

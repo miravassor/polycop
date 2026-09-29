@@ -9,7 +9,6 @@ import Foundation
 /// because it opens a sentence is not one, and a term on half the pages of a
 /// document is a header.
 nonisolated enum Terms {
-
     /// Words capitalised because they open a sentence, never because they name.
     private static let banal: Set<String> = [
         "Le", "La", "Les", "Un", "Une", "Des", "Du", "De", "Ce", "Cet", "Cette", "Ces",
@@ -72,10 +71,11 @@ nonisolated enum Terms {
         // Below a handful of pages there is no template to find, and the rule
         // would throw away the subject itself.
         let furniture = pages.count >= 6 ? max(2, pages.count / 2) : Int.max
-        let ranked = presence.keys
-            .filter { presence[$0]! < furniture }
-            .filter { sure.contains($0) || presence[$0]! >= 2 }
-            .sorted { (presence[$0]!, $1) > (presence[$1]!, $0) }
+        let ranked =
+            presence
+            .filter { term, count in count < furniture && (sure.contains(term) || count >= 2) }
+            .sorted { ($0.value, $1.key) > ($1.value, $0.key) }
+            .map(\.key)
         return fitting(distinct(ranked), within: budget).reversed()
     }
 
@@ -103,10 +103,11 @@ nonisolated enum Terms {
         var seen: [String: Int] = [:]
         for name in properNames(in: page) {
             found.insert(name.term)
-            seen[name.term, default: 0] += 1
+            let count = seen[name.term, default: 0] + 1
+            seen[name.term] = count
             // Slides are written in bullets, where every line opens a sentence.
             // A name repeated on the page is treated as sure even there.
-            if name.sure || seen[name.term]! > 1 { sure.insert(name.term) }
+            if name.sure || count > 1 { sure.insert(name.term) }
         }
         return (found.filter(acceptable), sure.filter(acceptable))
     }

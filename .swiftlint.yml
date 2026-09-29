@@ -1,0 +1,45 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Size and complexity only; swift-format owns style. A warning marks the size
+# code should stay under. An error sits just above the largest code today, so
+# nothing grows past it: lower it when that code is split.
+
+only_rules:
+  - closure_body_length
+  - cyclomatic_complexity
+  - file_length
+  - function_body_length
+  - function_parameter_count
+  - large_tuple
+  - nesting
+  - type_body_length
+
+included:
+  - App
+  - Packages
+
+# A test suite that groups every test of one subject may be longer: it says
+# so at its top with a disable comment for file_length.
+file_length:
+  warning: 400
+  error: 750
+type_body_length:
+  warning: 300
+  error: 650
+function_body_length:
+  warning: 50
+  error: 120
+closure_body_length:
+  warning: 60
+  error: 110
+cyclomatic_complexity:
+  warning: 10
+  error: 22
+function_parameter_count:
+  warning: 6
+  error: 8
+large_tuple:
+  warning: 3
+  error: 4
+nesting:
+  type_level: 2
