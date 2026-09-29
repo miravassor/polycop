@@ -29,6 +29,8 @@ Tools/package.sh           # locally signed app and zip with its sources, in bui
 
 ## Layout
 
+How the parts fit, who owns which state and where work runs: `ARCHITECTURE.md`.
+
 ```
 App/Polycop/
   Application/         PolycopApp, and AppModel: the single @Observable state holder,
