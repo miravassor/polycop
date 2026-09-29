@@ -430,13 +430,7 @@ extension AppModel {
         }
         if let engine { return engine }
         stage = .loading
-        let file = ModelStore.location(of: model)
-        let opened: any TranscriptionEngine =
-            model.engine == .whisper
-            ? try await WhisperEngine.load(model: file, expecting: model)
-            : try await AudioCppEngine.load(
-                model: file, expecting: model,
-                aligner: aligns ? (ModelStore.location(of: aligner), aligner) : nil)
+        let opened = try await engines.open(model, aligns)
         try Task.checkCancellation()
         engine = opened
         engineFile = model.id

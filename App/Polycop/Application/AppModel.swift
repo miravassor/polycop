@@ -190,6 +190,8 @@ final class AppModel {
     var scheduled: Set<Entry.ID> = []
     var downloadingModel: Model?
     let history: URL
+    /// Which models are installed, and how an engine opens.
+    let engines: Engines
     var unsavedHistory: Set<Entry.ID> = []
     var unsavedGlossaries: [String: Glossary] = [:]
     /// Corrections already made, oldest first, so one can be stepped back. It
@@ -212,8 +214,9 @@ final class AppModel {
     var pausedAt = 0.0
     private var activity: NSObjectProtocol?
 
-    init(history: URL = HistoryStore.directory) {
+    init(history: URL = HistoryStore.directory, engines: Engines = .live) {
         self.history = history
+        self.engines = engines
         refreshInstalled()
         selected = ModelCatalog.startingModel(installed: installed).id
         refreshGlossaries()
@@ -242,7 +245,7 @@ final class AppModel {
     }
 
     func refreshInstalled() {
-        installed = Set(ModelStore.installed().map(\.id))
+        installed = engines.installed()
         alignerInstalled = ModelStore.isInstalled(ModelCatalog.qwenAligner)
         imported = ModelStore.imported()
         if selectedCatalogue == nil { selected = ModelCatalog.recommended.id }

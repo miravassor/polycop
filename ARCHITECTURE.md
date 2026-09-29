@@ -71,8 +71,8 @@ there.
    the user asks (`start()`).
 2. `startNext()` picks the oldest scheduled entry; `run(_:)` decodes the
    recording through ffmpeg into 16 kHz mono samples.
-3. `preparedEngine(for:)` reuses the loaded engine or loads the model after
-   proving its size and SHA-256.
+3. `preparedEngine(for:)` reuses the loaded engine or opens one through
+   `AppModel.engines`, which loads the model after proving its size and SHA-256.
 4. The engine streams segments; the entry is published as it goes.
 5. The entry keeps the segments as the engine wrote them and is marked
    finished. What the page shows is derived from them through `Output/`:
@@ -122,6 +122,8 @@ property names never change (see `AGENTS.md`).
 
 `App/PolycopTests/` has one suite per subject. Pure code in `Output/`,
 `Glossary/` and `History/` is tested directly on values. `AppModel` is
-tested with a temporary library folder and settings in memory. Engine tests
-run only when their model is installed. Audio timing is never asserted: CI
+tested with a temporary library folder and settings in memory. Its queue is
+also tested with a scripted engine given through `Engines`, so pause, resume,
+stop, quit and failures run in CI; engine tests run only when their model is
+installed. Audio timing is never asserted: CI
 runs on shared machines.
