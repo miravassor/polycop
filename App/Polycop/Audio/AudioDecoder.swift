@@ -222,12 +222,17 @@ nonisolated enum AudioDecoder {
     ) {
         var bytes = partial
         bytes.append(contentsOf: chunk)
-        let whole = bytes.count - bytes.count % MemoryLayout<Float>.size
-        bytes.withUnsafeBytes { raw in
-            let floats = raw.bindMemory(to: Float.self)
-            samples.append(
-                contentsOf: UnsafeBufferPointer(
-                    start: floats.baseAddress, count: whole / MemoryLayout<Float>.size))
+        let size = MemoryLayout<Float>.size
+        let whole = bytes.count - bytes.count % size
+        let first = samples.count
+        samples.append(contentsOf: repeatElement(0, count: whole / size))
+        // Copied as bytes into the floats: memory holding bytes cannot be read
+        // as floats in place without breaking Swift's rules for typed memory.
+        samples.withUnsafeMutableBytes { destination in
+            bytes.withUnsafeBytes { source in
+                UnsafeMutableRawBufferPointer(rebasing: destination[(first * size)...])
+                    .copyMemory(from: UnsafeRawBufferPointer(rebasing: source[..<whole]))
+            }
         }
         partial = Array(bytes[whole...])
     }
