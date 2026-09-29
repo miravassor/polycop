@@ -252,6 +252,44 @@ extension LoadingAModel {
     #expect(AudioCppEngine.lastTime(in: "pas encore") == nil)
 }
 
+@Test func mossPassagesBecomeSegmentsOnTheRecording() {
+    let text = "[0.00][S01] Bonjour à tous.[2.50][2.50][S02] Oui ?[3.10]"
+    #expect(
+        AudioCppEngine.mossSegments(in: text, from: 60, lasting: 300, isComplete: true) == [
+            Segment(start: 60, end: 62.5, text: "Bonjour à tous.", speaker: "S01"),
+            Segment(start: 62.5, end: 63.1, text: "Oui ?", speaker: "S02"),
+        ])
+}
+
+@Test func mossPassagesAudioCppSkipsAreSkipped() {
+    // No text, an end before the start, then times written "12." and past the window.
+    let text = "[1.0][S01]  [2.0][7.0][S01] Non.[6.5][12.][S01] Fin.[400]"
+    #expect(
+        AudioCppEngine.mossSegments(in: text, from: 0, lasting: 300, isComplete: true) == [
+            Segment(start: 12, end: 300, text: "Fin.", speaker: "S01")
+        ])
+}
+
+@Test func anUnfinishedMossPassageIsLeftOut() {
+    let text = "[0.0][S01] Un.[1.0][1.0][S01] deux deux deux deux"
+    for isComplete in [true, false] {
+        #expect(
+            AudioCppEngine.mossSegments(in: text, from: 0, lasting: 300, isComplete: isComplete)
+                == [Segment(start: 0, end: 1, text: "Un.", speaker: "S01")])
+    }
+}
+
+@Test func mossTextWithoutPassagesIsOneSegmentWithoutMarkup() {
+    let text = "[0.0][S01] Bonjour\nà tous"
+    #expect(
+        AudioCppEngine.mossSegments(in: text, from: 30, lasting: 5, isComplete: true) == [
+            Segment(start: 30, end: 35, text: "Bonjour à tous")
+        ])
+    // A window stopped by its token limit keeps nothing unfinished.
+    #expect(
+        AudioCppEngine.mossSegments(in: text, from: 30, lasting: 5, isComplete: false).isEmpty)
+}
+
 @Test func leadingPunctuationFallsBackToTheUnchangedTranscript() {
     #expect(
         TimedWords.sentences(
@@ -335,6 +373,27 @@ extension LoadingAModel {
             first.allSatisfy {
                 $0.start >= 0 && $0.end >= $0.start && $0.end <= Double(samples.count) / 16000
             })
+        await engine.drain()
+    }
+}
+
+extension LoadingAModel {
+    /// Before the fix, the first window stopped by its limit failed the job.
+    @Test(.enabled(if: ModelStore.isInstalled(ModelCatalog.moss)))
+    func aMossWindowStoppedByItsTokenLimitLetsTheNextOnesRun() async throws {
+        let limited = AudioCppProfile(
+            family: "moss_transcribe_diarize", window: 3, cutsAtSilence: false, feed: .text,
+            setsLanguage: false, readsHotwords: false, options: ["max_tokens": "12"])
+        let engine = try await AudioCppEngine.load(
+            model: ModelStore.location(of: ModelCatalog.moss), expecting: ModelCatalog.moss,
+            profile: limited)
+        let samples = try await AudioDecoder.samples(of: fixture)
+        let progress = OSAllocatedUnfairLock(initialState: 0.0)
+        let segments = try await engine.transcribe(
+            samples: samples, settings: DecodingSettings(),
+            onProgress: { value in progress.withLock { $0 = value } })
+        #expect(progress.withLock { $0 } == 1)
+        #expect(segments.allSatisfy { $0.end <= Double(samples.count) / 16000 })
         await engine.drain()
     }
 }

@@ -210,10 +210,12 @@ nonisolated final class AudioCppEngine: TranscriptionEngine, @unchecked Sendable
         case .whole:
             try Self.check(audiocpp_session_run(session, request, &result))
         case .text:
-            try readText(
-                request, lasting: Double(window.count) / rate, until: stopIfAsked,
-                progress: progress)
-            try Self.check(audiocpp_stream_finish(session, &result))
+            let length = Double(window.count) / rate
+            let read = try readText(
+                request, lasting: length, until: stopIfAsked, progress: progress)
+            return Self.mossSegments(
+                in: read.text, from: Double(window.lowerBound) / rate, lasting: length,
+                isComplete: read.isComplete)
         case .audio:
             return try pushAudio(
                 audio, request, from: Double(window.lowerBound) / rate, until: stopIfAsked,
@@ -258,16 +260,29 @@ nonisolated final class AudioCppEngine: TranscriptionEngine, @unchecked Sendable
 
     /// Reads MOSS's text token by token. The times it writes show how far
     /// into the window it has reached, which is the progress.
+    ///
+    /// audio.cpp fails a window that reaches `max_tokens` before its end,
+    /// usually one repeating a phrase. Only that window is cut short: the
+    /// passages it finished are kept, and the next window runs.
     private func readText(
         _ request: OpaquePointer, lasting length: TimeInterval,
         until stopIfAsked: () throws -> Void, progress: (Double) -> Void
-    ) throws {
+    ) throws -> (text: String, isComplete: Bool) {
         try Self.check(audiocpp_stream_start(session, request))
         var text = ""
         while true {
             try stopIfAsked()
             var event: OpaquePointer?
-            try Self.check(audiocpp_stream_next_event(session, &event))
+            let status = audiocpp_stream_next_event(session, &event)
+            if status == AUDIOCPP_ERR_RUNTIME,
+                String(cString: audiocpp_last_error()).contains("max_tokens")
+            {
+                let reached = Self.lastTime(in: text) ?? 0
+                Log.transcription.error(
+                    "MOSS reached max_tokens, window cut at \(reached, privacy: .public) s")
+                return (text, false)
+            }
+            try Self.check(status)
             guard let event else { break }
             defer { audiocpp_event_free(event) }
             text += try Self.text(of: audiocpp_event_as_result(event))
@@ -275,14 +290,7 @@ nonisolated final class AudioCppEngine: TranscriptionEngine, @unchecked Sendable
                 progress(min(1, reached / length))
             }
         }
-    }
-
-    /// The last time a MOSS transcript has written, as in "[12.34]".
-    static func lastTime(in text: String) -> TimeInterval? {
-        guard let close = text.lastIndex(of: "]"),
-            let open = text[..<close].lastIndex(of: "[")
-        else { return nil }
-        return TimeInterval(text[text.index(after: open)..<close])
+        return (text, true)
     }
 
     /// Pushes the window to Voxtral one step at a time, as a live input
@@ -341,8 +349,8 @@ nonisolated final class AudioCppEngine: TranscriptionEngine, @unchecked Sendable
 
     // MARK: Segments
 
-    /// The segments a family times itself, placed on the recording; else the
-    /// sentences the aligner timed; else one segment for the whole window.
+    /// Qwen's text as the sentences the aligner timed, placed on the
+    /// recording; else one segment for the whole window.
     private func segments(of result: OpaquePointer?, in window: Range<Int>) throws -> [Segment] {
         let rate = Double(AudioDecoder.sampleRate)
         let offset = Double(window.lowerBound) / rate
@@ -350,30 +358,6 @@ nonisolated final class AudioCppEngine: TranscriptionEngine, @unchecked Sendable
         func time(_ sample: Int64) -> TimeInterval {
             offset + min(max(0, Double(sample) / rate), length)
         }
-
-        let turns = audiocpp_result_speaker_turn_count(result)
-        var timed: [Segment] = []
-        for index in 0..<audiocpp_result_segment_count(result) {
-            var start: Int64 = 0
-            var end: Int64 = 0
-            var text: UnsafePointer<CChar>?
-            try Self.check(audiocpp_result_segment(result, index, &start, &end, nil, &text))
-            let words =
-                text.map { String(cString: $0) }?
-                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            guard !words.isEmpty else { continue }
-            // MOSS gives one speaker turn per segment, in the same order.
-            var speaker: UnsafePointer<CChar>?
-            if index < turns {
-                try Self.check(
-                    audiocpp_result_speaker_turn(result, index, nil, nil, &speaker, nil, nil))
-            }
-            timed.append(
-                Segment(
-                    start: time(start), end: max(time(start), time(end)), text: words,
-                    speaker: speaker.map { String(cString: $0) }))
-        }
-        if !timed.isEmpty { return timed }
 
         let words = try Self.text(of: result).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !words.isEmpty else { return [] }
