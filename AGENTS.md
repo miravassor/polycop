@@ -13,7 +13,8 @@ Run from the repository root. Xcode 27 is required; the scripts set
 ```sh
 Tools/build-ffmpeg.sh      # once: LGPL ffmpeg helper into build/ffmpeg (needs GnuPG)
 Tools/build-audiocpp.sh    # once: audio.cpp framework into Packages/AudioCppFramework (needs CMake)
-xcrun swift-format lint --strict --recursive App Packages
+Tools/lint.sh              # swift-format for style, SwiftLint (pinned, downloaded once) for size
+Tools/lint-workflows.sh    # actionlint and zizmor on .github/workflows, after changing one
 xcodebuild test -project App/Polycop.xcodeproj -scheme Polycop -destination 'platform=macOS,arch=arm64'
 Tools/package.sh           # locally signed app and zip with its sources, in build/releases/
 ```
@@ -22,12 +23,18 @@ Tools/package.sh           # locally signed app and zip with its sources, in bui
 * Tests can run while Polycop is open. Two copies share the library, so each keeps the
   edits it made last; a copy does not clear leftover files while another runs.
 * Tests that need a model skip themselves when that model is not installed.
+* CI runs the suite under the thread and address sanitizers, but has no model, so it
+  never reaches the engines. After changing `Engine/`, `Audio/` or any code that uses
+  unsafe pointers, run the suite locally with the models installed, once with
+  `-enableThreadSanitizer YES` and once with `-enableAddressSanitizer YES`.
 * A release starts on a branch `release/X.Y.Z` that sets `MARKETING_VERSION`, raises
   `CURRENT_PROJECT_VERSION`, and turns the changelog's "Unreleased" into "X.Y.Z (date)".
   Once it is merged, pushing the tag `vX.Y.Z` makes `.github/workflows/release.yml`
   build, test and draft the GitHub release.
 
 ## Layout
+
+How the parts fit, who owns which state and where work runs: `ARCHITECTURE.md`.
 
 ```
 App/Polycop/
@@ -60,8 +67,21 @@ Tools/                 build, fixture and packaging scripts
 * The build has no warnings: CI compiles with `SWIFT_TREAT_WARNINGS_AS_ERRORS=YES`.
 * Comments are English, short, and say why, not what. No dates, no measurement stories.
 * Every file starts with `// SPDX-License-Identifier: GPL-3.0-or-later` (`#` in scripts).
-* Formatting follows `.swift-format`; the lint must stay clean.
+* Formatting follows `.swift-format`; the lint must stay clean. No force unwrap or
+  `try!`: where a value can never be missing, such as a URL built from literals, say
+  why in a comment above a `swift-format-ignore` for that one rule.
+* Size and complexity follow `.swiftlint.yml`. A warning there is debt: do not add
+  one, and split code rather than raise a limit. When a split brings the largest
+  case down, lower the error limit to just above what remains.
 * No abstraction before a second use exists. Prefer the simplest code that reads well.
+* `try?` only where a failure changes nothing the user relies on, such as removing a
+  temporary file. A failure the user would notice is shown, or kept and retried as
+  history writes are; one they would not notice but a maintainer needs is logged
+  through `Log`.
+* Layers call one way, as `ARCHITECTURE.md` draws them. A change to that shape updates
+  `ARCHITECTURE.md` in the same pull request.
+* A new dependency, tool or model is pinned to a version and checked against a digest,
+  as the build scripts and `Tools/lint.sh` do.
 * Interface strings are in English. No emoji, and no dashes as punctuation, in the
   interface or the documentation.
 
@@ -109,7 +129,9 @@ Every page speaks the same visual language. The shared pieces live in
 
 ## Tests and data
 
-* Tests use Swift Testing. Add a test with each behaviour change.
+* Tests use Swift Testing. Add a test with each behaviour change. A bug fix comes with
+  the test that fails without it, unless the bug lives only in audio timing or on
+  screen; the pull request then says how it was checked.
 * Fixtures are synthetic, made with `Tools/fixtures.sh` and the macOS `say` voices.
 * Never commit recordings, transcripts of real lectures, or model weights, nor a
   screenshot that shows a real library: blur course names first.

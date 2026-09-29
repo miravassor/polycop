@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+// Every test of one subject, kept together.
+// swiftlint:disable file_length
 
 import Foundation
 import Testing

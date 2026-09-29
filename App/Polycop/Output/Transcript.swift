@@ -10,7 +10,6 @@ import Foundation
 /// segment by counting words would assume an even speaking rate and place
 /// words at times no measurement supports.
 nonisolated enum Transcript {
-
     /// One paragraph of the text, opening `start` milliseconds into the recording.
     nonisolated struct Paragraph: Equatable, Codable, Sendable {
         let start: Int

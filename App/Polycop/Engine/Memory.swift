@@ -28,7 +28,7 @@ nonisolated enum Memory {
     }
 
     static func fits(_ peak: Int64, budget: Int64) -> Bool {
-        return budget == 0 || peak < budget
+        budget == 0 || peak < budget
     }
 
     static func describe(_ bytes: Int64) -> String {
