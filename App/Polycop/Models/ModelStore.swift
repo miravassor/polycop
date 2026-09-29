@@ -157,10 +157,6 @@ nonisolated enum ModelStore {
         try FileManager.default.removeItem(at: directory.appending(path: imported.id))
     }
 
-    static func location(ofFile name: String) -> URL {
-        directory.appending(path: name)
-    }
-
     private static let hashingQueue = DispatchQueue(
         label: "io.github.miravassor.Polycop.hashing", qos: .userInitiated)
 

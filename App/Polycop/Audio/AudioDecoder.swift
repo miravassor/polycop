@@ -187,7 +187,7 @@ nonisolated enum AudioDecoder {
                 throw AudioError.tooLong
             }
             collect(chunk, into: &samples, carrying: &partialSample)
-            capLog(log, errors)
+            capLog(errors)
         }
         process.waitUntilExit()
 
@@ -236,7 +236,7 @@ nonisolated enum AudioDecoder {
     /// damaged frame by frame makes ffmpeg complain about every one of them;
     /// the last lines are the ones worth reading, and the handle is shared
     /// with ffmpeg, so rewinding it is what makes it overwrite the older ones.
-    private static func capLog(_ log: URL, _ errors: FileHandle) {
+    private static func capLog(_ errors: FileHandle) {
         guard let size = try? errors.offset(), size > logLimit else { return }
         try? errors.truncate(atOffset: 0)
         try? errors.seek(toOffset: 0)
