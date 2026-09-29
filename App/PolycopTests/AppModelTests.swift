@@ -505,7 +505,6 @@ extension LoadingAModel {
         #expect(model.duplicate(id) == nil)
         await model.shutDown()
     }
-
 }
 
 extension LoadingAModel {

@@ -35,14 +35,11 @@ nonisolated enum TimedWords {
             var needed = letters(sentence)
             guard needed > 0 else {
                 // Punctuation alone belongs to the sentence before it.
-                if let last = segments.popLast() {
-                    segments.append(
-                        Segment(
-                            start: last.start, end: last.end, text: last.text + " " + sentence,
-                            words: last.words))
-                } else {
-                    return nil
-                }
+                guard let last = segments.popLast() else { return nil }
+                segments.append(
+                    Segment(
+                        start: last.start, end: last.end, text: last.text + " " + sentence,
+                        words: last.words))
                 continue
             }
             let first = next

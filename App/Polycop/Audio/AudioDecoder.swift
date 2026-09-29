@@ -175,7 +175,7 @@ nonisolated enum AudioDecoder {
         // engine is given, because holding the bytes and a copy of them at
         // once would cost twice the memory of the recording, 1.8 GB at the
         // four-hour limit.
-        var samples = [Float]()
+        var samples: [Float] = []
         var partialSample: [UInt8] = []
         let sampleLimit = byteLimit / MemoryLayout<Float>.size
         let reading = output.fileHandleForReading

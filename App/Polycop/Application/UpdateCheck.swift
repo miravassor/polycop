@@ -8,6 +8,8 @@ import os
 /// chooses Check for Updates, and the request carries nothing about the Mac or
 /// its library.
 nonisolated enum UpdateCheck {
+    // A literal, so the URL is always valid.
+    // swift-format-ignore: NeverForceUnwrap
     static let latestRelease = URL(
         string: "https://api.github.com/repos/miravassor/polycop/releases/latest")!
 

@@ -2,5 +2,17 @@
   "version": 1,
   "indentation": {
     "spaces": 4
+  },
+  "rules": {
+    "AlwaysUseLiteralForEmptyCollectionInit": true,
+    "NeverForceUnwrap": true,
+    "NeverUseForceTry": true,
+    "NeverUseImplicitlyUnwrappedOptionals": true,
+    "NoEmptyLinesOpeningClosingBraces": true,
+    "NoLeadingUnderscores": true,
+    "OmitExplicitReturns": true,
+    "UseEarlyExits": true,
+    "UseWhereClausesInForLoops": true,
+    "ValidateDocumentationComments": true
   }
 }
