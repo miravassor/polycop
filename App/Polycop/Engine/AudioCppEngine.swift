@@ -285,32 +285,25 @@ nonisolated final class AudioCppEngine: TranscriptionEngine, @unchecked Sendable
         return TimeInterval(text[text.index(after: open)..<close])
     }
 
-    /// Pushes the window to Voxtral in the chunks it asks for. A push returns
-    /// only the last of the steps it runs (`audiocpp_stream_push`, v0.8.1),
-    /// so the text read while pushing can miss some of what the final
-    /// transcript, read once the stream ends, contains. That streamed text
-    /// times the transcript in 30-second segments only when it matches
-    /// exactly; otherwise the window is one segment. Voxtral lags the audio
-    /// by its model delay of 480 ms.
+    /// Pushes the window to Voxtral one step at a time, as a live input
+    /// reaches audiocpp_cli, then the silence that flushes its last words.
+    /// The text read by the end of every 30 seconds of audio, less the delay,
+    /// cuts the final transcript into segments.
     private func pushAudio(
         _ audio: [Float], _ request: OpaquePointer, from offset: TimeInterval,
         until stopIfAsked: () throws -> Void, progress: (Double) -> Void
     ) throws -> [Segment] {
-        var preferred: Int64 = 0
-        try Self.check(audiocpp_stream_policy(session, nil, nil, &preferred, nil))
-        let chunk = max(1, Int(preferred))
-        let rate = Double(AudioDecoder.sampleRate)
-        let every = Int(AudioCppProfile.streamedSegment * rate)
+        let padded = audio + [Float](repeating: 0, count: Self.voxtralFlush)
+        let span = Int(AudioCppProfile.streamedSegment * Double(AudioDecoder.sampleRate))
         try Self.check(audiocpp_stream_start(session, request))
-        // The text read by the end of each span of 30 seconds, and where it ends.
-        var spans: [(end: Int, text: String)] = []
-        var streamed = ""
+        var marks: [(end: Int, read: Int)] = []
+        var streamed: [UInt8] = []
         var pushed = 0
-        while pushed < audio.count {
+        while pushed < padded.count {
             try stopIfAsked()
-            let count = min(chunk, audio.count - pushed)
+            let count = min(Self.voxtralStep, padded.count - pushed)
             var event: OpaquePointer?
-            try audio[pushed..<(pushed + count)].withUnsafeBufferPointer {
+            try padded[pushed..<(pushed + count)].withUnsafeBufferPointer {
                 try Self.check(
                     audiocpp_stream_push(
                         session, $0.baseAddress, count, Int32(AudioDecoder.sampleRate), 1,
@@ -318,51 +311,32 @@ nonisolated final class AudioCppEngine: TranscriptionEngine, @unchecked Sendable
             }
             if let event {
                 defer { audiocpp_event_free(event) }
-                streamed += try Self.text(of: audiocpp_event_as_result(event))
+                streamed += try Self.bytes(of: audiocpp_event_as_result(event))
             }
             pushed += count
-            if pushed - (spans.last?.end ?? 0) >= every { spans.append((pushed, streamed)) }
-            progress(Double(pushed) / Double(audio.count))
+            let heard = min(audio.count, max(0, pushed - Self.voxtralDelay))
+            if heard - (marks.last?.end ?? 0) >= span { marks.append((heard, streamed.count)) }
+            progress(Double(heard) / Double(audio.count))
         }
         var result: OpaquePointer?
         defer { audiocpp_result_free(result) }
         try Self.check(audiocpp_stream_finish(session, &result))
-        let whole = try Self.text(of: result)
-        // Merge final buffered words into the last span when it already ends here.
-        if spans.last?.end == audio.count { spans.removeLast() }
-        spans.append((audio.count, whole))
+        return Self.streamedSegments(
+            of: try Self.bytes(of: result), streamed: streamed, marks: marks,
+            lasting: audio.count, from: offset)
+    }
 
-        func segment(_ text: Substring, from start: Int, to end: Int) -> Segment? {
-            let words = text.trimmingCharacters(in: .whitespacesAndNewlines)
-            return words.isEmpty
-                ? nil
-                : Segment(
-                    start: offset + Double(start) / rate, end: offset + Double(end) / rate,
-                    text: words)
-        }
-        guard whole.hasPrefix(streamed) else {
-            return segment(Substring(whole), from: 0, to: audio.count).map { [$0] } ?? []
-        }
-        var segments: [Segment] = []
-        var start = 0
-        var written = whole.startIndex
-        for span in spans {
-            let upTo = whole.index(whole.startIndex, offsetBy: span.text.count)
-            if let found = segment(whole[written..<upTo], from: start, to: span.end) {
-                segments.append(found)
-            }
-            written = upTo
-            start = span.end
-        }
-        return segments
+    /// Bytes rather than text: a streamed piece can end inside a character.
+    private static func bytes(of result: OpaquePointer?) throws -> [UInt8] {
+        var text: UnsafePointer<CChar>?
+        let status = audiocpp_result_text(result, &text, nil)
+        if status == AUDIOCPP_ERR_NOT_AVAILABLE { return [] }
+        try check(status)
+        return text.map { Array(UnsafeRawBufferPointer(start: $0, count: strlen($0))) } ?? []
     }
 
     private static func text(of result: OpaquePointer?) throws -> String {
-        var text: UnsafePointer<CChar>?
-        let status = audiocpp_result_text(result, &text, nil)
-        if status == AUDIOCPP_ERR_NOT_AVAILABLE { return "" }
-        try check(status)
-        return text.map { String(cString: $0) } ?? ""
+        String(decoding: try bytes(of: result), as: UTF8.self)
     }
 
     // MARK: Segments

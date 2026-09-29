@@ -55,8 +55,8 @@ nonisolated struct AudioCppProfile: Sendable {
         family: "moss_transcribe_diarize", window: 300, cutsAtSilence: true, feed: .text,
         setsLanguage: false,
         readsHotwords: true, options: ["max_tokens": "8192"])
-    /// Streamed, as Voxtral Realtime is meant to run, word for word what
-    /// audiocpp_cli streams.
+    /// Streamed, as Voxtral Realtime is meant to run, each window ending
+    /// with the silence audio.cpp's offline path appends.
     static let voxtral = AudioCppProfile(
         family: "voxtral_realtime", window: 300, cutsAtSilence: true, feed: .audio,
         setsLanguage: false, readsHotwords: false, options: [:])
