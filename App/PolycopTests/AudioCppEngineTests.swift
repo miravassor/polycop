@@ -274,6 +274,49 @@ extension LoadingAModel {
         ])
 }
 
+@Test func voxtralSegmentsFollowTheTextReadAtEachSpan() {
+    let transcript = Array(" Bonjour à tous. Nous commençons.".utf8)
+    let read = " Bonjour à tous.".utf8.count
+    let segments = AudioCppEngine.streamedSegments(
+        of: transcript, streamed: Array(transcript[..<read]), marks: [(480_000, read)],
+        lasting: 800_000, from: 60)
+    #expect(
+        segments == [
+            Segment(start: 60, end: 90, text: "Bonjour à tous."),
+            Segment(start: 90, end: 110, text: "Nous commençons."),
+        ])
+}
+
+@Test func aVoxtralSpanEndingInsideAWordOrACharacterEndsAfterIt() {
+    let transcript = Array(" Il a commencé tôt".utf8)
+    // Inside "commencé", then between the two bytes of its "é".
+    for read in [8, " Il a commenc".utf8.count + 1] {
+        let segments = AudioCppEngine.streamedSegments(
+            of: transcript, streamed: Array(transcript[..<read]), marks: [(16_000, read)],
+            lasting: 32_000, from: 0)
+        #expect(segments.map(\.text) == ["Il a commencé", "tôt"])
+    }
+}
+
+@Test func voxtralTextThatDisagreesWithTheStreamIsOneSegment() {
+    let segments = AudioCppEngine.streamedSegments(
+        of: Array(" Bonjour à tous.".utf8), streamed: Array(" Bonsoir".utf8),
+        marks: [(16_000, 8)], lasting: 32_000, from: 5)
+    #expect(segments == [Segment(start: 5, end: 7, text: "Bonjour à tous.")])
+}
+
+@Test func voxtralSpansWithoutTextOrPastTheWindowAreSkipped() {
+    // Nothing read by the first mark, a count past the text, a mark at the end.
+    let segments = AudioCppEngine.streamedSegments(
+        of: Array(" Bonjour.".utf8), streamed: [],
+        marks: [(16_000, 0), (32_000, 99), (48_000, 9)], lasting: 48_000, from: 0)
+    #expect(segments == [Segment(start: 1, end: 2, text: "Bonjour.")])
+    #expect(
+        AudioCppEngine.streamedSegments(
+            of: [], streamed: [], marks: [], lasting: 16_000, from: 0
+        ).isEmpty)
+}
+
 extension LoadingAModel {
     @Test(
         .enabled(
