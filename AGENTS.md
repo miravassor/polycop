@@ -14,6 +14,7 @@ Run from the repository root. Xcode 27 is required; the scripts set
 Tools/build-ffmpeg.sh      # once: LGPL ffmpeg helper into build/ffmpeg (needs GnuPG)
 Tools/build-audiocpp.sh    # once: audio.cpp framework into Packages/AudioCppFramework (needs CMake)
 Tools/lint.sh              # swift-format for style, SwiftLint (pinned, downloaded once) for size
+Tools/lint-workflows.sh    # actionlint and zizmor on .github/workflows, after changing one
 xcodebuild test -project App/Polycop.xcodeproj -scheme Polycop -destination 'platform=macOS,arch=arm64'
 Tools/package.sh           # locally signed app and zip with its sources, in build/releases/
 ```

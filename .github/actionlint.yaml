@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+self-hosted-runner:
+  # A GitHub image label newer than actionlint's list.
+  labels:
+    - xcode-27
