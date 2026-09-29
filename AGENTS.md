@@ -69,6 +69,14 @@ Tools/                 build, fixture and packaging scripts
   one, and split code rather than raise a limit. When a split brings the largest
   case down, lower the error limit to just above what remains.
 * No abstraction before a second use exists. Prefer the simplest code that reads well.
+* `try?` only where a failure changes nothing the user relies on, such as removing a
+  temporary file. A failure the user would notice is shown, or kept and retried as
+  history writes are; one they would not notice but a maintainer needs is logged
+  through `Log`.
+* Layers call one way, as `ARCHITECTURE.md` draws them. A change to that shape updates
+  `ARCHITECTURE.md` in the same pull request.
+* A new dependency, tool or model is pinned to a version and checked against a digest,
+  as the build scripts and `Tools/lint.sh` do.
 * Interface strings are in English. No emoji, and no dashes as punctuation, in the
   interface or the documentation.
 
@@ -116,7 +124,9 @@ Every page speaks the same visual language. The shared pieces live in
 
 ## Tests and data
 
-* Tests use Swift Testing. Add a test with each behaviour change.
+* Tests use Swift Testing. Add a test with each behaviour change. A bug fix comes with
+  the test that fails without it, unless the bug lives only in audio timing or on
+  screen; the pull request then says how it was checked.
 * Fixtures are synthetic, made with `Tools/fixtures.sh` and the macOS `say` voices.
 * Never commit recordings, transcripts of real lectures, or model weights, nor a
   screenshot that shows a real library: blur course names first.
