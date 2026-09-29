@@ -16,8 +16,22 @@ concurrency:
 
 jobs:
   test:
+    name: ${{ matrix.check }}
     runs-on: xcode-27
     timeout-minutes: 90
+    # The sanitizers find data races and memory errors the tests pass through:
+    # the engines share C state across queues, and the decoder reads raw bytes.
+    # They cannot run in the same process, so each has its own run.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - check: tests
+            options: -enableCodeCoverage YES -resultBundlePath build/Tests.xcresult
+          - check: thread sanitizer
+            options: -enableThreadSanitizer YES
+          - check: address sanitizer
+            options: -enableAddressSanitizer YES
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -55,9 +69,11 @@ jobs:
         run: Tools/build-audiocpp.sh
 
       - name: Check the notices shipped in the app
+        if: matrix.check == 'tests'
         run: cmp THIRD_PARTY_NOTICES.md App/Polycop/Resources/Licenses/ThirdPartyNotices.txt
 
       - name: Lint
+        if: matrix.check == 'tests'
         run: Tools/lint.sh
 
       - name: Test
@@ -66,4 +82,14 @@ jobs:
           -project App/Polycop.xcodeproj
           -scheme Polycop
           -destination 'platform=macOS,arch=arm64'
+          ${{ matrix.options }}
           SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
+
+      - name: Coverage
+        if: matrix.check == 'tests'
+        run: |
+          {
+            echo '```'
+            xcrun xccov view --report --only-targets build/Tests.xcresult
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
