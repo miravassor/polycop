@@ -115,14 +115,18 @@ extension AppModel {
         return copy.id
     }
 
-    /// Refused while corrections can be stepped back: rebuilding the
+    /// Whether the paragraphs can be laid out again from what the engine
+    /// wrote, as putting credits back and repairing repeats do. Refused while
+    /// corrections can be stepped back, even after a revert: rebuilding the
     /// paragraphs would discard them.
-    func canPutBackCredits(of entry: Entry) -> Bool {
+    func canRebuildParagraphs(of entry: Entry) -> Bool {
         entry.id != busyEntry && entry.hasOnlyCourseCorrections && !canUndo(entry.id)
     }
 
     func putBackCredits(_ id: Entry.ID) {
-        guard !isShuttingDown, let entry = entry(id), canPutBackCredits(of: entry) else { return }
+        guard !isShuttingDown, let entry = entry(id), canRebuildParagraphs(of: entry) else {
+            return
+        }
         var restored = false
         updateEntry(id) { restored = $0.putBackCredits() }
         // The paragraphs are rebuilt around the lines that came back, so the
