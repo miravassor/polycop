@@ -188,6 +188,8 @@ final class AppModel {
     var work: Task<Void, Never>?
     var job = 0
     var scheduled: Set<Entry.ID> = []
+    /// Retries not started yet, which keep the settings of the job they repeat.
+    var retries: Set<Entry.ID> = []
     var downloadingModel: Model?
     let history: URL
     /// Which models are installed, and how an engine opens.

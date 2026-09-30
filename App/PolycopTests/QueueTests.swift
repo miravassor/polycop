@@ -72,12 +72,14 @@ nonisolated final class ScriptedEngine: TranscriptionEngine {
     func drain() async { state.withLock { $0.drains += 1 } }
 }
 
-/// Engines that say the recommended model is installed and open `engine`,
-/// counting the openings and failing the first `failures` of them.
+/// Engines that say the models in `installed` are there, the recommended one
+/// at first, and open `engine`, counting the openings and failing the first
+/// `failures` of them.
 @MainActor
 private final class Opener {
     let engine: ScriptedEngine
     var failures: Int
+    var installed: Set<String> = [ModelCatalog.recommended.id]
     private(set) var opened = 0
 
     init(_ engine: ScriptedEngine, failures: Int = 0) {
@@ -87,7 +89,7 @@ private final class Opener {
 
     var engines: Engines {
         Engines(
-            installed: { [ModelCatalog.recommended.id] },
+            installed: { self.installed },
             open: { _, _ in
                 self.opened += 1
                 if self.failures > 0 {
@@ -224,6 +226,35 @@ private func entry(_ model: AppModel, _ file: URL) throws -> Entry {
         #expect(try entry(model, files[1]).state == .finished)
         #expect(opener.opened == 2)
         await model.shutDown()
+    }
+
+    /// A retry waits for a model deleted since, and Start, pressed for other
+    /// recordings, leaves it the settings of the job it repeats.
+    @Test func aRetryWaitingForItsModelKeepsItsSettingsAtStart() async throws {
+        let (folder, files) = try recordings(1)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let history = folder.appending(path: "history")
+        var failed = Entry(
+            recording: files[0], modelFile: ModelCatalog.turboQuantized.id, glossary: nil,
+            skipsSilence: false, subtitles: false, language: "en")
+        failed.state = .failed("")
+        try HistoryStore.write(failed, in: history)
+        let opener = Opener(ScriptedEngine())
+        let model = AppModel(history: history, engines: opener.engines)
+
+        model.retry(failed.id)
+        let retry = try #require(model.waiting.first)
+        opener.installed.insert(ModelCatalog.turboQuantized.id)
+        model.refreshInstalled()
+        model.selected = ModelCatalog.recommended.id
+        model.language = "fr"
+        model.start()
+        try await until { !model.hasWork && !model.stage.isBusy }
+
+        let finished = try #require(model.entry(retry.id))
+        #expect(finished.state == .finished)
+        #expect(finished.modelFile == ModelCatalog.turboQuantized.id)
+        #expect(finished.language == "en")
     }
 
     @Test func quittingStopsTheRecordingKeepsItsTextAndLetsTheEngineGo() async throws {
