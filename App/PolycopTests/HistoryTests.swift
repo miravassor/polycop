@@ -117,6 +117,16 @@ private func entry(_ name: String, in folder: URL, added: Date = .now) -> Entry 
     #expect(Entry.freeName(from: "Cours 12", among: ["Cours 12"]) == "Cours 12 (2)")
 }
 
+/// One process holds the library; a second claim on it, as a second copy
+/// of the app makes, is refused.
+@Test func aLibraryIsClaimedOnce() throws {
+    let folder = try temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: folder) }
+
+    #expect(HistoryStore.claim(folder))
+    #expect(!HistoryStore.claim(folder))
+}
+
 @Test func aDamagedRecordHidesNothingElse() throws {
     let folder = try temporaryFolder()
     defer { try? FileManager.default.removeItem(at: folder) }

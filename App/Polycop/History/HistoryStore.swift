@@ -55,6 +55,23 @@ nonisolated enum HistoryStore {
         name.hasSuffix(".json") && UUID(uuidString: String(name.dropLast(5))) != nil
     }
 
+    /// Claims the library for this process until it exits, so that a second
+    /// copy of the app cannot write what it read at launch over this one's
+    /// changes. False when another process holds it. A folder that cannot be
+    /// opened is not refused here: reading it reports the problem.
+    static func claim(_ folder: URL = directory) -> Bool {
+        try? FileManager.default.createDirectory(
+            at: folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        let descriptor = open(folder.path(percentEncoded: false), O_RDONLY)
+        guard descriptor >= 0 else { return true }
+        // The descriptor stays open: the lock lasts until the process exits,
+        // however it exits.
+        guard flock(descriptor, LOCK_EX | LOCK_NB) != 0 else { return true }
+        let isHeld = errno == EWOULDBLOCK
+        close(descriptor)
+        return !isHeld
+    }
+
     static func write(_ entry: Entry, in folder: URL = directory) throws {
         try FileManager.default.createDirectory(
             at: folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])

@@ -314,6 +314,7 @@ extension LoadingAModel {
 /// would mark what their own copy is transcribing as stopped.
 @MainActor
 @Test func theTestHostLeavesTheUsersLibraryAlone() {
+    #expect(!PolycopApp.isSecondCopy)
     #expect(PolycopApp.library != HistoryStore.directory)
     #expect(!PolycopApp.library.path.hasPrefix(URL.applicationSupportDirectory.path))
 }

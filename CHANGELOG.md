@@ -4,6 +4,10 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ## Unreleased
 
+### Changed
+
+* Opening Polycop while it is already open brings the open copy forward instead of starting a second one. Two copies each wrote what they had read at launch, so one could write over the other's corrections.
+
 ### Fixed
 
 * Jumping to a paragraph or along the timeline while playing no longer shows the old position again for a moment before the new one.
