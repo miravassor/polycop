@@ -22,10 +22,10 @@ included:
 # so at its top with a disable comment for file_length.
 file_length:
   warning: 400
-  error: 750
+  error: 520
 type_body_length:
   warning: 300
-  error: 650
+  error: 390
 function_body_length:
   warning: 50
   error: 120
