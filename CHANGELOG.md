@@ -11,6 +11,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 * A MOSS window that repeats itself until its token limit no longer ends the whole transcription: that window keeps what it had written, and the rest of the recording is transcribed.
 * Stopping or quitting while a Whisper transcription is about to start takes effect at once, and its progress no longer goes past 100%.
 * A recording in a folder the app cannot read is reported as unreadable, with the reason, rather than as moved.
+* A transcript where a speaker starts before the one they follow, as MOSS can write when voices overlap, opens again after a relaunch instead of being reported as a file that could not be read.
 
 ## 0.3.2 (2026-09-27)
 
