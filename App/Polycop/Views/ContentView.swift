@@ -32,101 +32,8 @@ struct ContentView: View {
                     .fontWeight(.medium)
                     .padding(.vertical, 5)
                     .tag(AppModel.Pane.new)
-                Section {
-                    if unfiled.isEmpty {
-                        Text("Nothing outside a folder")
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
-                    ForEach(unfiled) { entry in row(entry) }
-                } header: {
-                    Text(model.folders.isEmpty ? "Library" : "Unfiled")
-                        .padding(.vertical, 2)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(
-                            highlightsUnfiled ? Color.accentColor.opacity(0.25) : .clear,
-                            in: RoundedRectangle(cornerRadius: 6)
-                        )
-                        .contextMenu { newFolder }
-                        .dropDestination(for: String.self) { items, _ in
-                            drop(items, into: nil)
-                        } isTargeted: {
-                            highlightsUnfiled = $0
-                        }
-                }
-                Section {
-                    if model.folders.isEmpty {
-                        Text("No folders yet").font(.caption).foregroundStyle(.secondary)
-                    }
-                    ForEach(model.folders) { folder in
-                        DisclosureGroup(
-                            isExpanded: Binding(
-                                get: { expandedFolders.contains(folder.id) },
-                                set: {
-                                    if $0 {
-                                        expandedFolders.insert(folder.id)
-                                    } else {
-                                        expandedFolders.remove(folder.id)
-                                    }
-                                }
-                            )
-                        ) {
-                            let entries = model.entries.filter { $0.folderID == folder.id }
-                            if entries.isEmpty {
-                                Text("Empty folder").font(.caption).foregroundStyle(.secondary)
-                            }
-                            ForEach(entries) { entry in row(entry) }
-                        } label: {
-                            Label(folder.name, systemImage: "folder")
-                                .lineLimit(1)
-                                .padding(.vertical, 2)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(
-                                    highlighted == folder.id
-                                        ? Color.accentColor.opacity(0.25) : .clear,
-                                    in: RoundedRectangle(cornerRadius: 6)
-                                )
-                                .dropDestination(for: String.self) { items, _ in
-                                    drop(items, into: folder.id)
-                                } isTargeted: {
-                                    highlighted = $0 ? folder.id : nil
-                                }
-                                .contextMenu {
-                                    Button("Rename Folder…") {
-                                        renamedFolder = folder.id
-                                        folderName = folder.name
-                                        namingFolder = true
-                                    }
-                                    Button("Delete Empty Folder", role: .destructive) {
-                                        attempt { try model.removeFolder(folder.id) }
-                                    }
-                                    .disabled(model.entries.contains { $0.folderID == folder.id })
-                                    Divider()
-                                    newFolder
-                                }
-                        }
-                    }
-                } header: {
-                    // The button sits on the header's own line: a bordered style
-                    // and a body sized symbol both stand away from a sidebar
-                    // title, which is small and secondary.
-                    HStack(alignment: .firstTextBaseline) {
-                        Text("Folders")
-                        Spacer(minLength: 8)
-                        Button(action: startNewFolder) {
-                            Image(systemName: "folder.badge.plus")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .padding(.horizontal, 4)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .help("New folder")
-                        .accessibilityLabel("New folder")
-                        // Clear of the edge of the sidebar, where the scroller runs.
-                        .padding(.trailing, 6)
-                    }
-                    .contextMenu { newFolder }
-                }
+                unfiledSection
+                foldersSection
             }
             .listStyle(.sidebar)
             .contextMenu { newFolder }
@@ -140,46 +47,15 @@ struct ContentView: View {
             }
         } detail: {
             VStack(spacing: 0) {
-                if let failure = model.storageFailure {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Label(
-                            "Changes could not be stored", systemImage: "exclamationmark.triangle"
-                        )
-                        .font(.callout.weight(.semibold))
-                        Text(failure)
-                            .font(.callout)
-                            .textSelection(.enabled)
-                        Button("Retry Saving") { _ = model.retrySavingHistory() }
-                    }
-                    .padding(16)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.orange.opacity(0.1))
-                    Divider()
-                }
-                if let warning = model.libraryWarning {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Label(
-                            "Part of your library could not be read",
-                            systemImage: "exclamationmark.triangle"
-                        )
-                        .font(.callout.weight(.semibold))
-                        Text(warning)
-                            .font(.callout)
-                            .textSelection(.enabled)
-                        if model.foldersAreDamaged {
-                            Text(
-                                "Folders cannot be created, renamed or deleted until the file that lists them is repaired or removed, so that nothing writes over it."
-                            )
-                            .font(.callout)
-                        }
-                    }
-                    .padding(16)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.orange.opacity(0.1))
-                    Divider()
-                }
+                LibraryWarnings(model: model)
                 if selected.count > 1 {
-                    chosen
+                    SelectionView(
+                        model: model, selected: selected,
+                        move: { ids in
+                            destinationFolder = nil
+                            moving = ids
+                        },
+                        remove: { removing = $0 })
                 } else if case .entry(let id) = model.pane, let entry = model.entry(id) {
                     EntryView(model: model, entry: entry)
                         .id(id)
@@ -263,36 +139,9 @@ struct ContentView: View {
             )
         }
         .sheet(isPresented: Binding(get: { !moving.isEmpty }, set: { if !$0 { moving = [] } })) {
-            VStack(alignment: .leading, spacing: 20) {
-                Text(moving.count > 1 ? "Move transcripts" : "Move transcript")
-                    .font(.title2.weight(.semibold))
-                Text(
-                    moving.count > 1
-                        ? "\(moving.count) transcripts"
-                        : (moving.first.flatMap { model.entry($0)?.name } ?? "")
-                )
-                .lineLimit(2)
-                .truncationMode(.middle)
-                Picker("Folder", selection: $destinationFolder) {
-                    Text("Unfiled").tag(UUID?.none)
-                    ForEach(model.folders) { folder in
-                        Text(folder.name).tag(UUID?.some(folder.id))
-                    }
-                }
-                HStack {
-                    Spacer()
-                    Button("Cancel", role: .cancel) { moving = [] }
-                        .keyboardShortcut(.cancelAction)
-                    Button("Move") {
-                        for id in moving { model.moveEntry(id, to: destinationFolder) }
-                        if let destinationFolder { expandedFolders.insert(destinationFolder) }
-                        moving = []
-                    }
-                    .keyboardShortcut(.defaultAction)
-                }
-            }
-            .padding(24)
-            .frame(width: 380)
+            MoveTranscriptsSheet(
+                model: model, moving: $moving, destinationFolder: $destinationFolder,
+                opened: { expandedFolders.insert($0) })
         }
         .minimumSize(width: 860, height: 600)
         .disabled(model.isShuttingDown)
@@ -303,38 +152,107 @@ struct ContentView: View {
         }
     }
 
-    /// Several transcripts selected: the window shows what they are and what
-    /// can be done to all of them, rather than one of them at random.
-    private var chosen: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("\(selected.count) transcripts selected")
-                .font(.title2.weight(.semibold))
-            Text(
-                "Shift or command click to change the selection. Drag them onto a folder to file them."
-            )
-            .font(.callout)
-            .foregroundStyle(.secondary)
-            HStack(spacing: 12) {
-                Button("Move to Folder…") {
-                    destinationFolder = nil
-                    moving = selected
-                }
-                Button("Remove from Folder") {
-                    for id in selected { model.moveEntry(id, to: nil) }
-                }
-                .disabled(!selected.contains { model.entry($0)?.folderID != nil })
-                Button("Remove from Library…", role: .destructive) { removing = selected }
+    /// The transcripts in no folder, or the whole library before there is one.
+    private var unfiledSection: some View {
+        Section {
+            if unfiled.isEmpty {
+                Text("Nothing outside a folder")
+                    .font(.caption).foregroundStyle(.secondary)
             }
-            if let failure = model.failure {
-                Label(failure, systemImage: "exclamationmark.circle")
-                    .font(.callout)
-                    .foregroundStyle(.red)
-                    .textSelection(.enabled)
-            }
-            Spacer()
+            ForEach(unfiled) { entry in row(entry) }
+        } header: {
+            Text(model.folders.isEmpty ? "Library" : "Unfiled")
+                .padding(.vertical, 2)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    highlightsUnfiled ? Color.accentColor.opacity(0.25) : .clear,
+                    in: RoundedRectangle(cornerRadius: 6)
+                )
+                .contextMenu { newFolder }
+                .dropDestination(for: String.self) { items, _ in
+                    drop(items, into: nil)
+                } isTargeted: {
+                    highlightsUnfiled = $0
+                }
         }
-        .padding(28)
-        .frame(maxWidth: .infinity, alignment: .topLeading)
+    }
+
+    /// Each folder, opened or closed, with its transcripts.
+    private var foldersSection: some View {
+        Section {
+            if model.folders.isEmpty {
+                Text("No folders yet").font(.caption).foregroundStyle(.secondary)
+            }
+            ForEach(model.folders) { folder in
+                DisclosureGroup(
+                    isExpanded: Binding(
+                        get: { expandedFolders.contains(folder.id) },
+                        set: {
+                            if $0 {
+                                expandedFolders.insert(folder.id)
+                            } else {
+                                expandedFolders.remove(folder.id)
+                            }
+                        }
+                    )
+                ) {
+                    let entries = model.entries.filter { $0.folderID == folder.id }
+                    if entries.isEmpty {
+                        Text("Empty folder").font(.caption).foregroundStyle(.secondary)
+                    }
+                    ForEach(entries) { entry in row(entry) }
+                } label: {
+                    Label(folder.name, systemImage: "folder")
+                        .lineLimit(1)
+                        .padding(.vertical, 2)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(
+                            highlighted == folder.id
+                                ? Color.accentColor.opacity(0.25) : .clear,
+                            in: RoundedRectangle(cornerRadius: 6)
+                        )
+                        .dropDestination(for: String.self) { items, _ in
+                            drop(items, into: folder.id)
+                        } isTargeted: {
+                            highlighted = $0 ? folder.id : nil
+                        }
+                        .contextMenu {
+                            Button("Rename Folder…") {
+                                renamedFolder = folder.id
+                                folderName = folder.name
+                                namingFolder = true
+                            }
+                            Button("Delete Empty Folder", role: .destructive) {
+                                attempt { try model.removeFolder(folder.id) }
+                            }
+                            .disabled(model.entries.contains { $0.folderID == folder.id })
+                            Divider()
+                            newFolder
+                        }
+                }
+            }
+        } header: {
+            // The button sits on the header's own line: a bordered style
+            // and a body sized symbol both stand away from a sidebar
+            // title, which is small and secondary.
+            HStack(alignment: .firstTextBaseline) {
+                Text("Folders")
+                Spacer(minLength: 8)
+                Button(action: startNewFolder) {
+                    Image(systemName: "folder.badge.plus")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 4)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("New folder")
+                .accessibilityLabel("New folder")
+                // Clear of the edge of the sidebar, where the scroller runs.
+                .padding(.trailing, 6)
+            }
+            .contextMenu { newFolder }
+        }
     }
 
     private var newFolder: some View {
@@ -409,94 +327,6 @@ struct ContentView: View {
     }
 }
 
-private struct EntryRow: View {
-    let entry: Entry
-    let stage: AppModel.Stage?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Text(entry.name)
-                .lineLimit(1)
-                .truncationMode(.middle)
-            status
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        .padding(.vertical, 5)
-        .accessibilityElement(children: .combine)
-    }
-
-    @ViewBuilder
-    private var status: some View {
-        switch entry.state {
-        case .waiting:
-            Text("Waiting")
-        case .running:
-            switch stage {
-            case .transcribing(let progress): Text("Transcribing · \(percent(progress))")
-            case .repairing(let progress): Text("Repeats · \(percent(progress))")
-            case .paused(let progress): Text("Paused · \(percent(progress))")
-            case .stopping: Text("Stopping")
-            default: Text("Preparing")
-            }
-        case .finished:
-            // Busy while finished only when its repeats are transcribed again.
-            switch stage {
-            case .repairing(let progress): Text("Repeats · \(percent(progress))")
-            case nil: Text("Ready to review")
-            default: Text("Preparing")
-            }
-        case .stopped:
-            Text("Stopped before the end")
-        case .failed:
-            Label("Failed", systemImage: "exclamationmark.circle")
-        }
-    }
-}
-
-func percent(_ fraction: Double) -> String {
-    fraction.formatted(.percent.precision(.fractionLength(0)))
-}
-
 #Preview {
     ContentView(model: AppModel())
-}
-
-/// A smallest size given without measuring the content. SwiftUI asks the
-/// window, and each column of the split view, for its minimum after every
-/// change; a frame with a minimum would measure the whole page to answer.
-private struct MinimumSize: Layout {
-    let size: CGSize
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        CGSize(
-            width: max(size.width, proposal.width ?? size.width),
-            height: max(size.height, proposal.height ?? size.height))
-    }
-
-    func placeSubviews(
-        in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()
-    ) {
-        for subview in subviews {
-            subview.place(at: bounds.origin, proposal: ProposedViewSize(bounds.size))
-        }
-    }
-
-    // Without these, a stack asking for the alignment guides would have the
-    // page placed, and so measured, to read them.
-    func explicitAlignment(
-        of guide: HorizontalAlignment, in bounds: CGRect, proposal: ProposedViewSize,
-        subviews: Subviews, cache: inout ()
-    ) -> CGFloat? { nil }
-
-    func explicitAlignment(
-        of guide: VerticalAlignment, in bounds: CGRect, proposal: ProposedViewSize,
-        subviews: Subviews, cache: inout ()
-    ) -> CGFloat? { nil }
-}
-
-extension View {
-    fileprivate func minimumSize(width: CGFloat, height: CGFloat) -> some View {
-        MinimumSize(size: CGSize(width: width, height: height)) { self }
-    }
 }
