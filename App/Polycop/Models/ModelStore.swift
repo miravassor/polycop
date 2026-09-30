@@ -167,16 +167,7 @@ nonisolated enum ModelStore {
     static func sha256(of file: URL) async throws -> String {
         let cancelled = OSAllocatedUnfairLock(initialState: false)
         return try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { continuation in
-                hashingQueue.async {
-                    do {
-                        continuation.resume(
-                            returning: try FileDigest.sha256(of: file, until: cancelled))
-                    } catch {
-                        continuation.resume(throwing: error)
-                    }
-                }
-            }
+            try await hashingQueue.run { try FileDigest.sha256(of: file, until: cancelled) }
         } onCancel: {
             cancelled.withLock { $0 = true }
         }

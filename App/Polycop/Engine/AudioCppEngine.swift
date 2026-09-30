@@ -46,16 +46,8 @@ nonisolated final class AudioCppEngine: TranscriptionEngine, @unchecked Sendable
         try await ModelStore.verify(catalogued, at: model)
         if let aligner { try await ModelStore.verify(aligner.model, at: aligner.file) }
         try Task.checkCancellation()
-        return try await withCheckedThrowingContinuation { continuation in
-            loadingQueue.async {
-                do {
-                    continuation.resume(
-                        returning: try AudioCppEngine(
-                            model: model, profile: profile, aligner: aligner?.file))
-                } catch {
-                    continuation.resume(throwing: error)
-                }
-            }
+        return try await loadingQueue.run {
+            try AudioCppEngine(model: model, profile: profile, aligner: aligner?.file)
         }
     }
 
@@ -124,9 +116,7 @@ nonisolated final class AudioCppEngine: TranscriptionEngine, @unchecked Sendable
     }
 
     func drain() async {
-        await withCheckedContinuation { continuation in
-            queue.async { continuation.resume() }
-        }
+        await queue.run {}
     }
 
     /// Qwen reads no less than half a second; the official toolkit pads a
@@ -152,32 +142,26 @@ nonisolated final class AudioCppEngine: TranscriptionEngine, @unchecked Sendable
         let hotwords = profile.readsHotwords ? settings.prompt.map(Glossary.terms(in:)) ?? [] : []
         let cancelled = OSAllocatedUnfairLock(initialState: false)
         return try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { continuation in
-                queue.async {
-                    func stopIfAsked() throws {
-                        if cancelled.withLock({ $0 }) { throw CancellationError() }
-                    }
-                    do {
-                        var segments: [Segment] = []
-                        for (done, window) in windows.enumerated() {
-                            try stopIfAsked()
-                            let found = try self.transcribe(
-                                samples, window, language: language, hotwords: hotwords,
-                                until: stopIfAsked,
-                                progress: {
-                                    onProgress((Double(done) + $0) / Double(windows.count))
-                                })
-                            segments += found
-                            found.forEach(onSegment)
-                            onProgress(Double(done + 1) / Double(windows.count))
-                        }
-                        // Catches a stop that arrived during the last window.
-                        try stopIfAsked()
-                        continuation.resume(returning: segments)
-                    } catch {
-                        continuation.resume(throwing: error)
-                    }
+            try await queue.run {
+                func stopIfAsked() throws {
+                    if cancelled.withLock({ $0 }) { throw CancellationError() }
                 }
+                var segments: [Segment] = []
+                for (done, window) in windows.enumerated() {
+                    try stopIfAsked()
+                    let found = try self.transcribe(
+                        samples, window, language: language, hotwords: hotwords,
+                        until: stopIfAsked,
+                        progress: {
+                            onProgress((Double(done) + $0) / Double(windows.count))
+                        })
+                    segments += found
+                    found.forEach(onSegment)
+                    onProgress(Double(done + 1) / Double(windows.count))
+                }
+                // Catches a stop that arrived during the last window.
+                try stopIfAsked()
+                return segments
             }
         } onCancel: {
             cancelled.withLock { $0 = true }

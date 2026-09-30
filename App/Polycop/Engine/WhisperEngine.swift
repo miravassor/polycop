@@ -26,15 +26,8 @@ nonisolated final class WhisperEngine: TranscriptionEngine, @unchecked Sendable 
         }
         try await ModelStore.verify(catalogued, at: model)
         try Task.checkCancellation()
-        return try await withCheckedThrowingContinuation { continuation in
-            loadingQueue.async {
-                do {
-                    continuation.resume(
-                        returning: try WhisperEngine(model: model, expecting: catalogued))
-                } catch {
-                    continuation.resume(throwing: error)
-                }
-            }
+        return try await loadingQueue.run {
+            try WhisperEngine(model: model, expecting: catalogued)
         }
     }
 
@@ -71,17 +64,11 @@ nonisolated final class WhisperEngine: TranscriptionEngine, @unchecked Sendable 
     /// Each call logs "too many resulting tokens", because whisper.cpp counts
     /// by tokenizing into an empty buffer; that log line is not a failure.
     func tokenCount(of text: String) async -> Int {
-        await withCheckedContinuation { continuation in
-            queue.async {
-                continuation.resume(returning: Int(whisper_token_count(self.context, text)))
-            }
-        }
+        await queue.run { Int(whisper_token_count(self.context, text)) }
     }
 
     func drain() async {
-        await withCheckedContinuation { continuation in
-            queue.async { continuation.resume() }
-        }
+        await queue.run {}
     }
 
     /// Transcribes 16 kHz mono samples, reporting progress and each segment as
@@ -107,21 +94,15 @@ nonisolated final class WhisperEngine: TranscriptionEngine, @unchecked Sendable 
         let shift = Double(first) / Double(WHISPER_SAMPLE_RATE)
         let cancelled = OSAllocatedUnfairLock(initialState: false)
         return try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { continuation in
-                queue.async {
-                    do {
-                        // whisper.cpp first checks for a stop after its first
-                        // encoder pass, seconds into a long recording, so a
-                        // stop that came while this call waited ends it here.
-                        if cancelled.withLock({ $0 }) { throw CancellationError() }
-                        let segments = try self.decode(
-                            samples[first...], settings, cancelled, onProgress,
-                            { onSegment($0.shifted(by: shift)) })
-                        continuation.resume(returning: segments.map { $0.shifted(by: shift) })
-                    } catch {
-                        continuation.resume(throwing: error)
-                    }
-                }
+            try await queue.run {
+                // whisper.cpp first checks for a stop after its first encoder
+                // pass, seconds into a long recording, so a stop that came
+                // while this call waited ends it here.
+                if cancelled.withLock({ $0 }) { throw CancellationError() }
+                let segments = try self.decode(
+                    samples[first...], settings, cancelled, onProgress,
+                    { onSegment($0.shifted(by: shift)) })
+                return segments.map { $0.shifted(by: shift) }
             }
         } onCancel: {
             cancelled.withLock { $0 = true }
@@ -140,15 +121,7 @@ nonisolated final class WhisperEngine: TranscriptionEngine, @unchecked Sendable 
     {
         // The detector has no abort callback, so a stop is honoured before it starts.
         try Task.checkCancellation()
-        return try await withCheckedThrowingContinuation { continuation in
-            detectingQueue.async {
-                do {
-                    continuation.resume(returning: try detectSpeech(samples, settings))
-                } catch {
-                    continuation.resume(throwing: error)
-                }
-            }
-        }
+        return try await detectingQueue.run { try detectSpeech(samples, settings) }
     }
 
     private static let detectingQueue = DispatchQueue(

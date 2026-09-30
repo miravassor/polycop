@@ -101,16 +101,7 @@ nonisolated enum AudioDecoder {
             * MemoryLayout<Float>.size
         let run = OSAllocatedUnfairLock(initialState: Run())
         return try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { continuation in
-                queue.async {
-                    do {
-                        continuation.resume(
-                            returning: try decode(recording, run, byteLimit: byteLimit))
-                    } catch {
-                        continuation.resume(throwing: error)
-                    }
-                }
-            }
+            try await queue.run { try decode(recording, run, byteLimit: byteLimit) }
         } onCancel: {
             run.withLock {
                 $0.cancelled = true
