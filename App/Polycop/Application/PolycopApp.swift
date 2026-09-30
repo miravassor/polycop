@@ -14,9 +14,9 @@ struct PolycopApp: App {
         // and before the model reads the folders. Not in the model itself: tests
         // and previews create models while files are being written. Skipped
         // while another copy runs, since its downloads and playback copies are
-        // in those folders; two copies otherwise work side by side. A test run
-        // leaves them to the user's own copy.
-        if !Self.isHostingTests, !Self.isAnotherCopyRunning {
+        // in those folders, such as the test host's. A test run and a second
+        // copy leave them to the copy that has the library.
+        if !Self.isHostingTests, !Self.isSecondCopy, !Self.isAnotherCopyRunning {
             ModelStore.sweep()
             Player.sweep()
         }
@@ -31,11 +31,17 @@ struct PolycopApp: App {
             || environment["XCTestSessionIdentifier"] != nil
     }
 
-    /// The library the window opens. A test run gets an empty one of its own,
-    /// since opening the user's marks what was waiting or running as stopped.
+    /// Whether another copy of the app has the user's library. Each copy
+    /// writes what it read at launch, so a second one would write over the
+    /// first one's changes: it opens nothing and hands over instead.
+    static let isSecondCopy = !isHostingTests && !HistoryStore.claim()
+
+    /// The library the window opens. A test run and a second copy get an empty
+    /// one of their own, since opening the user's marks what was waiting or
+    /// running as stopped.
     static let library =
-        isHostingTests
-        ? URL.temporaryDirectory.appending(path: "Polycop test host \(UUID().uuidString)")
+        isHostingTests || isSecondCopy
+        ? URL.temporaryDirectory.appending(path: "Polycop \(UUID().uuidString)")
         : HistoryStore.directory
 
     private static var isAnotherCopyRunning: Bool {
@@ -144,6 +150,28 @@ struct PolycopApp: App {
 /// crash a user would see on quitting after a transcription.
 final class AppDelegate: NSObject, NSApplicationDelegate {
     var model: AppModel?
+
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        if PolycopApp.isSecondCopy { handOver() }
+    }
+
+    /// Brings the copy that has the library forward and quits, as the system
+    /// does when an app already open is launched again. Nothing is said: the
+    /// open copy coming forward is the answer.
+    private func handOver() {
+        let current = NSRunningApplication.current
+        let open = NSRunningApplication.runningApplications(
+            withBundleIdentifier: Bundle.main.bundleIdentifier ?? ""
+        )
+        .first { $0.processIdentifier != current.processIdentifier }
+        if let open {
+            // Cooperative activation: this copy gives way, then asks for the
+            // open one to come forward.
+            NSApp.yieldActivation(to: open)
+            open.activate(from: current, options: [])
+        }
+        NSApp.terminate(nil)
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Late enough that the window is on screen before any question.
