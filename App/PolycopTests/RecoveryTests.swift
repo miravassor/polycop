@@ -301,7 +301,7 @@ private func finished(_ recording: URL, in history: URL, model: String, language
     #expect(model.entries.count == 3)
     #expect(Set(model.entries.map(\.name)).count == 3)
     #expect(Set(model.entries.map(\.id)).count == 3)
-    #expect(model.entries.map(\.name).sorted() == ["cours 2.wav", "cours 3.wav", "cours.wav"])
+    #expect(model.entries.map(\.name).sorted() == ["cours (2).wav", "cours (3).wav", "cours.wav"])
     // Adding leaves the page where the queue and the settings are.
     #expect(model.pane == .new)
 
