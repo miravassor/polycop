@@ -1,11 +1,55 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import Foundation
+import audiocpp
+import os
 
 /// How MOSS-Transcribe-Diarize's text becomes segments. The app reads the
 /// text itself rather than audio.cpp's result, which a window stopped by its
 /// token limit never gets.
 nonisolated extension AudioCppEngine {
+    /// MOSS's own instruction, as audio.cpp and the official repository write
+    /// it; hotwords follow it in the official form (`examples/prompts.md`).
+    static let mossInstruction =
+        "请将音频转写为文本，每一段需以起始时间戳和说话人编号（[S01]、[S02]、[S03]…）开头，"
+        + "正文为对应的语音内容，并在段末标注结束时间戳，以清晰标明该段语音范围。"
+
+    /// Reads MOSS's text token by token. The times it writes show how far
+    /// into the window it has reached, which is the progress.
+    ///
+    /// audio.cpp fails a window that reaches `max_tokens` before its end,
+    /// usually one repeating a phrase. Only that window is cut short: the
+    /// passages it finished are kept, and the next window runs.
+    /// Runs on the engine's queue, which owns `session`.
+    static func readMoss(
+        from session: OpaquePointer, _ request: OpaquePointer, lasting length: TimeInterval,
+        until stopIfAsked: () throws -> Void, progress: (Double) -> Void
+    ) throws -> (text: String, isComplete: Bool) {
+        try check(audiocpp_stream_start(session, request))
+        var text = ""
+        while true {
+            try stopIfAsked()
+            var event: OpaquePointer?
+            let status = audiocpp_stream_next_event(session, &event)
+            if status == AUDIOCPP_ERR_RUNTIME,
+                String(cString: audiocpp_last_error()).contains("max_tokens")
+            {
+                let reached = lastTime(in: text) ?? 0
+                Log.transcription.error(
+                    "MOSS reached max_tokens, window cut at \(reached, privacy: .public) s")
+                return (text, false)
+            }
+            try check(status)
+            guard let event else { break }
+            defer { audiocpp_event_free(event) }
+            text += try Self.text(of: audiocpp_event_as_result(event))
+            if text.hasSuffix("]"), let reached = lastTime(in: text), length > 0 {
+                progress(min(1, reached / length))
+            }
+        }
+        return (text, true)
+    }
+
     /// MOSS's passages as segments on the recording, for a window starting at
     /// `offset` and lasting `length` seconds. A passage is "[start][Sxx] text
     /// [end]" followed by the next one or the end, read as audio.cpp v0.8.1
