@@ -168,18 +168,20 @@ nonisolated struct Entry: Identifiable, Equatable, Codable, Sendable {
         isSaved = false
     }
 
-    /// "Cours.wav" becomes "Cours 2.wav", then "Cours 3.wav". The number is
-    /// inserted before the extension, not appended after it.
+    /// "Cours 12.wav" becomes "Cours 12 (2).wav", then "Cours 12 (3).wav". The
+    /// name stays whole, since lectures are often numbered; only a number in
+    /// parentheses, as this adds, is replaced. It goes before the extension.
     static func freeName(from name: String, among names: Set<String>) -> String {
         let file = name as NSString
         let suffix = file.pathExtension
         var stem = file.deletingPathExtension
-        if let range = stem.range(of: #" \d+$"#, options: .regularExpression) {
+        if let range = stem.range(of: #" \(\d+\)$"#, options: .regularExpression) {
             stem.removeSubrange(range)
         }
         var number = 2
         while true {
-            let candidate = suffix.isEmpty ? "\(stem) \(number)" : "\(stem) \(number).\(suffix)"
+            let candidate =
+                suffix.isEmpty ? "\(stem) (\(number))" : "\(stem) (\(number)).\(suffix)"
             if !names.contains(candidate) { return candidate }
             number += 1
         }

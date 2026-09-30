@@ -107,6 +107,16 @@ private func entry(_ name: String, in folder: URL, added: Date = .now) -> Entry 
     #expect(written.decoded.map(\.text) == ["Bonjour.", "Pardon.", "Bonjour à tous."])
 }
 
+/// A lecture's own number is part of its name: a second transcript of
+/// "Cours 12" must not take lecture 2's name.
+@Test func aSecondTranscriptKeepsTheLecturesNumber() {
+    #expect(Entry.freeName(from: "Cours 12.m4a", among: ["Cours 12.m4a"]) == "Cours 12 (2).m4a")
+    #expect(
+        Entry.freeName(from: "Cours 12 (2).m4a", among: ["Cours 12.m4a", "Cours 12 (2).m4a"])
+            == "Cours 12 (3).m4a")
+    #expect(Entry.freeName(from: "Cours 12", among: ["Cours 12"]) == "Cours 12 (2)")
+}
+
 @Test func aDamagedRecordHidesNothingElse() throws {
     let folder = try temporaryFolder()
     defer { try? FileManager.default.removeItem(at: folder) }
@@ -268,8 +278,8 @@ private func entry(_ name: String, in folder: URL, added: Date = .now) -> Entry 
     let second = try #require(model.duplicate(entry.id))
     let third = try #require(model.duplicate(entry.id))
 
-    #expect(model.entry(second)?.name == "cours 2.wav")
-    #expect(model.entry(third)?.name == "cours 3.wav")
+    #expect(model.entry(second)?.name == "cours (2).wav")
+    #expect(model.entry(third)?.name == "cours (3).wav")
     #expect(model.entry(second)?.paragraphs == model.entry(entry.id)?.paragraphs)
     #expect(model.entry(second)?.recording == model.entry(entry.id)?.recording)
     // Each one is corrected on its own.
