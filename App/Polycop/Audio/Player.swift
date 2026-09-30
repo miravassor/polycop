@@ -345,9 +345,16 @@ final class Player {
         // A position asked for stands until the audio has gone there.
         if pendingSeek == nil { position = time.seconds }
         let wasPlaying = isPlaying
-        // While a fade runs, what was asked stands; otherwise the player says,
-        // as at the end of the recording.
-        if transition == nil { isPlaying = player.rate != 0 }
+        // While a fade runs, what was asked stands. Otherwise the player can
+        // only end playback, as at the end of the recording: it never starts
+        // on its own, and audio still running after a pause is stopped.
+        if transition == nil {
+            if isPlaying, player.rate == 0 {
+                isPlaying = false
+            } else if !isPlaying, player.rate != 0 {
+                player.pause()
+            }
+        }
         if isPlaying != wasPlaying { publishNowPlaying() }
         if player.currentItem?.status == .failed, let recording {
             failure = PlaybackError.unplayable(recording).localizedDescription
