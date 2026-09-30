@@ -328,5 +328,6 @@ struct ContentView: View {
 }
 
 #Preview {
-    ContentView(model: AppModel())
+    // An empty library of its own, never the user's.
+    ContentView(model: AppModel(history: .temporaryDirectory.appending(path: UUID().uuidString)))
 }

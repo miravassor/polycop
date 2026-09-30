@@ -14,13 +14,29 @@ struct PolycopApp: App {
         // and before the model reads the folders. Not in the model itself: tests
         // and previews create models while files are being written. Skipped
         // while another copy runs, since its downloads and playback copies are
-        // in those folders; two copies otherwise work side by side.
-        if !PolycopApp.isAnotherCopyRunning {
+        // in those folders; two copies otherwise work side by side. A test run
+        // leaves them to the user's own copy.
+        if !Self.isHostingTests, !Self.isAnotherCopyRunning {
             ModelStore.sweep()
             Player.sweep()
         }
-        _model = State(initialValue: AppModel())
+        _model = State(initialValue: AppModel(history: Self.library))
     }
+
+    /// A test run hosts the app, which must not ask anything, reach the
+    /// network or touch the user's files.
+    static var isHostingTests: Bool {
+        let environment = ProcessInfo.processInfo.environment
+        return environment["XCTestConfigurationFilePath"] != nil
+            || environment["XCTestSessionIdentifier"] != nil
+    }
+
+    /// The library the window opens. A test run gets an empty one of its own,
+    /// since opening the user's marks what was waiting or running as stopped.
+    static let library =
+        isHostingTests
+        ? URL.temporaryDirectory.appending(path: "Polycop test host \(UUID().uuidString)")
+        : HistoryStore.directory
 
     private static var isAnotherCopyRunning: Bool {
         guard let identifier = Bundle.main.bundleIdentifier else { return false }

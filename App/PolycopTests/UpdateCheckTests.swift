@@ -62,5 +62,5 @@ func versionsCompareNumerically(candidate: String, current: String, isNewer: Boo
 /// The test run hosts the app, whose launch must not ask anything.
 @MainActor
 @Test func theAppKnowsWhenItHostsTests() {
-    #expect(UpdatePrompt.isHostingTests)
+    #expect(PolycopApp.isHostingTests)
 }
