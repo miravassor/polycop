@@ -55,8 +55,8 @@ final class AppModel {
     var running: Entry.ID?
     /// The entry whose repeats are being transcribed again. Kept apart from
     /// `running` because a repair works on an already complete transcript.
-    /// Stopping it, or quitting, loses only the repair; the entry stays
-    /// finished instead of becoming a stopped transcription.
+    /// Stopping it, or quitting, loses only the repair; the entry keeps its
+    /// state instead of becoming a stopped transcription.
     var repairing: Entry.ID?
     /// The entry any work is on, whichever kind.
     var busyEntry: Entry.ID? { running ?? repairing }

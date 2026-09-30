@@ -31,10 +31,11 @@ struct EntryNotices: View {
                 if !findings.repeats.isEmpty, engine?.skipsSilence == true {
                     Button("Transcribe the Repeats Again") { model.repairRepeats(entry.id) }
                         .disabled(
-                            isRunning || !entry.hasOnlyCourseCorrections || model.stage.isBusy
+                            isRunning || !model.canRebuildParagraphs(of: entry)
+                                || model.stage.isBusy
                         )
                         .help(
-                            !entry.hasOnlyCourseCorrections
+                            !model.canRebuildParagraphs(of: entry)
                                 ? Text("Transcribing them again would undo your corrections.")
                                 : Text("Skips the silences over those passages only.")
                         )
@@ -108,9 +109,9 @@ struct EntryNotices: View {
                     .foregroundStyle(.orange)
                     .textSelection(.enabled)
                 Button("Put back") { model.putBackCredits(entry.id) }
-                    .disabled(!model.canPutBackCredits(of: entry))
+                    .disabled(!model.canRebuildParagraphs(of: entry))
                     .help(
-                        !entry.hasOnlyCourseCorrections || model.canUndo(entry.id)
+                        !model.canRebuildParagraphs(of: entry)
                             ? Text("Putting the lines back would undo your corrections.") : Text("")
                     )
             }
