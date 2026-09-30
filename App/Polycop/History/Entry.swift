@@ -305,8 +305,13 @@ nonisolated struct Entry: Identifiable, Equatable, Codable, Sendable {
 
     /// Takes what the engine wrote, finished or stopped by a pause, and lays it
     /// out afresh. Corrections belong to an earlier layout, so none are kept.
+    ///
+    /// The layout and the library expect segments in the order they start,
+    /// which an engine does not promise: MOSS can open a turn before the one
+    /// it follows where speakers overlap. The sort is stable, so segments
+    /// that start together keep the engine's order.
     mutating func publish(_ result: [Segment], partial: Bool) {
-        decoded = result
+        decoded = result.sorted { $0.start < $1.start }
         isPartial = partial
         paragraphs = Transcript.paragraphs(shown)
         originalParagraphs = paragraphs
