@@ -110,10 +110,8 @@ nonisolated enum TranscriptImport {
         } else if suffix.lowercased() == "docx" {
             parsed = try timestamped(tidied(wordText(data)))
         } else {
-            let encoding: String.Encoding =
-                data.starts(with: [0xff, 0xfe]) || data.starts(with: [0xfe, 0xff]) ? .utf16 : .utf8
-            guard let decoded = String(data: data, encoding: encoding), !decoded.contains("\u{0}")
-            else {
+            // Older subtitle tools save French in Windows Latin.
+            guard let decoded = TextFile.decode(data), !decoded.contains("\u{0}") else {
                 throw Failure.unsupported
             }
             let text = tidied(decoded)
