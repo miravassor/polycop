@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import Foundation
+import audiocpp
 
 /// How Voxtral Realtime is streamed, and how its transcript is cut into
 /// segments. Values from the model's configuration (`audio_length_per_tok` 8
@@ -18,6 +19,49 @@ nonisolated extension AudioCppEngine {
     /// held back by the delay (`padded_streaming_audio`), 1.36 s. Streaming
     /// appends none, so the last words before each cut would be lost.
     static let voxtralFlush = (6 + 1 + 10) * voxtralStep
+
+    /// Pushes the window to Voxtral one step at a time, as a live input
+    /// reaches audiocpp_cli, then the silence that flushes its last words.
+    /// The text read by the end of every 30 seconds of audio, less the delay,
+    /// cuts the final transcript into segments.
+    /// Runs on the engine's queue, which owns `session`.
+    static func streamVoxtral(
+        to session: OpaquePointer, _ audio: [Float], _ request: OpaquePointer,
+        from offset: TimeInterval,
+        until stopIfAsked: () throws -> Void, progress: (Double) -> Void
+    ) throws -> [Segment] {
+        let padded = audio + [Float](repeating: 0, count: voxtralFlush)
+        let span = Int(AudioCppProfile.streamedSegment * Double(AudioDecoder.sampleRate))
+        try check(audiocpp_stream_start(session, request))
+        var marks: [(end: Int, read: Int)] = []
+        var streamed: [UInt8] = []
+        var pushed = 0
+        while pushed < padded.count {
+            try stopIfAsked()
+            let count = min(voxtralStep, padded.count - pushed)
+            var event: OpaquePointer?
+            try padded[pushed..<(pushed + count)].withUnsafeBufferPointer {
+                try check(
+                    audiocpp_stream_push(
+                        session, $0.baseAddress, count, Int32(AudioDecoder.sampleRate), 1,
+                        Int64(pushed), &event))
+            }
+            if let event {
+                defer { audiocpp_event_free(event) }
+                streamed += try bytes(of: audiocpp_event_as_result(event))
+            }
+            pushed += count
+            let heard = min(audio.count, max(0, pushed - voxtralDelay))
+            if heard - (marks.last?.end ?? 0) >= span { marks.append((heard, streamed.count)) }
+            progress(Double(heard) / Double(audio.count))
+        }
+        var result: OpaquePointer?
+        defer { audiocpp_result_free(result) }
+        try check(audiocpp_stream_finish(session, &result))
+        return streamedSegments(
+            of: try bytes(of: result), streamed: streamed, marks: marks,
+            lasting: audio.count, from: offset)
+    }
 
     /// Cuts Voxtral's transcript of a window into the spans read while it
     /// streamed. Each mark pairs where a span ends, in samples of the window,
