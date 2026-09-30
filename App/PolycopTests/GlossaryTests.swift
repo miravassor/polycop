@@ -237,7 +237,7 @@ private func temporaryFolder() -> URL {
     let stored = try #require(reloaded.entry(entry.id))
     #expect(stored.isEdited)
     #expect(stored.hasOnlyCourseCorrections)
-    #expect(reloaded.canPutBackCredits(of: stored))
+    #expect(reloaded.canRebuildParagraphs(of: stored))
 
     reloaded.putBackCredits(entry.id)
 

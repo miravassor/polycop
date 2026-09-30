@@ -283,6 +283,33 @@ extension LoadingAModel {
     #expect(!model.canRepairRepeats(of: looped))
 }
 
+/// A revert is a step that can be taken back, so the repair, which rebuilds
+/// the paragraphs, waits until it cannot.
+@MainActor
+@Test func aRepairKeepsARevertThatCanBeTakenBack() throws {
+    let history = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: history) }
+    var entry = Entry(
+        recording: clip, modelFile: ModelCatalog.turbo.id, glossary: nil,
+        skipsSilence: false, subtitles: false)
+    entry.publish(
+        (0..<12).map { Segment(start: Double($0) * 30, end: Double($0 + 1) * 30, text: "Merci.") },
+        partial: false)
+    entry.state = .finished
+    try HistoryStore.write(entry, in: history)
+    let model = AppModel(history: history)
+    #expect(model.canRepairRepeats(of: entry))
+
+    model.edit(entry.id, paragraphAt: 0, text: "Corrigé.")
+    model.revert(entry.id)
+    model.repairRepeats(entry.id)
+
+    #expect(!model.canRepairRepeats(of: try #require(model.entry(entry.id))))
+    #expect(model.repairing == nil)
+    model.undo(entry.id)
+    #expect(model.entry(entry.id)?.paragraphs.first?.text == "Corrigé.")
+}
+
 /// A job cut short by quitting cannot resume, so it comes back stopped.
 @MainActor
 @Test func workCutShortByQuittingComesBackStopped() throws {
@@ -452,10 +479,10 @@ extension LoadingAModel {
 
 extension LoadingAModel {
     /// A loop is transcribed again over its own stretch of audio, with silence
-    /// removal, and nothing else in the transcript moves.
+    /// removal, and nothing else in the transcript moves, its state included.
     @MainActor
-    @Test(.enabled(if: whisperInstalled))
-    func transcribesTheRepeatsAgainAndLeavesTheRestAlone() async throws {
+    @Test(.enabled(if: whisperInstalled), arguments: [Entry.State.finished, .stopped])
+    func transcribesTheRepeatsAgainAndLeavesTheRestAlone(state: Entry.State) async throws {
         let folder = try recordings("cours.wav")
         defer { try? FileManager.default.removeItem(at: folder) }
         let history = folder.appending(path: "History")
@@ -467,8 +494,8 @@ extension LoadingAModel {
             Segment(start: Double($0) * 0.25, end: Double($0) * 0.25 + 0.25, text: " Merci.")
         }
         let tail = Segment(start: 3.0, end: 3.5, text: " La fin du cours.")
-        entry.publish(repeated + [tail], partial: false)
-        entry.state = .finished
+        entry.publish(repeated + [tail], partial: state != .finished)
+        entry.state = state
         try HistoryStore.write(entry, in: history)
 
         try await withModel(history: history) { model in
@@ -478,7 +505,7 @@ extension LoadingAModel {
             try await settle(model)
 
             let repaired = try #require(model.entry(entry.id))
-            #expect(repaired.state == .finished)
+            #expect(repaired.state == state)
             #expect(repaired.repeats.isEmpty)
             #expect(repaired.decoded.last == tail)
             #expect(!repaired.isSaved)

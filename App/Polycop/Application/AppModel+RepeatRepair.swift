@@ -8,9 +8,9 @@ import os
 extension AppModel {
     /// Whether the repeats of this transcript can be transcribed again. The
     /// repair needs silence removal, which only the entry's own engine
-    /// supports, and text the user has not corrected.
+    /// supports, and paragraphs that can be rebuilt.
     func canRepairRepeats(of entry: Entry) -> Bool {
-        entry.hasOnlyCourseCorrections && !entry.repeats.isEmpty
+        canRebuildParagraphs(of: entry) && !entry.repeats.isEmpty
             && (ModelCatalog.model(entry.modelFile)?.engine.skipsSilence ?? false)
     }
 
@@ -23,8 +23,9 @@ extension AppModel {
         else { return }
         failure = nil
         if entryFailure?.id == id { entryFailure = nil }
-        // The entry stays finished throughout, since a stop, a failure or
+        // The entry keeps its state throughout, since a stop, a failure or
         // quitting loses only the repair; the transcript itself is untouched.
+        // A transcript stopped part way stays stopped once repaired.
         repairing = id
         stage = .decoding
         repair(id)
@@ -64,6 +65,9 @@ extension AppModel {
                 }
 
                 await limitContextToGlossary(&settings, of: id, on: whisper)
+                // A stop during that wait has already set the stage.
+                try Task.checkCancellation()
+                guard isCurrent(number) else { return }
                 var repaired = segments
                 stage = .repairing(0)
                 // From the end, so the ranges still ahead keep their indices.
@@ -87,10 +91,7 @@ extension AppModel {
                     stage = .repairing(Double(done + 1) / Double(ranges.count))
                 }
                 corrections[id] = nil
-                updateEntry(id) {
-                    $0.publish(repaired, partial: entry.isPartial)
-                    $0.state = .finished
-                }
+                updateEntry(id) { $0.publish(repaired, partial: entry.isPartial) }
                 finish()
             } catch is CancellationError {
                 guard isCurrent(number) else { return }

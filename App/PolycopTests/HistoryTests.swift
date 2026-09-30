@@ -316,7 +316,7 @@ private func entry(_ name: String, in folder: URL, added: Date = .now) -> Entry 
     model.revert(entry.id)
     #expect(model.entry(entry.id)?.isEdited == false)
     #expect(model.canUndo(entry.id))
-    #expect(!model.canPutBackCredits(of: try #require(model.entry(entry.id))))
+    #expect(!model.canRebuildParagraphs(of: try #require(model.entry(entry.id))))
 
     model.putBackCredits(entry.id)
     #expect(model.entry(entry.id)?.showsCredits == false)
