@@ -12,6 +12,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 * Stopping or quitting while a Whisper transcription is about to start takes effect at once, and its progress no longer goes past 100%.
 * A recording in a folder the app cannot read is reported as unreadable, with the reason, rather than as moved.
 * Transcribing the repeats again waits while a revert can still be undone, instead of losing the corrected text, and a transcript stopped part way stays marked as stopped once repaired.
+* A transcript where a speaker starts before the one they follow, as MOSS can write when voices overlap, opens again after a relaunch instead of being reported as a file that could not be read.
 
 ## 0.3.2 (2026-09-27)
 

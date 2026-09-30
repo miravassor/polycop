@@ -89,6 +89,24 @@ private func entry(_ name: String, in folder: URL, added: Date = .now) -> Entry 
     #expect(written.prompt == "Ce cours porte sur Descartes.")
 }
 
+/// A turn that starts before the one it follows, as MOSS can write where
+/// speakers overlap, still opens after a relaunch.
+@Test func segmentsWrittenOutOfOrderStillOpen() throws {
+    let folder = try temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: folder) }
+    var written = entry("cours.m4a", in: folder)
+    written.publish(
+        [
+            Segment(start: 12, end: 15, text: "Bonjour à tous.", speaker: "S01"),
+            Segment(start: 10, end: 11, text: "Bonjour.", speaker: "S02"),
+            Segment(start: 10, end: 12, text: "Pardon.", speaker: "S03"),
+        ], partial: false)
+    try HistoryStore.write(written, in: folder)
+
+    #expect(HistoryStore.all(in: folder).entries == [written])
+    #expect(written.decoded.map(\.text) == ["Bonjour.", "Pardon.", "Bonjour à tous."])
+}
+
 @Test func aDamagedRecordHidesNothingElse() throws {
     let folder = try temporaryFolder()
     defer { try? FileManager.default.removeItem(at: folder) }
