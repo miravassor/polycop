@@ -115,13 +115,6 @@ enum UpdatePrompt {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
     }
 
-    /// A test run hosts the app, which must not ask anything or reach the network.
-    static var isHostingTests: Bool {
-        let environment = ProcessInfo.processInfo.environment
-        return environment["XCTestConfigurationFilePath"] != nil
-            || environment["XCTestSessionIdentifier"] != nil
-    }
-
     /// The Check for Updates command. It always answers, including when the
     /// check fails.
     static func checkForUpdates() {
@@ -150,7 +143,7 @@ enum UpdatePrompt {
     /// Called once per launch. A failure is only logged: the automatic check
     /// never interrupts or blocks anything.
     static func checkAutomaticallyIfDue(defaults: UserDefaults = .standard) {
-        guard !isHostingTests else { return }
+        guard !PolycopApp.isHostingTests else { return }
         let launches = defaults.integer(forKey: launchesKey) + 1
         defaults.set(launches, forKey: launchesKey)
         let decision = UpdateSchedule.decision(

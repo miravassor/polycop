@@ -310,6 +310,14 @@ extension LoadingAModel {
     #expect(model.entry(entry.id)?.paragraphs.first?.text == "Corrigé.")
 }
 
+/// The app the tests run in opens a library of its own: opening the user's
+/// would mark what their own copy is transcribing as stopped.
+@MainActor
+@Test func theTestHostLeavesTheUsersLibraryAlone() {
+    #expect(PolycopApp.library != HistoryStore.directory)
+    #expect(!PolycopApp.library.path.hasPrefix(URL.applicationSupportDirectory.path))
+}
+
 /// A job cut short by quitting cannot resume, so it comes back stopped.
 @MainActor
 @Test func workCutShortByQuittingComesBackStopped() throws {
