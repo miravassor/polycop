@@ -31,6 +31,20 @@ import Testing
         #expect(parsed.cues.first?.text == "Bonjour.")
     }
 
+    /// Older subtitle tools save French in Windows Latin, where an accented
+    /// letter is not valid UTF-8.
+    @Test(arguments: [
+        ("srt", "1\n00:00:01,500 --> 00:00:02,250\nL'été, déjà.\n"),
+        ("vtt", "WEBVTT\n\n00:01.500 --> 00:02.250\nL'été, déjà.\n"),
+        ("txt", "[00:00:01.500 --> 00:00:02.250] L'été, déjà."),
+    ])
+    func windowsLatinTextIsRead(suffix: String, text: String) throws {
+        let data = try #require(text.data(using: .windowsCP1252))
+        #expect(String(data: data, encoding: .utf8) == nil)
+        let parsed = try TranscriptImport.parse(data, extension: suffix)
+        #expect(parsed.cues.map(\.text) == ["L'été, déjà."])
+    }
+
     @Test func polycopTextPreservesParagraphsWithoutInventingSubtitleTimings() throws {
         let text =
             "[00:00:01] Merci d'avoir regardé cette vidéo.\nUne deuxième ligne.\n\n[00:00:03] Suite.\n\n"
