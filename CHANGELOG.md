@@ -7,6 +7,10 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 ### Fixed
 
 * Jumping to a paragraph or along the timeline while playing no longer shows the old position again for a moment before the new one.
+* Voxtral transcripts get a timestamp every 30 seconds, as they should, rather than one every five minutes, and keep the last words before each five-minute cut.
+* A MOSS window that repeats itself until its token limit no longer ends the whole transcription: that window keeps what it had written, and the rest of the recording is transcribed.
+* Stopping or quitting while a Whisper transcription is about to start takes effect at once, and its progress no longer goes past 100%.
+* A recording in a folder the app cannot read is reported as unreadable, with the reason, rather than as moved.
 
 ## 0.3.2 (2026-09-27)
 
