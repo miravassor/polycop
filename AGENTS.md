@@ -47,7 +47,8 @@ App/Polycop/
   History/             Entry (a transcript and its edits), HistoryStore, TranscriptImport
   Output/              paragraphs, SRT, loop reduction, credits, word diff, search
   Glossary/            course glossaries and term extraction
-  Support/             small helpers shared across folders: text decoding, file digests
+  Support/             small helpers shared across folders: text decoding, file digests,
+                       blocking work run on a queue
   Resources/Licenses/  licence texts shipped in the app
 App/PolycopTests/      Swift Testing suites; Fixtures/ holds synthetic audio only
 Packages/              local packages wrapping the whisper.cpp and audio.cpp binaries

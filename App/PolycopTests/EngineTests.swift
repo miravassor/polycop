@@ -46,6 +46,17 @@ private func words(_ text: String) -> [String] {
     text.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }
 }
 
+/// Blocking work runs on the queue it is given, and its result or its error
+/// reaches the caller. Work that cannot throw is awaited without `try`.
+@Test func workRunOnAQueueReturnsItsResultOrItsError() async {
+    let queue = DispatchQueue(label: "io.github.miravassor.Polycop.test.run")
+    let label = await queue.run { String(cString: __dispatch_queue_get_label(nil)) }
+    #expect(label == queue.label)
+    await #expect(throws: CancellationError.self) {
+        try await queue.run { () throws -> Int in throw CancellationError() }
+    }
+}
+
 /// whisper.cpp reports progress before it checks whether the audio has ended.
 @Test func progressNeverLeavesZeroToOne() {
     #expect(WhisperEngine.fraction(ofPercent: 150) == 1)
