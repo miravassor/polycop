@@ -23,6 +23,38 @@ struct ReviewFeaturesTests {
         #expect(TranscriptSearch.matches(in: paragraphs, query: "absent").isEmpty)
     }
 
+    @Test func findStepsRoundTheResultsAndKeepsItsPlaceAfterAnEdit() {
+        var paragraphs = [
+            Transcript.Paragraph(start: 0, text: "mot un, mot deux"),
+            Transcript.Paragraph(start: 30_000, text: "mot trois"),
+        ]
+        var find = TranscriptFind()
+        find.query = "mot"
+        find.refresh(in: paragraphs, startingOver: true)
+        #expect(find.matches.count == 3)
+        #expect(find.current?.paragraph == 0)
+
+        find.step(forward: false)
+        #expect(find.index == 2)
+        find.step(forward: true)
+        #expect(find.index == 0)
+        find.step(forward: true)
+        find.step(forward: true)
+
+        // An edit that removes the result shown keeps the place, at the last one left.
+        paragraphs[1].text = "trois"
+        find.refresh(in: paragraphs, startingOver: false)
+        #expect(find.index == 1)
+        #expect(find.current?.paragraph == 0)
+
+        find.close()
+        #expect(!find.isShown && find.query.isEmpty)
+        find.refresh(in: paragraphs, startingOver: true)
+        #expect(find.current == nil)
+        find.step(forward: true)
+        #expect(find.index == 0)
+    }
+
     @Test func reviewFlagsPersistWithoutChangingTextOrExports() throws {
         let history = URL.temporaryDirectory.appending(path: UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: history) }
