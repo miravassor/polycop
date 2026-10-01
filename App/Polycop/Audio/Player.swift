@@ -52,6 +52,9 @@ final class Player {
     private var copy: URL?
     private var observer: Any?
     private var preparation: Task<Void, Never>?
+    /// Where the recording being prepared opens. A later click while it is
+    /// prepared moves it rather than starting the preparation over.
+    @ObservationIgnored private var preparedStart: TimeInterval = 0
     @ObservationIgnored private let nowPlaying = NowPlaying()
     @ObservationIgnored private let defaults: UserDefaults
     /// Whether playback was paused while playing, as opposed to moved while
@@ -95,13 +98,22 @@ final class Player {
         guard time.isFinite else { return }
         cancelResumeAfterTyping()
         failure = nil
-        if recording == self.recording, let player {
-            seek(player, to: time)
-            return
+        if recording == self.recording {
+            // A copy being decoded would be decoded again from the start.
+            if isPreparing {
+                preparedStart = time
+                return
+            }
+            // A failed item stays failed, so it is opened again instead.
+            if let player, player.currentItem?.status != .failed {
+                seek(player, to: time)
+                return
+            }
         }
         stop()
         self.recording = recording
         isPreparing = true
+        preparedStart = time
         preparation = Task {
             do {
                 let file = try await Player.playableFile(for: recording)
@@ -112,7 +124,7 @@ final class Player {
                 }
                 isPreparing = false
                 if file != recording { copy = file }
-                open(file, at: time)
+                open(file, at: preparedStart)
             } catch {
                 guard !Task.isCancelled else { return }
                 isPreparing = false
