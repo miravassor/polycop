@@ -25,15 +25,19 @@ instance. Tests that need a model are skipped unless it is installed.
 
 ## Releasing
 
-1. Set the new version in `MARKETING_VERSION` and raise `CURRENT_PROJECT_VERSION`
-   (target Polycop, General tab in Xcode).
-2. In `CHANGELOG.md`, give the version its own section, headed
-   `## X.Y.Z (YYYY-MM-DD)`.
-3. Commit, then push a tag `vX.Y.Z` on that commit. The release workflow checks
-   that the tag matches the version, builds every dependency from its pinned
-   source, runs the tests and drafts a GitHub release with the archive, its
-   SHA-256 and the changelog section as notes.
-4. Read the draft and publish it. Check for Updates finds a release only once it
+1. On a branch `release/X.Y.Z`, set the new version in `MARKETING_VERSION` and
+   raise `CURRENT_PROJECT_VERSION` (target Polycop, General tab in Xcode).
+2. In `CHANGELOG.md`, turn "Unreleased" into the version's own section, headed
+   `## X.Y.Z (YYYY-MM-DD)`, and merge the branch.
+3. Optionally, run the Release workflow by hand on main: it builds and packages
+   without publishing anything.
+4. Push a tag `vX.Y.Z` on the merged commit. The release workflow checks that
+   the tag matches the version, builds every dependency from its pinned source,
+   runs the tests and packages the app in a job that can only read the
+   repository. A second job attests the disk image and the zip, then drafts a
+   GitHub release with both, their SHA-256 files and the changelog section as
+   notes.
+5. Read the draft and publish it. Check for Updates finds a release only once it
    is published.
 
 ## Guidelines
