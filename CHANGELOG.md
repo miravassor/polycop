@@ -14,6 +14,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ### Fixed
 
+* A glossary edited in another application while the Glossary sheet is open is no longer written back to what the sheet read when it opened. Choosing a course reads its file again, and only what is typed in the sheet is saved.
 * Jumping to a paragraph or along the timeline while playing no longer shows the old position again for a moment before the new one.
 * Voxtral transcripts get a timestamp every 30 seconds, as they should, rather than one every five minutes, and keep the last words before each five-minute cut.
 * A MOSS window that repeats itself until its token limit no longer ends the whole transcription: that window keeps what it had written, and the rest of the recording is transcribed.

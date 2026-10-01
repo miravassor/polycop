@@ -354,3 +354,20 @@ private func temporaryFolder() -> URL {
     let written = Set(GlossaryStore.all(in: glossaries).map(\.text))
     #expect(written == ["Descartes\nHéloïse", "Frege\nRussell"])
 }
+
+/// The glossary editor reads a course again when it is chosen, so a file
+/// edited in another application while the sheet is open is what it shows,
+/// and saves, rather than the copy the list held.
+@MainActor
+@Test func aGlossaryEditedElsewhereIsReadAgainWhenChosen() throws {
+    let root = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let model = AppModel(history: root.appending(path: "History"), glossaries: root)
+    let name = try model.createGlossary(named: "Sociologie")
+    try model.saveGlossary(Glossary(name: name, text: "Durkheim"))
+
+    try GlossaryStore.save(Glossary(name: name, text: "Durkheim\nBourdieu"), in: root)
+
+    #expect(model.glossary(named: name)?.text == "Durkheim\nBourdieu")
+    #expect(model.glossary(named: "Absent") == nil)
+}
