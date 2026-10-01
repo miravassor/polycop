@@ -86,7 +86,8 @@ Tools/                 build, fixture and packaging scripts
 * Layers call one way, as `ARCHITECTURE.md` draws them. A change to that shape updates
   `ARCHITECTURE.md` in the same pull request.
 * A new dependency, tool or model is pinned to a version and checked against a digest,
-  as the build scripts and `Tools/lint.sh` do.
+  as the build scripts and `Tools/lint.sh` do. Versions of what ships with its source
+  live in `Tools/versions.sh`; `Tools/check-versions.sh` checks the rest agree.
 * Interface strings are in English. No emoji, and no dashes as punctuation, in the
   interface or the documentation.
 
