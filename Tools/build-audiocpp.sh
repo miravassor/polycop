@@ -11,8 +11,10 @@
 
 set -euo pipefail
 
-VERSION="v0.8.1"
-COMMIT="f2b4937306daa25f5c78520f3c626ed31495a37a"
+# shellcheck source=Tools/versions.sh
+. "$(dirname "$0")/versions.sh"
+VERSION="$AUDIOCPP_VERSION"
+COMMIT="$AUDIOCPP_COMMIT"
 
 export MACOSX_DEPLOYMENT_TARGET=14.0
 # Use Xcode's toolchain even when xcode-select points to the Command Line Tools.
@@ -95,4 +97,6 @@ for item in audiocpp Headers Modules Resources; do
 done
 
 xcodebuild -create-xcframework -framework "$FRAMEWORK" -output "$OUTPUT"
+# What this build came from, which Tools/package.sh checks.
+echo "audio.cpp $VERSION $COMMIT" > "$ROOT/build/audiocpp/BUILT_FROM"
 echo "Built $OUTPUT from audio.cpp $VERSION ($COMMIT)"

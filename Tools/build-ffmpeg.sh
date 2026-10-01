@@ -10,8 +10,10 @@
 
 set -euo pipefail
 
-VERSION="9.0.2"
-KEY_FINGERPRINT="FCF986EA15E6E293A5644F10B4322F04D67658D8"
+# shellcheck source=Tools/versions.sh
+. "$(dirname "$0")/versions.sh"
+VERSION="$FFMPEG_VERSION"
+KEY_FINGERPRINT="$FFMPEG_KEY_FINGERPRINT"
 
 # The app targets macOS 14. Without this, the helper would inherit the
 # deployment target of the build machine.
@@ -25,6 +27,8 @@ TARBALL="ffmpeg-$VERSION.tar.xz"
 # Use Xcode's toolchain even when xcode-select points to the Command Line Tools.
 export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
 
+# Removed first, so a build that fails leaves no claim about what is there.
+rm -f "$PREFIX/BUILT_FROM"
 mkdir -p "$WORK"
 cd "$WORK"
 
@@ -112,4 +116,7 @@ for name in aac aiff amr asf caf flac matroska mov mp3 ogg wav; do
     require demuxer "$name"
 done
 
+# What this build came from, which Tools/package.sh checks before shipping
+# the helper next to a source archive.
+echo "ffmpeg $VERSION $(shasum -a 256 "$WORK/$TARBALL" | cut -d ' ' -f 1)" > "$PREFIX/BUILT_FROM"
 echo "ffmpeg installed in $PREFIX/bin"
