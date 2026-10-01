@@ -79,7 +79,7 @@ struct TermFinder: View {
             TextEditor(text: $pasted)
                 .font(.body)
                 .frame(height: 72)
-                .border(.separator)
+                .editorBorder()
                 .accessibilityLabel("Text to read")
             HStack(spacing: 12) {
                 Button("Find Terms") { find() }
@@ -114,7 +114,7 @@ struct TermFinder: View {
             TextEditor(text: $found)
                 .font(.body)
                 .autocorrectionDisabled()
-                .border(.separator)
+                .editorBorder()
                 .accessibilityLabel("Terms found")
         }
     }

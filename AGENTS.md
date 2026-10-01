@@ -93,7 +93,9 @@ Every page speaks the same visual language. The shared pieces live in
 
 * Cards: `panel()`, corners of 10, 16 points of padding, one fill and border.
   Controls and rows inside a card have corners of 6.
-* Header icon buttons and menus: `iconControl()`, 32 by 28.
+* Header icon buttons and menus: `iconControl()`, 32 by 28. Another control drawn
+  by hand takes its fill from `controlFill()`.
+* Text editors: `editorBorder()`, with the corners of a control.
 * Spacing: 28 points around a page, 16 between blocks, 12 between a card's label and
   its buttons. Sheets have 24 points of padding, popovers 20.
 * Type: a page title in `.title2` semibold, a section heading in `.title3` semibold

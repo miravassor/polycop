@@ -6,12 +6,15 @@ import SwiftUI
 // padding, the controls and rows inside them corners of 6.
 
 extension View {
-    /// A card: a section of a page, or the player.
-    func panel(isHighlighted: Bool = false) -> some View {
+    /// A card: a section of a page, or the player. A tint colours its fill
+    /// alone, as each engine's card does in the model list.
+    func panel(isHighlighted: Bool = false, tint: Color? = nil) -> some View {
         padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                isHighlighted ? Color.accentColor.opacity(0.08) : Color.primary.opacity(0.03),
+                isHighlighted
+                    ? Color.accentColor.opacity(0.08)
+                    : tint?.opacity(0.08) ?? Color.primary.opacity(0.03),
                 in: RoundedRectangle(cornerRadius: 10)
             )
             .overlay {
@@ -23,7 +26,22 @@ extension View {
 
     /// An icon button or menu of a page header, all of one size.
     func iconControl() -> some View {
-        frame(width: 32, height: 28)
-            .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 6))
+        frame(width: 32, height: 28).controlFill()
+    }
+
+    /// The fill of a control drawn by hand. The header's icon controls have
+    /// it, and the player's speed menu, as tall as the player's buttons.
+    func controlFill() -> some View {
+        background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 6))
+    }
+
+    /// The edge of a text editor, with the corners of a control.
+    func editorBorder() -> some View {
+        clipShape(RoundedRectangle(cornerRadius: 6))
+            .overlay {
+                RoundedRectangle(cornerRadius: 6)
+                    .strokeBorder(.separator)
+                    .allowsHitTesting(false)
+            }
     }
 }
