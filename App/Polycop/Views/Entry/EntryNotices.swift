@@ -75,7 +75,7 @@ struct EntryNotices: View {
                         .disabled(isRunning)
                 }
                 Text(
-                    "The transcript is safe. Listening, transcribing again and repairing the repeats all need the original recording."
+                    "The transcript is safe. Listening, transcribing again and repairing the repeats all need the original recording: locate it, or connect the disk it is on."
                 )
                 .font(.caption)
                 .foregroundStyle(.secondary)

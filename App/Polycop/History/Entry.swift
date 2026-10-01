@@ -188,22 +188,30 @@ nonisolated struct Entry: Identifiable, Equatable, Codable, Sendable {
     }
 
     /// Whether the recording is still where the bookmark or the path says.
-    /// Listening, transcribing again and repairing all need it.
+    /// Listening, transcribing again and repairing all need it. The page asks
+    /// as it draws, so a recording on a disk that is not mounted counts as
+    /// missing: mounting it there could wait on a network or ask for a
+    /// password while the user types.
     var hasRecording: Bool {
         FileManager.default.fileExists(atPath: location.path(percentEncoded: false))
     }
 
-    /// Where the recording is now, or where it was if the bookmark fails.
-    var location: URL { resolved().url }
+    /// Where the recording is now, or where it was if the bookmark fails,
+    /// without mounting a disk (see `hasRecording`).
+    var location: URL { resolved(mounting: false).url }
 
     /// The recording, and whether its bookmark should be renewed. macOS can
     /// mark a bookmark stale while still resolving it, so renewal happens at
     /// the start of an operation instead of here, keeping this property free
-    /// of side effects.
-    func resolved() -> (url: URL, stale: Bool) {
+    /// of side effects. Only an operation the user asked for mounts the disk.
+    func resolved(mounting: Bool = true) -> (url: URL, stale: Bool) {
         var stale = false
+        let options: URL.BookmarkResolutionOptions =
+            mounting ? [] : [.withoutMounting, .withoutUI]
         guard let bookmark,
-            let found = try? URL(resolvingBookmarkData: bookmark, bookmarkDataIsStale: &stale)
+            let found = try? URL(
+                resolvingBookmarkData: bookmark, options: options, relativeTo: nil,
+                bookmarkDataIsStale: &stale)
         else { return (recording, false) }
         return (found, stale)
     }
