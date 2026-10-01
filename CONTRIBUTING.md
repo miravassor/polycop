@@ -31,10 +31,10 @@ instance. Tests that need a model are skipped unless it is installed.
    `## X.Y.Z (YYYY-MM-DD)`, and merge the branch.
 3. Optionally, run the Release workflow by hand on main: it builds and packages
    without publishing anything.
-4. Push a tag `vX.Y.Z` on the merged commit. The release workflow checks that
-   the tag matches the version, builds every dependency from its pinned source,
-   runs the tests and packages the app in a job that can only read the
-   repository. A second job attests the disk image and the zip, then drafts a
+4. Once CI has passed on the merged commit, push a tag `vX.Y.Z` on it. The
+   release workflow checks that CI passed there and that the tag matches the
+   version, builds every dependency from its pinned source, runs the tests and
+   packages the app in a job that can only read the repository. A second job attests the disk image and the zip, then drafts a
    GitHub release with both, their SHA-256 files and the changelog section as
    notes.
 5. Read the draft and publish it. Check for Updates finds a release only once it

@@ -26,7 +26,21 @@ jobs:
     timeout-minutes: 120
     permissions:
       contents: read # to check out the code
+      actions: read # to find the CI run of the commit
     steps:
+      # Lint, the notices check and the sanitizers run in CI, not here, so a
+      # release waits for them.
+      - name: Check that CI passed on this commit
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          passed=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$GITHUB_SHA&status=success" --jq .total_count)
+          if [ "$passed" = 0 ]; then
+            echo "::error::CI has not passed on $GITHUB_SHA. Once it has, re-run this workflow."
+            exit 1
+          fi
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
