@@ -92,18 +92,19 @@ jobs:
         if: matrix.check == 'tests'
         run: Tools/lint.sh
 
-      # Through the environment rather than expanded into the script. The
-      # options are split into words on purpose.
+      # Through the environment rather than expanded into the script, then
+      # split into words.
       - name: Test
         env:
           OPTIONS: ${{ matrix.options }}
-        run: >
-          xcodebuild test
-          -project App/Polycop.xcodeproj
-          -scheme Polycop
-          -destination 'platform=macOS,arch=arm64'
-          $OPTIONS
-          SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
+        run: |
+          read -ra options <<< "$OPTIONS"
+          xcodebuild test \
+            -project App/Polycop.xcodeproj \
+            -scheme Polycop \
+            -destination 'platform=macOS,arch=arm64' \
+            "${options[@]}" \
+            SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
 
       - name: Coverage
         if: matrix.check == 'tests'
