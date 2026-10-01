@@ -6,9 +6,8 @@ import os
 
 /// Where downloaded models live, and how their contents are proven.
 nonisolated enum ModelStore {
-    /// A plain folder name rather than the bundle identifier, because the app
-    /// is renamed before its first public build and a 1.5 GB download must
-    /// survive that.
+    /// A plain folder name rather than the bundle identifier, beside the
+    /// library, so gigabytes of downloads never depend on the identifier.
     static let directory = URL.applicationSupportDirectory.appending(path: "Polycop/Models")
 
     static func location(of model: Model, in folder: URL = directory) -> URL {
@@ -37,8 +36,9 @@ nonisolated enum ModelStore {
         ModelCatalog.all.filter { isInstalled($0) }
     }
 
-    /// A model the user brought themselves. It carries no hash, no licence and
-    /// no measured memory cost, because nothing about it was checked here. It is
+    /// A model file in the store that the catalogue does not claim, such as one
+    /// copied there by hand. Imports accept only catalogue files, so the app
+    /// never loads it; the model list shows it as unverified, to delete. It is
     /// a separate type rather than a catalogue entry with invented fields.
     struct Imported: Identifiable, Equatable, Sendable {
         let id: String
@@ -47,8 +47,7 @@ nonisolated enum ModelStore {
     }
 
     /// Anything in the store that the catalogue does not claim. The folder is
-    /// the whole record, so an import survives a restart, and deleting the
-    /// file is the only way to uninstall it.
+    /// the whole record, so deleting the file is the only way to remove it.
     static func imported() -> [Imported] {
         let manager = FileManager.default
         let path = directory.path(percentEncoded: false)
@@ -115,11 +114,33 @@ nonisolated enum ModelStore {
     }
 
     /// Verifies the copied bytes before publishing or passing them to whisper.cpp.
-    @concurrent
+    /// The copy runs on a queue of its own: gigabytes from a slow disk would
+    /// hold a thread of the Swift concurrency pool for minutes. A stop is read
+    /// between blocks.
     static func install(
         _ source: URL, in folder: URL = directory, catalogue: [Model] = ModelCatalog.files
     ) async throws -> Model {
         try Task.checkCancellation()
+        let cancelled = OSAllocatedUnfairLock(initialState: false)
+        return try await withTaskCancellationHandler {
+            try await copyingQueue.run {
+                try copy(source, into: folder, catalogue: catalogue, until: cancelled)
+            }
+        } onCancel: {
+            cancelled.withLock { $0 = true }
+        }
+    }
+
+    private static let copyingQueue = DispatchQueue(
+        label: "io.github.miravassor.Polycop.importing", qos: .userInitiated)
+
+    private static func copy(
+        _ source: URL, into folder: URL, catalogue: [Model],
+        until cancelled: OSAllocatedUnfairLock<Bool>
+    ) throws -> Model {
+        func checkCancellation() throws {
+            if cancelled.withLock({ $0 }) { throw CancellationError() }
+        }
         guard source.isFileURL else { throw ImportError.unrecognized }
         let values = try source.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
         guard values.isRegularFile == true, let size = values.fileSize else {
@@ -144,7 +165,7 @@ nonisolated enum ModelStore {
         var hasher = SHA256()
         var copied = 0
         while let block = try input.read(upToCount: 1 << 20), !block.isEmpty {
-            try Task.checkCancellation()
+            try checkCancellation()
             copied += block.count
             guard copied <= size else { throw ImportError.unrecognized }
             hasher.update(data: block)
@@ -155,7 +176,7 @@ nonisolated enum ModelStore {
         guard copied == size, let model = candidates.first(where: { $0.sha256 == digest }) else {
             throw ImportError.unrecognized
         }
-        try Task.checkCancellation()
+        try checkCancellation()
         try publish(partial, as: folder.appending(path: model.id))
         return model
     }

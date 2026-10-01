@@ -10,9 +10,11 @@ on:
 permissions:
   contents: read # to check out the code
 
+# A new push to a pull request replaces its run. Every commit on main keeps
+# its own, since a release checks that CI passed on its commit.
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.ref }}-${{ github.event_name == 'pull_request' && 'pr' || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   workflows:
@@ -87,6 +89,10 @@ jobs:
       - name: Check the notices shipped in the app
         if: matrix.check == 'tests'
         run: cmp THIRD_PARTY_NOTICES.md App/Polycop/Resources/Licenses/ThirdPartyNotices.txt
+
+      - name: Check the pinned versions agree
+        if: matrix.check == 'tests'
+        run: Tools/check-versions.sh
 
       - name: Lint
         if: matrix.check == 'tests'
