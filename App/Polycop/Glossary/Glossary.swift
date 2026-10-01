@@ -47,7 +47,7 @@ nonisolated struct Glossary: Identifiable, Equatable, Sendable {
     /// keeping only its terms. Apostrophes are straightened, since the Mac
     /// editor types curly ones and the model writes straight ones.
     static func terms(in text: String) -> [String] {
-        let text = text.replacingOccurrences(of: "\u{2019}", with: "'")
+        let text = Apostrophes.straightened(text)
         var body = Substring(text)
         let line = text.trimmingCharacters(in: .whitespacesAndNewlines)
         let english = line.hasPrefix("This lecture is about ")

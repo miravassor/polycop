@@ -364,6 +364,28 @@ private func entry(_ name: String, in folder: URL, added: Date = .now) -> Entry 
     #expect(entry.original == original)
 }
 
+/// A word retyped with a curly apostrophe is still found, replaced and
+/// corrected, whichever apostrophe the query or the correction uses.
+@Test func searchReadsBothApostrophesAsOne() throws {
+    var entry = Entry(
+        recording: URL(filePath: "/tmp/cours.wav"), modelFile: ModelCatalog.recommended.id,
+        glossary: nil, skipsSilence: false, subtitles: false)
+    entry.publish(
+        [Segment(start: 0, end: 4, text: "🧪 L\u{2019}inconscient et l'inconscient.")],
+        partial: false)
+    let text = try #require(entry.paragraphs.first?.text) as NSString
+
+    for query in ["l'inconscient", "l\u{2019}inconscient"] {
+        let matches = TranscriptSearch.matches(in: entry.paragraphs, query: query)
+        #expect(
+            matches.map { text.substring(with: $0.range) }
+                == ["L\u{2019}inconscient", "l'inconscient"])
+    }
+
+    entry.apply([CourseCorrection(text: "l\u{2019}inconscient", replacement: "l'Inconscient")])
+    #expect(entry.paragraphs.first?.text == "🧪 l'Inconscient et l'Inconscient.")
+}
+
 @MainActor
 @Test func aReplacementIsOneCorrectionToUndo() throws {
     let history = URL.temporaryDirectory.appending(path: UUID().uuidString)

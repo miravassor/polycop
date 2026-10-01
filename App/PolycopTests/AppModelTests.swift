@@ -255,21 +255,27 @@ extension LoadingAModel {
     #expect(!PolycopApp.library.path.hasPrefix(URL.applicationSupportDirectory.path))
 }
 
-/// A job cut short by quitting cannot resume, so it comes back stopped.
+/// A job cut short by quitting cannot resume, so it comes back stopped; a
+/// recording that never started comes back waiting for the next Start.
 @MainActor
 @Test func workCutShortByQuittingComesBackStopped() throws {
     let history = URL.temporaryDirectory.appending(path: UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: history) }
     var interrupted = Entry(
         recording: clip, modelFile: ModelCatalog.recommended.id, glossary: nil,
-        skipsSilence: false, subtitles: false)
+        skipsSilence: false, subtitles: false, added: .now)
     interrupted.state = .running
     try HistoryStore.write(interrupted, in: history)
+    let queued = Entry(
+        recording: clip, modelFile: ModelCatalog.recommended.id, glossary: nil,
+        skipsSilence: false, subtitles: false, added: .now.addingTimeInterval(1))
+    try HistoryStore.write(queued, in: history)
 
     let model = AppModel(history: history)
 
-    #expect(model.entries.map(\.state) == [.stopped])
-    #expect(HistoryStore.all(in: history).entries.map(\.state) == [.stopped])
+    #expect(model.entries.map(\.state) == [.waiting, .stopped])
+    #expect(HistoryStore.all(in: history).entries.map(\.state) == [.waiting, .stopped])
+    #expect(model.nextInLine == nil)
 }
 
 @MainActor
@@ -553,9 +559,10 @@ extension LoadingAModel {
     await model.shutDown()
     await Task.yield()
     #expect(model.running == nil)
-    #expect(!model.hasWork)
+    #expect(model.nextInLine == nil)
     #expect(model.stage == .waiting)
-    #expect(model.entries.allSatisfy { $0.state == .stopped })
+    // The recording under way is stopped; the one that never started stays queued.
+    #expect(model.entries.map(\.state) == [.waiting, .stopped])
     model.transcribe([clip])
     model.start()
     #expect(model.entries.count == 2)

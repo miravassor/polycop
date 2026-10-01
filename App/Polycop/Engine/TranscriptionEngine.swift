@@ -21,9 +21,15 @@ nonisolated protocol TranscriptionEngine: AnyObject, Sendable {
     /// Returns once every call already queued has ended and let go of the
     /// engine, so that releasing the caller's reference frees it at once.
     func drain() async
+
+    /// How many tokens the model reads for a glossary given as a prompt,
+    /// counted by its own tokenizer; nil for an engine that reads none.
+    func promptTokenCount(of prompt: String) async -> Int?
 }
 
 nonisolated extension TranscriptionEngine {
+    func promptTokenCount(of prompt: String) async -> Int? { nil }
+
     static func firstSample(at start: TimeInterval, count: Int) throws -> Int {
         guard start.isFinite else { throw TranscriptionError.invalidStart }
         return Int(min(Double(count), max(0, start * Double(AudioDecoder.sampleRate))))

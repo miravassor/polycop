@@ -9,15 +9,16 @@ nonisolated enum TranscriptSearch {
     }
 
     /// With `wholeWords`, a match must not continue a word on either side, so
-    /// a correction remembered for "Ca" leaves "Carl" alone.
+    /// a correction remembered for "Ca" leaves "Carl" alone. Case, accents and
+    /// the two apostrophes are ignored.
     static func matches(
         in paragraphs: [Transcript.Paragraph], query: String, wholeWords: Bool = false
     ) -> [Match] {
-        let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let query = Apostrophes.straightened(query.trimmingCharacters(in: .whitespacesAndNewlines))
         guard !query.isEmpty else { return [] }
         var result: [Match] = []
         for (index, paragraph) in paragraphs.enumerated() {
-            let text = paragraph.text as NSString
+            let text = Apostrophes.straightened(paragraph.text) as NSString
             var offset = 0
             while offset < text.length {
                 let range = text.range(
