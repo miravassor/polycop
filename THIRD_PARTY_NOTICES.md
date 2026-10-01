@@ -57,7 +57,9 @@ included with each release archive together with the build script.
 Copyright (c) 2020-present Silero Team. MIT License (`Silero-MIT.txt`).
 
 Silence detection. Model version 6.2.0, in the ggml conversion published by the
-whisper.cpp project.
+whisper.cpp project: `ggml-silero-v6.2.0.bin` from the Hugging Face repository
+ggml-org/whisper-vad at commit 9ffd54a1e1ee413ddf265af9913beaf518d1639b,
+SHA-256 2aa269b785eeb53a82983a20501ddf7c1d9c48e33ab63a41391ac6c9f7fb6987.
 
 Source: https://github.com/snakers4/silero-vad
 
