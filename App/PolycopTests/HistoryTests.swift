@@ -274,7 +274,7 @@ private func entry(_ name: String, in folder: URL, added: Date = .now) -> Entry 
 }
 
 @MainActor
-@Test func aDuplicateCarriesTheTextAndTakesTheNextNumber() throws {
+@Test func aDuplicateCarriesTheTextAndTakesTheNextNumber() async throws {
     let history = URL.temporaryDirectory.appending(path: UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: history) }
     var entry = Entry(
@@ -294,6 +294,7 @@ private func entry(_ name: String, in folder: URL, added: Date = .now) -> Entry 
     #expect(model.entry(second)?.recording == model.entry(entry.id)?.recording)
     // Each one is corrected on its own.
     model.edit(second, paragraphAt: 0, text: "Autre texte.")
+    await model.finishWrites()
     #expect(model.entry(entry.id)?.paragraphs.first?.text == "Le cours.")
     #expect(HistoryStore.all(in: history).entries.count == 3)
 }
@@ -480,7 +481,7 @@ private func entry(_ name: String, in folder: URL, added: Date = .now) -> Entry 
     #expect(try written() == "Bonjour à toutes.")
 
     model.edit(entry.id, paragraphAt: 0, text: "Bonsoir à toutes.")
-    #expect(model.retrySavingHistory())
+    #expect(await model.retrySavingHistory())
     #expect(try written() == "Bonsoir à toutes.")
 }
 
@@ -540,6 +541,7 @@ private func entry(_ name: String, in folder: URL, added: Date = .now) -> Entry 
     let left = try #require(model.entry(entry.id))
     #expect(left.readingParagraph == 1)
     #expect((left.playbackPosition ?? 0) >= 2 && (left.playbackPosition ?? 0) < 3)
+    await model.finishWrites()
     #expect(AppModel(history: history).entry(entry.id)?.readingParagraph == 1)
 
     model.pane = .entry(entry.id)

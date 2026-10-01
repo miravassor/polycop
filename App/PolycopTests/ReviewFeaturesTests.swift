@@ -120,7 +120,7 @@ struct ReviewFeaturesTests {
         #expect(find.current?.paragraph == 1)
     }
 
-    @Test func reviewFlagsPersistWithoutChangingTextOrExports() throws {
+    @Test func reviewFlagsPersistWithoutChangingTextOrExports() async throws {
         let history = URL.temporaryDirectory.appending(path: UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: history) }
         var entry = sample()
@@ -128,6 +128,7 @@ struct ReviewFeaturesTests {
         try HistoryStore.write(entry, in: history)
         let model = AppModel(history: history)
         model.toggleReview(entry.id, paragraphAt: 1)
+        await model.finishWrites()
         let restored = try #require(HistoryStore.all(in: history).entries.first)
         #expect(restored.reviewParagraphs == [1])
         #expect(restored.paragraphs == entry.paragraphs)
@@ -137,6 +138,7 @@ struct ReviewFeaturesTests {
         model.undo(entry.id)
         #expect(model.entry(entry.id)?.reviewParagraphs == [1])
         model.toggleReview(entry.id, paragraphAt: 1)
+        await model.finishWrites()
         #expect(HistoryStore.all(in: history).entries.first?.reviewParagraphs.isEmpty == true)
     }
 

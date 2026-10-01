@@ -114,9 +114,13 @@ folder is passed to `AppModel` when it is made: the window gets these, a test
 run and a second copy of the app get temporary ones, models excepted, which
 they only read.
 
-There is no index: the directory listing is the library. A file that fails to
-decode is left in place and reported, never overwritten. A write that fails is
-kept in memory and retried, and quitting asks before losing it. Stored
+There is no index: the directory listing is the library, read on every core
+at launch. A file that fails to decode is left in place and reported, never
+overwritten. Records are encoded and written off the main actor, one after
+another on `HistoryWriter`'s queue, so the last write of an entry is the one on
+disk and a delete follows the writes asked before it. A write that fails is
+kept in memory and retried, and quitting waits for every write, then asks
+before losing one that failed. Stored
 property names never change (see `AGENTS.md`).
 
 ## Outside the app

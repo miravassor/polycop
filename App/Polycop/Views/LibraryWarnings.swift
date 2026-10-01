@@ -17,7 +17,7 @@ struct LibraryWarnings: View {
                 Text(failure)
                     .font(.callout)
                     .textSelection(.enabled)
-                Button("Retry Saving") { _ = model.retrySavingHistory() }
+                Button("Retry Saving") { Task { await model.retrySavingHistory() } }
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)

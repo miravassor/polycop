@@ -16,7 +16,7 @@ extension AppModel {
     func removeEntry(_ id: Entry.ID) {
         guard id != busyEntry, !isShuttingDown else { return }
         do {
-            try HistoryStore.delete(id, in: history)
+            try historyWriter.delete(id)
             entries.removeAll { $0.id == id }
             unsavedHistory.remove(id)
             scheduled.remove(id)

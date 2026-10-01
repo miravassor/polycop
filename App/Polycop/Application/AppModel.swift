@@ -179,6 +179,8 @@ final class AppModel {
     var retries: Set<Entry.ID> = []
     var downloadingModel: Model?
     let history: URL
+    /// Writes records off the main actor, in order.
+    let historyWriter: HistoryWriter
     /// Which models are installed, and how an engine opens.
     let engines: Engines
     var unsavedHistory: Set<Entry.ID> = []
@@ -212,6 +214,7 @@ final class AppModel {
         engines: Engines? = nil
     ) {
         self.history = history
+        historyWriter = HistoryWriter(folder: history)
         glossaryFolder = glossaries
         modelFolder = models
         player = Player(copies: playbackCopies)
@@ -274,72 +277,6 @@ final class AppModel {
         let (url, stale) = entry.resolved()
         if stale { updateEntry(entry.id) { $0.relink(to: url) } }
         return url
-    }
-
-    /// Every change reaches the disk at once, so nothing waits on a save to
-    /// survive quitting. Typing is the exception: encoding a whole transcript
-    /// at each key made typing stutter, so it is written after a pause, and
-    /// quitting writes what is left. A write that fails is kept in memory
-    /// instead, and the queue waits until it can be retried.
-    func updateEntry(
-        _ id: Entry.ID, whileTyping: Bool = false, _ update: (inout Entry) -> Void
-    ) {
-        guard let index = entries.firstIndex(where: { $0.id == id }) else { return }
-        let before = entries[index]
-        update(&entries[index])
-        guard entries[index] != before else { return }
-        if whileTyping {
-            saveAfterPause(id)
-        } else {
-            store(entries[index])
-        }
-    }
-
-    private func saveAfterPause(_ id: Entry.ID) {
-        pendingSaves.insert(id)
-        pendingSave?.cancel()
-        pendingSave = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(1))
-            guard !Task.isCancelled else { return }
-            self?.savePending()
-        }
-    }
-
-    /// Writes the entries typed into since their last write.
-    func savePending() {
-        pendingSave?.cancel()
-        pendingSave = nil
-        for entry in entries where pendingSaves.contains(entry.id) {
-            store(entry)
-        }
-    }
-
-    func store(_ entry: Entry) {
-        pendingSaves.remove(entry.id)
-        do {
-            try HistoryStore.write(entry, in: history)
-            let recovered = unsavedHistory.remove(entry.id) != nil
-            if !hasUnsavedHistory {
-                storageFailure = nil
-                if recovered { startNext() }
-            }
-        } catch {
-            unsavedHistory.insert(entry.id)
-            storageFailure = error.localizedDescription
-        }
-    }
-
-    @discardableResult
-    func retrySavingHistory() -> Bool {
-        savePending()
-        for glossary in Array(unsavedGlossaries.values) {
-            try? saveGlossary(glossary)
-        }
-        for entry in entries where unsavedHistory.contains(entry.id) {
-            store(entry)
-        }
-        if !hasUnsavedHistory { startNext() }
-        return !hasUnsavedHistory
     }
 
     /// Called before the process exits. Freeing the context is what keeps the
