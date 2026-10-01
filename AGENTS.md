@@ -63,6 +63,9 @@ Tools/                 build, fixture and packaging scripts
   Booleans that read as assertions (`isEditable`, `showsChanges`). Stored names of
   persisted types are the exception: they never change.
 * Views bind to `AppModel` through `@Bindable`, never through hand-written `Binding(get:set:)`.
+* A `nonisolated async` function runs on its caller's actor (approachable concurrency),
+  so blocking work in it blocks the main actor. Such work goes in a `@concurrent`
+  function, or on a queue through `DispatchQueue.run` for a long C call.
 * `@unchecked Sendable` only where a serial queue or a lock guards the state, with a comment
   saying which. Prefer checked `Sendable`.
 * The build has no warnings: CI compiles with `SWIFT_TREAT_WARNINGS_AS_ERRORS=YES`.
