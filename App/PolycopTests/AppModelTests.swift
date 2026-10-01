@@ -47,8 +47,10 @@ private func settle(_ model: AppModel) async throws {
 /// A model for `body`, whose engine is let go of whatever happens inside: a test
 /// ending with the engine alive aborts the process in Metal's teardown.
 @MainActor
-private func withModel(history: URL, _ body: (AppModel) async throws -> Void) async throws {
-    let model = AppModel(history: history)
+private func withModel(
+    history: URL, engines: Engines = .live, _ body: (AppModel) async throws -> Void
+) async throws {
+    let model = AppModel(history: history, engines: engines)
     do {
         try await body(model)
     } catch {
@@ -110,73 +112,6 @@ extension LoadingAModel {
         }
 
         #expect(AppModel(history: history).entries == entries)
-    }
-
-    /// Corrections reach the disk as they are typed, a second save updates the
-    /// same file, and a file changed by hand meanwhile is left alone for a new one.
-    @MainActor
-    @Test(.enabled(if: modelInstalled))
-    func correctionsAreKeptAndSavedToTheSameFile() async throws {
-        let folder = try recordings("cours.wav")
-        defer { try? FileManager.default.removeItem(at: folder) }
-        let history = folder.appending(path: "History")
-        let text = folder.appending(path: "cours.txt")
-        let second = folder.appending(path: "cours 2.txt")
-
-        try await withModel(history: history) { model in
-            model.transcribe([folder.appending(path: "cours.wav")])
-            model.start()
-            try await settle(model)
-            let id = try #require(model.entries.first?.id)
-
-            model.edit(id, paragraphAt: 0, text: "Premier essai.")
-            model.savePending()
-            #expect(
-                HistoryStore.all(in: history).entries.first?.paragraphs.first?.text
-                    == "Premier essai.")
-            model.export(id, to: text)
-            #expect(try String(contentsOf: text, encoding: .utf8).contains("Premier essai."))
-
-            model.edit(id, paragraphAt: 0, text: "Second essai.")
-            #expect(model.exportState(of: try #require(model.entry(id))) == .outOfDate)
-            model.updateExport(id)
-            #expect(try String(contentsOf: text, encoding: .utf8).contains("Second essai."))
-            #expect(!FileManager.default.fileExists(atPath: second.path(percentEncoded: false)))
-            #expect(model.exportState(of: try #require(model.entry(id))) == .current)
-
-            // Annotated outside the app: the update refuses and says so rather
-            // than replacing work the user did elsewhere.
-            try "annoté à la main".write(to: text, atomically: true, encoding: .utf8)
-            model.edit(id, paragraphAt: 0, text: "Troisième essai.")
-            model.updateExport(id)
-            #expect(try String(contentsOf: text, encoding: .utf8) == "annoté à la main")
-            #expect(model.failure(for: id) != nil)
-            #expect(!FileManager.default.fileExists(atPath: second.path(percentEncoded: false)))
-        }
-    }
-
-    /// A recording whose own folder cannot be written still gets its files.
-    @MainActor
-    @Test(.enabled(if: modelInstalled))
-    func aTranscriptCanBeSavedIntoAnotherFolder() async throws {
-        let folder = try recordings("cours.wav")
-        defer { try? FileManager.default.removeItem(at: folder) }
-        let elsewhere = folder.appending(path: "Ailleurs")
-        try FileManager.default.createDirectory(at: elsewhere, withIntermediateDirectories: true)
-
-        try await withModel(history: folder.appending(path: "History")) { model in
-            model.transcribe([folder.appending(path: "cours.wav")])
-            model.start()
-            try await settle(model)
-            let id = try #require(model.entries.first?.id)
-
-            model.export(id, to: elsewhere.appending(path: "cours.txt"))
-
-            #expect(model.entry(id)?.saved.map(\.lastPathComponent) == ["cours.txt"])
-            #expect(
-                FileManager.default.fileExists(
-                    atPath: elsewhere.appending(path: "cours.txt").path(percentEncoded: false)))
-        }
     }
 
     /// Cancel stops the recording under way; the next one still runs.
@@ -411,82 +346,6 @@ extension LoadingAModel {
 }
 
 extension LoadingAModel {
-    @MainActor
-    @Test(.enabled(if: modelInstalled))
-    func quittingWhileCancellationFinishesDoesNotRestartTheQueue() async throws {
-        let folder = try recordings("one.wav", "two.wav")
-        defer { try? FileManager.default.removeItem(at: folder) }
-        let model = AppModel(history: folder.appending(path: "History"))
-        model.transcribe([folder.appending(path: "one.wav"), folder.appending(path: "two.wav")])
-        model.start()
-        model.cancel()
-        await model.shutDown()
-        await Task.yield()
-        #expect(model.running == nil)
-        #expect(!model.hasWork)
-        #expect(model.stage == .waiting)
-        #expect(model.entries.allSatisfy { $0.state == .stopped })
-        model.transcribe([clip])
-        model.start()
-        #expect(model.entries.count == 2)
-    }
-}
-
-extension LoadingAModel {
-    @MainActor
-    @Test(.enabled(if: modelInstalled))
-    func recoveringStorageByMovingAnEntryRestartsTheQueue() async throws {
-        let folder = try recordings("one.wav")
-        let history = folder.appending(path: "History")
-        defer {
-            try? FileManager.default.setAttributes(
-                [.posixPermissions: 0o700], ofItemAtPath: history.path)
-            try? FileManager.default.removeItem(at: folder)
-        }
-        try FileManager.default.createDirectory(at: history, withIntermediateDirectories: true)
-        let model = AppModel(history: history)
-        let destination = try model.createFolder(named: "Course")
-        try FileManager.default.setAttributes(
-            [.posixPermissions: 0o500], ofItemAtPath: history.path)
-        model.transcribe([folder.appending(path: "one.wav")])
-        model.start()
-        let id = try #require(model.entries.first?.id)
-        #expect(model.running == nil)
-        #expect(model.hasUnsavedHistory)
-        try FileManager.default.setAttributes(
-            [.posixPermissions: 0o700], ofItemAtPath: history.path)
-        model.moveEntry(id, to: destination)
-        #expect(!model.hasUnsavedHistory)
-        #expect(model.running == id)
-        await model.shutDown()
-    }
-
-    @MainActor
-    @Test(.enabled(if: modelInstalled))
-    func anEntryWhoseFirstWriteFailedCanBeRemoved() async throws {
-        let folder = try recordings("one.wav")
-        let history = folder.appending(path: "History")
-        defer {
-            try? FileManager.default.setAttributes(
-                [.posixPermissions: 0o700], ofItemAtPath: history.path)
-            try? FileManager.default.removeItem(at: folder)
-        }
-        try FileManager.default.createDirectory(at: history, withIntermediateDirectories: true)
-        let model = AppModel(history: history)
-        try FileManager.default.setAttributes(
-            [.posixPermissions: 0o500], ofItemAtPath: history.path)
-        model.transcribe([folder.appending(path: "one.wav")])
-        model.start()
-        let id = try #require(model.entries.first?.id)
-        #expect(model.hasUnsavedHistory)
-        model.removeEntry(id)
-        #expect(model.entries.isEmpty)
-        #expect(!model.hasUnsavedHistory)
-        await model.shutDown()
-    }
-}
-
-extension LoadingAModel {
     /// A loop is transcribed again over its own stretch of audio, with silence
     /// removal, and nothing else in the transcript moves, its state included.
     @MainActor
@@ -551,42 +410,6 @@ extension LoadingAModel {
 
 extension LoadingAModel {
     @MainActor
-    @Test(.enabled(if: modelInstalled)) func runningTranscriptCannotBeDuplicated() async throws {
-        let history = URL.temporaryDirectory.appending(path: UUID().uuidString)
-        defer { try? FileManager.default.removeItem(at: history) }
-        let model = AppModel(history: history)
-        model.transcribe([clip])
-        model.start()
-        let id = try #require(model.entries.first?.id)
-        #expect(model.duplicate(id) == nil)
-        await model.shutDown()
-    }
-}
-
-extension LoadingAModel {
-    @MainActor
-    @Test(.enabled(if: modelInstalled))
-    func recordingsAddedDuringABatchWaitForAnotherStart() async throws {
-        let folder = try recordings("first.wav", "later.wav")
-        defer { try? FileManager.default.removeItem(at: folder) }
-        try await withModel(history: folder.appending(path: "History")) { model in
-            model.transcribe([folder.appending(path: "first.wav")])
-            model.start()
-            model.transcribe([folder.appending(path: "later.wav")])
-            for _ in 0..<1200 where model.stage.isBusy {
-                try await Task.sleep(for: .milliseconds(100))
-            }
-            #expect(model.stage == .waiting)
-            #expect(model.running == nil)
-            #expect(model.entries.first?.state == .waiting)
-            #expect(model.entries.last?.state == .finished)
-            #expect(model.canStart)
-        }
-    }
-}
-
-extension LoadingAModel {
-    @MainActor
     @Test(.enabled(if: qwenInstalled), arguments: [false, true])
     func stoppingKeepsCompletedWindows(quitting: Bool) async throws {
         let folder = try recordings("short.wav")
@@ -643,4 +466,179 @@ extension LoadingAModel {
 
     try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: history.path)
     model.clearQueue()
+}
+
+// MARK: The queue and the library, with a scripted engine
+
+// What these check is the queue and the files, not what a model writes, so
+// they run everywhere, CI included, on the engine QueueTests scripts.
+
+/// Corrections reach the disk as they are typed, a second save updates the
+/// same file, and a file changed by hand meanwhile is left alone for a new one.
+@MainActor
+@Test func correctionsAreKeptAndSavedToTheSameFile() async throws {
+    let folder = try recordings("cours.wav")
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let history = folder.appending(path: "History")
+    let text = folder.appending(path: "cours.txt")
+    let second = folder.appending(path: "cours 2.txt")
+
+    try await withModel(history: history, engines: Opener(ScriptedEngine()).engines) { model in
+        model.transcribe([folder.appending(path: "cours.wav")])
+        model.start()
+        try await settle(model)
+        let id = try #require(model.entries.first?.id)
+
+        model.edit(id, paragraphAt: 0, text: "Premier essai.")
+        model.savePending()
+        #expect(
+            HistoryStore.all(in: history).entries.first?.paragraphs.first?.text
+                == "Premier essai.")
+        model.export(id, to: text)
+        #expect(try String(contentsOf: text, encoding: .utf8).contains("Premier essai."))
+
+        model.edit(id, paragraphAt: 0, text: "Second essai.")
+        #expect(model.exportState(of: try #require(model.entry(id))) == .outOfDate)
+        model.updateExport(id)
+        #expect(try String(contentsOf: text, encoding: .utf8).contains("Second essai."))
+        #expect(!FileManager.default.fileExists(atPath: second.path(percentEncoded: false)))
+        #expect(model.exportState(of: try #require(model.entry(id))) == .current)
+
+        // Annotated outside the app: the update refuses and says so rather
+        // than replacing work the user did elsewhere.
+        try "annoté à la main".write(to: text, atomically: true, encoding: .utf8)
+        model.edit(id, paragraphAt: 0, text: "Troisième essai.")
+        model.updateExport(id)
+        #expect(try String(contentsOf: text, encoding: .utf8) == "annoté à la main")
+        #expect(model.failure(for: id) != nil)
+        #expect(!FileManager.default.fileExists(atPath: second.path(percentEncoded: false)))
+    }
+}
+
+/// A recording whose own folder cannot be written still gets its files.
+@MainActor
+@Test func aTranscriptCanBeSavedIntoAnotherFolder() async throws {
+    let folder = try recordings("cours.wav")
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let elsewhere = folder.appending(path: "Ailleurs")
+    try FileManager.default.createDirectory(at: elsewhere, withIntermediateDirectories: true)
+
+    try await withModel(
+        history: folder.appending(path: "History"), engines: Opener(ScriptedEngine()).engines
+    ) { model in
+        model.transcribe([folder.appending(path: "cours.wav")])
+        model.start()
+        try await settle(model)
+        let id = try #require(model.entries.first?.id)
+
+        model.export(id, to: elsewhere.appending(path: "cours.txt"))
+
+        #expect(model.entry(id)?.saved.map(\.lastPathComponent) == ["cours.txt"])
+        #expect(
+            FileManager.default.fileExists(
+                atPath: elsewhere.appending(path: "cours.txt").path(percentEncoded: false)))
+    }
+}
+
+@MainActor
+@Test func quittingWhileCancellationFinishesDoesNotRestartTheQueue() async throws {
+    let folder = try recordings("one.wav", "two.wav")
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let model = AppModel(
+        history: folder.appending(path: "History"), engines: Opener(ScriptedEngine()).engines)
+    model.transcribe([folder.appending(path: "one.wav"), folder.appending(path: "two.wav")])
+    model.start()
+    model.cancel()
+    await model.shutDown()
+    await Task.yield()
+    #expect(model.running == nil)
+    #expect(!model.hasWork)
+    #expect(model.stage == .waiting)
+    #expect(model.entries.allSatisfy { $0.state == .stopped })
+    model.transcribe([clip])
+    model.start()
+    #expect(model.entries.count == 2)
+}
+
+@MainActor
+@Test func recoveringStorageByMovingAnEntryRestartsTheQueue() async throws {
+    let folder = try recordings("one.wav")
+    let history = folder.appending(path: "History")
+    defer {
+        try? FileManager.default.setAttributes(
+            [.posixPermissions: 0o700], ofItemAtPath: history.path)
+        try? FileManager.default.removeItem(at: folder)
+    }
+    try FileManager.default.createDirectory(at: history, withIntermediateDirectories: true)
+    let model = AppModel(history: history, engines: Opener(ScriptedEngine()).engines)
+    let destination = try model.createFolder(named: "Course")
+    try FileManager.default.setAttributes(
+        [.posixPermissions: 0o500], ofItemAtPath: history.path)
+    model.transcribe([folder.appending(path: "one.wav")])
+    model.start()
+    let id = try #require(model.entries.first?.id)
+    #expect(model.running == nil)
+    #expect(model.hasUnsavedHistory)
+    try FileManager.default.setAttributes(
+        [.posixPermissions: 0o700], ofItemAtPath: history.path)
+    model.moveEntry(id, to: destination)
+    #expect(!model.hasUnsavedHistory)
+    #expect(model.running == id)
+    await model.shutDown()
+}
+
+@MainActor
+@Test func anEntryWhoseFirstWriteFailedCanBeRemoved() async throws {
+    let folder = try recordings("one.wav")
+    let history = folder.appending(path: "History")
+    defer {
+        try? FileManager.default.setAttributes(
+            [.posixPermissions: 0o700], ofItemAtPath: history.path)
+        try? FileManager.default.removeItem(at: folder)
+    }
+    try FileManager.default.createDirectory(at: history, withIntermediateDirectories: true)
+    let model = AppModel(history: history, engines: Opener(ScriptedEngine()).engines)
+    try FileManager.default.setAttributes(
+        [.posixPermissions: 0o500], ofItemAtPath: history.path)
+    model.transcribe([folder.appending(path: "one.wav")])
+    model.start()
+    let id = try #require(model.entries.first?.id)
+    #expect(model.hasUnsavedHistory)
+    model.removeEntry(id)
+    #expect(model.entries.isEmpty)
+    #expect(!model.hasUnsavedHistory)
+    await model.shutDown()
+}
+
+@MainActor
+@Test func runningTranscriptCannotBeDuplicated() async throws {
+    let history = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: history) }
+    let model = AppModel(history: history, engines: Opener(ScriptedEngine()).engines)
+    model.transcribe([clip])
+    model.start()
+    let id = try #require(model.entries.first?.id)
+    #expect(model.duplicate(id) == nil)
+    await model.shutDown()
+}
+
+@MainActor
+@Test func recordingsAddedDuringABatchWaitForAnotherStart() async throws {
+    let folder = try recordings("first.wav", "later.wav")
+    defer { try? FileManager.default.removeItem(at: folder) }
+    try await withModel(
+        history: folder.appending(path: "History"), engines: Opener(ScriptedEngine()).engines
+    ) { model in
+        model.transcribe([folder.appending(path: "first.wav")])
+        model.start()
+        model.transcribe([folder.appending(path: "later.wav")])
+        for _ in 0..<1200 where model.stage.isBusy {
+            try await Task.sleep(for: .milliseconds(100))
+        }
+        #expect(model.stage == .waiting)
+        #expect(model.running == nil)
+        #expect(model.entries.first?.state == .waiting)
+        #expect(model.entries.last?.state == .finished)
+        #expect(model.canStart)
+    }
 }
