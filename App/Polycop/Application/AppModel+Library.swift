@@ -61,15 +61,18 @@ extension AppModel {
     }
 
     /// Refuses to write the list of folders while what is on disk cannot be
-    /// read. Filing a transcript is still allowed: that is written in the
-    /// transcript's own record, which is not the damaged file.
+    /// read.
     private func refuseDamagedFolders() throws {
         guard foldersAreDamaged else { return }
         throw CocoaError(.fileReadCorruptFile)
     }
 
+    /// Refused while the list of folders cannot be read: no folder can be
+    /// named then, and taking a transcript out of one would lose which folder
+    /// it was in once the list is repaired.
     func moveEntry(_ id: Entry.ID, to folderID: UUID?) {
-        guard !isShuttingDown, folderID == nil || folders.contains(where: { $0.id == folderID })
+        guard !isShuttingDown, !foldersAreDamaged,
+            folderID == nil || folders.contains(where: { $0.id == folderID })
         else { return }
         updateEntry(id) { $0.folderID = folderID }
     }
@@ -79,6 +82,7 @@ extension AppModel {
     /// Finder carries a path instead, which matches no entry, and is refused.
     @discardableResult
     func moveEntries(_ identifiers: [String], to folderID: UUID?) -> Bool {
+        guard !foldersAreDamaged else { return false }
         let moved =
             identifiers
             .compactMap(UUID.init(uuidString:))

@@ -36,7 +36,7 @@ struct LibraryWarnings: View {
                     .textSelection(.enabled)
                 if model.foldersAreDamaged {
                     Text(
-                        "Folders cannot be created, renamed or deleted until the file that lists them is repaired or removed, so that nothing writes over it."
+                        "Folders cannot be created, renamed or deleted, and transcripts cannot be moved between them, until the file that lists them is repaired or removed, so that nothing writes over it or loses which folder a transcript is in."
                     )
                     .font(.callout)
                 }

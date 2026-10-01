@@ -276,10 +276,12 @@ struct ContentView: View {
                     destinationFolder = entry.folderID
                     moving = targets
                 }
+                .disabled(model.foldersAreDamaged)
                 if targets.contains(where: { model.entry($0)?.folderID != nil }) {
                     Button("Remove from Folder") {
                         for id in targets { model.moveEntry(id, to: nil) }
                     }
+                    .disabled(model.foldersAreDamaged)
                 }
                 newFolder
                 // What belongs to one transcript is offered for one: undoing or

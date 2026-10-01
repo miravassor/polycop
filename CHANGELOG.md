@@ -21,6 +21,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 * A second transcript of a numbered lecture keeps its number: retrying or duplicating "Cours 12.m4a" now gives "Cours 12 (2).m4a" rather than "Cours 2.m4a", another lecture's name.
 * Subtitles and timestamped text saved in Windows Latin, as older subtitle tools do, are imported instead of being refused as an unsupported format.
 * Playback you pause just after it starts, as typing does, stays paused: the player no longer takes a late report from the audio system as a request to play again.
+* While the list of folders cannot be read, transcripts stay in their folders: moving them is refused until the list is repaired, rather than taking them out of folders the app can no longer name.
 
 ## 0.3.2 (2026-09-27)
 

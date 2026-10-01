@@ -208,6 +208,32 @@ private func finished(_ recording: URL, in history: URL, model: String, language
     #expect(try String(contentsOf: file, encoding: .utf8) == "[{\"id\":\"pas un identifiant\"")
 }
 
+/// With the folder list unreadable, no folder can be named, and taking a
+/// transcript out of its folder would lose where it was once the list is
+/// repaired.
+@MainActor
+@Test func aDamagedFolderListKeepsEachTranscriptInItsFolder() throws {
+    let history = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    try FileManager.default.createDirectory(at: history, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: history) }
+    let folder = UUID()
+    var filed = Entry(
+        recording: history.appending(path: "cours.wav"), modelFile: ModelCatalog.turbo.id,
+        glossary: nil, skipsSilence: false, subtitles: false)
+    filed.state = .finished
+    filed.folderID = folder
+    try HistoryStore.write(filed, in: history)
+    try Data("[{\"id\":\"pas un identifiant\"".utf8).write(
+        to: history.appending(path: "folders.json"))
+    let model = AppModel(history: history)
+
+    model.moveEntry(filed.id, to: nil)
+    #expect(!model.moveEntries([filed.id.uuidString], to: nil))
+
+    #expect(model.entry(filed.id)?.folderID == folder)
+    #expect(HistoryStore.all(in: history).entries.first?.folderID == folder)
+}
+
 // MARK: Exports the application does not own
 
 /// Turning subtitles on changes which files an export is, so the update has no
