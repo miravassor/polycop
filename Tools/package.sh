@@ -19,13 +19,15 @@ if [ ! -d "$ROOT/Packages/AudioCppFramework/audiocpp.xcframework" ]; then
     "$ROOT/Tools/build-audiocpp.sh"
 fi
 
-# Ad-hoc signatures have no Team ID for hardened library validation.
+# The hardened runtime stays on. Ad hoc signatures carry no Team ID, so the
+# app's entitlements lift library validation, the one check that needs one,
+# and nothing else.
 xcodebuild build \
     -project "$ROOT/App/Polycop.xcodeproj" \
     -scheme Polycop -configuration Release \
     -destination 'platform=macOS,arch=arm64' \
     -derivedDataPath "$ROOT/build/local-derived" \
-    CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual ENABLE_HARDENED_RUNTIME=NO
+    CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual
 
 APP="$ROOT/build/local-derived/Build/Products/Release/Polycop.app"
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist")"
@@ -39,6 +41,16 @@ FOLDER="$STAGE/Polycop $VERSION"
 mkdir -p "$FOLDER"
 ditto "$APP" "$FOLDER/Polycop.app"
 codesign --verify --deep --strict "$FOLDER/Polycop.app"
+# A debugging entitlement or a signature without the runtime would let other
+# processes read or inject code into an app trusted with recordings.
+if codesign -d --entitlements - --xml "$FOLDER/Polycop.app" 2>/dev/null | grep -q get-task-allow; then
+    echo "The app allows debugging; it must not be packaged" >&2
+    exit 1
+fi
+codesign -dv "$FOLDER/Polycop.app" 2>&1 | grep -q 'flags=.*runtime' || {
+    echo "The app is not signed with the hardened runtime" >&2
+    exit 1
+}
 cat > "$FOLDER/READ-ME.txt" <<NOTE
 Polycop $VERSION
 
