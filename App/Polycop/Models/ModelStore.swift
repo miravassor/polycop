@@ -108,11 +108,33 @@ nonisolated enum ModelStore {
     }
 
     /// Verifies the copied bytes before publishing or passing them to whisper.cpp.
-    @concurrent
+    /// The copy runs on a queue of its own: gigabytes from a slow disk would
+    /// hold a thread of the Swift concurrency pool for minutes. A stop is read
+    /// between blocks.
     static func install(
         _ source: URL, in folder: URL = directory, catalogue: [Model] = ModelCatalog.files
     ) async throws -> Model {
         try Task.checkCancellation()
+        let cancelled = OSAllocatedUnfairLock(initialState: false)
+        return try await withTaskCancellationHandler {
+            try await copyingQueue.run {
+                try copy(source, into: folder, catalogue: catalogue, until: cancelled)
+            }
+        } onCancel: {
+            cancelled.withLock { $0 = true }
+        }
+    }
+
+    private static let copyingQueue = DispatchQueue(
+        label: "io.github.miravassor.Polycop.importing", qos: .userInitiated)
+
+    private static func copy(
+        _ source: URL, into folder: URL, catalogue: [Model],
+        until cancelled: OSAllocatedUnfairLock<Bool>
+    ) throws -> Model {
+        func checkCancellation() throws {
+            if cancelled.withLock({ $0 }) { throw CancellationError() }
+        }
         guard source.isFileURL else { throw ImportError.unrecognized }
         let values = try source.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
         guard values.isRegularFile == true, let size = values.fileSize else {
@@ -137,7 +159,7 @@ nonisolated enum ModelStore {
         var hasher = SHA256()
         var copied = 0
         while let block = try input.read(upToCount: 1 << 20), !block.isEmpty {
-            try Task.checkCancellation()
+            try checkCancellation()
             copied += block.count
             guard copied <= size else { throw ImportError.unrecognized }
             hasher.update(data: block)
@@ -148,7 +170,7 @@ nonisolated enum ModelStore {
         guard copied == size, let model = candidates.first(where: { $0.sha256 == digest }) else {
             throw ImportError.unrecognized
         }
-        try Task.checkCancellation()
+        try checkCancellation()
         try publish(partial, as: folder.appending(path: model.id))
         return model
     }
