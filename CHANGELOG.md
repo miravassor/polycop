@@ -15,6 +15,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ### Fixed
 
+* Find, Replace All and course corrections read a curly apostrophe and a straight one as the same, so "l'inconscient" also finds "l’inconscient".
 * Typing in a transcript keeps what is typed, whatever the system's text input settings: apostrophes no longer turn curly, double hyphens no longer become dashes, and spelling correction no longer rewrites names. A curly apostrophe hid the word from Find, Replace All and course corrections.
 * Pausing after a dead key, before its letter, no longer saves the accent alone as a correction.
 * A glossary edited in another application while the Glossary sheet is open is no longer written back to what the sheet read when it opened. Choosing a course reads its file again, and only what is typed in the sheet is saved.
