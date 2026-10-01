@@ -132,8 +132,7 @@ nonisolated enum TranscriptImport {
     private static func tidied(_ text: String) -> String {
         text.replacingOccurrences(of: "\r\n", with: "\n")
             .replacingOccurrences(of: "\r", with: "\n")
-            .trimmingCharacters(
-                in: .whitespacesAndNewlines.union(CharacterSet(charactersIn: "\u{feff}")))
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     /// The text of a Word document, as recorder apps export their transcripts.
