@@ -126,7 +126,7 @@ struct GlossaryEditor: View {
                 TextEditor(text: $text)
                     .font(.body)
                     .autocorrectionDisabled()
-                    .border(.separator)
+                    .editorBorder()
                     .accessibilityLabel("Glossary terms")
                 if count > 0 {
                     counter

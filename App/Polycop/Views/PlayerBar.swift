@@ -143,7 +143,7 @@ struct PlayerBar: View {
         .fixedSize()
         .padding(.horizontal, 10)
         .frame(height: 32)
-        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 6))
+        .controlFill()
         .help("Playing speed")
         .accessibilityLabel("Playing speed")
     }
