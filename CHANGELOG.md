@@ -6,11 +6,13 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ### Added
 
+* Play From Cursor (⌥⌘P), in a new Playback menu, plays from the word at the text cursor: Option-click without the mouse.
 * The text cursor can follow playback: after a correction, it moves with the word being heard, so the next one is typed where the audio is. Off by default, in Settings; a click keeps the cursor where you put it until you type.
 
 ### Changed
 
 * Export Text (⌘S) and Export Text As… (⇧⌘S) are in the File menu. ⌘S updates the export, or asks where to put the first one, and works right after typing, when the button could still show the export as up to date.
+* New Transcription spaces its sections as the other pages do, the engine cards in the model list have the border of every other card, and the glossary and term editors have rounded corners like the other controls.
 * Quitting keeps the recordings that were only waiting in the queue: after a relaunch they wait for Start again instead of showing as stopped, and quitting asks first only when something is in progress. The recording being transcribed still stops, as its progress cannot be resumed.
 * Opening Polycop while it is already open brings the open copy forward instead of starting a second one. Two copies each wrote what they had read at launch, so one could write over the other's corrections.
 
@@ -26,6 +28,8 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 * With Leave out hesitations, a paragraph that was only "Euh." is left out of the export instead of leaving a time with a lone full stop, and a hesitation said as a sentence of its own takes its full stop with it.
 * Subtitles no longer contain empty captions for segments without text.
 * A Markdown export escapes the characters Markdown would read as formatting, so "2*3*4" no longer shows the 3 in italics and a line typed as "# Freud" or "1. Le moi" no longer becomes a heading or a list.
+* Terms from Documents finds names written with Œ, œ or Ÿ, names joined to an elided word ("d’Œdipe", "l’Allemagne"), and names whose accents a PDF stored apart from their letters.
+* Terms from Documents ends in moments on a long document with thousands of names, and stops working when its sheet is closed.
 * VoiceOver names a paragraph's review flag with the paragraph's number and says whether it is set, and reads the playing speed. Your text and Compare original are one segmented control, which says which view is chosen.
 * Jumping to a paragraph or along the timeline while playing no longer shows the old position again for a moment before the new one.
 * Voxtral transcripts get a timestamp every 30 seconds, as they should, rather than one every five minutes, and keep the last words before each five-minute cut.

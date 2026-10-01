@@ -176,6 +176,41 @@ private func finished(_ recording: URL, in history: URL, model: String, language
     #expect(FileManager.default.fileExists(atPath: damaged.path(percentEncoded: false)))
 }
 
+/// The log says which check a damaged record failed, in words that hold none
+/// of its text.
+@Test func aDamagedRecordSaysWhichCheckItFailed() throws {
+    let history = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    try FileManager.default.createDirectory(at: history, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: history) }
+    var entry = Entry(
+        recording: URL(filePath: "/tmp/cours.wav"), modelFile: ModelCatalog.recommended.id,
+        glossary: nil, skipsSilence: false, subtitles: false)
+    entry.publish([Segment(start: 0, end: 4, text: "Texte du cours.")], partial: false)
+    let written = try #require(
+        JSONSerialization.jsonObject(with: JSONEncoder().encode(entry)) as? [String: Any])
+    func reason(_ change: (inout [String: Any]) -> Void, named name: String? = nil) throws
+        -> String?
+    {
+        var record = written
+        change(&record)
+        let file = history.appending(path: (name ?? entry.id.uuidString) + ".json")
+        try JSONSerialization.data(withJSONObject: record).write(to: file)
+        guard case .failure(let damage) = HistoryStore.record(file) else { return nil }
+        return damage.reason
+    }
+
+    #expect(try reason { _ in } == nil)
+    #expect(try reason { $0["modelFile"] = nil } == "modelFile is missing")
+    #expect(try reason { $0["duration"] = "long" } == "duration has the wrong type")
+    #expect(
+        try reason({ _ in }, named: UUID().uuidString) == "its id differs from the file name")
+    #expect(try reason { $0["duration"] = -1 } == "a time or a path is out of bounds")
+    // A segment's path is named by its keys and index, never by its text.
+    #expect(
+        try reason { $0["decoded"] = [["text": "Texte du cours."]] }
+            == "decoded.Index 0.start is missing")
+}
+
 /// The list of folders is not a transcript, and is never counted as one.
 @Test func theListOfFoldersIsNotReadAsATranscript() throws {
     let history = URL.temporaryDirectory.appending(path: UUID().uuidString)

@@ -16,7 +16,7 @@ struct NewTranscriptionView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
+            VStack(alignment: .leading, spacing: 16) {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("New transcription")
                         .font(.title2.weight(.semibold))
@@ -26,11 +26,11 @@ struct NewTranscriptionView: View {
                 // Two columns when the window is wide, as in full screen, rather
                 // than one narrow column beside empty space.
                 ViewThatFits(in: .horizontal) {
-                    HStack(alignment: .top, spacing: 40) {
+                    HStack(alignment: .top, spacing: 16) {
                         start.frame(minWidth: 460, maxWidth: 620)
                         settings.frame(minWidth: 460, maxWidth: 560)
                     }
-                    VStack(alignment: .leading, spacing: 28) {
+                    VStack(alignment: .leading, spacing: 16) {
                         start
                         settings
                     }

@@ -96,12 +96,7 @@ struct ModelManagerView: View {
                         Text(LocalizedStringKey(family.features(aligned: model.canAlignQwen)))
                             .font(.caption).foregroundStyle(.secondary)
                     }
-                    .padding(16)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(
-                        familyColor(family).opacity(0.08),
-                        in: RoundedRectangle(cornerRadius: 10)
-                    )
+                    .panel(tint: familyColor(family))
                     ForEach(ModelCatalog.all.filter { $0.engine == family }) { item in
                         Divider()
                         HStack(alignment: .top, spacing: 16) {

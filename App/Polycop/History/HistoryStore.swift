@@ -38,18 +38,60 @@ nonisolated enum HistoryStore {
         // `folders.json` lives in the same folder but is not an entry; isRecord
         // filters it out so it is never reported as a damaged record.
         for name in names where isRecord(name) {
-            if let entry = try? decoder.decode(
-                Entry.self, from: Data(contentsOf: folder.appending(path: name))),
-                entry.id == UUID(uuidString: String(name.dropLast(5))), entry.hasValidHistory
-            {
+            switch record(folder.appending(path: name), decoder: decoder) {
+            case .success(let entry):
                 library.entries.append(entry)
-            } else {
-                Log.persistence.error("a transcript record could not be read")
+            case .failure(let damage):
+                Log.persistence.error(
+                    "a transcript record could not be read: \(damage.reason, privacy: .public)")
                 library.damaged.append(name)
             }
         }
         library.entries.sort { $0.added > $1.added }
         return library
+    }
+
+    /// Which check a record failed, in words that hold none of its text: a
+    /// record holds a lecture, and the log is read by whoever is sent it.
+    struct DamagedRecord: Error {
+        let reason: String
+    }
+
+    /// The entry a record holds, or which check it failed.
+    static func record(
+        _ file: URL, decoder: JSONDecoder = JSONDecoder()
+    ) -> Result<Entry, DamagedRecord> {
+        func damaged(_ reason: String) -> Result<Entry, DamagedRecord> {
+            .failure(DamagedRecord(reason: reason))
+        }
+        func path(_ keys: [any CodingKey]) -> String {
+            keys.isEmpty ? "the top" : keys.map(\.stringValue).joined(separator: ".")
+        }
+        let data: Data
+        do {
+            data = try Data(contentsOf: file)
+        } catch {
+            return damaged("the file cannot be read")
+        }
+        let entry: Entry
+        do {
+            entry = try decoder.decode(Entry.self, from: data)
+        } catch DecodingError.keyNotFound(let key, let context) {
+            return damaged("\(path(context.codingPath + [key])) is missing")
+        } catch DecodingError.typeMismatch(_, let context), DecodingError.valueNotFound(
+            _, let context)
+        {
+            return damaged("\(path(context.codingPath)) has the wrong type")
+        } catch DecodingError.dataCorrupted(let context) {
+            return damaged("\(path(context.codingPath)) is not valid")
+        } catch {
+            return damaged("the file is not a record")
+        }
+        guard entry.id == UUID(uuidString: file.deletingPathExtension().lastPathComponent) else {
+            return damaged("its id differs from the file name")
+        }
+        guard entry.hasValidHistory else { return damaged("a time or a path is out of bounds") }
+        return .success(entry)
     }
 
     private static func isRecord(_ name: String) -> Bool {

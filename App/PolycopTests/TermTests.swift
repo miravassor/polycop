@@ -158,3 +158,39 @@ private func write(_ pages: [String], to file: URL) throws {
     #expect(!found.contains("Freud Piaget"))
     #expect(!found.contains("Piaget Freud"))
 }
+
+/// Names beyond Latin-1, and names joined to an elided word, are names too.
+@Test func readsNamesWithŒAndAfterAnElision() async {
+    let page = "Freud décrit le complexe d’Œdipe chez l'enfant, que reprend Mélanie Klein."
+    let decomposed = "La théorie de Re\u{301}ne\u{301} Spitz."
+
+    let terms = await Terms.candidates(in: [page, decomposed])
+
+    #expect(terms.contains("Œdipe"))
+    #expect(!terms.contains("d’Œdipe"))
+    #expect(terms.contains("Mélanie Klein"))
+    #expect(terms.contains("Réné Spitz"))
+}
+
+/// A document with thousands of names stops at the budget, keeping one form
+/// of each.
+@Test func manyCandidatesStillStopAtTheBudget() async throws {
+    let alphabet = Array("abcdefghijklmnopqrstuvwxyz")
+    func letters(_ number: Int) -> String {
+        var number = number
+        var word = ""
+        repeat {
+            word.append(alphabet[number % 26])
+            number /= 26
+        } while number > 0
+        return word
+    }
+    let names = (0..<3000).map { "Nom\(letters($0)) Prénom\(letters($0))" }
+    let page = names.map { "On lit \($0) ici." }.joined(separator: " ")
+
+    let terms = await Terms.candidates(in: [page])
+    let prompt = try #require(Glossary(name: "", text: terms.joined(separator: "\n")).prompt())
+
+    #expect(!terms.isEmpty)
+    #expect(Glossary.estimatedTokens(of: prompt) <= 200)
+}

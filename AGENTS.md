@@ -63,6 +63,9 @@ Tools/                 build, fixture and packaging scripts
   Booleans that read as assertions (`isEditable`, `showsChanges`). Stored names of
   persisted types are the exception: they never change.
 * Views bind to `AppModel` through `@Bindable`, never through hand-written `Binding(get:set:)`.
+* A `nonisolated async` function runs on its caller's actor (approachable concurrency),
+  so blocking work in it blocks the main actor. Such work goes in a `@concurrent`
+  function, or on a queue through `DispatchQueue.run` for a long C call.
 * `@unchecked Sendable` only where a serial queue or a lock guards the state, with a comment
   saying which. Prefer checked `Sendable`.
 * The build has no warnings: CI compiles with `SWIFT_TREAT_WARNINGS_AS_ERRORS=YES`.
@@ -93,7 +96,9 @@ Every page speaks the same visual language. The shared pieces live in
 
 * Cards: `panel()`, corners of 10, 16 points of padding, one fill and border.
   Controls and rows inside a card have corners of 6.
-* Header icon buttons and menus: `iconControl()`, 32 by 28.
+* Header icon buttons and menus: `iconControl()`, 32 by 28. Another control drawn
+  by hand takes its fill from `controlFill()`.
+* Text editors: `editorBorder()`, with the corners of a control.
 * Spacing: 28 points around a page, 16 between blocks, 12 between a card's label and
   its buttons. Sheets have 24 points of padding, popovers 20.
 * Type: a page title in `.title2` semibold, a section heading in `.title3` semibold
