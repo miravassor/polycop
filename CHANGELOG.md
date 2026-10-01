@@ -28,6 +28,8 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 * With Leave out hesitations, a paragraph that was only "Euh." is left out of the export instead of leaving a time with a lone full stop, and a hesitation said as a sentence of its own takes its full stop with it.
 * Subtitles no longer contain empty captions for segments without text.
 * A Markdown export escapes the characters Markdown would read as formatting, so "2*3*4" no longer shows the 3 in italics and a line typed as "# Freud" or "1. Le moi" no longer becomes a heading or a list.
+* Terms from Documents finds names written with Œ, œ or Ÿ, names joined to an elided word ("d’Œdipe", "l’Allemagne"), and names whose accents a PDF stored apart from their letters.
+* Terms from Documents ends in moments on a long document with thousands of names, and stops working when its sheet is closed.
 * Jumping to a paragraph or along the timeline while playing no longer shows the old position again for a moment before the new one.
 * Voxtral transcripts get a timestamp every 30 seconds, as they should, rather than one every five minutes, and keep the last words before each five-minute cut.
 * A MOSS window that repeats itself until its token limit no longer ends the whole transcription: that window keeps what it had written, and the rest of the recording is transcribed.

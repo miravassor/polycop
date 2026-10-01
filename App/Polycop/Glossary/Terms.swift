@@ -46,9 +46,10 @@ nonisolated enum Terms {
 
     // Computed rather than stored: Regex is not Sendable, so it cannot be a
     // stored constant on a type read from several threads.
-    private static var word: Regex<Substring> { /[A-ZÀ-ÖØ-Ýa-zà-öø-ÿ][A-ZÀ-ÖØ-Ýa-zà-öø-ÿ'’-]*/ }
+    // Unicode letter classes, since French writes Œ, œ and Ÿ beyond Latin-1.
+    private static var word: Regex<Substring> { /\p{L}[\p{L}'’-]*/ }
     private static var acronym: Regex<Substring> {
-        /\b[A-ZÀ-ÖØ-Ý][A-ZÀ-ÖØ-Ý0-9]+(?:-[A-ZÀ-ÖØ-Ý0-9]+)*\b/
+        /\b\p{Lu}[\p{Lu}0-9]+(?:-[\p{Lu}0-9]+)*\b/
     }
 
     /// The terms of a document, weakest first, since whisper.cpp keeps the end
@@ -63,7 +64,8 @@ nonisolated enum Terms {
         var sure: Set<String> = []
         for page in pages {
             guard !Task.isCancelled else { return [] }
-            let found = terms(on: page, attested: attested)
+            // PDF text can arrive with its accents decomposed.
+            let found = terms(on: page.precomposedStringWithCanonicalMapping, attested: attested)
             for term in found.all { presence[term, default: 0] += 1 }
             sure.formUnion(found.sure)
         }
@@ -76,7 +78,7 @@ nonisolated enum Terms {
             .filter { term, count in count < furniture && (sure.contains(term) || count >= 2) }
             .sorted { ($0.value, $1.key) > ($1.value, $0.key) }
             .map(\.key)
-        return fitting(distinct(ranked), within: budget).reversed()
+        return fitting(ranked, within: budget).reversed()
     }
 
     /// All candidate terms on the page, plus the subset that needs no
@@ -143,7 +145,7 @@ nonisolated enum Terms {
                 flush()
             }
             previousEnd = match.range.upperBound
-            let term = String(match.output)
+            let term = withoutElision(String(match.output))
             if capitalised(term), !banal.contains(term), term.count > 2 {
                 if current.isEmpty { opensSentence = opens(text, at: match.range.lowerBound) }
                 current.append(term)
@@ -153,6 +155,17 @@ nonisolated enum Terms {
         }
         flush()
         return found
+    }
+
+    /// "d'Œdipe" names Œdipe: French elides the word before a name, and the
+    /// two read as one word.
+    private static func withoutElision(_ word: String) -> String {
+        guard let apostrophe = word.firstIndex(where: { $0 == "'" || $0 == "’" }),
+            ["c", "d", "j", "l", "m", "n", "s", "t", "qu"].contains(
+                word[..<apostrophe].lowercased())
+        else { return word }
+        let name = word[word.index(after: apostrophe)...]
+        return name.first?.isUppercase == true ? String(name) : word
     }
 
     /// Whether nothing but a sentence end stands before this word.
@@ -183,37 +196,23 @@ nonisolated enum Terms {
         return !banal.contains(term)
     }
 
-    /// One form per term. A single word already covered by a higher-ranked,
-    /// multi-word expression is dropped, since the model sees that string
-    /// either way.
-    private static func distinct(_ candidates: [String]) -> [String] {
-        var kept: [String] = []
-        var seen: Set<String> = []
-        for term in candidates {
-            let key = term.lowercased()
-            if seen.contains(key) { continue }
-            let words = Set(key.split(separator: " "))
-            if kept.contains(where: {
-                words.isSubset(of: Set($0.lowercased().split(separator: " ")))
-            }
-            ) {
-                continue
-            }
-            seen.insert(key)
-            kept.append(term)
-        }
-        return kept
-    }
-
-    /// A prompt wider than the subject pushes the model towards its own words,
-    /// so the list stops where the budget does.
+    /// One form per term, in rank order, until the budget is spent: a prompt
+    /// wider than the subject pushes the model towards its own words. A
+    /// single word already covered by a higher-ranked, multi-word expression
+    /// is dropped, since the model sees that string either way. A document
+    /// can yield thousands of candidates, so the work ends with the budget.
     private static func fitting(_ candidates: [String], within budget: Int) -> [String] {
         var kept: [String] = []
+        var keptWords: [Set<Substring>] = []
         for term in candidates {
+            guard !Task.isCancelled else { return [] }
+            let words = Set(term.lowercased().split(separator: " "))
+            if keptWords.contains(where: { words.isSubset(of: $0) }) { continue }
             let sentence = Glossary(name: "", text: (kept + [term]).joined(separator: "\n"))
                 .prompt()
             guard let sentence, Glossary.estimatedTokens(of: sentence) <= budget else { break }
             kept.append(term)
+            keptWords.append(words)
         }
         return kept
     }
