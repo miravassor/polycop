@@ -31,10 +31,20 @@ func versionsCompareNumerically(candidate: String, current: String, isNewer: Boo
     #expect(release.page.absoluteString.hasSuffix("/releases/tag/v0.3.0"))
 }
 
-@Test func onlyAGitHubPageIsAccepted() {
-    let answer = Data(
-        #"{"tag_name": "v9.0.0", "html_url": "https://example.com/polycop.zip"}"#.utf8)
+@Test(arguments: [
+    "https://example.com/polycop.zip",
+    "https://github.com/someone/else/releases/tag/v9.0.0",
+])
+func onlyAPageOfPolycopsReleasesIsAccepted(page: String) {
+    let answer = Data(#"{"tag_name": "v9.0.0", "html_url": "\#(page)"}"#.utf8)
     #expect(throws: UpdateCheck.Failure.self) { try UpdateCheck.release(from: answer) }
+}
+
+/// The system would send the macOS version and the user's languages.
+@Test func theRequestNamesOnlyTheApp() {
+    let request = UpdateCheck.request(for: UpdateCheck.latestRelease)
+    #expect(request.value(forHTTPHeaderField: "User-Agent") == "Polycop")
+    #expect(request.value(forHTTPHeaderField: "Accept-Language") == "en")
 }
 
 @Test func theAutomaticCheckIsOfferedFromTheSecondLaunch() {
