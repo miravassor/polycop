@@ -115,9 +115,10 @@ extension AppModel {
     /// Whether the paragraphs can be laid out again from what the engine
     /// wrote, as putting credits back and repairing repeats do. Refused while
     /// corrections can be stepped back, even after a revert: rebuilding the
-    /// paragraphs would discard them.
+    /// paragraphs would discard them. The course corrections, run over the
+    /// whole text, are checked last.
     func canRebuildParagraphs(of entry: Entry) -> Bool {
-        entry.id != busyEntry && entry.hasOnlyCourseCorrections && !canUndo(entry.id)
+        entry.id != busyEntry && !canUndo(entry.id) && entry.hasOnlyCourseCorrections
     }
 
     func putBackCredits(_ id: Entry.ID) {
