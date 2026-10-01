@@ -120,3 +120,50 @@ private final class FocusableControl: NSControl {
     first.follow(NSRange(location: 0, length: 7))
     #expect(window.firstResponder === window)
 }
+
+/// What is typed stays as typed, whatever the system's text input settings:
+/// a curly apostrophe would hide a word from Find and course corrections.
+@MainActor
+@Test func theEditorTypesWhatIsTyped() {
+    for view in [WordTextView(), WordTextView(frame: .zero, textContainer: NSTextContainer())] {
+        #expect(!view.isAutomaticQuoteSubstitutionEnabled)
+        #expect(!view.isAutomaticDashSubstitutionEnabled)
+        #expect(!view.isAutomaticSpellingCorrectionEnabled)
+        #expect(!view.isAutomaticTextReplacementEnabled)
+    }
+}
+
+/// An accent typed with a dead key is not a correction until its letter
+/// follows, so no pause hands it to the model on its own.
+@MainActor
+@Test func anAccentWaitingForItsLetterIsNotCommittedAfterAPause() {
+    var edits: [String] = []
+    let editor = ParagraphEditor(
+        text: "pr", original: "pr", size: 13, isEditable: true, edit: { edits.append($0) })
+    let coordinator = editor.makeCoordinator()
+    // On TextKit 1, as the editor is: reaching the layout manager of a
+    // TextKit 2 view switches it over and drops the marked text.
+    let storage = NSTextStorage()
+    let manager = NSLayoutManager()
+    let container = NSTextContainer()
+    manager.addTextContainer(container)
+    storage.addLayoutManager(manager)
+    let view = WordTextView(frame: .zero, textContainer: container)
+    view.string = "pr"
+    view.setSelectedRange(NSRange(location: 2, length: 0))
+    let changed = Notification(name: NSText.didChangeNotification, object: view)
+
+    view.setMarkedText(
+        "^", selectedRange: NSRange(location: 1, length: 0),
+        replacementRange: NSRange(location: NSNotFound, length: 0))
+    coordinator.textDidChange(changed)
+    #expect(view.hasMarkedText())
+    #expect(coordinator.commitAfterPause == nil)
+
+    view.insertText("ê", replacementRange: view.markedRange())
+    coordinator.textDidChange(changed)
+    #expect(!view.hasMarkedText())
+    #expect(coordinator.commitAfterPause != nil)
+    TypingBuffer.flush()
+    #expect(edits == ["prê"])
+}

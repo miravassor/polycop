@@ -24,6 +24,13 @@ extension AppModel {
         }
     }
 
+    /// The glossary as its file holds it now, rather than as the list was
+    /// last read or patched.
+    func glossary(named name: String) -> Glossary? {
+        refreshGlossaries()
+        return glossaries.first { $0.name == name }
+    }
+
     /// Creates an empty glossary under a free name and returns that name.
     func createGlossary(named wanted: String) throws -> String {
         let glossary = Glossary(
