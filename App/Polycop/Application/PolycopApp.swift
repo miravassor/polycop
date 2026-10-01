@@ -47,13 +47,7 @@ struct PolycopApp: App {
         }
     }
 
-    /// A test run hosts the app, which must not ask anything, reach the
-    /// network or touch the user's files.
-    static var isHostingTests: Bool {
-        let environment = ProcessInfo.processInfo.environment
-        return environment["XCTestConfigurationFilePath"] != nil
-            || environment["XCTestSessionIdentifier"] != nil
-    }
+    static var isHostingTests: Bool { TestHost.isRunning }
 
     /// Whether another copy of the app has the user's library. Each copy
     /// writes what it read at launch, so a second one would write over the
