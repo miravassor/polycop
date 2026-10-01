@@ -29,6 +29,7 @@ xcodebuild build \
 
 APP="$ROOT/build/local-derived/Build/Products/Release/Polycop.app"
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist")"
+COMMIT="$(git -C "$ROOT" rev-parse HEAD)"
 OUTPUT="${POLYCOP_PACKAGE_DIR:-$ROOT/build/releases/Polycop-$VERSION}"
 # Exclusive creation keeps every previous package, including the same version.
 mkdir -p "$ROOT/build/releases"
@@ -40,13 +41,17 @@ mkdir -p "$FOLDER"
 ditto "$APP" "$FOLDER/Polycop.app"
 codesign --verify --deep --strict "$FOLDER/Polycop.app"
 cat > "$FOLDER/READ-ME.txt" <<NOTE
-Polycop $VERSION
+Polycop $VERSION, built from commit $COMMIT
+https://github.com/miravassor/polycop
 
 For Apple Silicon Macs with macOS 14 or later.
 
 INSTALL
 
-Check the archive against the SHA-256 checksum published with it.
+Check the download against the SHA-256 checksum published with it: a match
+shows the file arrived intact. To check that it was built by the project's
+release workflow from the commit above, with the GitHub command line tool:
+    gh attestation verify Polycop-$VERSION.dmg --repo miravassor/polycop
 Quit any older version, then move Polycop.app to Applications. Replacing an
 older version keeps your library in ~/Library/Application Support/Polycop/.
 Nothing is installed or deleted automatically.
@@ -60,7 +65,7 @@ https://support.apple.com/102445
 If there is no Open Anyway button, run this once in Terminal:
     xattr -dr com.apple.quarantine /Applications/Polycop.app
 It removes the mark macOS puts on downloaded files, for this app only. Do it
-only if the checksum matched.
+only for a copy you checked.
 
 USE
 
@@ -70,11 +75,14 @@ kept in the library, apart from the exports. Help > Keyboard Shortcuts lists
 the shortcuts, including Shift Command Space to play and pause. Recordings
 never leave your Mac.
 
-SOURCE
+SOURCE AND LICENCES
 
-The Source folder holds the code of this version and the sources of the
-bundled libraries. Speech recognition models are downloaded separately, under
-their own licences.
+Polycop is free software under the GNU General Public License version 3 or
+later. Polycop-$VERSION.zip, published with this disk image, holds the same
+app and, in its Source folder, the complete corresponding source of the app
+and of every bundled component, at commit $COMMIT. The licence texts are in
+Polycop.app/Contents/Resources/Licenses. Speech recognition models are
+downloaded separately, under their own licences.
 NOTE
 
 SOURCE="$FOLDER/Source"
@@ -121,11 +129,13 @@ NOTE
 ARCHIVE="$OUTPUT/Polycop-$VERSION.zip"
 ditto -c -k --sequesterRsrc --keepParent "$FOLDER" "$STAGE/package.zip"
 
-# The disk image holds the app and a link to Applications, to drag it there.
+# The disk image holds the app, the notes saying where its source is, and a
+# link to Applications to drag the app there.
 # hdiutil fails now and then on busy runners, so it gets a few attempts.
 IMAGE="$OUTPUT/Polycop-$VERSION.dmg"
 mkdir "$STAGE/image"
 ditto "$FOLDER/Polycop.app" "$STAGE/image/Polycop.app"
+cp "$FOLDER/READ-ME.txt" "$STAGE/image/READ-ME.txt"
 ln -s /Applications "$STAGE/image/Applications"
 for attempt in 1 2 3; do
     hdiutil create -quiet -volname "Polycop $VERSION" -srcfolder "$STAGE/image" \
