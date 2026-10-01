@@ -22,6 +22,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ### Fixed
 
+* Cancelling a model download, or quitting during one, keeps what was downloaded: the next Download continues from there instead of starting the gigabytes over. A download that cannot continue, because the server's link expired or the app now pins a different file, starts over once on its own instead of failing.
 * Correcting a search result no longer makes the page scroll to the next one while you type. The next result waits where the corrected one was, and Next shows it.
 * Replace moves on to the next result even when the replacement still matches the search, as "Freud" does "freud"; it used to stay on the word it had just replaced.
 * Find, Replace All and course corrections read a curly apostrophe and a straight one as the same, so "l'inconscient" also finds "l’inconscient".

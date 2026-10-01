@@ -95,15 +95,17 @@ func downloadsAndVerifiesAPinnedFile() async throws {
         commit: "9ffd54a1e1ee413ddf265af9913beaf518d1639b",
         file: "ggml-silero-v6.2.0.bin"
     )
-    defer { try? ModelStore.remove(silero) }
+    // A folder of its own: the user's store would list the file meanwhile.
+    let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: folder) }
 
     let reported = OSAllocatedUnfairLock(initialState: 0.0)
-    let file = try await ModelDownloader.download(silero) { progress in
+    let file = try await ModelDownloader.download(silero, in: folder) { progress in
         reported.withLock { $0 = max($0, progress) }
     }
 
     #expect(try await ModelStore.sha256(of: file) == silero.sha256)
-    #expect(ModelStore.isInstalled(silero))
+    #expect(ModelStore.isInstalled(silero, in: folder))
     #expect(reported.withLock { $0 } > 0)
 }
 

@@ -362,27 +362,39 @@ func aCreditLineIsRemoved(_ line: String) {
     try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: folder) }
 
-    let offered = ModelCatalog.recommended.id
-    let finished = folder.appending(path: offered)
-    let ofFinished = folder.appending(path: offered + ".resume")
-    let ofUnknown = folder.appending(path: "ggml-retired-model.bin.resume")
-    let ofUnfinished = folder.appending(path: ModelCatalog.largeV3.id + ".resume")
+    func model(_ id: String, hash: Character) -> Model {
+        Model(
+            id: id, name: id, detail: "", bytes: 1, peakBytes: 1,
+            sha256: String(repeating: hash, count: 64), license: "MIT",
+            repository: "example/models", commit: String(repeating: "0", count: 40), file: id)
+    }
+    let done = model("done.bin", hash: "a")
+    let pending = model("pending.bin", hash: "b")
+    let catalogue = [done, pending]
+
+    let finished = ModelStore.location(of: done, in: folder)
+    let ofFinished = ModelStore.resumeFile(of: done, in: folder)
+    let ofPending = ModelStore.resumeFile(of: pending, in: folder)
+    // Resume data of a file the catalogue no longer pins, as an update that
+    // keeps the id but pins new weights leaves, or as older versions named it.
+    let ofRetired = folder.appending(path: String(repeating: "c", count: 64) + ".resume")
+    let byName = folder.appending(path: "pending.bin.resume")
     // A download received but not yet hashed when the app stopped.
     let received = folder.appending(path: UUID().uuidString + ".part")
 
-    for file in [finished, ofFinished, ofUnknown, ofUnfinished, received] {
+    for file in [finished, ofFinished, ofPending, ofRetired, byName, received] {
         try Data("x".utf8).write(to: file)
     }
-    ModelStore.sweep(in: folder)
+    ModelStore.sweep(in: folder, catalogue: catalogue)
 
     let manager = FileManager.default
     // The model finished downloading, so its resume data is stale.
     #expect(!manager.fileExists(atPath: ofFinished.path(percentEncoded: false)))
-    // The catalogue no longer offers this one.
-    #expect(!manager.fileExists(atPath: ofUnknown.path(percentEncoded: false)))
+    #expect(!manager.fileExists(atPath: ofRetired.path(percentEncoded: false)))
+    #expect(!manager.fileExists(atPath: byName.path(percentEncoded: false)))
     #expect(!manager.fileExists(atPath: received.path(percentEncoded: false)))
     // This transfer can still be continued, so it stays.
-    #expect(manager.fileExists(atPath: ofUnfinished.path(percentEncoded: false)))
+    #expect(manager.fileExists(atPath: ofPending.path(percentEncoded: false)))
     #expect(manager.fileExists(atPath: finished.path(percentEncoded: false)))
 }
 

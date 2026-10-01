@@ -11,15 +11,22 @@ nonisolated enum ModelStore {
     /// survive that.
     static let directory = URL.applicationSupportDirectory.appending(path: "Polycop/Models")
 
-    static func location(of model: Model) -> URL {
-        directory.appending(path: model.id)
+    static func location(of model: Model, in folder: URL = directory) -> URL {
+        folder.appending(path: model.id)
+    }
+
+    /// Where an interrupted download of `model` keeps what it needs to
+    /// continue. Named by hash, so a catalogue update that pins a new file
+    /// under the same id never resumes the old one.
+    static func resumeFile(of model: Model, in folder: URL = directory) -> URL {
+        folder.appending(path: model.sha256 + ".resume")
     }
 
     /// Installed means present at the expected size. Listing the library must
     /// stay instant, so the contents are proven elsewhere, when the file
     /// arrives and again before each native load.
-    static func isInstalled(_ model: Model) -> Bool {
-        let file = location(of: model)
+    static func isInstalled(_ model: Model, in folder: URL = directory) -> Bool {
+        let file = location(of: model, in: folder)
         guard let size = try? file.resourceValues(forKeys: [.fileSizeKey]).fileSize else {
             return false
         }
@@ -27,7 +34,7 @@ nonisolated enum ModelStore {
     }
 
     static func installed() -> [Model] {
-        ModelCatalog.all.filter(isInstalled)
+        ModelCatalog.all.filter { isInstalled($0) }
     }
 
     /// A model the user brought themselves. It carries no hash, no licence and
@@ -176,23 +183,22 @@ nonisolated enum ModelStore {
     static func remove(_ model: Model) throws {
         try FileManager.default.removeItem(at: location(of: model))
         // An interrupted transfer of the same model would outlive it otherwise.
-        try? FileManager.default.removeItem(at: directory.appending(path: model.id + ".resume"))
+        try? FileManager.default.removeItem(at: resumeFile(of: model))
     }
 
     /// Removes what interrupted work leaves behind: files received or copied
     /// but never published, and resume data for a model that has since
-    /// finished downloading or that the catalogue no longer offers.
-    static func sweep(in folder: URL = directory) {
+    /// finished downloading or for a file the catalogue no longer pins.
+    static func sweep(in folder: URL = directory, catalogue: [Model] = ModelCatalog.files) {
         let manager = FileManager.default
         let path = folder.path(percentEncoded: false)
         guard let entries = try? manager.contentsOfDirectory(atPath: path) else { return }
 
-        let offered = Set(ModelCatalog.files.map(\.id))
         for name in entries where name.hasSuffix(".resume") || name.hasSuffix(".part") {
             let owner = (name as NSString).deletingPathExtension
-            let finished = manager.fileExists(
-                atPath: folder.appending(path: owner).path(percentEncoded: false))
-            if finished || !offered.contains(owner) {
+            let model = catalogue.first { $0.sha256 == owner }
+            let isWanted = model.map { !isInstalled($0, in: folder) } ?? false
+            if !isWanted {
                 try? manager.removeItem(at: folder.appending(path: name))
             }
         }

@@ -24,39 +24,74 @@ nonisolated enum DownloadError: LocalizedError {
 }
 
 /// Downloads a model into the store, with progress, and continues an
-/// interrupted transfer rather than starting it again.
+/// interrupted or stopped transfer rather than starting it again.
 ///
 /// Uses a session delegate rather than `download(from:delegate:)`. The
 /// asynchronous convenience methods deliver only the callbacks their own
 /// handler does not cover, so a delegate passed to them never sees progress.
 nonisolated enum ModelDownloader {
+    /// `url`, `folder` and `configuration` are for tests, which serve the
+    /// file themselves; the app downloads the pinned address into the store.
     static func download(
         _ model: Model,
+        from url: URL? = nil,
+        in folder: URL = ModelStore.directory,
+        configuration: URLSessionConfiguration = configuration,
         onProgress: @escaping @Sendable (Double) -> Void = { _ in }
     ) async throws -> URL {
-        let destination = ModelStore.location(of: model)
-        if ModelStore.isInstalled(model) {
-            return destination
+        if ModelStore.isInstalled(model, in: folder) {
+            return ModelStore.location(of: model, in: folder)
         }
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let place = Place(
+            url: url ?? model.url, folder: folder, configuration: configuration,
+            onProgress: onProgress)
 
-        try FileManager.default.createDirectory(
-            at: ModelStore.directory, withIntermediateDirectories: true)
-        let resumeFile = ModelStore.directory.appending(path: model.id + ".resume")
+        let resumeFile = ModelStore.resumeFile(of: model, in: folder)
+        if let resumeData = try? Data(contentsOf: resumeFile) {
+            do {
+                return try await fetch(model, into: place, resumingFrom: resumeData)
+            } catch let error as DownloadError {
+                // Resume data replays the request it was made from, whose
+                // signed redirect may have expired, and the bytes it continues
+                // may be wrong. Once, the download starts over from the pinned
+                // address instead.
+                Log.models.notice(
+                    "a resumed download failed, starting over: \(error, privacy: .public)")
+                try? FileManager.default.removeItem(at: resumeFile)
+            }
+        }
+        return try await fetch(model, into: place, resumingFrom: nil)
+    }
+
+    /// Where one download comes from and goes.
+    private struct Place {
+        let url: URL
+        let folder: URL
+        let configuration: URLSessionConfiguration
+        let onProgress: @Sendable (Double) -> Void
+    }
+
+    private static func fetch(
+        _ model: Model, into place: Place, resumingFrom resumeData: Data?
+    ) async throws -> URL {
+        let resumeFile = ModelStore.resumeFile(of: model, in: place.folder)
         let transfer = Transfer(
-            limit: model.bytes, folder: ModelStore.directory, onProgress: onProgress)
+            limit: model.bytes, folder: place.folder, onProgress: place.onProgress)
 
         let received: URL
         do {
             received = try await transfer.run(
-                url: model.url, resumeFrom: try? Data(contentsOf: resumeFile))
+                url: place.url, resumeFrom: resumeData, configuration: place.configuration)
         } catch {
-            // URLSession hands back the bytes it managed to fetch, so the next
-            // attempt does not start from zero.
+            // URLSession hands back the bytes it fetched when a transfer fails
+            // or is stopped, as by Cancel or Quit, so the next attempt does
+            // not start from zero.
             if let resumeData = (error as NSError).userInfo[NSURLSessionDownloadTaskResumeData]
                 as? Data
             {
                 try? resumeData.write(to: resumeFile)
-            } else {
+            } else if !isStop(error) {
                 // Resume data the server refuses would otherwise fail every retry.
                 try? FileManager.default.removeItem(at: resumeFile)
             }
@@ -83,9 +118,15 @@ nonisolated enum ModelDownloader {
         // A stop can arrive after hashing and before publication.
         try Task.checkCancellation()
 
+        let destination = ModelStore.location(of: model, in: place.folder)
         try ModelStore.publish(received, as: destination)
         installed = true
         return destination
+    }
+
+    /// A stop asked for, rather than a transfer that failed.
+    private static func isStop(_ error: any Error) -> Bool {
+        error is CancellationError || (error as? URLError)?.code == .cancelled
     }
 
     /// Fixed values replace the headers the system would add, which name the
@@ -141,9 +182,11 @@ nonisolated enum ModelDownloader {
             self.onProgress = onProgress
         }
 
-        func run(url: URL, resumeFrom resumeData: Data?) async throws -> URL {
+        func run(
+            url: URL, resumeFrom resumeData: Data?, configuration: URLSessionConfiguration
+        ) async throws -> URL {
             let session = URLSession(
-                configuration: ModelDownloader.configuration, delegate: self, delegateQueue: nil)
+                configuration: configuration, delegate: self, delegateQueue: nil)
             defer { session.finishTasksAndInvalidate() }
 
             return try await withTaskCancellationHandler {
@@ -172,9 +215,11 @@ nonisolated enum ModelDownloader {
             } onCancel: {
                 // Cancelling the Swift task has to reach the transfer itself,
                 // which otherwise keeps running and installs after the stop.
+                // Stopped with resume data, so Cancel and Quit keep what
+                // was downloaded. It arrives with the transfer's error.
                 running.withLock {
                     $0.cancelled = true
-                    $0.task?.cancel()
+                    $0.task?.cancel(byProducingResumeData: { _ in })
                 }
             }
         }
