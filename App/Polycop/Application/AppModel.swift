@@ -180,9 +180,10 @@ final class AppModel {
     let engines: Engines
     var unsavedHistory: Set<Entry.ID> = []
     var unsavedGlossaries: [String: Glossary] = [:]
-    /// Corrections already made, oldest first, so one can be stepped back. It
-    /// lives as long as the app does: what is on disk is what was last seen.
-    var corrections: [Entry.ID: [[Transcript.Paragraph]]] = [:]
+    /// What each transcript was before its corrections, oldest first, so one
+    /// can be stepped back. It lives as long as the app does: what is on disk
+    /// is what was last seen.
+    var undoSteps: [Entry.ID: [Entry.Revision]] = [:]
     /// Entries typed into and not written yet, and the write waiting for a
     /// pause in the typing.
     @ObservationIgnored var pendingSaves: Set<Entry.ID> = []
@@ -229,7 +230,8 @@ final class AppModel {
             )
         }
         // A job cut short by quitting cannot resume: its audio is gone.
-        for entry in entries where entry.state == .waiting || entry.state == .running {
+        // Recordings that never started stay waiting for the next Start.
+        for entry in entries where entry.state == .running {
             updateEntry(entry.id) { $0.state = .stopped }
         }
     }
@@ -343,9 +345,10 @@ final class AppModel {
         pausing = false
         paused = nil
         job += 1
-        // Kept in the list as stopped, to transcribe again after the next launch.
-        // Repairs are excluded, since their transcript is already complete.
-        for entry in entries where entry.state == .waiting || entry.state == .running {
+        // Kept in the list as stopped, to transcribe again after the next launch;
+        // the recordings waiting stay in the queue. Repairs are excluded, since
+        // their transcript is already complete.
+        for entry in entries where entry.state == .running {
             updateEntry(entry.id) { $0.state = .stopped }
         }
         running = nil
