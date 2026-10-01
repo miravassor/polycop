@@ -21,6 +21,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 * Typing in a transcript keeps what is typed, whatever the system's text input settings: apostrophes no longer turn curly, double hyphens no longer become dashes, and spelling correction no longer rewrites names. A curly apostrophe hid the word from Find, Replace All and course corrections.
 * Pausing after a dead key, before its letter, no longer saves the accent alone as a correction.
 * A glossary edited in another application while the Glossary sheet is open is no longer written back to what the sheet read when it opened. Choosing a course reads its file again, and only what is typed in the sheet is saved.
+* A transcript with course corrections that shows a hidden lines or repeats notice checks the corrections over its text once per update instead of up to six times, which slowed typing in long lectures.
 * Terms from Documents finds names written with Œ, œ or Ÿ, names joined to an elided word ("d’Œdipe", "l’Allemagne"), and names whose accents a PDF stored apart from their letters.
 * Terms from Documents ends in moments on a long document with thousands of names, and stops working when its sheet is closed.
 * Jumping to a paragraph or along the timeline while playing no longer shows the old position again for a moment before the new one.
