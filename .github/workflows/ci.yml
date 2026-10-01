@@ -88,6 +88,10 @@ jobs:
         if: matrix.check == 'tests'
         run: cmp THIRD_PARTY_NOTICES.md App/Polycop/Resources/Licenses/ThirdPartyNotices.txt
 
+      - name: Check the pinned versions agree
+        if: matrix.check == 'tests'
+        run: Tools/check-versions.sh
+
       - name: Lint
         if: matrix.check == 'tests'
         run: Tools/lint.sh
