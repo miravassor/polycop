@@ -490,7 +490,7 @@ private func finished(_ recording: URL, in history: URL, model: String, language
 @Test func anUnsavedGlossarySurvivesRefreshAndBlocksSilentQuit() {
     let root = URL.temporaryDirectory.appending(path: UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: root) }
-    let model = AppModel(history: root)
+    let model = AppModel(history: root, glossaries: root)
     let glossary = Glossary(name: "Invalid/name", text: "Synthetic unsaved correction")
     #expect(throws: CocoaError.self) { try model.saveGlossary(glossary) }
     #expect(model.hasUnsavedHistory)

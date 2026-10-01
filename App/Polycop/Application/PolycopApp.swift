@@ -20,7 +20,7 @@ struct PolycopApp: App {
             ModelStore.sweep()
             Player.sweep()
         }
-        _model = State(initialValue: AppModel(history: Self.library))
+        _model = State(initialValue: AppModel(history: Self.library, glossaries: Self.glossaries))
     }
 
     /// A test run hosts the app, which must not ask anything, reach the
@@ -38,11 +38,13 @@ struct PolycopApp: App {
 
     /// The library the window opens. A test run and a second copy get an empty
     /// one of their own, since opening the user's marks what was waiting or
-    /// running as stopped.
-    static let library =
+    /// running as stopped, and glossaries of their own beside it.
+    static let library = ownFolder?.appending(path: "History") ?? HistoryStore.directory
+    static let glossaries = ownFolder?.appending(path: "Glossaries") ?? GlossaryStore.directory
+
+    private static let ownFolder =
         isHostingTests || isSecondCopy
-        ? URL.temporaryDirectory.appending(path: "Polycop \(UUID().uuidString)")
-        : HistoryStore.directory
+        ? URL.temporaryDirectory.appending(path: "Polycop \(UUID().uuidString)") : nil
 
     private static var isAnotherCopyRunning: Bool {
         guard let identifier = Bundle.main.bundleIdentifier else { return false }

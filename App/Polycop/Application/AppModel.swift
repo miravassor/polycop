@@ -13,7 +13,7 @@ import os
 ///
 /// Holds the stored state and the helpers shared by the AppModel+*.swift
 /// extensions, one file per concern: models, glossaries, the transcription
-/// queue, repeat repair, editing, export, the library.
+/// queue, repeat repair, editing, export, the library, failures.
 @Observable
 final class AppModel {
     enum Stage: Equatable {
@@ -82,10 +82,8 @@ final class AppModel {
     }
     private(set) var imported: [ModelStore.Imported] = []
     let player = Player()
-    /// Where each course's remembered corrections are kept; tests use their own.
-    var courseCorrectionsFolder = GlossaryStore.directory {
-        didSet { readCourseCorrections = [:] }
-    }
+    /// The course glossaries, and each course's corrections beside them.
+    let glossaryFolder: URL
     /// Each course's corrections, read from disk once: every run of the course
     /// and the glossary editor ask for them.
     @ObservationIgnored var readCourseCorrections: [String: [CourseCorrection]] = [:]
@@ -107,23 +105,9 @@ final class AppModel {
         }
     }
     var failure: String?
-
-    /// Shows an error a view ran into, such as a file panel that failed.
-    func report(_ error: any Error) {
-        failure = error.localizedDescription
-    }
     /// A failure that belongs to one transcript rather than to the library, so
     /// that it cannot appear under another one after the list moves on.
     var entryFailure: EntryFailure?
-
-    struct EntryFailure: Equatable {
-        let id: Entry.ID
-        let message: String
-    }
-
-    func failure(for id: Entry.ID) -> String? {
-        entryFailure?.id == id ? entryFailure?.message : nil
-    }
 
     /// A menu command cannot reach the state of a view, so it leaves a token
     /// here. The view that owns the sheet acts on a new one and clears it.
@@ -216,8 +200,12 @@ final class AppModel {
     var pausedAt = 0.0
     private var activity: NSObjectProtocol?
 
-    init(history: URL = HistoryStore.directory, engines: Engines = .live) {
+    init(
+        history: URL = HistoryStore.directory, glossaries: URL = GlossaryStore.directory,
+        engines: Engines = .live
+    ) {
         self.history = history
+        glossaryFolder = glossaries
         self.engines = engines
         refreshInstalled()
         selected = ModelCatalog.startingModel(installed: installed).id

@@ -251,6 +251,7 @@ extension LoadingAModel {
 @Test func theTestHostLeavesTheUsersLibraryAlone() {
     #expect(!PolycopApp.isSecondCopy)
     #expect(PolycopApp.library != HistoryStore.directory)
+    #expect(PolycopApp.glossaries != GlossaryStore.directory)
     #expect(!PolycopApp.library.path.hasPrefix(URL.applicationSupportDirectory.path))
 }
 

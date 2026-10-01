@@ -253,6 +253,8 @@ struct GlossaryEditor: View {
 
     private func reveal() {
         guard let selection else { return }
-        NSWorkspace.shared.activateFileViewerSelecting([GlossaryStore.location(of: selection)])
+        NSWorkspace.shared.activateFileViewerSelecting([
+            GlossaryStore.location(of: selection, in: model.glossaryFolder)
+        ])
     }
 }
