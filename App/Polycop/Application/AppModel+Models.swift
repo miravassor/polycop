@@ -33,7 +33,7 @@ extension AppModel {
                 finish()
             } catch {
                 guard isCurrent(number) else { return }
-                // The partial transfer is kept, so a retry continues from it.
+                // What was received is kept, so a retry continues from it.
                 failure = error.localizedDescription
                 finish()
             }

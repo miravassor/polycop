@@ -88,15 +88,17 @@ func everyModelIsPinned(_ model: Model) {
 @Test(.enabled(if: ProcessInfo.processInfo.environment["POLYCOP_NETWORK_TESTS"] == "1"))
 func downloadsAndVerifiesAPinnedFile() async throws {
     let silero = ModelCatalog.voiceDetector
-    defer { try? ModelStore.remove(silero) }
+    // A folder of its own: the user's store would list the file meanwhile.
+    let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: folder) }
 
     let reported = OSAllocatedUnfairLock(initialState: 0.0)
-    let file = try await ModelDownloader.download(silero) { progress in
+    let file = try await ModelDownloader.download(silero, in: folder) { progress in
         reported.withLock { $0 = max($0, progress) }
     }
 
     #expect(try await ModelStore.sha256(of: file) == silero.sha256)
-    #expect(ModelStore.isInstalled(silero))
+    #expect(ModelStore.isInstalled(silero, in: folder))
     #expect(reported.withLock { $0 } > 0)
 }
 
