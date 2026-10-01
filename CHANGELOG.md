@@ -12,6 +12,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ### Changed
 
+* Polycop opens a large library about three times faster: transcripts are read on every core at once. 200 three-hour lectures timed word by word took 10.5 seconds to read, now 3.1.
 * Model downloads send only the app's name, as the update check does, rather than your macOS version and languages, and keep no cookie between downloads. The download progress redraws once per percent instead of at every network packet, and a download interrupted while it was being checked no longer leaves gigabytes in the system's temporary folder.
 * The disk image now holds a READ-ME naming the commit it was built from, how to check its origin, and where the complete source is. The About window says the app is free software and where its source and licences are.
 * Warnings and failures keep their colour on the icon and draw their text in the normal text colour, which reads better than orange or red on a light window. In Compare original, added words are underlined in green rather than written in green.
