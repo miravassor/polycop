@@ -20,8 +20,8 @@ Tools/lint.sh
 xcodebuild test -project App/Polycop.xcodeproj -scheme Polycop -destination 'platform=macOS,arch=arm64'
 ```
 
-Quit any running copy of Polycop before testing: the app allows only one
-instance. Tests that need a model are skipped unless it is installed.
+Tests can run while Polycop is open: the app they run in opens an empty library
+of its own. Tests that need a model are skipped unless it is installed.
 
 ## Releasing
 
