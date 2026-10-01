@@ -56,15 +56,13 @@ extension AppModel {
                 let samples = try await AudioDecoder.samples(of: recording)
                 try Task.checkCancellation()
                 guard isCurrent(number) else { return }
+                // Only an engine that skips silences is offered a repair
+                // (`canRepairRepeats`), Whisper's today.
                 let engine = try await preparedEngine(for: catalogued, skipsSilence: true)
                 try Task.checkCancellation()
                 guard isCurrent(number) else { return }
-                // Only a Whisper transcript is offered a repair (`canRepairRepeats`).
-                guard let whisper = engine as? WhisperEngine else {
-                    throw ModelStore.ImportError.unrecognized
-                }
 
-                await limitContextToGlossary(&settings, of: id, on: whisper)
+                await limitContextToGlossary(&settings, of: id, on: engine)
                 // A stop during that wait has already set the stage.
                 try Task.checkCancellation()
                 guard isCurrent(number) else { return }
@@ -78,8 +76,9 @@ extension AppModel {
                     let firstSample = max(0, min(samples.count, Int(from * rate)))
                     let lastSample = min(samples.count, Int(to * rate))
                     guard firstSample < lastSample else { continue }
-                    let again = try await whisper.transcribe(
-                        samples: Array(samples[firstSample..<lastSample]), settings: settings)
+                    let again = try await engine.transcribe(
+                        samples: Array(samples[firstSample..<lastSample]), settings: settings,
+                        from: 0, onProgress: { _ in }, onSegment: { _ in })
                     try Task.checkCancellation()
                     guard isCurrent(number) else { return }
                     guard

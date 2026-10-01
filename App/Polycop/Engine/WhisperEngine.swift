@@ -71,6 +71,10 @@ nonisolated final class WhisperEngine: TranscriptionEngine, @unchecked Sendable 
         await queue.run {}
     }
 
+    func promptTokenCount(of prompt: String) async -> Int? {
+        await tokenCount(of: prompt)
+    }
+
     /// Transcribes 16 kHz mono samples, reporting progress and each segment as
     /// it is decoded. Cancelling the task stops the computation.
     ///
