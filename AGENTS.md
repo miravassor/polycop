@@ -30,7 +30,8 @@ Tools/package.sh           # locally signed app and zip with its sources, in bui
 * A release starts on a branch `release/X.Y.Z` that sets `MARKETING_VERSION`, raises
   `CURRENT_PROJECT_VERSION`, and turns the changelog's "Unreleased" into "X.Y.Z (date)".
   Once it is merged, pushing the tag `vX.Y.Z` makes `.github/workflows/release.yml`
-  build, test and draft the GitHub release.
+  build and test with read access only, then attest the files and draft the
+  GitHub release in a separate job. Only that job may write to the repository.
 
 ## Layout
 

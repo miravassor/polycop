@@ -8,9 +8,11 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 * Play From Cursor (⌥⌘P), in a new Playback menu, plays from the word at the text cursor: Option-click without the mouse.
 * The text cursor can follow playback: after a correction, it moves with the word being heard, so the next one is typed where the audio is. Off by default, in Settings; a click keeps the cursor where you put it until you type.
+* Each release's disk image and zip are attested by GitHub: `gh attestation verify Polycop-X.Y.Z.dmg --repo miravassor/polycop` names the commit and the workflow run that built the file. The build can no longer write to the repository; only the step that drafts the release can.
 
 ### Changed
 
+* Model downloads send only the app's name, as the update check does, rather than your macOS version and languages, and keep no cookie between downloads. The download progress redraws once per percent instead of at every network packet, and a download interrupted while it was being checked no longer leaves gigabytes in the system's temporary folder.
 * Released builds keep macOS's hardened runtime, so another program can no longer slip code into Polycop through environment variables and read the folders you let it open. Only library validation, which needs a developer signature, is lifted.
 * Warnings and failures keep their colour on the icon and draw their text in the normal text colour, which reads better than orange or red on a light window. In Compare original, added words are underlined in green rather than written in green.
 * Each engine's features, in the model list and under the chosen model, say whether it follows words: Whisper does, and Qwen3-ASR when its aligner is installed and fits in memory; MOSS and Voxtral do not. A tooltip says what word following allows.
@@ -21,6 +23,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ### Fixed
 
+* A glossary or transcript saved as "UTF-8 with BOM", as Excel and older Notepad write them, no longer starts with an invisible character on macOS versions that keep it, which made the first term never match.
 * Correcting a search result no longer makes the page scroll to the next one while you type. The next result waits where the corrected one was, and Next shows it.
 * Replace moves on to the next result even when the replacement still matches the search, as "Freud" does "freud"; it used to stay on the word it had just replaced.
 * Find, Replace All and course corrections read a curly apostrophe and a straight one as the same, so "l'inconscient" also finds "l’inconscient".

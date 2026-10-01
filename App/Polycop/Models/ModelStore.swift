@@ -179,9 +179,9 @@ nonisolated enum ModelStore {
         try? FileManager.default.removeItem(at: directory.appending(path: model.id + ".resume"))
     }
 
-    /// Removes what interrupted work leaves behind, resume data for a model
-    /// that has since finished downloading, or for one the catalogue no
-    /// longer offers.
+    /// Removes what interrupted work leaves behind: files received or copied
+    /// but never published, and resume data for a model that has since
+    /// finished downloading or that the catalogue no longer offers.
     static func sweep(in folder: URL = directory) {
         let manager = FileManager.default
         let path = folder.path(percentEncoded: false)

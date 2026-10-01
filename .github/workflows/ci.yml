@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: read # to check out the code
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -16,6 +16,7 @@ concurrency:
 
 jobs:
   workflows:
+    name: workflows
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -91,14 +92,19 @@ jobs:
         if: matrix.check == 'tests'
         run: Tools/lint.sh
 
+      # Through the environment rather than expanded into the script, then
+      # split into words.
       - name: Test
-        run: >
-          xcodebuild test
-          -project App/Polycop.xcodeproj
-          -scheme Polycop
-          -destination 'platform=macOS,arch=arm64'
-          ${{ matrix.options }}
-          SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
+        env:
+          OPTIONS: ${{ matrix.options }}
+        run: |
+          read -ra options <<< "$OPTIONS"
+          xcodebuild test \
+            -project App/Polycop.xcodeproj \
+            -scheme Polycop \
+            -destination 'platform=macOS,arch=arm64' \
+            "${options[@]}" \
+            SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
 
       - name: Coverage
         if: matrix.check == 'tests'
