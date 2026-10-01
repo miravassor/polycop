@@ -14,6 +14,8 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ### Fixed
 
+* Correcting a search result no longer makes the page scroll to the next one while you type. The next result waits where the corrected one was, and Next shows it.
+* Replace moves on to the next result even when the replacement still matches the search, as "Freud" does "freud"; it used to stay on the word it had just replaced.
 * Jumping to a paragraph or along the timeline while playing no longer shows the old position again for a moment before the new one.
 * Voxtral transcripts get a timestamp every 30 seconds, as they should, rather than one every five minutes, and keep the last words before each five-minute cut.
 * A MOSS window that repeats itself until its token limit no longer ends the whole transcription: that window keeps what it had written, and the rest of the recording is transcribed.

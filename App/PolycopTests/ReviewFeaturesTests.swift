@@ -41,11 +41,13 @@ struct ReviewFeaturesTests {
         find.step(forward: true)
         find.step(forward: true)
 
-        // An edit that removes the result shown keeps the place, at the last one left.
+        // An edit that removes the result shown shows none, so the page stays
+        // where the reader types; the next step goes round to the first.
         paragraphs[1].text = "trois"
         find.refresh(in: paragraphs, startingOver: false)
-        #expect(find.index == 1)
-        #expect(find.current?.paragraph == 0)
+        #expect(find.current == nil)
+        find.step(forward: true)
+        #expect(find.current == find.matches.first)
 
         find.close()
         #expect(!find.isShown && find.query.isEmpty)
@@ -53,6 +55,69 @@ struct ReviewFeaturesTests {
         #expect(find.current == nil)
         find.step(forward: true)
         #expect(find.index == 0)
+    }
+
+    /// A result of five letters, the length of the queries below.
+    private func match(_ paragraph: Int, at location: Int) -> TranscriptSearch.Match {
+        TranscriptSearch.Match(paragraph: paragraph, range: NSRange(location: location, length: 5))
+    }
+
+    /// Correcting the result shown, or text before it, never shows another
+    /// one in its place: the reader steps to the result that waits there.
+    @Test func findKeepsItsPlaceWhenAnEditMovesTheResults() {
+        var paragraphs = [
+            Transcript.Paragraph(start: 0, text: "froid un, froid deux, froid trois"),
+            Transcript.Paragraph(start: 30_000, text: "froid quatre"),
+        ]
+        var find = TranscriptFind()
+        find.query = "froid"
+        find.refresh(in: paragraphs, startingOver: true)
+        find.step(forward: true)
+        #expect(find.current == match(0, at: 10))
+
+        // Typed over: the result after it waits, unshown.
+        paragraphs[0].text = "froid un, Freud deux, froid trois"
+        find.refresh(in: paragraphs, startingOver: false)
+        #expect(find.current == nil)
+        find.step(forward: true)
+        #expect(find.current == match(0, at: 22))
+
+        // Text taken out before it, a result with it: the same result waits.
+        paragraphs[0].text = "un, Freud deux, froid trois"
+        find.refresh(in: paragraphs, startingOver: false)
+        #expect(find.current == nil)
+        find.step(forward: true)
+        #expect(find.current == match(0, at: 16))
+
+        // An edit elsewhere that changes no result keeps the one shown.
+        paragraphs[1].text = "froid cinq"
+        find.refresh(in: paragraphs, startingOver: false)
+        #expect(find.current?.range.location == 16)
+    }
+
+    /// A replacement that still matches, as "Freud" does "freud", is passed
+    /// over, so pressing Replace again corrects the next one.
+    @Test func replaceMovesPastAReplacementThatStillMatches() throws {
+        var paragraphs = [
+            Transcript.Paragraph(start: 0, text: "freud et freud"),
+            Transcript.Paragraph(start: 30_000, text: "encore freud"),
+        ]
+        var find = TranscriptFind()
+        find.query = "freud"
+        find.refresh(in: paragraphs, startingOver: true)
+        let first = try #require(find.current)
+        #expect(first.range.location == 0)
+
+        paragraphs[0].text = "Freud et freud"
+        find.showFirst(after: first, replacedBy: "Freud", in: paragraphs)
+        #expect(find.current == match(0, at: 9))
+
+        paragraphs[0].text = "Freud et Freud"
+        find.showFirst(after: try #require(find.current), replacedBy: "Freud", in: paragraphs)
+        #expect(find.current?.paragraph == 1)
+        // The refresh that follows the edit changes nothing.
+        find.refresh(in: paragraphs, startingOver: false)
+        #expect(find.current?.paragraph == 1)
     }
 
     @Test func reviewFlagsPersistWithoutChangingTextOrExports() throws {
