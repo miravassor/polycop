@@ -238,3 +238,18 @@ func launchStartsOnTheRecommendedModelOrAnInstalledOne(installed: [String], expe
 @Test func whisperTurboIsRecommended() {
     #expect(ModelCatalog.recommended == ModelCatalog.turbo)
 }
+
+/// The engines that time each word say they follow words; the others say
+/// they do not, so the choice is made knowing it.
+@Test func eachEngineSaysWhetherItFollowsWords() {
+    let following = [
+        Engine.whisper.features(aligned: false), Engine.qwen.features(aligned: true),
+    ]
+    let notFollowing = [
+        Engine.qwen.features(aligned: false), Engine.moss.features(aligned: true),
+        Engine.voxtral.features(aligned: true),
+    ]
+
+    #expect(following.allSatisfy { $0.contains("Word following") })
+    #expect(notFollowing.allSatisfy { $0.contains("word following") && !$0.contains("Word") })
+}
