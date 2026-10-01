@@ -120,8 +120,8 @@ overwritten. Records are encoded and written off the main actor, one after
 another on `HistoryWriter`'s queue, so the last write of an entry is the one on
 disk and a delete follows the writes asked before it. A write that fails is
 kept in memory and retried, and quitting waits for every write, then asks
-before losing one that failed. Stored
-property names never change (see `AGENTS.md`).
+before losing one that failed. Stored property names never change (see
+`AGENTS.md`).
 
 ## Outside the app
 
