@@ -26,6 +26,8 @@ private func open(_ player: Player) async throws {
         try await Task.sleep(for: .milliseconds(50))
     }
     try #require(player.isOpen && player.duration > 3)
+    // Heard by nobody: the suite runs beside people at work.
+    #expect(player.isSilent)
 }
 
 /// A recording AVFoundation cannot play is decoded into a copy first. A click

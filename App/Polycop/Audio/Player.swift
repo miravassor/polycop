@@ -108,6 +108,9 @@ final class Player {
     /// A file is open, playing or not.
     var isOpen: Bool { player != nil }
 
+    /// Whether the open file plays without sound, as under tests.
+    var isSilent: Bool { player?.isMuted ?? false }
+
     func play(_ recording: URL, from time: TimeInterval) {
         guard time.isFinite else { return }
         cancelResumeAfterTyping()
@@ -368,6 +371,9 @@ final class Player {
         // Speech at half or double speed is unlistenable when the pitch follows.
         item.audioTimePitchAlgorithm = .spectral
         let player = AVPlayer(playerItem: item)
+        // Tests play real audio and check what was asked; nobody needs to
+        // hear it while working beside them.
+        player.isMuted = TestHost.isRunning
         Task { [weak self] in
             guard let length = try? await asset.load(.duration),
                 let self, self.player === player, length.seconds.isFinite
