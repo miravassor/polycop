@@ -190,7 +190,7 @@ extension AppModel {
     /// A new entry for the same recording, with the settings on screen now.
     func transcribeAgain(_ id: Entry.ID) {
         guard let entry = entry(id) else { return }
-        transcribe([entry.location])
+        transcribe([recording(of: entry)])
     }
 
     /// Stops and keeps everything decoded so far. The window says it is
