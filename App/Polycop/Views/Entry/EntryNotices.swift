@@ -23,14 +23,14 @@ struct EntryNotices: View {
         if let warning = entry.glossaryWarning {
             Label(warning, systemImage: "exclamationmark.triangle")
                 .font(.callout)
-                .foregroundStyle(.orange)
+                .notice(.orange)
                 .textSelection(.enabled)
         }
         if let warning = findings.repetitionWarning {
             HStack(spacing: 12) {
                 Label(warning, systemImage: "exclamationmark.triangle")
                     .font(.callout)
-                    .foregroundStyle(.orange)
+                    .notice(.orange)
                     .textSelection(.enabled)
                 // The repeats and the engine are checked here, so only the
                 // corrections decide.
@@ -52,7 +52,7 @@ struct EntryNotices: View {
                     systemImage: "arrow.clockwise"
                 )
                 .font(.callout)
-                .foregroundStyle(.orange)
+                .notice(.orange)
                 ScrollView(.horizontal) {
                     HStack {
                         ForEach(Array(times.enumerated()), id: \.offset) { _, time in
@@ -73,7 +73,7 @@ struct EntryNotices: View {
                 HStack(spacing: 12) {
                     Label("Recording unavailable", systemImage: "questionmark.folder")
                         .font(.callout.weight(.semibold))
-                        .foregroundStyle(.orange)
+                        .notice(.orange)
                     Button("Locate Recording…") { locateRecording() }
                         .disabled(isRunning)
                 }
@@ -96,7 +96,7 @@ struct EntryNotices: View {
                 systemImage: "waveform"
             )
             .font(.callout)
-            .foregroundStyle(.orange)
+            .notice(.orange)
         }
         ForEach(
             [
@@ -109,7 +109,7 @@ struct EntryNotices: View {
             HStack(spacing: 12) {
                 Label(notice, systemImage: "eye.slash")
                     .font(.callout)
-                    .foregroundStyle(.orange)
+                    .notice(.orange)
                     .textSelection(.enabled)
                 Button("Put back") { model.putBackCredits(entry.id) }
                     .disabled(!canRebuild)
@@ -125,7 +125,7 @@ struct EntryNotices: View {
         ) { failure in
             Label(failure, systemImage: "xmark.octagon")
                 .font(.callout)
-                .foregroundStyle(.red)
+                .notice(.red)
                 .textSelection(.enabled)
         }
     }

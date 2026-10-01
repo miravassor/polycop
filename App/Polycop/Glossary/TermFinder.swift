@@ -88,7 +88,7 @@ struct TermFinder: View {
                 if let problem {
                     Label(problem, systemImage: "exclamationmark.circle")
                         .font(.callout)
-                        .foregroundStyle(.orange)
+                        .notice(.orange)
                 }
             }
         }

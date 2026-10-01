@@ -145,7 +145,7 @@ struct EntryView: View {
                         Label(
                             "Library has unsaved changes", systemImage: "exclamationmark.triangle"
                         )
-                        .foregroundStyle(.orange)
+                        .notice(.orange)
                     } else {
                         Label("Saved in library", systemImage: "checkmark")
                             .foregroundStyle(.secondary)

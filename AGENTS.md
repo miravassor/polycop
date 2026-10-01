@@ -96,6 +96,9 @@ Every page speaks the same visual language. The shared pieces live in
 * Header icon buttons and menus: `iconControl()`, 32 by 28. Another control drawn
   by hand takes its fill from `controlFill()`.
 * Text editors: `editorBorder()`, with the corners of a control.
+* Warnings and failures: a `Label` with `notice(_:)`, colour on the icon only. Text
+  stays in the label colours, since orange, red or green text is too faint to read
+  on a light window; emphasis inside text is a line (underline, strikethrough).
 * Spacing: 28 points around a page, 16 between blocks, 12 between a card's label and
   its buttons. Sheets have 24 points of padding, popovers 20.
 * Type: a page title in `.title2` semibold, a section heading in `.title3` semibold

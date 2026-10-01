@@ -30,7 +30,9 @@ struct ModelManagerView: View {
             }
             if model.downloadingModel != nil { ModelTransferStatus(model: model) }
             if let failure = model.failure {
-                Text(failure).foregroundStyle(.red).textSelection(.enabled)
+                Label(failure, systemImage: "xmark.octagon")
+                    .notice(.red)
+                    .textSelection(.enabled)
             }
         }
         .padding(24)
