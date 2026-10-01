@@ -71,7 +71,7 @@ nonisolated enum Credits {
     }
 
     private static func normalized(_ text: String) -> String {
-        text.replacingOccurrences(of: "\u{2019}", with: "'")
+        Apostrophes.straightened(text)
             .trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
             .lowercased()
     }
