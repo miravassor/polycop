@@ -33,7 +33,9 @@ if [ "$(git -C "$SOURCE" rev-parse HEAD)" != "$COMMIT" ]; then
     echo "The checkout in $SOURCE is not audio.cpp $VERSION ($COMMIT)" >&2
     exit 1
 fi
-git -C "$SOURCE" diff --quiet HEAD -- || {
+# Untracked and ignored files count too: the build compiles in every model
+# specification file it finds.
+[ -z "$(git -C "$SOURCE" status --porcelain --ignored)" ] || {
     echo "The audio.cpp checkout has local changes; refusing to package them as $VERSION" >&2
     exit 1
 }
