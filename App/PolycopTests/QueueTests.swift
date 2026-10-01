@@ -120,6 +120,23 @@ private func until(_ condition: () -> Bool) async throws {
     #expect(condition())
 }
 
+/// A Whisper transcript of `recording` whose first three seconds are one
+/// phrase repeated, written to `history`.
+private func looped(
+    _ recording: URL, then tail: Segment, state: Entry.State, in history: URL
+) throws -> Entry {
+    var entry = Entry(
+        recording: recording, modelFile: ModelCatalog.recommended.id, glossary: nil,
+        skipsSilence: false, subtitles: false)
+    let loop = (0..<12).map {
+        Segment(start: Double($0) * 0.25, end: Double($0 + 1) * 0.25, text: "Merci.")
+    }
+    entry.publish(loop + [tail], partial: state != .finished)
+    entry.state = state
+    try HistoryStore.write(entry, in: history)
+    return entry
+}
+
 @MainActor
 private func entry(_ model: AppModel, _ file: URL) throws -> Entry {
     try #require(model.entries.first { $0.name == file.lastPathComponent })
@@ -257,6 +274,49 @@ private func entry(_ model: AppModel, _ file: URL) throws -> Entry {
         #expect(finished.language == "en")
     }
 
+    /// A loop is replaced by what the engine writes over its stretch, and the
+    /// rest of the transcript, its state included, is left as it was.
+    @Test(arguments: [Entry.State.finished, .stopped])
+    func aRepairReplacesTheLoopAndLeavesTheRest(state: Entry.State) async throws {
+        let (folder, files) = try recordings(1)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let history = folder.appending(path: "history")
+        let tail = Segment(start: 3, end: 3.5, text: "La fin du cours.")
+        let entry = try looped(files[0], then: tail, state: state, in: history)
+        let model = AppModel(history: history, engines: Opener(ScriptedEngine()).engines)
+
+        model.repairRepeats(entry.id)
+        try await until { !model.stage.isBusy }
+
+        let repaired = try #require(model.entry(entry.id))
+        #expect(repaired.decoded == script + [tail])
+        #expect(repaired.repeats.isEmpty)
+        #expect(repaired.state == state)
+        #expect(model.repairing == nil)
+    }
+
+    /// A stop loses only the repair: the transcript stays as it was.
+    @Test func aStopDuringARepairLeavesTheTranscriptAlone() async throws {
+        let (folder, files) = try recordings(1)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let history = folder.appending(path: "history")
+        let entry = try looped(
+            files[0], then: Segment(start: 3, end: 3.5, text: "La fin du cours."),
+            state: .finished, in: history)
+        let engine = ScriptedEngine(holdsAt: 1)
+        let model = AppModel(history: history, engines: Opener(engine).engines)
+
+        model.repairRepeats(entry.id)
+        try await until { engine.isHolding }
+        model.cancel()
+        try await until { !model.stage.isBusy }
+
+        let kept = try #require(model.entry(entry.id))
+        #expect(kept.decoded == entry.decoded)
+        #expect(kept.state == .finished)
+        #expect(model.repairing == nil)
+    }
+
     @Test func quittingStopsTheRecordingKeepsItsTextAndLetsTheEngineGo() async throws {
         let (folder, files) = try recordings(2)
         defer { try? FileManager.default.removeItem(at: folder) }
@@ -270,10 +330,14 @@ private func entry(_ model: AppModel, _ file: URL) throws -> Entry {
         await model.shutDown()
         #expect(try entry(model, files[0]).state == .stopped)
         #expect(try entry(model, files[0]).decoded == [script[0]])
-        #expect(try entry(model, files[1]).state == .stopped)
+        // The recording that never started stays queued, after a relaunch too.
+        #expect(try entry(model, files[1]).state == .waiting)
         #expect(engine.starts.count == 1)
         #expect(engine.drains == 1)
         #expect(model.engine == nil)
+        let relaunched = AppModel(history: folder.appending(path: "history"))
+        #expect(try entry(relaunched, files[0]).state == .stopped)
+        #expect(try entry(relaunched, files[1]).state == .waiting)
     }
 
     /// A stop still finishing when the app quits must not start the next one.
@@ -289,7 +353,7 @@ private func entry(_ model: AppModel, _ file: URL) throws -> Entry {
 
         model.cancel()
         await model.shutDown()
-        #expect(try entry(model, files[1]).state == .stopped)
+        #expect(try entry(model, files[1]).state == .waiting)
         #expect(engine.starts.count == 1)
     }
 }

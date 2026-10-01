@@ -354,3 +354,47 @@ private func temporaryFolder() -> URL {
     let written = Set(GlossaryStore.all(in: glossaries).map(\.text))
     #expect(written == ["Descartes\nHéloïse", "Frege\nRussell"])
 }
+
+/// The glossary editor reads a course again when it is chosen, so a file
+/// edited in another application while the sheet is open is what it shows,
+/// and saves, rather than the copy the list held.
+@MainActor
+@Test func aGlossaryEditedElsewhereIsReadAgainWhenChosen() throws {
+    let root = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let model = AppModel(history: root.appending(path: "History"), glossaries: root)
+    let name = try model.createGlossary(named: "Sociologie")
+    try model.saveGlossary(Glossary(name: name, text: "Durkheim"))
+
+    try GlossaryStore.save(Glossary(name: name, text: "Durkheim\nBourdieu"), in: root)
+
+    #expect(model.glossary(named: name)?.text == "Durkheim\nBourdieu")
+    #expect(model.glossary(named: "Absent") == nil)
+}
+
+/// Undoing a revert brings back the course corrections it cleared, so they
+/// count as course corrections again rather than as the user's own edits.
+@MainActor
+@Test func undoingARevertBringsBackTheCourseCorrections() throws {
+    let root = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let corrections = [CourseCorrection(text: "des cartes", replacement: "Descartes")]
+    var entry = Entry(
+        recording: root.appending(path: "cours.wav"), modelFile: ModelCatalog.recommended.id,
+        glossary: nil, skipsSilence: false, subtitles: false)
+    entry.courseCorrections = corrections
+    entry.publish([Segment(start: 0, end: 4, text: "Nous lisons des cartes.")], partial: false)
+    entry.state = .finished
+    try HistoryStore.write(entry, in: root)
+    let model = AppModel(history: root, glossaries: root)
+
+    model.revert(entry.id)
+    #expect(model.entry(entry.id)?.courseCorrections == [])
+    model.undo(entry.id)
+
+    let undone = try #require(model.entry(entry.id))
+    #expect(undone.paragraphs.first?.text == "Nous lisons Descartes.")
+    #expect(undone.courseCorrections == corrections)
+    #expect(undone.hasOnlyCourseCorrections)
+    #expect(model.canRebuildParagraphs(of: undone))
+}

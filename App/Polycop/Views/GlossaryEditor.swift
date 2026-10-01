@@ -11,6 +11,9 @@ struct GlossaryEditor: View {
     @State private var selection: String?
     @State private var corrections: [CourseCorrection] = []
     @State private var text = ""
+    /// The text as read, so that only what is typed here is written, never a
+    /// copy older than a file edited in another application.
+    @State private var loaded = ""
     @State private var count = 0
     @State private var exact = false
     @State private var problem: String?
@@ -193,14 +196,16 @@ struct GlossaryEditor: View {
     private func select(_ name: String?) {
         guard save() else { return }
         selection = name
-        text = model.glossaries.first { $0.name == name }?.text ?? ""
+        loaded = name.flatMap { model.glossary(named: $0)?.text } ?? ""
+        text = loaded
     }
 
     @discardableResult
     private func save() -> Bool {
-        guard let selection else { return true }
+        guard let selection, text != loaded else { return true }
         do {
             try model.saveGlossary(Glossary(name: selection, text: text))
+            loaded = text
             problem = nil
             return true
         } catch {
