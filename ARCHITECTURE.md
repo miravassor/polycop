@@ -75,7 +75,9 @@ there.
    recording through ffmpeg into 16 kHz mono samples.
 3. `preparedEngine(for:)` reuses the loaded engine or opens one through
    `AppModel.engines`, which loads the model after proving its size and SHA-256.
-4. The engine streams segments; the entry is published as it goes.
+4. The engine streams segments, which `run(_:)` collects as they arrive. The
+   entry receives them when the job finishes, pauses, stops or fails, so the
+   page shows its progress and a placeholder while the job runs.
 5. The entry keeps the segments as the engine wrote them and is marked
    finished. What the page shows is derived from them through `Output/`:
    credits set aside, loops shortened, paragraphs laid out.

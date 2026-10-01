@@ -10,6 +10,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ### Changed
 
+* Export Text (⌘S) and Export Text As… (⇧⌘S) are in the File menu. ⌘S updates the export, or asks where to put the first one, and works right after typing, when the button could still show the export as up to date.
 * Quitting keeps the recordings that were only waiting in the queue: after a relaunch they wait for Start again instead of showing as stopped, and quitting asks first only when something is in progress. The recording being transcribed still stops, as its progress cannot be resumed.
 * Opening Polycop while it is already open brings the open copy forward instead of starting a second one. Two copies each wrote what they had read at launch, so one could write over the other's corrections.
 
@@ -22,6 +23,9 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 * Pausing after a dead key, before its letter, no longer saves the accent alone as a correction.
 * A glossary edited in another application while the Glossary sheet is open is no longer written back to what the sheet read when it opened. Choosing a course reads its file again, and only what is typed in the sheet is saved.
 * A transcript with course corrections that shows a hidden lines or repeats notice checks the corrections over its text once per update instead of up to six times, which slowed typing in long lectures.
+* With Leave out hesitations, a paragraph that was only "Euh." is left out of the export instead of leaving a time with a lone full stop, and a hesitation said as a sentence of its own takes its full stop with it.
+* Subtitles no longer contain empty captions for segments without text.
+* A Markdown export escapes the characters Markdown would read as formatting, so "2*3*4" no longer shows the 3 in italics and a line typed as "# Freud" or "1. Le moi" no longer becomes a heading or a list.
 * Terms from Documents finds names written with Œ, œ or Ÿ, names joined to an elided word ("d’Œdipe", "l’Allemagne"), and names whose accents a PDF stored apart from their letters.
 * Terms from Documents ends in moments on a long document with thousands of names, and stops working when its sheet is closed.
 * Jumping to a paragraph or along the timeline while playing no longer shows the old position again for a moment before the new one.
