@@ -15,6 +15,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ### Fixed
 
+* VoiceOver names a paragraph's review flag with the paragraph's number and says whether it is set, and reads the playing speed. Your text and Compare original are one segmented control, which says which view is chosen.
 * Jumping to a paragraph or along the timeline while playing no longer shows the old position again for a moment before the new one.
 * Voxtral transcripts get a timestamp every 30 seconds, as they should, rather than one every five minutes, and keep the last words before each five-minute cut.
 * A MOSS window that repeats itself until its token limit no longer ends the whole transcription: that window keeps what it had written, and the rest of the recording is transcribed.

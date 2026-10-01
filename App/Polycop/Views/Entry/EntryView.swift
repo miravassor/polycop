@@ -199,18 +199,13 @@ struct EntryView: View {
     }
 
     private var displayMode: some View {
-        HStack(spacing: 12) {
-            Toggle(isOn: Binding(get: { !isComparing }, set: { if $0 { isComparing = false } })) {
-                Text("Your text").frame(width: 120)
-            }
-            Toggle(isOn: Binding(get: { isComparing }, set: { if $0 { isComparing = true } })) {
-                Text("Compare original").frame(width: 120)
-            }
+        // One choice of two, so one control that says which is chosen.
+        Picker("Transcript view", selection: $isComparing) {
+            Text("Your text").tag(false)
+            Text("Compare original").tag(true)
         }
-        .toggleStyle(.button)
-        .controlSize(.regular)
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Transcript view")
+        .pickerStyle(.segmented)
+        .labelsHidden()
     }
 
     private var readingActions: some View {

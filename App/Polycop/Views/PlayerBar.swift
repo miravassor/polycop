@@ -146,6 +146,7 @@ struct PlayerBar: View {
         .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 6))
         .help("Playing speed")
         .accessibilityLabel("Playing speed")
+        .accessibilityValue(label(player.speed))
     }
 
     private func label(_ speed: Float) -> String {
