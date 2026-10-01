@@ -9,30 +9,79 @@ struct TranscriptFind {
     var query = ""
     var matches: [TranscriptSearch.Match] = []
     var index = 0
+    /// False once an edit has taken the result shown away. The result at that
+    /// place waits for the reader to step to it, so that typing never makes
+    /// the page scroll to another paragraph.
+    var showsCurrent = true
     var isReplacing = false
     var replacement = ""
     var remembersReplacement = false
+    /// The length of each paragraph searched, to follow a result that an edit
+    /// before it has moved.
+    private var lengths: [Int] = []
 
     var current: TranscriptSearch.Match? {
-        matches.indices.contains(index) ? matches[index] : nil
+        showsCurrent && matches.indices.contains(index) ? matches[index] : nil
     }
 
-    /// Looks for the query again. Starting over shows the first result;
-    /// otherwise the one shown stays, as long as there still is one.
+    /// Looks for the query again. Starting over shows the first result.
+    /// Otherwise an edit that adds or removes no result keeps the one shown;
+    /// one that does keeps the place rather than the position.
     mutating func refresh(in paragraphs: [Transcript.Paragraph], startingOver: Bool) {
+        let previous = matches
+        let previousLengths = lengths
         matches = TranscriptSearch.matches(in: paragraphs, query: query)
-        index = startingOver ? 0 : min(index, max(0, matches.count - 1))
+        lengths = paragraphs.map { ($0.text as NSString).length }
+        guard !startingOver else {
+            index = 0
+            showsCurrent = true
+            return
+        }
+        guard matches.count != previous.count, previous.indices.contains(index) else {
+            index = min(index, max(0, matches.count - 1))
+            return
+        }
+        let place = previous[index]
+        // Text taken out before the result moves it back by as much.
+        let shrunk =
+            previousLengths.indices.contains(place.paragraph)
+                && lengths.indices.contains(place.paragraph)
+            ? max(0, previousLengths[place.paragraph] - lengths[place.paragraph]) : 0
+        index = first(from: place.paragraph, at: place.range.location - shrunk) ?? 0
+        if matches.indices.contains(index), matches[index] != place { showsCurrent = false }
     }
 
-    /// Shows the next or the previous result, going round at either end.
+    /// Shows the next or the previous result, going round at either end. The
+    /// first step after an edit took the result away shows the one waiting.
     mutating func step(forward: Bool) {
         guard !matches.isEmpty else { return }
-        index = (index + (forward ? 1 : matches.count - 1)) % matches.count
+        if showsCurrent || !forward {
+            index = (index + (forward ? 1 : matches.count - 1)) % matches.count
+        }
+        showsCurrent = true
+    }
+
+    /// After a replacement, shows the first result past it: one that still
+    /// matches, as when only case or accents changed, is not shown again.
+    mutating func showFirst(
+        after match: TranscriptSearch.Match, replacedBy replacement: String,
+        in paragraphs: [Transcript.Paragraph]
+    ) {
+        refresh(in: paragraphs, startingOver: true)
+        let end = match.range.location + (replacement as NSString).length
+        index = first(from: match.paragraph, at: end) ?? 0
     }
 
     mutating func close() {
         isShown = false
         query = ""
+    }
+
+    /// The first result at or after a place in the text.
+    private func first(from paragraph: Int, at location: Int) -> Int? {
+        matches.firstIndex {
+            $0.paragraph > paragraph || ($0.paragraph == paragraph && $0.range.location >= location)
+        }
     }
 }
 
@@ -60,13 +109,8 @@ struct EntryFindBar: View {
                 .focused(isFocused)
                 .onSubmit { navigate(true) }
                 .onExitCommand { find.close() }
-            Text(
-                find.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                    ? ""
-                    : find.matches.isEmpty
-                        ? "No results" : "\(find.index + 1) of \(find.matches.count)"
-            )
-            .font(.caption).foregroundStyle(.secondary).fixedSize()
+            Text(position)
+                .font(.caption).foregroundStyle(.secondary).fixedSize()
             Button {
                 navigate(false)
             } label: {
@@ -92,6 +136,17 @@ struct EntryFindBar: View {
             }
             .accessibilityLabel("Close search")
         }
+    }
+
+    /// Where the reader is among the results, or how many there are while
+    /// none is shown.
+    private var position: LocalizedStringKey {
+        if find.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return "" }
+        if find.matches.isEmpty { return "No results" }
+        guard find.current != nil else {
+            return find.matches.count == 1 ? "1 result" : "\(find.matches.count) results"
+        }
+        return "\(find.index + 1) of \(find.matches.count)"
     }
 
     /// Replacement is literal, while finding ignores case and accents, so every
@@ -126,5 +181,7 @@ struct EntryFindBar: View {
     private func replaceCurrentMatch() {
         guard let current = find.current else { return }
         model.replace(entry.id, matches: [current], with: find.replacement)
+        guard let paragraphs = model.entry(entry.id)?.paragraphs else { return }
+        find.showFirst(after: current, replacedBy: find.replacement, in: paragraphs)
     }
 }
