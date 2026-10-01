@@ -35,6 +35,13 @@ extension View {
         background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 6))
     }
 
+    /// A notice: its icon carries the colour of what it says, its text keeps
+    /// the label colour. Orange or red text on a light window falls below a
+    /// readable contrast.
+    func notice(_ tint: Color) -> some View {
+        labelStyle(NoticeLabelStyle(tint: tint))
+    }
+
     /// The edge of a text editor, with the corners of a control.
     func editorBorder() -> some View {
         clipShape(RoundedRectangle(cornerRadius: 6))
@@ -43,5 +50,18 @@ extension View {
                     .strokeBorder(.separator)
                     .allowsHitTesting(false)
             }
+    }
+}
+
+struct NoticeLabelStyle: LabelStyle {
+    let tint: Color
+
+    func makeBody(configuration: Configuration) -> some View {
+        Label {
+            configuration.title
+        } icon: {
+            configuration.icon.foregroundStyle(tint)
+        }
+        .labelStyle(.titleAndIcon)
     }
 }

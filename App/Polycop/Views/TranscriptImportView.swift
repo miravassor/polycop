@@ -33,7 +33,7 @@ struct TranscriptImportView: View {
             .font(.caption).foregroundStyle(.secondary)
             if let problem {
                 Label(problem, systemImage: "exclamationmark.triangle")
-                    .foregroundStyle(.red).textSelection(.enabled)
+                    .notice(.red).textSelection(.enabled)
             }
             Divider()
             HStack(spacing: 12) {
