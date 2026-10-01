@@ -142,7 +142,7 @@ struct TranscriptView: View {
             index: index, paragraph: paragraphs[index], written: written(at: index),
             player: player, isEditable: isEditable, isComparing: isComparing, size: size,
             isPlaying: playing == index, isFocused: focused == index, isActive: active == index,
-            isReviewed: review.contains(index), isResumed: resumed.contains(index),
+            isFlagged: review.contains(index), isResumed: resumed.contains(index),
             matches: matches.filter { $0.paragraph == index }.map(\.range),
             currentMatch: currentMatch?.paragraph == index ? currentMatch?.range : nil,
             words: index < words.count ? words[index] : [],

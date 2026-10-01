@@ -18,7 +18,7 @@ struct TranscriptRow: View, Equatable {
     let isPlaying: Bool
     let isFocused: Bool
     let isActive: Bool
-    let isReviewed: Bool
+    let isFlagged: Bool
     let isResumed: Bool
     let matches: [NSRange]
     let currentMatch: NSRange?
@@ -38,7 +38,7 @@ struct TranscriptRow: View, Equatable {
             && lhs.player === rhs.player && lhs.isEditable == rhs.isEditable
             && lhs.isComparing == rhs.isComparing && lhs.size == rhs.size
             && lhs.isPlaying == rhs.isPlaying && lhs.isFocused == rhs.isFocused
-            && lhs.isActive == rhs.isActive && lhs.isReviewed == rhs.isReviewed
+            && lhs.isActive == rhs.isActive && lhs.isFlagged == rhs.isFlagged
             && lhs.isResumed == rhs.isResumed && lhs.matches == rhs.matches
             && lhs.currentMatch == rhs.currentMatch && lhs.words == rhs.words
             && lhs.showsUncertainWords == rhs.showsUncertainWords
@@ -61,17 +61,16 @@ struct TranscriptRow: View, Equatable {
                     activate(index)
                     toggleReview(index)
                 } label: {
-                    Image(systemName: isReviewed ? "flag.fill" : "flag")
+                    Image(systemName: isFlagged ? "flag.fill" : "flag")
                         .frame(width: 24, height: 24)
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(isReviewed ? Color.accentColor : Color.secondary)
+                .foregroundStyle(isFlagged ? Color.accentColor : Color.secondary)
                 .disabled(!isEditable)
-                .accessibilityLabel(
-                    isReviewed
-                        ? "Mark paragraph as reviewed" : "Mark paragraph for review"
-                )
-                .help(isReviewed ? "Remove review flag" : "Review this passage later")
+                // One label, with the flag as its state, as for any toggle.
+                .accessibilityLabel("Flag paragraph \(index + 1) for review")
+                .accessibilityAddTraits(isFlagged ? .isSelected : [])
+                .help(isFlagged ? "Remove review flag" : "Review this passage later")
                 if isResumed {
                     Image(systemName: "arrow.clockwise")
                         .foregroundStyle(.orange)
