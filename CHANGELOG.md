@@ -13,6 +13,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 ### Changed
 
 * Warnings and failures keep their colour on the icon and draw their text in the normal text colour, which reads better than orange or red on a light window. In Compare original, added words are underlined in green rather than written in green.
+* Each engine's features, in the model list and under the chosen model, say whether it follows words: Whisper does, and Qwen3-ASR when its aligner is installed and fits in memory; MOSS and Voxtral do not. A tooltip says what word following allows.
 * Export Text (⌘S) and Export Text As… (⇧⌘S) are in the File menu. ⌘S updates the export, or asks where to put the first one, and works right after typing, when the button could still show the export as up to date.
 * New Transcription spaces its sections as the other pages do, the engine cards in the model list have the border of every other card, and the glossary and term editors have rounded corners like the other controls.
 * Quitting keeps the recordings that were only waiting in the queue: after a relaunch they wait for Start again instead of showing as stopped, and quitting asks first only when something is in progress. The recording being transcribed still stops, as its progress cannot be resumed.

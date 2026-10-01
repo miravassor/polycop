@@ -97,6 +97,7 @@ struct ModelManagerView: View {
                         }
                         Text(LocalizedStringKey(family.features(aligned: model.canAlignQwen)))
                             .font(.caption).foregroundStyle(.secondary)
+                            .help(LocalizedStringKey(Engine.wordFollowing))
                     }
                     .panel(tint: familyColor(family))
                     ForEach(ModelCatalog.all.filter { $0.engine == family }) { item in
