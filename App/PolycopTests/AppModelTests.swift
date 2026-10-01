@@ -48,7 +48,7 @@ private func settle(_ model: AppModel) async throws {
 /// ending with the engine alive aborts the process in Metal's teardown.
 @MainActor
 private func withModel(
-    history: URL, engines: Engines = .live, _ body: (AppModel) async throws -> Void
+    history: URL, engines: Engines? = nil, _ body: (AppModel) async throws -> Void
 ) async throws {
     let model = AppModel(history: history, engines: engines)
     do {

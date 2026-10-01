@@ -429,7 +429,7 @@ extension AppModel {
         // part of the engine it opens.
         let aligner = ModelCatalog.qwenAligner
         let aligns =
-            model.engine == .qwen && ModelStore.isInstalled(aligner)
+            model.engine == .qwen && ModelStore.isInstalled(aligner, in: modelFolder)
             && Memory.areLikelyToFit(model, aligner)
         if engineFile != model.id || engineSkipsSilence != skipsSilence || engineAligns != aligns {
             releaseEngine()

@@ -48,9 +48,9 @@ nonisolated enum ModelStore {
 
     /// Anything in the store that the catalogue does not claim. The folder is
     /// the whole record, so deleting the file is the only way to remove it.
-    static func imported() -> [Imported] {
+    static func imported(in folder: URL = directory) -> [Imported] {
         let manager = FileManager.default
-        let path = directory.path(percentEncoded: false)
+        let path = folder.path(percentEncoded: false)
         guard let names = try? manager.contentsOfDirectory(atPath: path) else { return [] }
 
         let catalogued = Set(ModelCatalog.files.map { $0.id.lowercased() })
@@ -62,7 +62,7 @@ nonisolated enum ModelStore {
             }
             .compactMap { name in
                 let size =
-                    (try? directory.appending(path: name)
+                    (try? folder.appending(path: name)
                         .resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
                 return size > 0 ? Imported(id: name, bytes: Int64(size)) : nil
             }
@@ -181,8 +181,8 @@ nonisolated enum ModelStore {
         return model
     }
 
-    static func remove(imported: Imported) throws {
-        try FileManager.default.removeItem(at: directory.appending(path: imported.id))
+    static func remove(imported: Imported, in folder: URL = directory) throws {
+        try FileManager.default.removeItem(at: folder.appending(path: imported.id))
     }
 
     private static let hashingQueue = DispatchQueue(
@@ -201,10 +201,10 @@ nonisolated enum ModelStore {
         }
     }
 
-    static func remove(_ model: Model) throws {
-        try FileManager.default.removeItem(at: location(of: model))
+    static func remove(_ model: Model, in folder: URL = directory) throws {
+        try FileManager.default.removeItem(at: location(of: model, in: folder))
         // An interrupted transfer of the same model would outlive it otherwise.
-        try? FileManager.default.removeItem(at: resumeFile(of: model))
+        try? FileManager.default.removeItem(at: resumeFile(of: model, in: folder))
     }
 
     /// Removes what interrupted work leaves behind: files received or copied
