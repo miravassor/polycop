@@ -103,7 +103,13 @@ speaker, so trying two models on your own recordings is worth it.
 
 1. Download `Polycop-X.Y.Z.dmg` and its `.sha256` file from the
    [latest release](https://github.com/miravassor/polycop/releases/latest).
-2. Check the disk image: `shasum -a 256 -c Polycop-X.Y.Z.dmg.sha256`.
+2. Check the disk image: `shasum -a 256 -c Polycop-X.Y.Z.dmg.sha256`. A match
+   shows the file arrived intact, but the checksum comes from the same page, so
+   it cannot show who built it. For that, with the
+   [GitHub command line tool](https://cli.github.com), run
+   `gh attestation verify Polycop-X.Y.Z.dmg --repo miravassor/polycop`: it
+   checks the file was built by this repository's release workflow and names
+   the commit. Releases after 0.3.2 are attested.
 3. Open it and drag Polycop to Applications. Replacing an older version keeps
    your library in `~/Library/Application Support/Polycop/`.
 4. Open the app. Polycop is not yet signed with an Apple Developer ID, so macOS
@@ -130,8 +136,8 @@ its release page.
    ```
 
    It removes the mark macOS puts on downloaded files, for this app only, and
-   changes no other setting. Do it only for a copy whose checksum matched in
-   step 2.
+   changes no other setting. Do it only for a copy you checked in step 2,
+   ideally with the attestation.
 
 ## Using it
 
