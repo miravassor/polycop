@@ -155,6 +155,24 @@ nonisolated enum ModelCatalog {
         file: "Qwen3-ForcedAligner-0.6B-GGUF/qwen3-forced-aligner-0.6b-q8_0.gguf"
     )
 
+    /// The silence detector shipped in the bundle rather than downloaded.
+    /// Pinned like the others, so a test proves the committed file is still
+    /// this one before whisper.cpp parses it.
+    static let voiceDetector = Model(
+        id: "ggml-silero-v6.2.0.bin",
+        name: "Silero VAD",
+        detail: "Speech detection",
+        bytes: 885_098,
+        // A detector, not a transcription model, so nothing measured it and
+        // the memory check never sees it. Any value above its size will do.
+        peakBytes: 2_000_000,
+        sha256: "2aa269b785eeb53a82983a20501ddf7c1d9c48e33ab63a41391ac6c9f7fb6987",
+        license: "MIT",
+        repository: "ggml-org/whisper-vad",
+        commit: "9ffd54a1e1ee413ddf265af9913beaf518d1639b",
+        file: "ggml-silero-v6.2.0.bin"
+    )
+
     // OpenAI publishes the weights under MIT in its repository while the Hugging
     // Face card says Apache 2.0. Both are recorded rather than resolved.
     private static let openAILicense = "MIT per OpenAI, Apache 2.0 on Hugging Face"

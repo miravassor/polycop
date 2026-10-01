@@ -21,7 +21,7 @@ private func isHexadecimal(_ text: String, length: Int) -> Bool {
 
 /// A model is only trustworthy if the file behind its URL cannot change and its
 /// contents can be proven, so every entry carries a commit and a hash.
-@Test(arguments: ModelCatalog.all)
+@Test(arguments: ModelCatalog.files + [ModelCatalog.voiceDetector])
 func everyModelIsPinned(_ model: Model) {
     #expect(isHexadecimal(model.sha256, length: 64))
     #expect(isHexadecimal(model.commit, length: 40))
@@ -46,6 +46,12 @@ func everyModelIsPinned(_ model: Model) {
     #expect(directory.contains("Application Support"))
 }
 
+/// The detector ships in the bundle, so nothing checks it when it arrives.
+@Test func theBundledDetectorIsThePinnedFile() async throws {
+    let file = try #require(DecodingSettings().voiceActivityModel)
+    #expect(try await ModelStore.sha256(of: file) == ModelCatalog.voiceDetector.sha256)
+}
+
 /// The store reads a model in blocks because it does not fit comfortably in
 /// memory. The expected value is computed here in one piece rather than written
 /// down, so the two ways of hashing are compared rather than a constant.
@@ -67,20 +73,7 @@ func everyModelIsPinned(_ model: Model) {
 /// file there is.
 @Test(.enabled(if: ProcessInfo.processInfo.environment["POLYCOP_NETWORK_TESTS"] == "1"))
 func downloadsAndVerifiesAPinnedFile() async throws {
-    let silero = Model(
-        id: "ggml-silero-v6.2.0.bin",
-        name: "Silero VAD",
-        detail: "Speech detection",
-        bytes: 885_098,
-        // A detector, not a transcription model, so nothing measured it and
-        // the memory check never sees it. Any value above its size will do.
-        peakBytes: 2_000_000,
-        sha256: "2aa269b785eeb53a82983a20501ddf7c1d9c48e33ab63a41391ac6c9f7fb6987",
-        license: "MIT",
-        repository: "ggml-org/whisper-vad",
-        commit: "9ffd54a1e1ee413ddf265af9913beaf518d1639b",
-        file: "ggml-silero-v6.2.0.bin"
-    )
+    let silero = ModelCatalog.voiceDetector
     defer { try? ModelStore.remove(silero) }
 
     let reported = OSAllocatedUnfairLock(initialState: 0.0)
