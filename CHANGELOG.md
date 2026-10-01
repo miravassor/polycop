@@ -10,6 +10,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ### Changed
 
+* Export Text (⌘S) and Export Text As… (⇧⌘S) are in the File menu. ⌘S updates the export, or asks where to put the first one, and works right after typing, when the button could still show the export as up to date.
 * New Transcription spaces its sections as the other pages do, the engine cards in the model list have the border of every other card, and the glossary and term editors have rounded corners like the other controls.
 * Quitting keeps the recordings that were only waiting in the queue: after a relaunch they wait for Start again instead of showing as stopped, and quitting asks first only when something is in progress. The recording being transcribed still stops, as its progress cannot be resumed.
 * Opening Polycop while it is already open brings the open copy forward instead of starting a second one. Two copies each wrote what they had read at launch, so one could write over the other's corrections.
@@ -22,6 +23,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 * Typing in a transcript keeps what is typed, whatever the system's text input settings: apostrophes no longer turn curly, double hyphens no longer become dashes, and spelling correction no longer rewrites names. A curly apostrophe hid the word from Find, Replace All and course corrections.
 * Pausing after a dead key, before its letter, no longer saves the accent alone as a correction.
 * A glossary edited in another application while the Glossary sheet is open is no longer written back to what the sheet read when it opened. Choosing a course reads its file again, and only what is typed in the sheet is saved.
+* A transcript with course corrections that shows a hidden lines or repeats notice checks the corrections over its text once per update instead of up to six times, which slowed typing in long lectures.
 * Jumping to a paragraph or along the timeline while playing no longer shows the old position again for a moment before the new one.
 * Voxtral transcripts get a timestamp every 30 seconds, as they should, rather than one every five minutes, and keep the last words before each five-minute cut.
 * A MOSS window that repeats itself until its token limit no longer ends the whole transcription: that window keeps what it had written, and the rest of the recording is transcribed.
