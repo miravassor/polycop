@@ -21,6 +21,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ### Fixed
 
+* Playing a recording that needs a decoded copy, such as Ogg, WebM, Matroska or WMA, no longer holds the whole recording in memory while the copy is made (about 230 MB per hour), and coming back to its transcript plays the copy already made instead of decoding the recording again. The copy is deleted at quit.
 * With a recording that needs a decoded copy, such as Ogg or WMA, a second click on a timestamp while the copy is being made no longer starts the decoding over; playback opens where the last click asked. After a recording failed to play, for example on a disconnected disk, clicking again reopens it instead of silently seeking the failed player.
 * Correcting a search result no longer makes the page scroll to the next one while you type. The next result waits where the corrected one was, and Next shows it.
 * Replace moves on to the next result even when the replacement still matches the search, as "Freud" does "freud"; it used to stay on the word it had just replaced.

@@ -50,6 +50,35 @@ private func open(_ player: Player) async throws {
     #expect(player.position == 2)
 }
 
+/// Leaving a transcript stops playback. Coming back plays the copy already
+/// decoded rather than decoding the whole recording again.
+@MainActor
+@Test func aDecodedCopyIsKeptForTheNextPlayback() async throws {
+    let mkv = URL(filePath: #filePath)
+        .deletingLastPathComponent()
+        .appending(path: "Fixtures/formats/clip.mkv")
+    let player = Player(defaults: Settings())
+    defer { player.discardCopy() }
+
+    var copies: [Player.KeptCopy] = []
+    for _ in 0..<2 {
+        player.play(mkv, from: 0)
+        for _ in 0..<100 where !(player.isOpen && player.duration > 0) {
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        try #require(player.isOpen)
+        player.stop()
+        copies.append(try #require(player.keptCopy))
+    }
+    let kept = copies[0]
+    #expect(copies[1] == kept)
+    #expect(FileManager.default.fileExists(atPath: kept.file.path(percentEncoded: false)))
+    #expect(kept.recording == mkv)
+
+    player.discardCopy()
+    #expect(!FileManager.default.fileExists(atPath: kept.file.path(percentEncoded: false)))
+}
+
 @MainActor
 @Test func resumingStepsBackSoTheSentenceIsHeardAgain() async throws {
     let settings = Settings()
