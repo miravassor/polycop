@@ -28,6 +28,28 @@ private func open(_ player: Player) async throws {
     try #require(player.isOpen && player.duration > 3)
 }
 
+/// A recording AVFoundation cannot play is decoded into a copy first. A click
+/// meanwhile moves where it opens, rather than starting the decoding over.
+@MainActor
+@Test func aSecondClickWhilePreparingMovesTheStart() async throws {
+    let ogg = URL(filePath: #filePath)
+        .deletingLastPathComponent()
+        .appending(path: "Fixtures/formats/clip.ogg")
+    let player = Player(defaults: Settings())
+    defer { player.stop() }
+
+    player.play(ogg, from: 0)
+    try #require(player.isPreparing)
+    player.play(ogg, from: 2)
+    #expect(player.isPreparing)
+
+    for _ in 0..<100 where !(player.isOpen && player.duration > 0) {
+        try await Task.sleep(for: .milliseconds(50))
+    }
+    try #require(player.isOpen)
+    #expect(player.position == 2)
+}
+
 @MainActor
 @Test func resumingStepsBackSoTheSentenceIsHeardAgain() async throws {
     let settings = Settings()
