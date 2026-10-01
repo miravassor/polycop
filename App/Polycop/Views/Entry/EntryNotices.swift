@@ -14,6 +14,12 @@ struct EntryNotices: View {
     let engine: Engine?
 
     var body: some View {
+        // Asked once, and only when a notice offers to rebuild: the answer
+        // runs the course corrections over the whole text.
+        let offersRebuild =
+            !findings.repeats.isEmpty || !findings.hiddenCredits.isEmpty
+            || !findings.shortenedLoops.isEmpty
+        let canRebuild = offersRebuild && model.canRebuildParagraphs(of: entry)
         if let warning = entry.glossaryWarning {
             Label(warning, systemImage: "exclamationmark.triangle")
                 .font(.callout)
@@ -30,12 +36,9 @@ struct EntryNotices: View {
                 // corrections decide.
                 if !findings.repeats.isEmpty, engine?.skipsSilence == true {
                     Button("Transcribe the Repeats Again") { model.repairRepeats(entry.id) }
-                        .disabled(
-                            isRunning || !model.canRebuildParagraphs(of: entry)
-                                || model.stage.isBusy
-                        )
+                        .disabled(isRunning || !canRebuild || model.stage.isBusy)
                         .help(
-                            !model.canRebuildParagraphs(of: entry)
+                            !canRebuild
                                 ? Text("Transcribing them again would undo your corrections.")
                                 : Text("Skips the silences over those passages only.")
                         )
@@ -109,9 +112,9 @@ struct EntryNotices: View {
                     .foregroundStyle(.orange)
                     .textSelection(.enabled)
                 Button("Put back") { model.putBackCredits(entry.id) }
-                    .disabled(!model.canRebuildParagraphs(of: entry))
+                    .disabled(!canRebuild)
                     .help(
-                        !model.canRebuildParagraphs(of: entry)
+                        !canRebuild
                             ? Text("Putting the lines back would undo your corrections.") : Text("")
                     )
             }
