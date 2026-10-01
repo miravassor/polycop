@@ -6,9 +6,8 @@ import os
 
 /// Where downloaded models live, and how their contents are proven.
 nonisolated enum ModelStore {
-    /// A plain folder name rather than the bundle identifier, because the app
-    /// is renamed before its first public build and a 1.5 GB download must
-    /// survive that.
+    /// A plain folder name rather than the bundle identifier, beside the
+    /// library, so gigabytes of downloads never depend on the identifier.
     static let directory = URL.applicationSupportDirectory.appending(path: "Polycop/Models")
 
     static func location(of model: Model) -> URL {
@@ -30,8 +29,9 @@ nonisolated enum ModelStore {
         ModelCatalog.all.filter(isInstalled)
     }
 
-    /// A model the user brought themselves. It carries no hash, no licence and
-    /// no measured memory cost, because nothing about it was checked here. It is
+    /// A model file in the store that the catalogue does not claim, such as one
+    /// copied there by hand. Imports accept only catalogue files, so the app
+    /// never loads it; the model list shows it as unverified, to delete. It is
     /// a separate type rather than a catalogue entry with invented fields.
     struct Imported: Identifiable, Equatable, Sendable {
         let id: String
@@ -40,8 +40,7 @@ nonisolated enum ModelStore {
     }
 
     /// Anything in the store that the catalogue does not claim. The folder is
-    /// the whole record, so an import survives a restart, and deleting the
-    /// file is the only way to uninstall it.
+    /// the whole record, so deleting the file is the only way to remove it.
     static func imported() -> [Imported] {
         let manager = FileManager.default
         let path = directory.path(percentEncoded: false)
