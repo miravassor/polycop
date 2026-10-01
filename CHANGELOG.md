@@ -15,6 +15,12 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ### Fixed
 
+* Correcting a search result no longer makes the page scroll to the next one while you type. The next result waits where the corrected one was, and Next shows it.
+* Replace moves on to the next result even when the replacement still matches the search, as "Freud" does "freud"; it used to stay on the word it had just replaced.
+* Find, Replace All and course corrections read a curly apostrophe and a straight one as the same, so "l'inconscient" also finds "l’inconscient".
+* Typing in a transcript keeps what is typed, whatever the system's text input settings: apostrophes no longer turn curly, double hyphens no longer become dashes, and spelling correction no longer rewrites names. A curly apostrophe hid the word from Find, Replace All and course corrections.
+* Pausing after a dead key, before its letter, no longer saves the accent alone as a correction.
+* A glossary edited in another application while the Glossary sheet is open is no longer written back to what the sheet read when it opened. Choosing a course reads its file again, and only what is typed in the sheet is saved.
 * VoiceOver names a paragraph's review flag with the paragraph's number and says whether it is set, and reads the playing speed. Your text and Compare original are one segmented control, which says which view is chosen.
 * Jumping to a paragraph or along the timeline while playing no longer shows the old position again for a moment before the new one.
 * Voxtral transcripts get a timestamp every 30 seconds, as they should, rather than one every five minutes, and keep the last words before each five-minute cut.
