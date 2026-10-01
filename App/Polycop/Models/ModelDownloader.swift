@@ -42,7 +42,8 @@ nonisolated enum ModelDownloader {
         try FileManager.default.createDirectory(
             at: ModelStore.directory, withIntermediateDirectories: true)
         let resumeFile = ModelStore.directory.appending(path: model.id + ".resume")
-        let transfer = Transfer(limit: model.bytes, onProgress: onProgress)
+        let transfer = Transfer(
+            limit: model.bytes, folder: ModelStore.directory, onProgress: onProgress)
 
         let received: URL
         do {
@@ -87,11 +88,39 @@ nonisolated enum ModelDownloader {
         return destination
     }
 
+    /// Fixed values replace the headers the system would add, which name the
+    /// Mac and the user's languages, as the update check does. Resume data
+    /// replays the first request, so they are set on it.
+    static func request(for url: URL) -> URLRequest {
+        var request = URLRequest(url: url)
+        request.setValue("Polycop", forHTTPHeaderField: "User-Agent")
+        request.setValue("en", forHTTPHeaderField: "Accept-Language")
+        return request
+    }
+
+    /// Nothing kept between downloads, so one cannot be linked to the next:
+    /// no cookie, no cache, no stored credential.
+    static var configuration: URLSessionConfiguration {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.httpCookieAcceptPolicy = .never
+        configuration.httpShouldSetCookies = false
+        configuration.urlCache = nil
+        configuration.urlCredentialStorage = nil
+        return configuration
+    }
+
     /// Drives one download task and turns its callbacks into a single
     /// asynchronous call. The session holds this object until it is invalidated.
     private final class Transfer: NSObject, URLSessionDownloadDelegate, Sendable {
         private let onProgress: @Sendable (Double) -> Void
         private let limit: Int64
+        /// Where the received file waits for its hash: on the store's volume,
+        /// so publishing it is a rename, and swept at launch if the app stops
+        /// before then.
+        private let folder: URL
+        /// The last whole percentage reported. Callbacks arrive many times a
+        /// second, and each report redraws whatever shows the download.
+        private let reported = OSAllocatedUnfairLock(initialState: -1)
         private let waiting = OSAllocatedUnfairLock(
             initialState: CheckedContinuation<URL, any Error>?.none)
         private let status = OSAllocatedUnfairLock(initialState: Int?.none)
@@ -106,13 +135,15 @@ nonisolated enum ModelDownloader {
 
         var statusCode: Int? { status.withLock { $0 } }
 
-        init(limit: Int64, onProgress: @escaping @Sendable (Double) -> Void) {
+        init(limit: Int64, folder: URL, onProgress: @escaping @Sendable (Double) -> Void) {
             self.limit = limit
+            self.folder = folder
             self.onProgress = onProgress
         }
 
         func run(url: URL, resumeFrom resumeData: Data?) async throws -> URL {
-            let session = URLSession(configuration: .default, delegate: self, delegateQueue: nil)
+            let session = URLSession(
+                configuration: ModelDownloader.configuration, delegate: self, delegateQueue: nil)
             defer { session.finishTasksAndInvalidate() }
 
             return try await withTaskCancellationHandler {
@@ -122,7 +153,7 @@ nonisolated enum ModelDownloader {
                         if let resumeData {
                             session.downloadTask(withResumeData: resumeData)
                         } else {
-                            session.downloadTask(with: url)
+                            session.downloadTask(with: ModelDownloader.request(for: url))
                         }
                     // Published under the lock, so a stop is either seen here,
                     // before the transfer starts, or delivered to it.
@@ -174,7 +205,13 @@ nonisolated enum ModelDownloader {
                 return
             }
             guard totalBytesExpectedToWrite > 0 else { return }
-            onProgress(Double(totalBytesWritten) / Double(totalBytesExpectedToWrite))
+            let progress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
+            let percent = Int(progress * 100)
+            let isNew = reported.withLock { last in
+                defer { last = percent }
+                return percent != last
+            }
+            if isNew { onProgress(progress) }
         }
 
         func urlSession(
@@ -185,7 +222,7 @@ nonisolated enum ModelDownloader {
             status.withLock { $0 = (downloadTask.response as? HTTPURLResponse)?.statusCode }
 
             // The temporary file is removed as soon as this returns.
-            let kept = URL.temporaryDirectory.appending(path: UUID().uuidString)
+            let kept = folder.appending(path: UUID().uuidString + ".part")
             do {
                 try FileManager.default.moveItem(at: location, to: kept)
                 finish(.success(kept))
