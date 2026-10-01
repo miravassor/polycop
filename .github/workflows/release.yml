@@ -83,6 +83,23 @@ jobs:
           cp "$folder"/Polycop-"$VERSION".{dmg,zip} "$folder"/Polycop-"$VERSION".{dmg,zip}.sha256 \
             build/notes/notes.md build/upload/
 
+      # GPL directions to the source belong next to the download, and the
+      # commit lets anyone match the files to the code.
+      - name: Say where the files come from
+        run: |
+          {
+            echo
+            echo "### Files"
+            echo
+            echo "Built from commit $GITHUB_SHA in run $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID, with $(xcodebuild -version | head -1)."
+            echo "Polycop-$VERSION.zip holds the same app and the complete corresponding source of the app and of every bundled component."
+            echo "Both files are attested by GitHub: \`gh attestation verify Polycop-$VERSION.dmg --repo $GITHUB_REPOSITORY\` names the commit and the run that built it."
+            echo
+            echo "SHA-256:"
+            echo
+            cat build/upload/*.sha256 | sed 's/^/    /'
+          } >> build/upload/notes.md
+
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release
