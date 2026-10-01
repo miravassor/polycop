@@ -404,7 +404,11 @@ private func entry(_ name: String, in folder: URL, added: Date = .now) -> Entry 
     var entry = Entry(
         recording: folder.appending(path: "cours.wav"), modelFile: ModelCatalog.recommended.id,
         glossary: nil, skipsSilence: false, subtitles: false)
-    entry.publish([Segment(start: 0, end: 4, text: "Euh, bonjour à tous.")], partial: false)
+    entry.publish(
+        [
+            Segment(start: 0, end: 4, text: "Euh, bonjour à tous."),
+            Segment(start: 10, end: 11, text: "Euh."),
+        ], partial: false)
     entry.state = .finished
     try HistoryStore.write(entry, in: history)
     let model = AppModel(history: history)
@@ -416,6 +420,8 @@ private func entry(_ name: String, in folder: URL, added: Date = .now) -> Entry 
     let written = try String(contentsOf: folder.appending(path: "Cours.md"), encoding: .utf8)
     #expect(written.hasPrefix("# cours\n"))
     #expect(written.contains("**00:00:00** Bonjour à tous."))
+    // A paragraph that was only a hesitation leaves no bare time behind.
+    #expect(!written.contains("00:00:10"))
     let exported = try #require(model.entry(entry.id))
     #expect(model.exportState(of: exported) == .current)
 

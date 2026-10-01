@@ -99,13 +99,38 @@ nonisolated enum Transcript {
         case .timestamped: text(paragraphs)
         case .plain: paragraphs.map { "\($0.text)\n\n" }.joined()
         case .markdown:
-            "# \(title)\n\n" + paragraphs.map { "**\($0.time)** \($0.text)\n\n" }.joined()
+            "# \(markdownEscaped(title))\n\n"
+                + paragraphs.map { "**\($0.time)** \(markdownEscaped($0.text))\n\n" }.joined()
         }
     }
 
+    /// Markdown reads some of a lecture's characters as formatting: "2*3*4"
+    /// as italics, a line opening on "#" or "1." as a heading or a list. Those
+    /// are escaped, and only those, so the file still reads as plain text.
+    static func markdownEscaped(_ text: String) -> String {
+        var escaped = ""
+        for character in text {
+            if "\\`*_[]<>~|".contains(character) { escaped.append("\\") }
+            escaped.append(character)
+        }
+        return
+            escaped
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .map {
+                $0.replacing(/^(\s*)([#+=-])/) { "\($0.1)\\\($0.2)" }
+                    .replacing(/^(\s*\d+)([.)])/) { "\($0.1)\\\($0.2)" }
+            }
+            .joined(separator: "\n")
+    }
+
+    /// A segment with no text, which the engine can write, has no cue: a
+    /// player would show an empty caption.
     static func subRip(_ segments: [Segment]) -> String {
         var lines: [String] = []
-        for (index, segment) in segments.enumerated() {
+        let spoken = segments.filter {
+            !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+        for (index, segment) in spoken.enumerated() {
             lines.append("\(index + 1)")
             lines.append("\(subRipClock(segment.start)) --> \(subRipClock(segment.end))")
             lines.append(segment.text.trimmingCharacters(in: .whitespaces))

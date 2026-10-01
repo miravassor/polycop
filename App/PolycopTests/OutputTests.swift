@@ -116,6 +116,19 @@ private func segments(fromSubRip text: String) throws -> [Segment] {
 
 /// The engine reports hundredths of a second, and 12.34 held as a Double
 /// falls just below it; an earlier version wrote 00:00:12,339.
+/// A segment with no text gets no caption, and the captions are numbered
+/// without a gap.
+@Test func subRipLeavesOutSegmentsWithoutText() {
+    let subtitles = Transcript.subRip([
+        segment(0, 1, "Bonjour."), segment(1, 5, "  "), segment(5, 6, "Oui."),
+    ])
+
+    #expect(
+        subtitles
+            == "1\n00:00:00,000 --> 00:00:01,000\nBonjour.\n\n2\n00:00:05,000 --> 00:00:06,000\nOui.\n"
+    )
+}
+
 @Test func subtitleTimesAreExactToTheMillisecond() {
     let subtitles = Transcript.subRip([segment(12.34, 3599.99, "Bonjour")])
 
@@ -494,6 +507,10 @@ func aShortCorrectResultIsNotReported(_ count: Int) {
     ("Um, so we start.", "So we start."),
     ("Le côté humain de l'heure.", "Le côté humain de l'heure."),
     ("Ben voilà, du coup on arrête.", "Ben voilà, du coup on arrête."),
+    ("On commence. Euh. Alors on voit.", "On commence. Alors on voit."),
+    ("Euh ? Oui.", "Oui."),
+    ("Euh.", ""),
+    ("Euh...", ""),
 ])
 func hesitationsLeaveTheTextAndItsMeaning(text: String, expected: String) {
     #expect(Hesitations.removed(from: text) == expected)
@@ -513,6 +530,15 @@ func hesitationsLeaveTheTextAndItsMeaning(text: String, expected: String) {
     #expect(
         Transcript.text(paragraphs, layout: .markdown, title: "Cours")
             == "# Cours\n\n**00:00:00** Bonjour à tous.\n\n**00:01:05** On commence.\n\n")
+    #expect(
+        Transcript.text(
+            [
+                Transcript.Paragraph(
+                    start: 0, text: "2*3*4 et [note] de C_1\n# Freud\n1. Le moi\n- le ça")
+            ],
+            layout: .markdown, title: "Cours_1")
+            == "# Cours\\_1\n\n**00:00:00** 2\\*3\\*4 et \\[note\\] de C\\_1\n\\# Freud\n1\\. Le moi\n\\- le ça\n\n"
+    )
     #expect(Transcript.TextLayout.markdown.suffix == "md")
     #expect(Transcript.TextLayout.plain.suffix == "txt")
 }
