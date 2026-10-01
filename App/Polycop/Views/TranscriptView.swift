@@ -304,11 +304,13 @@ private struct ParagraphText: View {
     let isCurrent: Bool
     let words: [WordLayout.Placed]
     let editor: ParagraphEditor
+    @AppStorage(Player.cursorFollowsPlaybackKey) private var movesCursor = false
 
     var body: some View {
         var editor = editor
         editor.words = words
         editor.playingWord = isCurrent ? WordLayout.playing(words, at: player.position) : nil
+        editor.movesCursor = isCurrent && player.isPlaying && movesCursor
         return editor
     }
 }

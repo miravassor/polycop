@@ -74,6 +74,7 @@ final class Player {
     static let resumeRewindKey = "resumeRewind"
     static let pausesWhileTypingKey = "pausesWhileTyping"
     static let resumeAfterTypingKey = "resumeAfterTyping"
+    static let cursorFollowsPlaybackKey = "cursorFollowsPlayback"
     /// How far back playback resumes after a pause, so the sentence is heard again.
     static let defaultResumeRewind: TimeInterval = 1.5
     /// How long typing must stop before playback it paused resumes, in seconds.

@@ -236,12 +236,13 @@ private struct UpdateSettings: View {
 }
 
 /// How playback helps correcting: a step back on resume, a pause while typing,
-/// and a resume once typing stops.
+/// a resume once typing stops, and a cursor that can follow the word heard.
 private struct PlaybackSettings: View {
     @AppStorage(Player.resumeRewindKey) private var resumeRewind = Player.defaultResumeRewind
     @AppStorage(Player.pausesWhileTypingKey) private var pausesWhileTyping = true
     @AppStorage(Player.resumeAfterTypingKey) private var resumeAfterTyping =
         Player.defaultResumeAfterTyping
+    @AppStorage(Player.cursorFollowsPlaybackKey) private var cursorFollowsPlayback = false
 
     var body: some View {
         Picker("Step back on resume", selection: $resumeRewind) {
@@ -261,5 +262,11 @@ private struct PlaybackSettings: View {
             }
         }
         .disabled(!pausesWhileTyping)
+        Toggle(isOn: $cursorFollowsPlayback) {
+            Text("Move the text cursor with playback")
+            Text(
+                "After a correction, the cursor follows the word heard, to type the next one there."
+            )
+        }
     }
 }
