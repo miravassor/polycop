@@ -367,8 +367,10 @@ func aCreditLineIsRemoved(_ line: String) {
     let ofFinished = folder.appending(path: offered + ".resume")
     let ofUnknown = folder.appending(path: "ggml-retired-model.bin.resume")
     let ofUnfinished = folder.appending(path: ModelCatalog.largeV3.id + ".resume")
+    // A download received but not yet hashed when the app stopped.
+    let received = folder.appending(path: UUID().uuidString + ".part")
 
-    for file in [finished, ofFinished, ofUnknown, ofUnfinished] {
+    for file in [finished, ofFinished, ofUnknown, ofUnfinished, received] {
         try Data("x".utf8).write(to: file)
     }
     ModelStore.sweep(in: folder)
@@ -378,6 +380,7 @@ func aCreditLineIsRemoved(_ line: String) {
     #expect(!manager.fileExists(atPath: ofFinished.path(percentEncoded: false)))
     // The catalogue no longer offers this one.
     #expect(!manager.fileExists(atPath: ofUnknown.path(percentEncoded: false)))
+    #expect(!manager.fileExists(atPath: received.path(percentEncoded: false)))
     // This transfer can still be continued, so it stays.
     #expect(manager.fileExists(atPath: ofUnfinished.path(percentEncoded: false)))
     #expect(manager.fileExists(atPath: finished.path(percentEncoded: false)))

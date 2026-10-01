@@ -46,6 +46,20 @@ func everyModelIsPinned(_ model: Model) {
     #expect(directory.contains("Application Support"))
 }
 
+/// A download carries the app's name rather than the Mac's version and the
+/// user's languages, and leaves nothing that would link it to the next one.
+@Test func aDownloadSaysOnlyWhatItIs() {
+    let request = ModelDownloader.request(for: ModelCatalog.recommended.url)
+    #expect(request.value(forHTTPHeaderField: "User-Agent") == "Polycop")
+    #expect(request.value(forHTTPHeaderField: "Accept-Language") == "en")
+
+    let configuration = ModelDownloader.configuration
+    #expect(configuration.httpCookieAcceptPolicy == .never)
+    #expect(!configuration.httpShouldSetCookies)
+    #expect(configuration.urlCache == nil)
+    #expect(configuration.urlCredentialStorage == nil)
+}
+
 /// The store reads a model in blocks because it does not fit comfortably in
 /// memory. The expected value is computed here in one piece rather than written
 /// down, so the two ways of hashing are compared rather than a constant.

@@ -12,6 +12,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ### Changed
 
+* Model downloads send only the app's name, as the update check does, rather than your macOS version and languages, and keep no cookie between downloads. The download progress redraws once per percent instead of at every network packet, and a download interrupted while it was being checked no longer leaves gigabytes in the system's temporary folder.
 * The disk image now holds a READ-ME naming the commit it was built from, how to check its origin, and where the complete source is. The About window says the app is free software and where its source and licences are.
 * Warnings and failures keep their colour on the icon and draw their text in the normal text colour, which reads better than orange or red on a light window. In Compare original, added words are underlined in green rather than written in green.
 * Each engine's features, in the model list and under the chosen model, say whether it follows words: Whisper does, and Qwen3-ASR when its aligner is installed and fits in memory; MOSS and Voxtral do not. A tooltip says what word following allows.
@@ -22,6 +23,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ### Fixed
 
+* A glossary or transcript saved as "UTF-8 with BOM", as Excel and older Notepad write them, no longer starts with an invisible character on macOS versions that keep it, which made the first term never match.
 * Correcting a search result no longer makes the page scroll to the next one while you type. The next result waits where the corrected one was, and Next shows it.
 * Replace moves on to the next result even when the replacement still matches the search, as "Freud" does "freud"; it used to stay on the word it had just replaced.
 * Find, Replace All and course corrections read a curly apostrophe and a straight one as the same, so "l'inconscient" also finds "l’inconscient".
