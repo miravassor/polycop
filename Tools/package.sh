@@ -11,13 +11,27 @@ if [ -n "$(git -C "$ROOT" status --porcelain)" ]; then
     exit 1
 fi
 export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
+# shellcheck source=Tools/versions.sh
+. "$ROOT/Tools/versions.sh"
+"$ROOT/Tools/check-versions.sh"
 
-if [ ! -x "$ROOT/build/ffmpeg/bin/ffmpeg" ]; then
-    "$ROOT/Tools/build-ffmpeg.sh"
-fi
-if [ ! -d "$ROOT/Packages/AudioCppFramework/audiocpp.xcframework" ]; then
-    "$ROOT/Tools/build-audiocpp.sh"
-fi
+# The binaries shipped must come from the sources shipped beside them, so a
+# build left from another version is built again.
+FFMPEG_TARBALL="$ROOT/build/ffmpeg-source/ffmpeg-$FFMPEG_VERSION.tar.xz"
+ffmpeg_built() {
+    [ -x "$ROOT/build/ffmpeg/bin/ffmpeg" ] && [ -f "$FFMPEG_TARBALL" ] \
+        && [ "$(cat "$ROOT/build/ffmpeg/BUILT_FROM" 2>/dev/null)" \
+            = "ffmpeg $FFMPEG_VERSION $(shasum -a 256 "$FFMPEG_TARBALL" | cut -d ' ' -f 1)" ]
+}
+audiocpp_built() {
+    [ -d "$ROOT/Packages/AudioCppFramework/audiocpp.xcframework" ] \
+        && [ "$(cat "$ROOT/build/audiocpp/BUILT_FROM" 2>/dev/null)" \
+            = "audio.cpp $AUDIOCPP_VERSION $AUDIOCPP_COMMIT" ]
+}
+ffmpeg_built || "$ROOT/Tools/build-ffmpeg.sh"
+ffmpeg_built || { echo "build/ffmpeg is not FFmpeg $FFMPEG_VERSION" >&2; exit 1; }
+audiocpp_built || "$ROOT/Tools/build-audiocpp.sh"
+audiocpp_built || { echo "The audio.cpp framework is not $AUDIOCPP_VERSION" >&2; exit 1; }
 
 # Ad-hoc signatures have no Team ID for hardened library validation.
 xcodebuild build \
@@ -84,12 +98,14 @@ git -C "$ROOT" archive --format=tar HEAD | tar -C "$SOURCE" -xf -
 for name in audiocpp whisper; do
     if [ "$name" = audiocpp ]; then
         CHECKOUT="$ROOT/build/audiocpp-source"
-        REF=f2b4937306daa25f5c78520f3c626ed31495a37a
+        REF="$AUDIOCPP_COMMIT"
     else
         CHECKOUT="$ROOT/build/whisper-source"
-        REF=v1.9.4
+        # By commit: a tag can be moved, the commit of the shipped build cannot.
+        REF="$WHISPER_COMMIT"
         if [ ! -d "$CHECKOUT/.git" ]; then
-            git clone --depth 1 --branch "$REF" https://github.com/ggml-org/whisper.cpp.git "$CHECKOUT"
+            git clone --depth 1 --branch "$WHISPER_VERSION" \
+                https://github.com/ggml-org/whisper.cpp.git "$CHECKOUT"
         fi
     fi
     git -C "$CHECKOUT" diff --quiet HEAD --
@@ -97,8 +113,7 @@ for name in audiocpp whisper; do
     git -C "$CHECKOUT" archive --format=tar --prefix="$name/" "$REF" \
         | gzip > "$SOURCE/Dependencies/$name.tar.gz"
 done
-cp "$ROOT/build/ffmpeg-source/ffmpeg-9.0.2.tar.xz" "$SOURCE/Dependencies/"
-cp "$ROOT/build/ffmpeg-source/ffmpeg-9.0.2.tar.xz.asc" "$SOURCE/Dependencies/"
+cp "$FFMPEG_TARBALL" "$FFMPEG_TARBALL.asc" "$SOURCE/Dependencies/"
 cp "$ROOT/build/ffmpeg-source/ffmpeg-devel.asc" "$SOURCE/Dependencies/"
 cat > "$SOURCE/BUILD.txt" <<'NOTE'
 Build with Xcode 27, CMake, GnuPG, Git and an Apple Silicon Mac.

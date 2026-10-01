@@ -6,8 +6,9 @@ import PackageDescription
 let release = "https://github.com/ggml-org/whisper.cpp/releases/download/b5130"
 
 // whisper.cpp v1.9.4, published as build b5130. Upgrading means changing the
-// release and the checksum, then running the parity test against the whisper-cli
-// of the same version. Swift Package Manager checks the archive against it.
+// release and the checksum here and the versions in Tools/versions.sh, then
+// running the parity test against the whisper-cli of the same version. Swift
+// Package Manager checks the archive against the checksum.
 let package = Package(
     name: "WhisperFramework",
     platforms: [.macOS(.v14)],
