@@ -167,3 +167,21 @@ private final class FocusableControl: NSControl {
     TypingBuffer.flush()
     #expect(edits == ["prê"])
 }
+
+/// Play From Cursor plays from where the text cursor stands, as Option-click
+/// does from where the pointer is.
+@MainActor
+@Test func playFromCursorPlaysFromTheCursor() {
+    let view = WordTextView()
+    view.string = "Bonjour à tous."
+    var played: [Int] = []
+    view.playFromCharacter = { index in
+        played.append(index)
+        return true
+    }
+
+    view.setSelectedRange(NSRange(location: 8, length: 0))
+    view.playFromCursor(nil)
+
+    #expect(played == [8])
+}
