@@ -76,6 +76,8 @@ extension AppModel {
             for index in paragraphs.indices {
                 paragraphs[index].text = Hesitations.removed(from: paragraphs[index].text)
             }
+            // A paragraph that was only "Euh." would export as a bare time.
+            paragraphs.removeAll { $0.text.isEmpty }
         }
         var formats = [
             (
