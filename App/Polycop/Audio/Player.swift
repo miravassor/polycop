@@ -20,8 +20,9 @@ nonisolated enum PlaybackError: LocalizedError {
     }
 }
 
-/// Plays a recording at transcript timestamps. Unsupported formats use a temporary
-/// 16-bit PCM copy, deleted when playback stops (about 108 MB per hour).
+/// Plays a recording at transcript timestamps. A format AVFoundation cannot
+/// play goes through a 16-bit, 16 kHz mono copy (115 MB per hour), kept for
+/// the last such recording while the app runs.
 @Observable
 final class Player {
     private(set) var isPreparing = false
@@ -49,7 +50,16 @@ final class Player {
 
     private var player: AVPlayer?
     private var recording: URL?
-    private var copy: URL?
+    /// The last decoded copy, so that playing the same recording again, as
+    /// after leaving its transcript, does not decode it again. One at a
+    /// time, to bound the disk it takes.
+    @ObservationIgnored private(set) var keptCopy: KeptCopy?
+
+    struct KeptCopy: Equatable {
+        let recording: URL
+        let modified: Date?
+        let file: URL
+    }
     private var observer: Any?
     private var preparation: Task<Void, Never>?
     /// Where the recording being prepared opens. A later click while it is
@@ -116,14 +126,10 @@ final class Player {
         preparedStart = time
         preparation = Task {
             do {
-                let file = try await Player.playableFile(for: recording)
+                let file = try await playable(recording)
                 // A stop or another recording came first, so this one is not wanted.
-                guard !Task.isCancelled else {
-                    if file != recording { try? FileManager.default.removeItem(at: file) }
-                    return
-                }
+                guard !Task.isCancelled else { return }
                 isPreparing = false
-                if file != recording { copy = file }
                 open(file, at: preparedStart)
             } catch {
                 guard !Task.isCancelled else { return }
@@ -283,13 +289,38 @@ final class Player {
             player?.pause()
         }
         player = nil
-        if let copy { try? FileManager.default.removeItem(at: copy) }
-        copy = nil
         recording = nil
         isPreparing = false
         isPlaying = false
         position = 0
         duration = 0
+    }
+
+    /// The recording itself, the copy kept from an earlier playback, or a new
+    /// one, which replaces it.
+    private func playable(_ recording: URL) async throws -> URL {
+        let modified = try? recording.resourceValues(forKeys: [.contentModificationDateKey])
+            .contentModificationDate
+        if let keptCopy, keptCopy.recording == recording, keptCopy.modified == modified,
+            FileManager.default.fileExists(atPath: keptCopy.file.path(percentEncoded: false))
+        {
+            return keptCopy.file
+        }
+        let file = try await Player.playableFile(for: recording)
+        guard file != recording else { return file }
+        guard !Task.isCancelled else {
+            try? FileManager.default.removeItem(at: file)
+            throw CancellationError()
+        }
+        discardCopy()
+        keptCopy = KeptCopy(recording: recording, modified: modified, file: file)
+        return file
+    }
+
+    /// Deletes the kept copy, as at quit.
+    func discardCopy() {
+        if let keptCopy { try? FileManager.default.removeItem(at: keptCopy.file) }
+        keptCopy = nil
     }
 
     /// The recording itself when AVFoundation can play it, otherwise a decoded
@@ -309,13 +340,11 @@ final class Player {
         if playable == true {
             return recording
         }
-        let samples = try await AudioDecoder.samples(of: recording)
-        try Task.checkCancellation()
         try FileManager.default.createDirectory(
             at: folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
-        let copy = folder.appending(path: UUID().uuidString + ".caf")
+        let copy = folder.appending(path: UUID().uuidString + ".wav")
         do {
-            try write(samples, to: copy)
+            try await AudioDecoder.writePlayableCopy(of: recording, to: copy)
             try Task.checkCancellation()
         } catch {
             try? FileManager.default.removeItem(at: copy)
@@ -387,40 +416,5 @@ final class Player {
         nowPlaying.publish(
             title: recording.deletingPathExtension().lastPathComponent, duration: duration,
             position: position, speed: speed, isPlaying: isPlaying)
-    }
-
-    /// 16-bit audio is enough for playback, and half the size of the samples.
-    private nonisolated static func write(_ samples: [Float], to file: URL) throws {
-        let settings: [String: Any] = [
-            AVFormatIDKey: kAudioFormatLinearPCM,
-            AVSampleRateKey: Double(AudioDecoder.sampleRate),
-            AVNumberOfChannelsKey: 1,
-            AVLinearPCMBitDepthKey: 16,
-            AVLinearPCMIsFloatKey: false,
-        ]
-        let output = try AVAudioFile(
-            forWriting: file, settings: settings, commonFormat: .pcmFormatFloat32,
-            interleaved: false)
-        let minute = AudioDecoder.sampleRate * 60
-        var offset = 0
-        while offset < samples.count {
-            try Task.checkCancellation()
-            let count = min(minute, samples.count - offset)
-            guard
-                let buffer = AVAudioPCMBuffer(
-                    pcmFormat: output.processingFormat, frameCapacity: AVAudioFrameCount(count))
-            else { throw CocoaError(.fileWriteUnknown) }
-            // A float buffer of a float format always has channel data and the
-            // samples are never empty here, but a copy through a raw pointer
-            // should fail like anything else rather than end the process.
-            try samples.withUnsafeBufferPointer { source in
-                guard let channel = buffer.floatChannelData?[0], let first = source.baseAddress
-                else { throw CocoaError(.fileWriteUnknown) }
-                channel.update(from: first + offset, count: count)
-            }
-            buffer.frameLength = AVAudioFrameCount(count)
-            try output.write(from: buffer)
-            offset += count
-        }
     }
 }

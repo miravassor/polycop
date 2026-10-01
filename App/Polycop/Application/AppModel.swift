@@ -342,6 +342,7 @@ final class AppModel {
         downloadingModel = nil
         stage = .stopping
         player.stop()
+        player.discardCopy()
         pausing = false
         paused = nil
         job += 1

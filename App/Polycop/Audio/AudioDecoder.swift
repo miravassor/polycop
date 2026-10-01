@@ -110,6 +110,33 @@ nonisolated enum AudioDecoder {
         }
     }
 
+    /// Writes a 16-bit WAV copy that AVFoundation plays, from ffmpeg straight
+    /// to `file`, so memory stays flat however long the recording. Like a
+    /// decode, it stops ffmpeg when the task is cancelled.
+    static func writePlayableCopy(of recording: URL, to file: URL) async throws {
+        guard recording.isFileURL, file.isFileURL else {
+            throw AudioError.unreadable(recording, detail: "Expected a local file")
+        }
+        let run = OSAllocatedUnfairLock(initialState: Run())
+        try await withTaskCancellationHandler {
+            try await queue.run {
+                try withHelper(
+                    [
+                        "-i", recording.path(percentEncoded: false),
+                        "-vn", "-ac", "1", "-ar", String(sampleRate),
+                        "-t", String(Int(longestRecording)),
+                        "-c:a", "pcm_s16le", "-f", "wav", "-y", file.path(percentEncoded: false),
+                    ], on: recording, run, output: FileHandle.nullDevice
+                ) { _ in }
+            }
+        } onCancel: {
+            run.withLock {
+                $0.cancelled = true
+                if let process = $0.process { stop(process) }
+            }
+        }
+    }
+
     /// Asks ffmpeg to end, then insists, because SIGTERM can be ignored. The
     /// wait runs on a queue of its own, since this is called on whichever
     /// thread cancelled the task, and the decoding queue is busy with that
@@ -130,21 +157,55 @@ nonisolated enum AudioDecoder {
     private static func decode(
         _ recording: URL, _ run: OSAllocatedUnfairLock<Run>, byteLimit: Int
     ) throws -> [Float] {
+        let output = Pipe()
+        let arguments = [
+            "-i", recording.path(percentEncoded: false),
+            "-vn", "-ac", "1", "-ar", String(sampleRate),
+            "-f", "f32le", "-",
+        ]
+        let samples = try withHelper(arguments, on: recording, run, output: output) { process in
+            // A pipe holds 64 kB and an hour of speech is 230 MB, so the samples
+            // are read while ffmpeg writes them. They go straight into the array
+            // the engine is given, because holding the bytes and a copy of them
+            // at once would cost twice the memory of the recording, 1.8 GB at
+            // the four-hour limit.
+            var samples: [Float] = []
+            var partialSample: [UInt8] = []
+            let sampleLimit = byteLimit / MemoryLayout<Float>.size
+            let reading = output.fileHandleForReading
+            while case let chunk = reading.availableData, !chunk.isEmpty {
+                guard samples.count + chunk.count / MemoryLayout<Float>.size <= sampleLimit
+                else {
+                    stop(process)
+                    try? reading.close()
+                    process.waitUntilExit()
+                    throw AudioError.tooLong
+                }
+                collect(chunk, into: &samples, carrying: &partialSample)
+            }
+            return samples
+        }
+        guard !samples.isEmpty else {
+            throw AudioError.noAudioTrack(recording)
+        }
+        return samples
+    }
+
+    /// Runs the bundled ffmpeg on `recording` with its errors in a capped log,
+    /// hands the running process to `body`, then turns a stop or a failure
+    /// into the app's errors once it has ended.
+    private static func withHelper<Result>(
+        _ arguments: [String], on recording: URL, _ run: OSAllocatedUnfairLock<Run>,
+        output: Any, _ body: (Process) throws -> Result
+    ) throws -> Result {
         guard FileManager.default.isExecutableFile(atPath: helper.path) else {
             throw AudioError.helperMissing
         }
 
         let process = Process()
         process.executableURL = helper
-        process.arguments = [
-            "-nostdin", "-v", "error",
-            "-protocol_whitelist", "file,pipe",
-            "-i", recording.path(percentEncoded: false),
-            "-vn", "-ac", "1", "-ar", String(sampleRate),
-            "-f", "f32le", "-",
-        ]
-
-        let output = Pipe()
+        process.arguments =
+            ["-nostdin", "-v", "error", "-protocol_whitelist", "file,pipe"] + arguments
         process.standardOutput = output
         process.standardInput = FileHandle.nullDevice
 
@@ -171,24 +232,7 @@ nonisolated enum AudioDecoder {
         let stopCapping = capping(errors)
         defer { stopCapping() }
 
-        // A pipe holds 64 kB and an hour of speech is 230 MB, so the samples are
-        // read while ffmpeg writes them. They go straight into the array the
-        // engine is given, because holding the bytes and a copy of them at
-        // once would cost twice the memory of the recording, 1.8 GB at the
-        // four-hour limit.
-        var samples: [Float] = []
-        var partialSample: [UInt8] = []
-        let sampleLimit = byteLimit / MemoryLayout<Float>.size
-        let reading = output.fileHandleForReading
-        while case let chunk = reading.availableData, !chunk.isEmpty {
-            guard samples.count + chunk.count / MemoryLayout<Float>.size <= sampleLimit else {
-                stop(process)
-                try? reading.close()
-                process.waitUntilExit()
-                throw AudioError.tooLong
-            }
-            collect(chunk, into: &samples, carrying: &partialSample)
-        }
+        let result = try body(process)
         process.waitUntilExit()
 
         // A stopped process is not treated as a failed decode. The task is not
@@ -209,10 +253,7 @@ nonisolated enum AudioDecoder {
             )
             throw AudioError.unreadable(recording, detail: detail)
         }
-        guard !samples.isEmpty else {
-            throw AudioError.noAudioTrack(recording)
-        }
-        return samples
+        return result
     }
 
     /// ffmpeg writes 32-bit floats and a pipe read can end in the middle of
