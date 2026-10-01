@@ -81,7 +81,7 @@ Polycop is free software under the GNU General Public License version 3 or
 later. Polycop-$VERSION.zip, published with this disk image, holds the same
 app and, in its Source folder, the complete corresponding source of the app
 and of every bundled component, at the commit named above. The licence texts
-are in Polycop.app/Contents/Resources/Licenses. Speech recognition models are
+are in Polycop.app/Contents/Resources, listed in ThirdPartyNotices.txt. Speech recognition models are
 downloaded separately, under their own licences.
 NOTE
 
