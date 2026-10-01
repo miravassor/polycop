@@ -330,10 +330,14 @@ private func entry(_ model: AppModel, _ file: URL) throws -> Entry {
         await model.shutDown()
         #expect(try entry(model, files[0]).state == .stopped)
         #expect(try entry(model, files[0]).decoded == [script[0]])
-        #expect(try entry(model, files[1]).state == .stopped)
+        // The recording that never started stays queued, after a relaunch too.
+        #expect(try entry(model, files[1]).state == .waiting)
         #expect(engine.starts.count == 1)
         #expect(engine.drains == 1)
         #expect(model.engine == nil)
+        let relaunched = AppModel(history: folder.appending(path: "history"))
+        #expect(try entry(relaunched, files[0]).state == .stopped)
+        #expect(try entry(relaunched, files[1]).state == .waiting)
     }
 
     /// A stop still finishing when the app quits must not start the next one.
@@ -349,7 +353,7 @@ private func entry(_ model: AppModel, _ file: URL) throws -> Entry {
 
         model.cancel()
         await model.shutDown()
-        #expect(try entry(model, files[1]).state == .stopped)
+        #expect(try entry(model, files[1]).state == .waiting)
         #expect(engine.starts.count == 1)
     }
 }

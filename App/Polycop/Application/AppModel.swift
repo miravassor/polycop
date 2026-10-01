@@ -230,7 +230,8 @@ final class AppModel {
             )
         }
         // A job cut short by quitting cannot resume: its audio is gone.
-        for entry in entries where entry.state == .waiting || entry.state == .running {
+        // Recordings that never started stay waiting for the next Start.
+        for entry in entries where entry.state == .running {
             updateEntry(entry.id) { $0.state = .stopped }
         }
     }
@@ -344,9 +345,10 @@ final class AppModel {
         pausing = false
         paused = nil
         job += 1
-        // Kept in the list as stopped, to transcribe again after the next launch.
-        // Repairs are excluded, since their transcript is already complete.
-        for entry in entries where entry.state == .waiting || entry.state == .running {
+        // Kept in the list as stopped, to transcribe again after the next launch;
+        // the recordings waiting stay in the queue. Repairs are excluded, since
+        // their transcript is already complete.
+        for entry in entries where entry.state == .running {
             updateEntry(entry.id) { $0.state = .stopped }
         }
         running = nil
