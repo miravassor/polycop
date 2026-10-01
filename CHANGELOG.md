@@ -15,6 +15,8 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ### Fixed
 
+* Terms from Documents finds names written with Œ, œ or Ÿ, names joined to an elided word ("d’Œdipe", "l’Allemagne"), and names whose accents a PDF stored apart from their letters.
+* Terms from Documents ends in moments on a long document with thousands of names, and stops working when its sheet is closed.
 * Jumping to a paragraph or along the timeline while playing no longer shows the old position again for a moment before the new one.
 * Voxtral transcripts get a timestamp every 30 seconds, as they should, rather than one every five minutes, and keep the last words before each five-minute cut.
 * A MOSS window that repeats itself until its token limit no longer ends the whole transcription: that window keeps what it had written, and the rest of the recording is transcribed.
