@@ -5,9 +5,10 @@ import Foundation
 /// A recording added to the app, its settings, and, once transcribed, its
 /// text, edits, and export state.
 ///
-/// Every change is written to disk immediately, except typing, which is
-/// written after a pause (see `AppModel.updateEntry`). The audio file itself is not copied; playback reads
-/// it from its original location.
+/// Every change is written to disk immediately, except typing and where the
+/// reader left the transcript, which are written after a pause (see
+/// `AppModel.updateEntry`). The audio file itself is not copied; playback
+/// reads it from its original location.
 nonisolated struct Entry: Identifiable, Equatable, Codable, Sendable {
     enum State: Equatable, Codable, Sendable {
         case waiting

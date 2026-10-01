@@ -86,8 +86,8 @@ final class AppModel {
     var courseCorrectionsFolder = GlossaryStore.directory {
         didSet { readCourseCorrections = [:] }
     }
-    /// Each course's corrections, read from disk once: the transcript page
-    /// asks for them on every update.
+    /// Each course's corrections, read from disk once: every run of the course
+    /// and the glossary editor ask for them.
     @ObservationIgnored var readCourseCorrections: [String: [CourseCorrection]] = [:]
 
     /// The file name of the chosen model. A name rather than a value, because

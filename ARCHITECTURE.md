@@ -37,7 +37,9 @@ there.
   behaviour, never stored state.
 * `Entry` is a value: one recording, its settings, the segments the engine
   wrote, the paragraphs as corrected, and where the reader left it. Every
-  change goes through `AppModel.updateEntry`, which writes the entry to disk.
+  change to an entry goes through `AppModel.updateEntry`, which writes it to
+  disk; a new entry is written by the action that makes it (adding, retrying,
+  duplicating or importing).
 * `Player` owns playback state (position, playing, speed) and is owned by
   `AppModel`. Views read it; `AppModel`, the player bar and the pause for
   typing in `EntryView` change it.

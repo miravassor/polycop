@@ -11,7 +11,8 @@ extension AppModel {
     }
 
     /// Takes an entry out of the list and deletes its record. Saved transcript
-    /// files stay where they are. The entry under way is cancelled first.
+    /// files stay where they are. The entry under way is refused: stopping it
+    /// is a decision of its own.
     func removeEntry(_ id: Entry.ID) {
         guard id != busyEntry, !isShuttingDown else { return }
         do {

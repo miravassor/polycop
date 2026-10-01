@@ -3,18 +3,19 @@
 import Foundation
 import os
 
-/// Entries as JSON files, one per recording, in Application Support. There is
-/// no separate index; the directory listing is the library, as for glossaries
-/// and models.
+/// Entries as JSON files, one per transcript, in Application Support: a
+/// recording transcribed twice has two. There is no separate index; the
+/// directory listing is the library, as for glossaries and models.
 nonisolated enum HistoryStore {
     static let directory = URL.applicationSupportDirectory.appending(path: "Polycop/History")
 
     /// What the library holds, and what of it could not be read.
     struct Library {
         var entries: [Entry] = []
-        /// Records that could not be read. Left exactly where they are, since
-        /// a damaged file is the only copy of that transcript and may still
-        /// be recoverable by hand.
+        /// Records that could not be read, or the History folder's own name
+        /// when it cannot be listed. Left exactly where they are, since a
+        /// damaged file is the only copy of that transcript and may still be
+        /// recoverable by hand.
         var damaged: [String] = []
     }
 

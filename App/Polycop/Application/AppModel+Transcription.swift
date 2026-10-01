@@ -53,8 +53,9 @@ extension AppModel {
         }
     }
 
-    /// Adds recordings with the settings on screen now. They run one after
-    /// another in the order given, and the first one is shown.
+    /// Adds recordings with the settings on screen now. They wait for Start in
+    /// the order given, and the page stays on New Transcription, where those
+    /// settings can still change.
     func transcribe(_ files: [URL]) {
         guard !files.isEmpty, !isShuttingDown else { return }
         guard files.allSatisfy({ $0.isFileURL }) else {
