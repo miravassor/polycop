@@ -100,7 +100,11 @@ for name in audiocpp whisper; do
             git clone --depth 1 --branch "$REF" https://github.com/ggml-org/whisper.cpp.git "$CHECKOUT"
         fi
     fi
-    git -C "$CHECKOUT" diff --quiet HEAD --
+    # Nothing beside the commit, tracked or not, may have gone into the build.
+    [ -z "$(git -C "$CHECKOUT" status --porcelain --ignored)" ] || {
+        echo "$CHECKOUT holds changes or extra files" >&2
+        exit 1
+    }
     test "$(git -C "$CHECKOUT" rev-parse HEAD)" = "$(git -C "$CHECKOUT" rev-parse "$REF^{commit}")"
     git -C "$CHECKOUT" archive --format=tar --prefix="$name/" "$REF" \
         | gzip > "$SOURCE/Dependencies/$name.tar.gz"
