@@ -4,9 +4,9 @@ import AppKit
 import Foundation
 import os
 
-/// Looks up the latest published release on GitHub. It runs only when the user
-/// chooses Check for Updates, and the request carries nothing about the Mac or
-/// its library.
+/// Looks up the latest published release on GitHub, when the user chooses
+/// Check for Updates, or once a day if they allowed it. The request names
+/// the app and nothing else: not the Mac, its languages or the library.
 nonisolated enum UpdateCheck {
     // A literal, so the URL is always valid.
     // swift-format-ignore: NeverForceUnwrap
@@ -45,11 +45,9 @@ nonisolated enum UpdateCheck {
 
     /// An ephemeral session keeps no cookie or cache between checks.
     static func latest(from url: URL = latestRelease) async throws -> Release {
-        var request = URLRequest(url: url, timeoutInterval: 15)
-        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
         let session = URLSession(configuration: .ephemeral)
         defer { session.finishTasksAndInvalidate() }
-        let (data, response) = try await session.data(for: request)
+        let (data, response) = try await session.data(for: request(for: url))
         switch (response as? HTTPURLResponse)?.statusCode ?? 200 {
         case 200..<300: return try release(from: data)
         case 404: throw Failure.noRelease
@@ -57,10 +55,22 @@ nonisolated enum UpdateCheck {
         }
     }
 
-    /// Only a GitHub page is ever opened from the answer.
+    /// The system would add the macOS version and the user's languages to
+    /// the request; fixed values replace them. GitHub requires a user agent.
+    static func request(for url: URL) -> URLRequest {
+        var request = URLRequest(url: url, timeoutInterval: 15)
+        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        request.setValue("Polycop", forHTTPHeaderField: "User-Agent")
+        request.setValue("en", forHTTPHeaderField: "Accept-Language")
+        return request
+    }
+
+    /// Only a page of Polycop's releases is ever opened from the answer.
     static func release(from data: Data) throws -> Release {
         let release = try JSONDecoder().decode(Release.self, from: data)
-        guard release.page.scheme == "https", release.page.host() == "github.com" else {
+        guard release.page.scheme == "https", release.page.host() == "github.com",
+            release.page.path().hasPrefix("/miravassor/polycop/releases/")
+        else {
             throw Failure.unexpectedPage
         }
         return release
@@ -187,7 +197,7 @@ enum UpdatePrompt {
         alert.messageText = String(localized: "Check for updates automatically?")
         alert.informativeText = String(
             localized:
-                "Polycop can ask GitHub once a day whether a newer version is out. The request carries nothing about you or your library. You can change this in Settings."
+                "Polycop can ask GitHub once a day whether a newer version is out. The request names only the app, and GitHub sees the network address it comes from, as any website does. You can change this in Settings."
         )
         alert.addButton(withTitle: String(localized: "Check Automatically"))
         alert.addButton(withTitle: String(localized: "Don't Check"))
