@@ -116,8 +116,10 @@ nonisolated enum Transcript {
 
     /// Writes the transcript where the user chose to put it. Every format
     /// shares the name the user typed, so a player pairs the subtitle with
-    /// the right recording; the save panel is what asks before replacing a
-    /// file.
+    /// the right recording. The save panel asks before replacing the file it
+    /// shows, and only that one: any other file of the export, the subtitle,
+    /// or the text under its own suffix when the name typed had another,
+    /// never replaces one already there.
     @discardableResult
     static func write(
         _ formats: [(suffix: String, contents: String)], as destination: URL
@@ -125,21 +127,28 @@ nonisolated enum Transcript {
         let folder = destination.deletingLastPathComponent()
         let stem = destination.deletingPathExtension().lastPathComponent
         let files = formats.map { folder.appending(path: "\(stem).\($0.suffix)") }
-        if let existing = files.dropFirst().first(where: {
-            FileManager.default.fileExists(atPath: $0.path)
+        if let existing = files.first(where: {
+            $0.lastPathComponent != destination.lastPathComponent
+                && FileManager.default.fileExists(atPath: $0.path)
         }) {
-            throw ExistingSubtitle(file: existing)
+            throw ExistingFile(file: existing)
         }
         return try write(formats, to: files)
     }
 
-    struct ExistingSubtitle: LocalizedError {
+    /// A file of the export that the save panel did not ask about.
+    struct ExistingFile: LocalizedError {
         let file: URL
         var errorDescription: String? {
-            String(
-                localized:
-                    "\(file.lastPathComponent) already exists. Choose another export name or turn off subtitles. No files were changed."
-            )
+            file.pathExtension == "srt"
+                ? String(
+                    localized:
+                        "\(file.lastPathComponent) already exists. Choose another export name or turn off subtitles. No files were changed."
+                )
+                : String(
+                    localized:
+                        "\(file.lastPathComponent) already exists. Choose another export name. No files were changed."
+                )
         }
     }
 
