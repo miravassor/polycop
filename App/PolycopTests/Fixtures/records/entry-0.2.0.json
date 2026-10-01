@@ -1,0 +1,81 @@
+{
+  "added": 780000000,
+  "bookmark": "c3ludGhldGljIGJvb2ttYXJrLCBuZXZlciByZXNvbHZlZA==",
+  "decoded": [
+    {
+      "end": 2.5,
+      "speaker": "S01",
+      "start": 0,
+      "text": "Bonjour à tous."
+    },
+    {
+      "end": 6,
+      "speaker": "S01",
+      "start": 4,
+      "text": "Nous parlons de Descartes."
+    }
+  ],
+  "duration": 6.5,
+  "folderID": "1A2B3C4D-5E6F-4A1B-8C2D-3E4F5A6B7C8D",
+  "glossary": "Philosophie",
+  "glossaryWarning": "The glossary is long.",
+  "id": "9E8D7C6B-5A4F-4E3D-8C2B-1A0F9E8D7C6B",
+  "isEdited": true,
+  "isPartial": false,
+  "isSaved": true,
+  "language": "fr",
+  "modelFile": "ggml-large-v3-turbo.bin",
+  "originalParagraphs": [
+    {
+      "start": 0,
+      "text": "Speaker 1: Bonjour à tous."
+    },
+    {
+      "start": 4000,
+      "text": "Speaker 1: Nous parlons de Descartes."
+    }
+  ],
+  "paragraphs": [
+    {
+      "start": 0,
+      "text": "Bonjour à toutes et à tous."
+    },
+    {
+      "start": 4000,
+      "text": "Speaker 1: Nous parlons de Descartes."
+    }
+  ],
+  "prompt": "Descartes, cogito, Méditations métaphysiques.",
+  "recording": "file:///Users/student/Cours/Cours%2012.m4a",
+  "resumedAt": [
+    4
+  ],
+  "reviewMarks": [
+    4000
+  ],
+  "saved": [
+    "file:///Users/student/Cours/Cours%2012%20(2).txt"
+  ],
+  "savedDigests": [
+    "0123456789abcdef"
+  ],
+  "sentenceTimes": true,
+  "showsCredits": false,
+  "skipsSilence": true,
+  "speech": [
+    [
+      0,
+      2.5
+    ],
+    [
+      4,
+      6
+    ]
+  ],
+  "state": {
+    "stopped": {}
+  },
+  "subtitles": true,
+  "title": "Cours 12 (2).m4a",
+  "transcribedIn": 12.25
+}

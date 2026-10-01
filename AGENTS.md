@@ -112,6 +112,10 @@ Every page speaks the same visual language. The shared pieces live in
   course corrections beside them (`<course>.corrections.json`) are stored as JSON in
   `~/Library/Application Support/Polycop/`. Never rename their stored properties or
   change their meaning: existing libraries must still load.
+* A stored property added to them is optional. Synthesized decoding ignores default
+  values, so `var isPinned = false` would make every record written before it fail
+  to load. `RecordFormatTests` decodes records as each release wrote them; a release
+  that changes what is stored adds its own to `App/PolycopTests/Fixtures/records/`.
 * Model files are identified by catalog id and verified by size and SHA-256. Changing
   a catalog entry means a new pinned file, never an edited hash.
 * Typed text stays in the paragraph's text view and reaches the model after a pause,
