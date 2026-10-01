@@ -8,7 +8,7 @@ import Testing
 @testable import Polycop
 
 @MainActor
-@Test func foldersPersistWithoutMovingAudioAndCanOnlyBeDeletedWhenEmpty() throws {
+@Test func foldersPersistWithoutMovingAudioAndCanOnlyBeDeletedWhenEmpty() async throws {
     let history = URL.temporaryDirectory.appending(path: UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: history) }
     let audio = history.appending(path: "lecture.wav")
@@ -24,12 +24,14 @@ import Testing
     try model.removeFolder(folder)
     #expect(model.folders.count == 1)
     try model.renameFolder(folder, to: "Ethics")
+    await model.finishWrites()
     let reloaded = AppModel(history: history)
     #expect(reloaded.folders.first?.name == "Ethics")
     #expect(reloaded.entry(entry.id)?.folderID == folder)
     #expect(reloaded.entry(entry.id)?.recording == audio)
     reloaded.moveEntry(entry.id, to: nil)
     try reloaded.removeFolder(folder)
+    await reloaded.finishWrites()
     #expect(try HistoryStore.folders(in: history).isEmpty)
     #expect(HistoryStore.all(in: history).entries.first?.folderID == nil)
 }

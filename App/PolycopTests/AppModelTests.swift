@@ -450,6 +450,7 @@ extension LoadingAModel {
             #expect(!entry.decoded.isEmpty)
             #expect(entry.isPartial)
             #expect(entry.sentenceTimes == true || !model.alignerInstalled)
+            await model.finishWrites()
             #expect(HistoryStore.all(in: history).entries.first == entry)
         }
     }

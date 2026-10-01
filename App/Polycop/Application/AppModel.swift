@@ -308,6 +308,9 @@ final class AppModel {
         await engine?.drain()
         releaseEngine()
         stage = .waiting
+        // Writes asked so far, typing included, reach the disk before quitting.
+        savePending()
+        await finishWrites()
     }
 
     /// The user kept the window open after a failed final history write.
