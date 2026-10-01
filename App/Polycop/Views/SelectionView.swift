@@ -11,6 +11,11 @@ struct SelectionView: View {
     let move: ([Entry.ID]) -> Void
     let remove: ([Entry.ID]) -> Void
 
+    /// Whether any of them is in a folder, to be taken out of it.
+    private var isAnyFiled: Bool {
+        selected.contains { model.entry($0)?.folderID != nil }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("\(selected.count) transcripts selected")
@@ -22,10 +27,11 @@ struct SelectionView: View {
             .foregroundStyle(.secondary)
             HStack(spacing: 12) {
                 Button("Move to Folder…") { move(selected) }
+                    .disabled(model.foldersAreDamaged)
                 Button("Remove from Folder") {
                     for id in selected { model.moveEntry(id, to: nil) }
                 }
-                .disabled(!selected.contains { model.entry($0)?.folderID != nil })
+                .disabled(model.foldersAreDamaged || !isAnyFiled)
                 Button("Remove from Library…", role: .destructive) { remove(selected) }
             }
             if let failure = model.failure {
