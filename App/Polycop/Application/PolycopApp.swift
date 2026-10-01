@@ -189,12 +189,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let model else { return .terminateNow }
         model.rememberPlace(in: model.pane)
         guard !model.isShuttingDown else { return .terminateLater }
-        if model.hasWork {
+        // Recordings that only wait lose nothing by quitting: they stay queued.
+        if model.running != nil || model.stage.isBusy {
             let alert = NSAlert()
-            alert.messageText = String(localized: "Stop the transcriptions in progress?")
+            alert.messageText = String(localized: "Stop the work in progress?")
             alert.informativeText = String(
                 localized:
-                    "Quitting stops the recording being transcribed and those waiting. They stay in the list, to transcribe again."
+                    "Quitting stops the recording being transcribed, which stays in the list to transcribe again. Recordings waiting stay in the queue for the next Start."
             )
             alert.addButton(withTitle: String(localized: "Cancel"))
             alert.addButton(withTitle: String(localized: "Quit Anyway"))

@@ -10,17 +10,22 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ### Changed
 
+* Quitting keeps the recordings that were only waiting in the queue: after a relaunch they wait for Start again instead of showing as stopped, and quitting asks first only when something is in progress. The recording being transcribed still stops, as its progress cannot be resumed.
 * Opening Polycop while it is already open brings the open copy forward instead of starting a second one. Two copies each wrote what they had read at launch, so one could write over the other's corrections.
 
 ### Fixed
 
 * Find, Replace All and course corrections read a curly apostrophe and a straight one as the same, so "l'inconscient" also finds "l’inconscient".
+* Typing in a transcript keeps what is typed, whatever the system's text input settings: apostrophes no longer turn curly, double hyphens no longer become dashes, and spelling correction no longer rewrites names. A curly apostrophe hid the word from Find, Replace All and course corrections.
+* Pausing after a dead key, before its letter, no longer saves the accent alone as a correction.
+* A glossary edited in another application while the Glossary sheet is open is no longer written back to what the sheet read when it opened. Choosing a course reads its file again, and only what is typed in the sheet is saved.
 * Jumping to a paragraph or along the timeline while playing no longer shows the old position again for a moment before the new one.
 * Voxtral transcripts get a timestamp every 30 seconds, as they should, rather than one every five minutes, and keep the last words before each five-minute cut.
 * A MOSS window that repeats itself until its token limit no longer ends the whole transcription: that window keeps what it had written, and the rest of the recording is transcribed.
 * Stopping or quitting while a Whisper transcription is about to start takes effect at once, and its progress no longer goes past 100%.
 * A recording in a folder the app cannot read is reported as unreadable, with the reason, rather than as moved.
 * Transcribing the repeats again waits while a revert can still be undone, instead of losing the corrected text, and a transcript stopped part way stays marked as stopped once repaired.
+* Undoing a revert brings back the corrections remembered for the course along with the text, so repairing the repeats and putting credits back stay possible.
 * A transcript where a speaker starts before the one they follow, as MOSS can write when voices overlap, opens again after a relaunch instead of being reported as a file that could not be read.
 * A retry waiting for a model you deleted keeps the settings of the transcript it repeats when you press Start, instead of taking those on the New Transcription page.
 * A second transcript of a numbered lecture keeps its number: retrying or duplicating "Cours 12.m4a" now gives "Cours 12 (2).m4a" rather than "Cours 2.m4a", another lecture's name.

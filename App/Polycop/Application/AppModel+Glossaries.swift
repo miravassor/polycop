@@ -24,6 +24,13 @@ extension AppModel {
         }
     }
 
+    /// The glossary as its file holds it now, rather than as the list was
+    /// last read or patched.
+    func glossary(named name: String) -> Glossary? {
+        refreshGlossaries()
+        return glossaries.first { $0.name == name }
+    }
+
     /// Creates an empty glossary under a free name and returns that name.
     func createGlossary(named wanted: String) throws -> String {
         let glossary = Glossary(
@@ -87,8 +94,8 @@ extension AppModel {
     /// otherwise, since loading gigabytes of weights for a keystroke is not
     /// worth an exact figure.
     func tokens(in prompt: String) async -> (count: Int, exact: Bool) {
-        if let whisper = engine as? WhisperEngine, !stage.isRunning {
-            return (await whisper.tokenCount(of: prompt), true)
+        if let engine, !stage.isRunning, let count = await engine.promptTokenCount(of: prompt) {
+            return (count, true)
         }
         return (Glossary.estimatedTokens(of: prompt), false)
     }
@@ -103,13 +110,13 @@ extension AppModel {
     /// whisper.cpp truncates a glossary longer than its token budget without
     /// telling anyone, so the warning below is the only place the user sees it.
     func limitContextToGlossary(
-        _ settings: inout DecodingSettings, of id: Entry.ID, on engine: WhisperEngine
+        _ settings: inout DecodingSettings, of id: Entry.ID, on engine: any TranscriptionEngine
     ) async {
         guard let prompt = settings.prompt else {
             settings.textContext = 0
             return
         }
-        let count = await engine.tokenCount(of: prompt)
+        guard let count = await engine.promptTokenCount(of: prompt) else { return }
         settings.textContext = Int32(count + 1)
         guard count > Glossary.tokenBudget else { return }
         let warning = String(
