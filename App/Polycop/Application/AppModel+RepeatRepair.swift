@@ -90,7 +90,7 @@ extension AppModel {
                     repaired.replaceSubrange(range, with: again.map { $0.shifted(by: from) })
                     stage = .repairing(Double(done + 1) / Double(ranges.count))
                 }
-                corrections[id] = nil
+                undoSteps[id] = nil
                 updateEntry(id) { $0.publish(repaired, partial: entry.isPartial) }
                 finish()
             } catch is CancellationError {
