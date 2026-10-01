@@ -227,7 +227,7 @@ struct ParagraphEditor: NSViewRepresentable {
         var pending: String?
         /// The height of the laid out text, last given to SwiftUI.
         var height: CGFloat = 0
-        private var commitAfterPause: Task<Void, Never>?
+        private(set) var commitAfterPause: Task<Void, Never>?
 
         init(_ parent: ParagraphEditor) { self.parent = parent }
 
@@ -254,6 +254,10 @@ struct ParagraphEditor: NSViewRepresentable {
             fitHeight(of: view)
             TypingBuffer.hold(self)
             commitAfterPause?.cancel()
+            commitAfterPause = nil
+            // An accent typed with a dead key waits for its letter: "pr^" is
+            // not a correction. The next key, or a hand over, commits it.
+            guard !view.hasMarkedText() else { return }
             commitAfterPause = Task { [weak self] in
                 try? await Task.sleep(for: TypingBuffer.pause)
                 guard !Task.isCancelled else { return }
@@ -296,6 +300,32 @@ final class WordTextView: NSTextView {
     /// Plays from the word at a character index; false when no word is there.
     var playFromCharacter: ((Int) -> Bool)?
 
+    // A text view made in code follows the system's text input settings,
+    // all on by default. A typed apostrophe would then differ from the
+    // engine's, which Find, Replace All and course corrections look for, and
+    // spelling correction would rewrite the names a lecture is full of.
+    override init(frame: NSRect, textContainer: NSTextContainer?) {
+        super.init(frame: frame, textContainer: textContainer)
+        turnOffSubstitutions()
+    }
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        turnOffSubstitutions()
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        turnOffSubstitutions()
+    }
+
+    private func turnOffSubstitutions() {
+        isAutomaticQuoteSubstitutionEnabled = false
+        isAutomaticDashSubstitutionEnabled = false
+        isAutomaticSpellingCorrectionEnabled = false
+        isAutomaticTextReplacementEnabled = false
+    }
+
     /// A click puts the cursor where the reader wants it: it stays there until
     /// they type, rather than follow playback.
     static var holdsCursor = false
@@ -324,50 +354,5 @@ final class WordTextView: NSTextView {
     /// Escape leaves the text, so that Space plays and pauses again.
     override func cancelOperation(_ sender: Any?) {
         window?.makeFirstResponder(nil)
-    }
-}
-
-/// Typing held in paragraph editors before the model has it. A click, a
-/// shortcut, a menu or quitting hands it over first, so whatever reads a
-/// transcript reads what was typed.
-enum TypingBuffer {
-    /// How long typing waits before reaching the model on its own.
-    static let pause: Duration = .milliseconds(500)
-    private static var editors: [ObjectIdentifier: ParagraphEditor.Coordinator] = [:]
-    private static var isWatching = false
-
-    static func hold(_ editor: ParagraphEditor.Coordinator) {
-        editors[ObjectIdentifier(editor)] = editor
-        watch()
-    }
-
-    static func release(_ editor: ParagraphEditor.Coordinator) {
-        editors[ObjectIdentifier(editor)] = nil
-    }
-
-    /// Hands every held text to the model.
-    static func flush() {
-        for editor in editors.values { editor.commit() }
-    }
-
-    /// Plain keys go on typing; anything else may act on the transcript.
-    private static func watch() {
-        guard !isWatching else { return }
-        isWatching = true
-        NSEvent.addLocalMonitorForEvents(
-            matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown, .keyDown]
-        ) { event in
-            if event.type != .keyDown
-                || !event.modifierFlags.isDisjoint(with: [.command, .control])
-            {
-                flush()
-            }
-            return event
-        }
-        NotificationCenter.default.addObserver(
-            forName: NSMenu.didBeginTrackingNotification, object: nil, queue: .main
-        ) { _ in
-            MainActor.assumeIsolated { flush() }
-        }
     }
 }
