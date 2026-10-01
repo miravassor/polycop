@@ -58,10 +58,10 @@ extension AppModel {
     }
 
     private func rememberCorrection(_ entry: Entry) {
-        var steps = corrections[entry.id] ?? []
-        steps.append(entry.paragraphs)
+        var steps = undoSteps[entry.id] ?? []
+        steps.append(entry.revision)
         // Bound undo snapshots; unchanged strings share their storage.
-        corrections[entry.id] = steps.suffix(200)
+        undoSteps[entry.id] = steps.suffix(200)
     }
 
     func toggleReview(_ id: Entry.ID, paragraphAt index: Int) {
@@ -71,19 +71,16 @@ extension AppModel {
         updateEntry(id) { $0.toggleReview(paragraphAt: index) }
     }
 
-    func canUndo(_ id: Entry.ID) -> Bool { !(corrections[id] ?? []).isEmpty }
+    func canUndo(_ id: Entry.ID) -> Bool { !(undoSteps[id] ?? []).isEmpty }
 
-    /// Steps one correction back, as far as the text the engine wrote.
+    /// Steps one correction back, as far as the text the engine wrote. A
+    /// revert stepped back brings back the course corrections it cleared.
     func undo(_ id: Entry.ID) {
-        guard id != busyEntry, !isShuttingDown, var steps = corrections[id],
+        guard id != busyEntry, !isShuttingDown, var steps = undoSteps[id],
             let previous = steps.popLast()
         else { return }
-        corrections[id] = steps
-        updateEntry(id) { entry in
-            entry.paragraphs = previous
-            entry.isEdited = previous != entry.original
-            entry.isSaved = false
-        }
+        undoSteps[id] = steps
+        updateEntry(id) { $0.restore(previous) }
     }
 
     /// Throws every correction away and shows the transcript as it came out of
@@ -132,7 +129,7 @@ extension AppModel {
         // The paragraphs are rebuilt around the lines that came back, so the
         // corrections recorded against the old ones no longer fit. A refusal
         // changes nothing and keeps them.
-        if restored { corrections[id] = nil }
+        if restored { undoSteps[id] = nil }
     }
 
     func setTextLayout(_ layout: Transcript.TextLayout, for id: Entry.ID) {
