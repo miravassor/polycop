@@ -163,18 +163,20 @@ struct ParagraphEditor: NSViewRepresentable {
         let changed = showsChanges ? Edits.changed(from: original, to: view.string) : []
         for range in Edits.ranges(of: changed, in: view.string) {
             let marked = NSRange(range, in: view.string)
-            storage.addAttribute(
-                .foregroundColor, value: isRemoved ? NSColor.systemRed : NSColor.systemGreen,
-                range: marked)
-            // Struck through as well on the original side: colour alone does
-            // not say which of two words replaced the other.
-            if isRemoved {
-                storage.addAttributes(
-                    [
+            // A line, not the colour of the text: green or red letters fall
+            // below a readable contrast, and colour alone does not say which
+            // of two words replaced the other. Added words are underlined,
+            // removed ones struck through.
+            storage.addAttributes(
+                isRemoved
+                    ? [
                         .strikethroughStyle: NSUnderlineStyle.single.rawValue,
                         .strikethroughColor: NSColor.systemRed,
+                    ]
+                    : [
+                        .underlineStyle: NSUnderlineStyle.thick.rawValue,
+                        .underlineColor: NSColor.systemGreen,
                     ], range: marked)
-            }
         }
         for range in matches where range.location >= 0 && NSMaxRange(range) <= whole.length {
             storage.addAttribute(

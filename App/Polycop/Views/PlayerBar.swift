@@ -146,6 +146,7 @@ struct PlayerBar: View {
         .controlFill()
         .help("Playing speed")
         .accessibilityLabel("Playing speed")
+        .accessibilityValue(label(player.speed))
     }
 
     private func label(_ speed: Float) -> String {

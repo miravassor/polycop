@@ -22,13 +22,13 @@ struct EntryProgress: View {
             case .stopped:
                 HStack(spacing: 12) {
                     Label("Stopped before the end", systemImage: "stop.circle")
-                        .foregroundStyle(.orange)
+                        .notice(.orange)
                     retry
                 }
             case .failed(let message):
                 HStack(spacing: 12) {
                     Label(message, systemImage: "xmark.octagon")
-                        .foregroundStyle(.red)
+                        .notice(.red)
                         .textSelection(.enabled)
                     retry
                 }
@@ -102,9 +102,9 @@ struct EntryProgress: View {
             case .repairing(let fraction):
                 running("Transcribing the repeats", fraction)
             case .paused(let fraction):
-                Text("Paused")
+                Label("Paused", systemImage: "pause.circle")
                     .font(.headline)
-                    .foregroundStyle(.orange)
+                    .notice(.orange)
                 ProgressView(value: fraction)
                     .frame(minWidth: 60, maxWidth: 180)
                 Text(percent(fraction))

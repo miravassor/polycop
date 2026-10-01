@@ -37,7 +37,7 @@ struct GlossaryEditor: View {
             if let problem {
                 Label(problem, systemImage: "xmark.octagon")
                     .font(.callout)
-                    .foregroundStyle(.red)
+                    .notice(.red)
                     .textSelection(.enabled)
             }
             Divider()
@@ -183,13 +183,14 @@ struct GlossaryEditor: View {
         }
         .font(.callout)
         .monospacedDigit()
-        .foregroundStyle(over ? .orange : .secondary)
+        .foregroundStyle(over ? .primary : .secondary)
         if over {
-            Text(
-                "Whisper reads only the last \(Glossary.tokenBudget) tokens, so the first terms would be ignored. MOSS uses the terms as hotwords."
+            Label(
+                "Whisper reads only the last \(Glossary.tokenBudget) tokens, so the first terms would be ignored. MOSS uses the terms as hotwords.",
+                systemImage: "exclamationmark.triangle"
             )
             .font(.caption)
-            .foregroundStyle(.orange)
+            .notice(.orange)
         }
     }
 

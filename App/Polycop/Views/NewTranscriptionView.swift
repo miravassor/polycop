@@ -79,7 +79,7 @@ struct NewTranscriptionView: View {
             if let failure = model.failure {
                 Label(failure, systemImage: "exclamationmark.circle")
                     .font(.callout)
-                    .foregroundStyle(.red)
+                    .notice(.red)
                     .textSelection(.enabled)
             }
             queue

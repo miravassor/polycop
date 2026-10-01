@@ -11,6 +11,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ### Changed
 
+* Warnings and failures keep their colour on the icon and draw their text in the normal text colour, which reads better than orange or red on a light window. In Compare original, added words are underlined in green rather than written in green.
 * Each engine's features, in the model list and under the chosen model, say whether it follows words: Whisper does, and Qwen3-ASR when its aligner is installed and fits in memory; MOSS and Voxtral do not. A tooltip says what word following allows.
 * Export Text (⌘S) and Export Text As… (⇧⌘S) are in the File menu. ⌘S updates the export, or asks where to put the first one, and works right after typing, when the button could still show the export as up to date.
 * New Transcription spaces its sections as the other pages do, the engine cards in the model list have the border of every other card, and the glossary and term editors have rounded corners like the other controls.
@@ -31,6 +32,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 * A Markdown export escapes the characters Markdown would read as formatting, so "2*3*4" no longer shows the 3 in italics and a line typed as "# Freud" or "1. Le moi" no longer becomes a heading or a list.
 * Terms from Documents finds names written with Œ, œ or Ÿ, names joined to an elided word ("d’Œdipe", "l’Allemagne"), and names whose accents a PDF stored apart from their letters.
 * Terms from Documents ends in moments on a long document with thousands of names, and stops working when its sheet is closed.
+* VoiceOver names a paragraph's review flag with the paragraph's number and says whether it is set, and reads the playing speed. Your text and Compare original are one segmented control, which says which view is chosen.
 * Jumping to a paragraph or along the timeline while playing no longer shows the old position again for a moment before the new one.
 * Voxtral transcripts get a timestamp every 30 seconds, as they should, rather than one every five minutes, and keep the last words before each five-minute cut.
 * A MOSS window that repeats itself until its token limit no longer ends the whole transcription: that window keeps what it had written, and the rest of the recording is transcribed.
