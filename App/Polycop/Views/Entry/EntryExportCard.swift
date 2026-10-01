@@ -58,18 +58,17 @@ struct EntryExportCard: View {
 
     /// One button, whose meaning follows the file rather than the saved
     /// record, so a user whose export was deleted or moved is never left
-    /// pressing a button that does nothing.
+    /// pressing a button that does nothing. Its shortcuts are File menu
+    /// commands, which also work when typing has just changed the state.
     @ViewBuilder
     private var export: some View {
         switch model.exportState(of: entry) {
         case .none, .missing:
             Button("Export Text As…") { Self.exportAs(entry, with: model) }
                 .buttonStyle(.borderedProminent)
-                .keyboardShortcut("s", modifiers: [.command, .shift])
         case .outOfDate:
             Button("Update Export") { model.updateExport(entry.id) }
                 .buttonStyle(.borderedProminent)
-                .keyboardShortcut("s")
         case .current:
             Button("Update Export") {}
                 .buttonStyle(.borderedProminent)

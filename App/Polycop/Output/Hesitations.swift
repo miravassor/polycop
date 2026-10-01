@@ -14,7 +14,7 @@ nonisolated enum Hesitations {
     }
 
     /// The text without its hesitations. A sentence that opened on one opens
-    /// on the next word, capitalized.
+    /// on the next word, capitalized. A text that was nothing else is empty.
     static func removed(from text: String) -> String {
         var result = ""
         var capitalizesNext = false
@@ -26,9 +26,14 @@ nonisolated enum Hesitations {
             let before = result.trimmingCharacters(in: .whitespaces)
             capitalizesNext = before.isEmpty || before.last.map { ".!?…".contains($0) } == true
             rest = text[match.range.upperBound...]
+            // A hesitation said as a sentence of its own takes its full stop
+            // or question mark with it.
+            if capitalizesNext, let end = rest.prefixMatch(of: /[.!?]+\s*/) {
+                rest = rest[end.range.upperBound...]
+            }
         }
         append(rest, to: &result, capitalizing: capitalizesNext)
-        return
+        let cleaned =
             result
             .replacingOccurrences(of: " ,", with: ",")
             .replacingOccurrences(of: " .", with: ".")
@@ -38,6 +43,7 @@ nonisolated enum Hesitations {
             .replacingOccurrences(of: ", !", with: " !")
             .replacingOccurrences(of: "  ", with: " ")
             .trimmingCharacters(in: .whitespaces)
+        return cleaned.contains { $0.isLetter || $0.isNumber } ? cleaned : ""
     }
 
     private static func append(_ piece: Substring, to result: inout String, capitalizing: Bool) {

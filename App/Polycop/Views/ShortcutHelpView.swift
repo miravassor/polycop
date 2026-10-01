@@ -38,8 +38,8 @@ struct ShortcutHelpView: View {
                 shortcut("Manage glossaries", "⌥⌘G")
             }
             Section("Export") {
-                shortcut("First text export", "⇧⌘S")
-                shortcut("Update an outdated export", "⌘S")
+                shortcut("Update the export, or make the first one", "⌘S")
+                shortcut("Export the text somewhere else", "⇧⌘S")
                 Text(
                     "Corrections are saved in the library automatically. These shortcuts write a separate export file when the corresponding action is available."
                 )

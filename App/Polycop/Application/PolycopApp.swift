@@ -23,6 +23,27 @@ struct PolycopApp: App {
         _model = State(initialValue: AppModel(history: Self.library, glossaries: Self.glossaries))
     }
 
+    /// The transcript on screen, when it has text to export and is not being
+    /// transcribed.
+    private var openTranscript: Entry? {
+        guard case .entry(let id) = model.pane, model.busyEntry != id,
+            let entry = model.entry(id), !entry.paragraphs.isEmpty
+        else { return nil }
+        return entry
+    }
+
+    /// Updates the export as Save would a document, or asks where to put one
+    /// when there is none to update.
+    private func exportOpenTranscript(choosingPlace: Bool) {
+        TypingBuffer.flush()
+        guard let entry = openTranscript else { return }
+        switch model.exportState(of: entry) {
+        case .outOfDate where !choosingPlace: model.updateExport(entry.id)
+        case .current where !choosingPlace: break
+        default: EntryExportCard.exportAs(entry, with: model)
+        }
+    }
+
     /// A test run hosts the app, which must not ask anything, reach the
     /// network or touch the user's files.
     static var isHostingTests: Bool {
@@ -66,9 +87,7 @@ struct PolycopApp: App {
                 Button("Check for Updates…") { UpdatePrompt.checkForUpdates() }
             }
             // The File menu of an app without documents: what the window can do
-            // from anywhere, with the shortcuts a Mac user expects. The export
-            // commands live beside the transcript itself, where the state that
-            // decides between updating and choosing a place is.
+            // from anywhere, with the shortcuts a Mac user expects.
             CommandGroup(replacing: .newItem) {
                 Button("New Transcription") { model.pane = .new }
                     .keyboardShortcut("n")
@@ -92,6 +111,16 @@ struct PolycopApp: App {
                     .disabled(model.foldersAreDamaged)
                 Button("Manage Glossaries…") { model.manageGlossaries() }
                     .keyboardShortcut("g", modifiers: [.command, .option])
+                Divider()
+                // Enabled whatever the export's state, which typing not yet
+                // handed to the model can have changed by the time the key
+                // arrives: the action reads it once the typing is in.
+                Button("Export Text") { exportOpenTranscript(choosingPlace: false) }
+                    .keyboardShortcut("s")
+                    .disabled(openTranscript == nil)
+                Button("Export Text As…") { exportOpenTranscript(choosingPlace: true) }
+                    .keyboardShortcut("s", modifiers: [.command, .shift])
+                    .disabled(openTranscript == nil)
             }
             CommandGroup(after: .help) {
                 Button("Keyboard Shortcuts…") { openWindow(id: "shortcuts") }
