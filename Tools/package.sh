@@ -43,14 +43,18 @@ ditto "$APP" "$FOLDER/Polycop.app"
 codesign --verify --deep --strict "$FOLDER/Polycop.app"
 # A debugging entitlement or a signature without the runtime would let other
 # processes read or inject code into an app trusted with recordings.
-if codesign -d --entitlements - --xml "$FOLDER/Polycop.app" 2>/dev/null | grep -q get-task-allow; then
+# Read whole before matching: grep -q stops early, which under pipefail
+# would fail codesign with a broken pipe.
+entitlements="$(codesign -d --entitlements - --xml "$FOLDER/Polycop.app" 2>/dev/null)"
+signature="$(codesign -dv "$FOLDER/Polycop.app" 2>&1)"
+if [[ "$entitlements" == *get-task-allow* ]]; then
     echo "The app allows debugging; it must not be packaged" >&2
     exit 1
 fi
-codesign -dv "$FOLDER/Polycop.app" 2>&1 | grep -q 'flags=.*runtime' || {
+if [[ "$signature" != *flags=*runtime* ]]; then
     echo "The app is not signed with the hardened runtime" >&2
     exit 1
-}
+fi
 cat > "$FOLDER/READ-ME.txt" <<NOTE
 Polycop $VERSION
 
