@@ -76,7 +76,7 @@ nonisolated final class ScriptedEngine: TranscriptionEngine {
 /// at first, and open `engine`, counting the openings and failing the first
 /// `failures` of them.
 @MainActor
-private final class Opener {
+final class Opener {
     let engine: ScriptedEngine
     var failures: Int
     var installed: Set<String> = [ModelCatalog.recommended.id]
