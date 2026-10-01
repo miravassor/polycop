@@ -122,6 +122,14 @@ struct PolycopApp: App {
                     .keyboardShortcut("s", modifiers: [.command, .shift])
                     .disabled(openTranscript == nil)
             }
+            CommandMenu("Playback") {
+                // Only the paragraph being edited knows where its words are.
+                Button("Play From Cursor") {
+                    let action = #selector(WordTextView.playFromCursor(_:))
+                    if !NSApp.sendAction(action, to: nil, from: nil) { NSSound.beep() }
+                }
+                .keyboardShortcut("p", modifiers: [.command, .option])
+            }
             CommandGroup(after: .help) {
                 Button("Keyboard Shortcuts…") { openWindow(id: "shortcuts") }
                     .keyboardShortcut("/", modifiers: [.command, .option])

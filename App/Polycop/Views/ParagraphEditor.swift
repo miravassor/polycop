@@ -328,6 +328,13 @@ final class WordTextView: NSTextView {
         isAutomaticTextReplacementEnabled = false
     }
 
+    /// Option-click without the mouse: plays from the word at the text cursor.
+    /// Play From Cursor sends it along the responder chain, so it reaches the
+    /// paragraph being edited.
+    @objc func playFromCursor(_ sender: Any?) {
+        if playFromCharacter?(selectedRange().location) != true { NSSound.beep() }
+    }
+
     /// A click puts the cursor where the reader wants it: it stays there until
     /// they type, rather than follow playback.
     static var holdsCursor = false
