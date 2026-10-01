@@ -22,6 +22,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 * Subtitles and timestamped text saved in Windows Latin, as older subtitle tools do, are imported instead of being refused as an unsupported format.
 * Playback you pause just after it starts, as typing does, stays paused: the player no longer takes a late report from the audio system as a request to play again.
 * The update check sends only the app's name: the system no longer adds your macOS version and languages to the request. It also accepts only a page of Polycop's own releases from the answer.
+* An export never replaces a file the save panel did not ask about: naming it "cours.text" no longer writes over a "cours.txt" already in that folder.
 
 ## 0.3.2 (2026-09-27)
 

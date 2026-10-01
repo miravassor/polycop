@@ -452,11 +452,28 @@ func aShortCorrectResultIsNotReported(_ count: Int) {
     let subtitle = folder.appending(path: "lecture.srt")
     let text = folder.appending(path: "lecture.txt")
     try "Existing subtitles".write(to: subtitle, atomically: true, encoding: .utf8)
-    #expect(throws: Transcript.ExistingSubtitle.self) {
+    #expect(throws: Transcript.ExistingFile.self) {
         try Transcript.write([("txt", "New text"), ("srt", "New subtitles")], as: text)
     }
     #expect(try String(contentsOf: subtitle, encoding: .utf8) == "Existing subtitles")
     #expect(!FileManager.default.fileExists(atPath: text.path))
+}
+
+/// The panel confirmed "lecture.text", so the text written as "lecture.txt"
+/// must not replace the file of that name already there.
+@Test func aTextExportDoesNotOverwriteAFileThePanelDidNotNameEither() throws {
+    let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let text = folder.appending(path: "lecture.txt")
+    try "Existing text".write(to: text, atomically: true, encoding: .utf8)
+    #expect(throws: Transcript.ExistingFile.self) {
+        try Transcript.write([("txt", "New text")], as: folder.appending(path: "lecture.text"))
+    }
+    #expect(try String(contentsOf: text, encoding: .utf8) == "Existing text")
+    // The name the panel confirmed is replaced, as it asked.
+    try Transcript.write([("txt", "New text")], as: text)
+    #expect(try String(contentsOf: text, encoding: .utf8) == "New text")
 }
 
 @Test func manySeparateLoopsAreCollapsedWithoutRecursiveCopies() {
