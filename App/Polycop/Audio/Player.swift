@@ -93,8 +93,12 @@ final class Player {
     /// How long typing must stop before playback it paused resumes, in seconds.
     static let defaultResumeAfterTyping: TimeInterval = 2
 
-    init(defaults: UserDefaults = .standard) {
+    /// Where decoded copies go.
+    @ObservationIgnored private let copiesFolder: URL
+
+    init(defaults: UserDefaults = .standard, copies: URL = Player.copies) {
         self.defaults = defaults
+        copiesFolder = copies
     }
 
     private var resumeRewind: TimeInterval {
@@ -306,7 +310,7 @@ final class Player {
         {
             return keptCopy.file
         }
-        let file = try await Player.playableFile(for: recording)
+        let file = try await Player.playableFile(for: recording, in: copiesFolder)
         guard file != recording else { return file }
         guard !Task.isCancelled else {
             try? FileManager.default.removeItem(at: file)

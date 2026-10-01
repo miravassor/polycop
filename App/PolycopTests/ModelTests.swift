@@ -262,3 +262,24 @@ func launchStartsOnTheRecommendedModelOrAnInstalledOne(installed: [String], expe
     #expect(following.allSatisfy { $0.contains("Word following") })
     #expect(notFollowing.allSatisfy { $0.contains("word following") && !$0.contains("Word") })
 }
+
+/// The models a window lists and deletes are those of the folder it was
+/// given, so a test never reads or removes the user's.
+@MainActor
+@Test func theModelListUsesTheFolderGiven() throws {
+    let root = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let models = root.appending(path: "Models")
+    try FileManager.default.createDirectory(at: models, withIntermediateDirectories: true)
+    let stray = models.appending(path: "stray.bin")
+    try Data("not a model".utf8).write(to: stray)
+
+    let model = AppModel(
+        history: root.appending(path: "History"), glossaries: root.appending(path: "Glossaries"),
+        models: models, playbackCopies: root.appending(path: "Replay"))
+
+    #expect(model.installed.isEmpty)
+    #expect(model.imported.map(\.id) == ["stray.bin"])
+    model.delete(try #require(model.imported.first))
+    #expect(!FileManager.default.fileExists(atPath: stray.path(percentEncoded: false)))
+}

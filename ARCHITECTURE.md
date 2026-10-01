@@ -109,6 +109,11 @@ Everything lives in `~/Library/Application Support/Polycop/`:
 | `Glossaries/` | one text file per course, and its remembered corrections | `GlossaryStore`, `CourseCorrections` |
 | `Models/` | downloaded or imported weights | `ModelStore`, `ModelDownloader` |
 
+Decoded playback copies go to a temporary folder, emptied at launch. Each
+folder is passed to `AppModel` when it is made: the window gets these, a test
+run and a second copy of the app get temporary ones, models excepted, which
+they only read.
+
 There is no index: the directory listing is the library. A file that fails to
 decode is left in place and reported, never overwritten. A write that fails is
 kept in memory and retried, and quitting asks before losing it. Stored
@@ -126,7 +131,7 @@ property names never change (see `AGENTS.md`).
 
 `App/PolycopTests/` has one suite per subject. Pure code in `Output/`,
 `Glossary/` and `History/` is tested directly on values. `AppModel` is
-tested with a temporary library folder and settings in memory. Its queue is
+tested with temporary folders and settings in memory. Its queue is
 also tested with a scripted engine given through `Engines`, so pause, resume,
 stop, quit and failures run in CI; engine tests run only when their model is
 installed. Audio timing is never asserted: CI

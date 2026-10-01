@@ -20,7 +20,10 @@ struct PolycopApp: App {
             ModelStore.sweep()
             Player.sweep()
         }
-        _model = State(initialValue: AppModel(history: Self.library, glossaries: Self.glossaries))
+        _model = State(
+            initialValue: AppModel(
+                history: Self.library, glossaries: Self.glossaries,
+                playbackCopies: Self.playbackCopies))
     }
 
     /// The transcript on screen, when it has text to export and is not being
@@ -59,9 +62,11 @@ struct PolycopApp: App {
 
     /// The library the window opens. A test run and a second copy get an empty
     /// one of their own, since opening the user's marks what was waiting or
-    /// running as stopped, and glossaries of their own beside it.
+    /// running as stopped, and glossaries and playback copies of their own
+    /// beside it. Models are only read, so they stay the user's.
     static let library = ownFolder?.appending(path: "History") ?? HistoryStore.directory
     static let glossaries = ownFolder?.appending(path: "Glossaries") ?? GlossaryStore.directory
+    static let playbackCopies = ownFolder?.appending(path: "Replay") ?? Player.copies
 
     private static let ownFolder =
         isHostingTests || isSecondCopy
