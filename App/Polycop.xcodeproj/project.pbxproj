@@ -352,6 +352,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Free software under the GNU GPL version 3 or later. Source and licences: github.com/miravassor/polycop";
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/../Frameworks";
 				MARKETING_VERSION = 0.3.2;
 				PRODUCT_BUNDLE_IDENTIFIER = io.github.miravassor.Polycop;
@@ -381,6 +382,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Free software under the GNU GPL version 3 or later. Source and licences: github.com/miravassor/polycop";
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/../Frameworks";
 				MARKETING_VERSION = 0.3.2;
 				PRODUCT_BUNDLE_IDENTIFIER = io.github.miravassor.Polycop;

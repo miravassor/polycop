@@ -5,14 +5,21 @@ import Testing
 
 @testable import Polycop
 
+/// A player that reads none of the user's settings: a suite of its own, never
+/// written, so no file is left behind.
+@MainActor
+private func playerOfItsOwn() throws -> Player {
+    Player(defaults: try #require(UserDefaults(suiteName: "PolycopTests-\(UUID().uuidString)")))
+}
+
 /// The system controls follow an open recording and let go of it when it stops.
 @MainActor
-@Test func systemControlsFollowAnOpenRecording() {
+@Test func systemControlsFollowAnOpenRecording() throws {
     let commands = MPRemoteCommandCenter.shared()
     let info = MPNowPlayingInfoCenter.default()
     let nowPlaying = NowPlaying()
 
-    nowPlaying.activate(for: Player())
+    nowPlaying.activate(for: try playerOfItsOwn())
     #expect(commands.togglePlayPauseCommand.isEnabled)
     #expect(commands.nextTrackCommand.isEnabled)
     #expect(commands.changePlaybackPositionCommand.isEnabled)
@@ -73,7 +80,7 @@ import Testing
     let clip = URL(filePath: #filePath)
         .deletingLastPathComponent()
         .appending(path: "Fixtures/clip-fr.wav")
-    let player = Player()
+    let player = try playerOfItsOwn()
     defer { player.stop() }
     player.play(clip, from: 0)
     for _ in 0..<100 where !(player.isOpen && player.duration > 0) {
