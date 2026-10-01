@@ -13,7 +13,7 @@ extension AppModel {
 
     /// Read from the folder, so a file edited in another application counts.
     func refreshGlossaries() {
-        glossaries = GlossaryStore.all()
+        glossaries = GlossaryStore.all(in: glossaryFolder)
         for glossary in unsavedGlossaries.values {
             glossaries.removeAll { $0.name == glossary.name }
             glossaries.append(glossary)
@@ -26,8 +26,9 @@ extension AppModel {
 
     /// Creates an empty glossary under a free name and returns that name.
     func createGlossary(named wanted: String) throws -> String {
-        let glossary = Glossary(name: GlossaryStore.freeName(for: wanted), text: "")
-        try GlossaryStore.save(glossary)
+        let glossary = Glossary(
+            name: GlossaryStore.freeName(for: wanted, in: glossaryFolder), text: "")
+        try GlossaryStore.save(glossary, in: glossaryFolder)
         refreshGlossaries()
         return glossary.name
     }
@@ -35,7 +36,7 @@ extension AppModel {
     /// Runs on every keystroke, so the list is patched rather than read again.
     func saveGlossary(_ glossary: Glossary) throws {
         do {
-            try GlossaryStore.save(glossary)
+            try GlossaryStore.save(glossary, in: glossaryFolder)
             unsavedGlossaries[glossary.name] = nil
             if !hasUnsavedHistory { storageFailure = nil }
         } catch {
@@ -51,15 +52,15 @@ extension AppModel {
     }
 
     func importGlossary(_ file: URL) throws -> String {
-        let glossary = try GlossaryStore.importFile(file)
+        let glossary = try GlossaryStore.importFile(file, in: glossaryFolder)
         refreshGlossaries()
         return glossary.name
     }
 
     func deleteGlossary(named name: String) throws {
         defer { refreshGlossaries() }
-        try GlossaryStore.delete(named: name)
-        CourseCorrections.delete(for: name, in: courseCorrectionsFolder)
+        try GlossaryStore.delete(named: name, in: glossaryFolder)
+        CourseCorrections.delete(for: name, in: glossaryFolder)
         readCourseCorrections[name] = nil
         unsavedGlossaries[name] = nil
         if !hasUnsavedHistory { storageFailure = nil }
@@ -125,7 +126,7 @@ extension AppModel {
 
     func courseCorrections(forCourse name: String) -> [CourseCorrection] {
         if let read = readCourseCorrections[name] { return read }
-        let read = CourseCorrections.all(for: name, in: courseCorrectionsFolder)
+        let read = CourseCorrections.all(for: name, in: glossaryFolder)
         readCourseCorrections[name] = read
         return read
     }
@@ -135,7 +136,7 @@ extension AppModel {
         guard let name = entry(id)?.glossary else { return }
         defer { readCourseCorrections[name] = nil }
         do {
-            try CourseCorrections.remember(correction, for: name, in: courseCorrectionsFolder)
+            try CourseCorrections.remember(correction, for: name, in: glossaryFolder)
         } catch {
             report(error)
         }
@@ -144,7 +145,7 @@ extension AppModel {
     func forget(_ correction: CourseCorrection, forCourse name: String) {
         defer { readCourseCorrections[name] = nil }
         do {
-            try CourseCorrections.forget(correction, for: name, in: courseCorrectionsFolder)
+            try CourseCorrections.forget(correction, for: name, in: glossaryFolder)
         } catch {
             report(error)
         }

@@ -232,8 +232,7 @@ private func temporaryFolder() -> URL {
     entry.publish(entry.decoded, partial: false)
     entry.state = .finished
     try HistoryStore.write(entry, in: root)
-    let reloaded = AppModel(history: root)
-    reloaded.courseCorrectionsFolder = root
+    let reloaded = AppModel(history: root, glossaries: root)
     let stored = try #require(reloaded.entry(entry.id))
     #expect(stored.isEdited)
     #expect(stored.hasOnlyCourseCorrections)
@@ -269,8 +268,7 @@ private func temporaryFolder() -> URL {
     defer { try? FileManager.default.removeItem(at: root) }
     let correction = CourseCorrection(text: "Froid", replacement: "Freud")
     try CourseCorrections.remember(correction, for: "Psychologie", in: root)
-    let model = AppModel(history: root)
-    model.courseCorrectionsFolder = root
+    let model = AppModel(history: root, glossaries: root)
     #expect(model.courseCorrections(forCourse: "Psychologie") == [correction])
 
     model.forget(correction, forCourse: "Psychologie")
@@ -334,4 +332,25 @@ private func temporaryFolder() -> URL {
             CourseCorrection(text: "Froid", replacement: "Freud"), for: "Psychologie", in: folder)
     }
     #expect(try Data(contentsOf: file) == Data("not json".utf8))
+}
+
+/// Glossaries made through the app are written to the folder it was given,
+/// which a test keeps apart from the user's own.
+@MainActor
+@Test func theModelWritesGlossariesToItsOwnFolder() throws {
+    let root = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let source = root.appending(path: "Logique.txt")
+    try "Frege\nRussell".write(to: source, atomically: true, encoding: .utf8)
+    let glossaries = root.appending(path: "Glossaries")
+    let model = AppModel(history: root.appending(path: "History"), glossaries: glossaries)
+
+    let created = try model.createGlossary(named: "Philosophie")
+    let imported = try model.importGlossary(source)
+    try model.saveGlossary(Glossary(name: created, text: "Descartes\nHéloïse"))
+
+    #expect(Set(model.glossaries.map(\.name)) == [created, imported])
+    let written = Set(GlossaryStore.all(in: glossaries).map(\.text))
+    #expect(written == ["Descartes\nHéloïse", "Frege\nRussell"])
 }

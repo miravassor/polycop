@@ -330,6 +330,10 @@ struct ContentView: View {
 }
 
 #Preview {
-    // An empty library of its own, never the user's.
-    ContentView(model: AppModel(history: .temporaryDirectory.appending(path: UUID().uuidString)))
+    // An empty library and glossaries of its own, never the user's.
+    let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    ContentView(
+        model: AppModel(
+            history: folder.appending(path: "History"),
+            glossaries: folder.appending(path: "Glossaries")))
 }
