@@ -160,9 +160,12 @@ nonisolated final class AudioCppEngine: TranscriptionEngine, @unchecked Sendable
     }
 
     /// One window, on the queue. The window is already cut, so Qwen is told
-    /// not to cut it again.
+    /// not to cut it again. A MOSS window stopped by its token limit is read
+    /// again once from the end of its last finished passage, when that
+    /// leaves something to read.
     private func transcribe(
         _ samples: [Float], _ window: Range<Int>, language: String, hotwords: [String],
+        retriesCut: Bool = true,
         until stopIfAsked: () throws -> Void, progress: (Double) -> Void
     ) throws -> [Segment] {
         guard let request = audiocpp_request_create() else {
@@ -189,15 +192,35 @@ nonisolated final class AudioCppEngine: TranscriptionEngine, @unchecked Sendable
             let read = try Self.readMoss(
                 from: session, request, lasting: length, until: stopIfAsked,
                 progress: progress)
-            return Self.mossSegments(
+            let segments = Self.mossSegments(
                 in: read.text, from: Double(window.lowerBound) / rate, lasting: length,
                 isComplete: read.isComplete)
+            guard !read.isComplete, retriesCut,
+                let rest = Self.rest(of: window, after: segments.last?.end)
+            else { return segments }
+            let done = Double(rest.lowerBound - window.lowerBound) / Double(window.count)
+            return try segments
+                + transcribe(
+                    samples, rest, language: language, hotwords: hotwords, retriesCut: false,
+                    until: stopIfAsked, progress: { progress(done + $0 * (1 - done)) })
         case .audio:
             return try Self.streamVoxtral(
                 to: session, audio, request, from: Double(window.lowerBound) / rate,
                 until: stopIfAsked, progress: progress)
         }
         return try Self.qwenSegments(of: result, in: window)
+    }
+
+    /// What is left of a window after its last finished passage, when that
+    /// passage ended a second or more into it and before its last second.
+    static func rest(of window: Range<Int>, after end: TimeInterval?) -> Range<Int>? {
+        guard let end else { return nil }
+        let rate = AudioDecoder.sampleRate
+        let start = Int(end * Double(rate))
+        guard start >= window.lowerBound + rate, start <= window.upperBound - rate else {
+            return nil
+        }
+        return start..<window.upperBound
     }
 
     /// Sets the audio, language, glossary hotwords and alignment option on a
