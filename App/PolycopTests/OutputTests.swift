@@ -7,6 +7,25 @@ import Testing
 
 @testable import Polycop
 
+/// Text exports as the tests write them; the app hands the writer bytes, since
+/// a Word document is no text.
+extension Transcript {
+    @discardableResult
+    fileprivate static func write(
+        _ formats: [(suffix: String, contents: String)], as destination: URL
+    ) throws -> [URL] {
+        try write(formats.map { ($0.suffix, Data($0.contents.utf8)) }, as: destination)
+    }
+
+    fileprivate static func update(
+        _ files: [URL], holding digests: [String],
+        with formats: [(suffix: String, contents: String)]
+    ) throws -> [URL]? {
+        try update(
+            files, holding: digests, with: formats.map { ($0.suffix, Data($0.contents.utf8)) })
+    }
+}
+
 @Test func updatingSeveralExportsReportsTheSuccessfulPrefixOnFailure() throws {
     let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
     let locked = folder.appending(path: "Locked")

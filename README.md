@@ -65,9 +65,9 @@ unless they agree to more.
   not typing, and Esc leaves the text. The keyboard media keys, Control Center
   and headphone buttons control it too.
 * **Review marks** on passages to check later.
-* **Export** to text with or without timestamps, or to Markdown, with hesitations
-  such as "euh" left out if you want, and to SRT subtitles when the model times
-  its sentences.
+* **Export** to text with or without timestamps, to Markdown or to a Word
+  document, with hesitations such as "euh" left out if you want, and to SRT
+  subtitles when the model times its sentences.
 
 ## Models
 

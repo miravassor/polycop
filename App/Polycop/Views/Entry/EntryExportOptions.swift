@@ -19,11 +19,12 @@ struct EntryExportOptions: View {
             Picker(
                 "Text",
                 selection: Binding(
-                    get: { entry.textLayout ?? .timestamped }, set: { setTextLayout($0) })
+                    get: { entry.exportLayout }, set: { setTextLayout($0) })
             ) {
                 Text("With timestamps").tag(Transcript.TextLayout.timestamped)
                 Text("Without timestamps").tag(Transcript.TextLayout.plain)
                 Text("Markdown").tag(Transcript.TextLayout.markdown)
+                Text("Word document").tag(Transcript.TextLayout.word)
             }
             .disabled(isRunning)
             Toggle(
