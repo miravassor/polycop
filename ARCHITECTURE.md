@@ -13,11 +13,13 @@ Views (SwiftUI, AppKit text views)          main actor
    ▼
 AppModel (+ one extension per concern)      main actor, the only @Observable app state
    │  starts tasks, receives their results
-   ├──► Player, NowPlaying                  main actor, AVPlayer and media keys
+   ├──► Player, NowPlaying,                 main actor, AVPlayer, media keys,
+   │    PlaybackInterruptions               sleep and output changes
    ├──► AudioDecoder                        off the main actor, runs the bundled ffmpeg
    ├──► WhisperEngine, AudioCppEngine       own serial queues, C libraries
-   ├──► ModelDownloader, ModelStore         URLSession, SHA-256 proofs
-   └──► HistoryStore, GlossaryStore         JSON and text files in Application Support
+   ├──► ModelDownloader, ModelStore         URLSession, SHA-256 proofs, free space
+   └──► HistoryStore, HistoryWriter,        JSON and text files in Application Support;
+        GlossaryStore                       records written on the writer's queue
 Output/                                     pure functions on values: paragraphs,
                                             SRT, word timing, loop and credit rules
 ```
@@ -93,11 +95,12 @@ memory.
 * A paragraph is an `NSTextView` (`ParagraphEditor`) inside a lazy list
   (`TranscriptView`). Word times come from `WordLayout`, which places the
   engine's timed words on the corrected text with a word diff (`Edits`).
-* An edit becomes a correction in `AppModel.corrections`, so undo and revert
+* An edit becomes an undo step in `AppModel.undoSteps`, so undo and revert
   work per transcript. Typing is saved after a one second pause; any other
-  change is saved at once.
+  change is written at once, in the background.
 * The player bar and `SpaceToPlay` drive `Player`; `NowPlaying` connects it to
-  the media keys and Control Center.
+  the media keys and Control Center; `PlaybackInterruptions` pauses it when the
+  Mac sleeps or the output it plays through goes away.
 
 ## Persistence
 

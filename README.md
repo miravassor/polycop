@@ -48,8 +48,9 @@ unless they agree to more.
 
 ### Editing
 
-* **Correction while listening.** Click a timestamp, or Option-click a word, to
-  hear the passage; the word being heard is highlighted. Playback pauses when you
+* **Correction while listening.** Click a timestamp, Option-click a word, or
+  press Option Command P to play from the text cursor; the word being heard is
+  highlighted. Playback pauses when you
   start typing, resumes on its own once you stop, and steps back a little so the
   sentence is heard again. Fix the text in place, step back one correction at a
   time, or return to the original.
@@ -63,7 +64,8 @@ unless they agree to more.
   paragraphs, the next or previous paragraph from the keyboard, and the text
   following playback until you scroll away. Space plays and pauses when you are
   not typing, and Esc leaves the text. The keyboard media keys, Control Center
-  and headphone buttons control it too.
+  and headphone buttons control it too. It pauses when the Mac goes to sleep or
+  when the headphones it plays through disconnect.
 * **Review marks** on passages to check later.
 * **Export** to text with or without timestamps, or to Markdown, with hesitations
   such as "euh" left out if you want, and to SRT subtitles when the model times
@@ -95,7 +97,8 @@ speaker, so trying two models on your own recordings is worth it.
 
 * A Mac with Apple Silicon (M1 or later) and macOS 14 Sonoma or later.
 * Enough free disk space for the models you choose, and enough memory for the
-  one you run: the app refuses a model too large for your Mac, and says why.
+  one you run: the app checks the disk before a download and the memory before
+  it loads a model, and says why it refuses.
 * Nothing else to install. The app downloads the models itself, over a secure
   connection, and checks each file against its published SHA-256 fingerprint.
 
@@ -159,6 +162,9 @@ its release page.
   its last 223 tokens, and the app warns when yours is longer. MOSS reads it as
   hotwords. Qwen3-ASR and Voxtral do not use it.
 * Recordings can be up to four hours long.
+* A model download that is cancelled, cut off or stopped by quitting continues
+  where it left off the next time.
+* Recordings waiting in the queue stay there when you quit, for the next Start.
 * Pausing keeps the text obtained so far; a few words may be dropped or repeated
   where the work resumes, and those spots are marked. A paused job does not
   survive quitting the app.
