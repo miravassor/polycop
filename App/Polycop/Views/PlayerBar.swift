@@ -90,8 +90,8 @@ struct PlayerBar: View {
                 .accessibilityLabel("Stop")
 
                 HStack(spacing: 12) {
-                    Text(clock(position)).foregroundStyle(.primary)
-                    Text("/ \(clock(duration))").foregroundStyle(.secondary)
+                    Text(Self.clock(position)).foregroundStyle(.primary)
+                    Text("/ \(Self.clock(duration))").foregroundStyle(.secondary)
                 }
                 .font(.callout.monospacedDigit())
 
@@ -153,8 +153,10 @@ struct PlayerBar: View {
         "\(Double(speed).formatted(.number.precision(.fractionLength(0...2))))×"
     }
 
-    private func clock(_ time: TimeInterval) -> String {
-        Transcript.clock(Int(max(0, time) * 1000))
+    /// Bounded, so that a position read from a damaged record cannot trap in
+    /// the conversion.
+    static func clock(_ time: TimeInterval) -> String {
+        Transcript.clock(Int(min(max(0, time), AudioDecoder.longestRecording + 60) * 1000))
     }
 }
 
@@ -227,7 +229,7 @@ private struct Timeline: View {
             .allowsHitTesting(duration > 0)
             .accessibilityElement()
             .accessibilityLabel("Timeline")
-            .accessibilityValue(Transcript.clock(Int(position * 1000)))
+            .accessibilityValue(PlayerBar.clock(position))
             .accessibilityAdjustableAction { direction in
                 switch direction {
                 case .increment: reach(min(duration, position + 5))
