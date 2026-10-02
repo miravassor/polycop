@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import Foundation
+import os
 
 // MARK: Glossaries
 
@@ -38,6 +39,15 @@ extension AppModel {
         try GlossaryStore.save(glossary, in: glossaryFolder)
         refreshGlossaries()
         return glossary.name
+    }
+
+    /// Saves what the editor holds when it differs from what it loaded, or
+    /// when a failed write of that glossary waits to be retried: going back
+    /// to the saved text must replace it, or Retry Saving would write back
+    /// what the user undid.
+    func saveGlossary(_ glossary: Glossary, loaded: String) throws {
+        guard glossary.text != loaded || unsavedGlossaries[glossary.name] != nil else { return }
+        try saveGlossary(glossary)
     }
 
     /// Runs on every keystroke, so the list is patched rather than read again.
@@ -131,11 +141,19 @@ extension AppModel {
         entry.glossary.map { courseCorrections(forCourse: $0) } ?? []
     }
 
+    /// None when the file cannot be read, which is reported and read again
+    /// next time rather than remembered as none.
     func courseCorrections(forCourse name: String) -> [CourseCorrection] {
         if let read = readCourseCorrections[name] { return read }
-        let read = CourseCorrections.all(for: name, in: glossaryFolder)
-        readCourseCorrections[name] = read
-        return read
+        do {
+            let read = try CourseCorrections.all(for: name, in: glossaryFolder)
+            readCourseCorrections[name] = read
+            return read
+        } catch {
+            Log.persistence.error("the corrections of a course could not be read")
+            report(error)
+            return []
+        }
     }
 
     /// Remembers a replacement for the course of a transcript, for its next ones.

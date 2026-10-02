@@ -41,6 +41,9 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 * Correcting a search result no longer makes the page scroll to the next one while you type. The next result waits where the corrected one was, and Next shows it.
 * Replace moves on to the next result even when the replacement still matches the search, as "Freud" does "freud"; it used to stay on the word it had just replaced.
 * Find, Replace All and course corrections read a curly apostrophe and a straight one as the same, so "l'inconscient" also finds "l’inconscient".
+* A course correction no longer doubles words already corrected with the other apostrophe or at the start of a sentence: "L’homme social" stays as it is under a correction from "l'homme" to "l'homme social".
+* A course's corrections file that cannot be read is reported, left as it is and read again later, instead of silently applying no corrections until Polycop restarts.
+* Going back to a glossary's saved text after a save failed no longer lets Retry Saving, or quitting, write the failed text back.
 * Typing in a transcript keeps what is typed, whatever the system's text input settings: apostrophes no longer turn curly, double hyphens no longer become dashes, and spelling correction no longer rewrites names. A curly apostrophe hid the word from Find, Replace All and course corrections.
 * Pausing after a dead key, before its letter, no longer saves the accent alone as a correction.
 * A glossary edited in another application while the Glossary sheet is open is no longer written back to what the sheet read when it opened. Choosing a course reads its file again, and only what is typed in the sheet is saved.

@@ -67,7 +67,7 @@ func aTranscriptWrittenByAnEarlierReleaseStillLoads(release: String) throws {
     defer { try? FileManager.default.removeItem(at: glossaries) }
 
     #expect(
-        CourseCorrections.all(for: "Philosophie", in: glossaries)
+        try CourseCorrections.all(for: "Philosophie", in: glossaries)
             == [CourseCorrection(text: "des cartes", replacement: "Descartes")])
 }
 

@@ -11,10 +11,16 @@ nonisolated struct CourseCorrection: Codable, Equatable, Hashable, Sendable {
 
 /// The corrections of each course, in a JSON file beside its glossary.
 nonisolated enum CourseCorrections {
-    static func all(
-        for glossary: String, in folder: URL = GlossaryStore.directory
-    ) -> [CourseCorrection] {
-        (try? stored(for: glossary, in: folder)) ?? []
+    /// A corrections file that exists but cannot be read or decoded.
+    struct Unreadable: LocalizedError {
+        let course: String
+
+        var errorDescription: String? {
+            String(
+                localized:
+                    "The corrections remembered for \(course) could not be read. Their file is left as it is, and none are applied until it can be read."
+            )
+        }
     }
 
     /// Adds a correction, replacing one for the same text.
@@ -22,7 +28,7 @@ nonisolated enum CourseCorrections {
         _ correction: CourseCorrection, for glossary: String,
         in folder: URL = GlossaryStore.directory
     ) throws {
-        let kept = try stored(for: glossary, in: folder).filter {
+        let kept = try all(for: glossary, in: folder).filter {
             $0.text.compare(correction.text, options: [.caseInsensitive, .diacriticInsensitive])
                 != .orderedSame
         }
@@ -34,7 +40,7 @@ nonisolated enum CourseCorrections {
         in folder: URL = GlossaryStore.directory
     ) throws {
         try save(
-            stored(for: glossary, in: folder).filter { $0 != correction }, for: glossary,
+            all(for: glossary, in: folder).filter { $0 != correction }, for: glossary,
             in: folder)
     }
 
@@ -45,13 +51,18 @@ nonisolated enum CourseCorrections {
     }
 
     /// No file means no corrections yet. A file that cannot be read throws,
-    /// so that saving never writes over the corrections it holds.
-    private static func stored(for glossary: String, in folder: URL) throws -> [CourseCorrection] {
+    /// so that saving never writes over the corrections it holds, and the
+    /// user is told rather than shown none.
+    static func all(
+        for glossary: String, in folder: URL = GlossaryStore.directory
+    ) throws -> [CourseCorrection] {
         do {
             let data = try Data(contentsOf: file(for: glossary, in: folder))
             return try JSONDecoder().decode([CourseCorrection].self, from: data)
         } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
             return []
+        } catch {
+            throw Unreadable(course: glossary)
         }
     }
 

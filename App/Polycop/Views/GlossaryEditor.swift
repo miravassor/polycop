@@ -203,9 +203,9 @@ struct GlossaryEditor: View {
 
     @discardableResult
     private func save() -> Bool {
-        guard let selection, text != loaded else { return true }
+        guard let selection else { return true }
         do {
-            try model.saveGlossary(Glossary(name: selection, text: text))
+            try model.saveGlossary(Glossary(name: selection, text: text), loaded: loaded)
             loaded = text
             problem = nil
             return true
