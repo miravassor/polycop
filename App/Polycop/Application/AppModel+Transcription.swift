@@ -36,7 +36,8 @@ extension AppModel {
                     source: transcript.lastPathComponent)
                 let names = Set(entries.map(\.name))
                 if names.contains(entry.name) {
-                    entry.title = Entry.freeName(from: entry.name, among: names)
+                    entry.title = Entry.freeName(
+                        from: entry.name, of: entry.recording, among: names)
                 }
                 entries.insert(entry, at: 0)
                 store(entry)
@@ -93,7 +94,8 @@ extension AppModel {
             // different folders, would otherwise be two rows called the same
             // thing, offering the save panel the same name.
             if taken.contains(entry.name) {
-                entry.title = Entry.freeName(from: entry.name, among: taken)
+                entry.title = Entry.freeName(
+                    from: entry.name, of: entry.recording, among: taken)
             }
             taken.insert(entry.name)
             return entry
@@ -176,7 +178,8 @@ extension AppModel {
         else { return }
         failure = nil
         var again = entry.retrying()
-        again.title = Entry.freeName(from: entry.name, among: Set(entries.map(\.name)))
+        again.title = Entry.freeName(
+            from: entry.name, of: entry.recording, among: Set(entries.map(\.name)))
         entries.insert(again, at: 0)
         scheduled.insert(again.id)
         store(again)
