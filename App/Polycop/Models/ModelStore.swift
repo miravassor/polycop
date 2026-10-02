@@ -32,6 +32,41 @@ nonisolated enum ModelStore {
         return Int64(size) == model.bytes
     }
 
+    /// Left free on top of a model, so a download never fills the Mac to the
+    /// last byte, which stops other programs and the system itself.
+    static let spaceMargin: Int64 = 1_000_000_000
+
+    /// Reads the capacity the system offers for something the user asked to
+    /// keep, which counts what it would clear (caches, purgeable files) rather
+    /// than only what is empty now. Nil when it cannot be read, so an odd
+    /// volume never blocks a download.
+    static func availableCapacity(of folder: URL) -> Int64? {
+        let values = try? folder.resourceValues(
+            forKeys: [.volumeAvailableCapacityForImportantUsageKey])
+        return values?.volumeAvailableCapacityForImportantUsage
+    }
+
+    /// What is needed and what is free, when the folder's volume cannot take
+    /// `bytes` and the margin; nil when it can, or when that cannot be known.
+    /// A file that waits in the folder before its rename needs one copy only.
+    static func shortfall(
+        forBytes bytes: Int64, in folder: URL, available: @Sendable (URL) -> Int64?
+    ) -> (needed: Int64, available: Int64)? {
+        let needed = bytes + spaceMargin
+        guard let free = available(folder), free < needed else { return nil }
+        return (needed, free)
+    }
+
+    /// The same words for a download and an import that are refused.
+    static func notEnoughSpaceMessage(needed: Int64, available: Int64) -> String {
+        let needed = ByteCountFormatter.string(fromByteCount: needed, countStyle: .file)
+        let available = ByteCountFormatter.string(fromByteCount: available, countStyle: .file)
+        return String(
+            localized:
+                "Not enough disk space for this model: \(needed) are needed, including 1 GB of margin, and \(available) are free. Free some space and try again."
+        )
+    }
+
     static func installed() -> [Model] {
         ModelCatalog.all.filter { isInstalled($0) }
     }
@@ -72,9 +107,12 @@ nonisolated enum ModelStore {
     enum ImportError: LocalizedError, Equatable {
         case unrecognized
         case damaged(Model)
+        case notEnoughSpace(needed: Int64, available: Int64)
 
         var errorDescription: String? {
             switch self {
+            case .notEnoughSpace(let needed, let available):
+                notEnoughSpaceMessage(needed: needed, available: available)
             case .unrecognized:
                 String(
                     localized:
@@ -117,14 +155,18 @@ nonisolated enum ModelStore {
     /// The copy runs on a queue of its own: gigabytes from a slow disk would
     /// hold a thread of the Swift concurrency pool for minutes. A stop is read
     /// between blocks.
+    /// `availableCapacity` is for tests, which cannot fill a disk.
     static func install(
-        _ source: URL, in folder: URL = directory, catalogue: [Model] = ModelCatalog.files
+        _ source: URL, in folder: URL = directory, catalogue: [Model] = ModelCatalog.files,
+        availableCapacity: @escaping @Sendable (URL) -> Int64? = ModelStore.availableCapacity(of:)
     ) async throws -> Model {
         try Task.checkCancellation()
         let cancelled = OSAllocatedUnfairLock(initialState: false)
         return try await withTaskCancellationHandler {
             try await copyingQueue.run {
-                try copy(source, into: folder, catalogue: catalogue, until: cancelled)
+                try copy(
+                    source, into: folder, catalogue: catalogue, until: cancelled,
+                    availableCapacity: availableCapacity)
             }
         } onCancel: {
             cancelled.withLock { $0 = true }
@@ -136,7 +178,8 @@ nonisolated enum ModelStore {
 
     private static func copy(
         _ source: URL, into folder: URL, catalogue: [Model],
-        until cancelled: OSAllocatedUnfairLock<Bool>
+        until cancelled: OSAllocatedUnfairLock<Bool>,
+        availableCapacity: @Sendable (URL) -> Int64?
     ) throws -> Model {
         func checkCancellation() throws {
             if cancelled.withLock({ $0 }) { throw CancellationError() }
@@ -150,6 +193,10 @@ nonisolated enum ModelStore {
         guard !candidates.isEmpty else { throw ImportError.unrecognized }
         let manager = FileManager.default
         try manager.createDirectory(at: folder, withIntermediateDirectories: true)
+        // Refused before the first byte is copied, not after gigabytes.
+        if let short = shortfall(forBytes: Int64(size), in: folder, available: availableCapacity) {
+            throw ImportError.notEnoughSpace(needed: short.needed, available: short.available)
+        }
         let partial = folder.appending(path: UUID().uuidString + ".part")
         defer { try? manager.removeItem(at: partial) }
         guard

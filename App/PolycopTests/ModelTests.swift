@@ -189,6 +189,33 @@ func modelMemoryFitsTheBudget(peak: Int64, budget: Int64, expected: Bool) {
     #expect(try FileManager.default.contentsOfDirectory(atPath: store.path) == [model.id])
 }
 
+@Test func anImportIsRefusedWhenTheVolumeLacksRoom() async throws {
+    let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: folder) }
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    let source = folder.appending(path: "renamed.bin")
+    let data = Data(repeating: 3, count: 2048)
+    try data.write(to: source)
+    let model = Model(
+        id: "known.bin", name: "Test", detail: "Synthetic", bytes: Int64(data.count),
+        peakBytes: 4096, sha256: Transcript.digest(data), license: "MIT",
+        repository: "example/test", commit: String(repeating: "0", count: 40), file: "known.bin")
+    let store = folder.appending(path: "Models")
+    let needed = model.bytes + ModelStore.spaceMargin
+
+    let refusal = ModelStore.ImportError.notEnoughSpace(needed: needed, available: needed - 1)
+    await #expect(throws: refusal) {
+        _ = try await ModelStore.install(
+            source, in: store, catalogue: [model], availableCapacity: { _ in needed - 1 })
+    }
+    #expect(try FileManager.default.contentsOfDirectory(atPath: store.path).isEmpty)
+
+    // Exactly enough is enough.
+    #expect(
+        try await ModelStore.install(
+            source, in: store, catalogue: [model], availableCapacity: { _ in needed }) == model)
+}
+
 @Test func unknownModelIsRefusedWithoutCallingTheNativeParser() async throws {
     let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: folder) }
