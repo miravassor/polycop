@@ -136,7 +136,12 @@ extension AppModel {
     func setTextLayout(_ layout: Transcript.TextLayout, for id: Entry.ID) {
         guard !isShuttingDown else { return }
         updateEntry(id) {
-            $0.textLayout = layout
+            if layout == .word {
+                $0.exportsWord = true
+            } else {
+                $0.exportsWord = nil
+                $0.textLayout = layout
+            }
             $0.isSaved = false
         }
     }
