@@ -74,3 +74,24 @@ func onlyAPageOfPolycopsReleasesIsAccepted(page: String) {
 @Test func theAppKnowsWhenItHostsTests() {
     #expect(PolycopApp.isHostingTests)
 }
+
+/// A check counts from when it starts, so one that fails still waits a day;
+/// a copy left open checks again when it comes forward a day later, and
+/// only a launch asks the question.
+@MainActor
+@Test func theAutomaticCheckCountsWhenItStartsAndRunsWhenTheAppComesForward() {
+    let now = Date.now
+    let allowed = MemoryDefaults()
+    allowed.set(true, forKey: UpdatePrompt.automaticKey)
+
+    #expect(UpdatePrompt.step(atLaunch: true, defaults: allowed, now: now) == .check)
+    #expect(UpdatePrompt.step(atLaunch: true, defaults: allowed, now: now + 60) == .wait)
+    #expect(
+        UpdatePrompt.step(
+            atLaunch: false, defaults: allowed, now: now + UpdateSchedule.interval) == .check)
+
+    let undecided = MemoryDefaults()
+    #expect(UpdatePrompt.step(atLaunch: true, defaults: undecided, now: now) == .wait)
+    #expect(UpdatePrompt.step(atLaunch: false, defaults: undecided, now: now) == .wait)
+    #expect(UpdatePrompt.step(atLaunch: true, defaults: undecided, now: now) == .ask)
+}

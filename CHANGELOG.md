@@ -27,7 +27,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 * Export Text (⌘S) and Export Text As… (⇧⌘S) are in the File menu. ⌘S updates the export, or asks where to put the first one, and works right after typing, when the button could still show the export as up to date.
 * New Transcription spaces its sections as the other pages do, the engine cards in the model list have the border of every other card, and the glossary and term editors have rounded corners like the other controls.
 * Quitting keeps the recordings that were only waiting in the queue: after a relaunch they wait for Start again instead of showing as stopped, and quitting asks first only when something is in progress. The recording being transcribed still stops, as its progress cannot be resumed.
-* Opening Polycop while it is already open brings the open copy forward instead of starting a second one. Two copies each wrote what they had read at launch, so one could write over the other's corrections.
+* Opening Polycop while it is already open brings the open copy forward instead of starting a second one. Two copies each wrote what they had read at launch, so one could write over the other's corrections. This includes a copy of 0.3.2 or earlier left open while this version starts; the other way round cannot be caught, so quit the older version before opening this one.
 
 ### Fixed
 
@@ -69,6 +69,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 * Playback you pause just after it starts, as typing does, stays paused: the player no longer takes a late report from the audio system as a request to play again.
 * A transcript whose recording is on a disk that is not connected no longer mounts that disk while the page draws, which could wait on the network or ask for a password while you type. The recording shows as unavailable until you connect the disk.
 * The update check accepts only a page of Polycop's own releases from the answer.
+* The automatic update check keeps to once a day: a check that fails waits a day like one that works, instead of asking GitHub again at every launch, and a copy left open for days checks when it comes forward.
 * An export never replaces a file the save panel did not ask about: naming it "cours.text" no longer writes over a "cours.txt" already in that folder.
 * While the list of folders cannot be read, transcripts stay in their folders: moving them is refused until the list is repaired, rather than taking them out of folders the app can no longer name.
 
