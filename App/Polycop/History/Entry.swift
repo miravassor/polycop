@@ -132,7 +132,7 @@ nonisolated struct Entry: Identifiable, Equatable, Codable, Sendable {
         var copy = self
         copy.id = UUID()
         copy.added = .now
-        copy.title = Entry.freeName(from: name, among: names)
+        copy.title = Entry.freeName(from: name, of: recording, among: names)
         copy.saved = []
         copy.savedDigests = []
         copy.isSaved = false
@@ -179,18 +179,16 @@ nonisolated struct Entry: Identifiable, Equatable, Codable, Sendable {
 
     /// "Cours 12.wav" becomes "Cours 12 (2).wav", then "Cours 12 (3).wav". The
     /// name stays whole, since lectures are often numbered; only a number in
-    /// parentheses, as this adds, is replaced. It goes before the extension.
-    static func freeName(from name: String, among names: Set<String>) -> String {
-        let file = name as NSString
-        let suffix = file.pathExtension
-        var stem = file.deletingPathExtension
+    /// parentheses, as this adds, is replaced. It goes before the recording's
+    /// extension, and after a renamed "Séance 3.2" as a whole.
+    static func freeName(from name: String, of recording: URL, among names: Set<String>) -> String {
+        var (stem, suffix) = RecordingName.split(name, of: recording)
         if let range = stem.range(of: #" \(\d+\)$"#, options: .regularExpression) {
             stem.removeSubrange(range)
         }
         var number = 2
         while true {
-            let candidate =
-                suffix.isEmpty ? "\(stem) (\(number))" : "\(stem) (\(number)).\(suffix)"
+            let candidate = "\(stem) (\(number))\(suffix)"
             if !names.contains(candidate) { return candidate }
             number += 1
         }

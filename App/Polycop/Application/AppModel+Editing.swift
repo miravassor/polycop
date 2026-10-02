@@ -102,14 +102,17 @@ extension AppModel {
     /// Names the transcript in the library. Only the title changes: the
     /// recording, the text, the corrections, the exports and the folder stay
     /// as they are. The recording's own file name clears the title, so the
-    /// transcript follows it again.
+    /// transcript follows it again. A Markdown or Word export heads its text
+    /// with the name, so it then needs updating.
     func rename(_ id: Entry.ID, to name: String) {
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !isShuttingDown, !name.isEmpty, let entry = entry(id), name != entry.name else {
             return
         }
+        let headsWithName = [.markdown, .word].contains(entry.exportLayout)
         updateEntry(id) {
             $0.title = name == $0.recording.lastPathComponent ? nil : name
+            if headsWithName { $0.isSaved = false }
         }
     }
 

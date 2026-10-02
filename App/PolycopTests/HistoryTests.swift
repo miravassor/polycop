@@ -112,11 +112,17 @@ private func entry(_ name: String, in folder: URL, added: Date = .now) -> Entry 
 /// A lecture's own number is part of its name: a second transcript of
 /// "Cours 12" must not take lecture 2's name.
 @Test func aSecondTranscriptKeepsTheLecturesNumber() {
-    #expect(Entry.freeName(from: "Cours 12.m4a", among: ["Cours 12.m4a"]) == "Cours 12 (2).m4a")
+    let lecture = URL(filePath: "/tmp/Cours 12.m4a")
     #expect(
-        Entry.freeName(from: "Cours 12 (2).m4a", among: ["Cours 12.m4a", "Cours 12 (2).m4a"])
+        Entry.freeName(from: "Cours 12.m4a", of: lecture, among: ["Cours 12.m4a"])
+            == "Cours 12 (2).m4a")
+    #expect(
+        Entry.freeName(
+            from: "Cours 12 (2).m4a", of: lecture, among: ["Cours 12.m4a", "Cours 12 (2).m4a"])
             == "Cours 12 (3).m4a")
-    #expect(Entry.freeName(from: "Cours 12", among: ["Cours 12"]) == "Cours 12 (2)")
+    #expect(Entry.freeName(from: "Cours 12", of: lecture, among: ["Cours 12"]) == "Cours 12 (2)")
+    // A renamed transcript keeps what follows its dot.
+    #expect(Entry.freeName(from: "Séance 3.2", of: lecture, among: []) == "Séance 3.2 (2)")
 }
 
 /// One process holds the library; a second claim on it, as a second copy
