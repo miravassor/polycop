@@ -59,6 +59,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 * Jumping to a paragraph or along the timeline while playing no longer shows the old position again for a moment before the new one.
 * Voxtral transcripts get a timestamp every 30 seconds, as they should, rather than one every five minutes, and keep the last words before each five-minute cut.
 * Voxtral no longer loses whole minutes of a lecture when it stops writing in the middle of a five-minute stretch: after five seconds without text the stream starts again and reads the silent part once more.
+* Pausing, stopping or quitting a MOSS or Voxtral transcription keeps what it had finished of the current five-minute stretch, so a pause resumes after it instead of reading minutes again, and a stop keeps them.
 * A MOSS window that repeats itself until its token limit no longer ends the whole transcription: that window keeps what it had written, and the rest of the recording is transcribed, and the rest of that window is read once more from its last finished passage.
 * Stopping or quitting while a Whisper transcription is about to start takes effect at once, and its progress no longer goes past 100%.
 * A recording in a folder the app cannot read is reported as unreadable, with the reason, rather than as moved.

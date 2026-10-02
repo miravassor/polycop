@@ -140,12 +140,19 @@ nonisolated final class AudioCppEngine: TranscriptionEngine, @unchecked Sendable
                 var segments: [Segment] = []
                 for (done, window) in windows.enumerated() {
                     try stopIfAsked()
-                    let found = try self.transcribe(
-                        samples, window, language: language, hotwords: hotwords,
-                        until: stopIfAsked,
-                        progress: {
-                            onProgress((Double(done) + $0) / Double(windows.count))
-                        })
+                    let found: [Segment]
+                    do {
+                        found = try self.transcribe(
+                            samples, window, language: language, hotwords: hotwords,
+                            until: stopIfAsked,
+                            progress: {
+                                onProgress((Double(done) + $0) / Double(windows.count))
+                            })
+                    } catch let stopped as StoppedWindow {
+                        // Kept like the windows before, so a pause resumes after them.
+                        stopped.segments.forEach(onSegment)
+                        throw CancellationError()
+                    }
                     segments += found
                     found.forEach(onSegment)
                     onProgress(Double(done + 1) / Double(windows.count))
@@ -188,27 +195,60 @@ nonisolated final class AudioCppEngine: TranscriptionEngine, @unchecked Sendable
         case .whole:
             try Self.check(audiocpp_session_run(session, request, &result))
         case .text:
-            let length = Double(window.count) / rate
-            let read = try Self.readMoss(
-                from: session, request, lasting: length, until: stopIfAsked,
-                progress: progress)
-            let segments = Self.mossSegments(
-                in: read.text, from: Double(window.lowerBound) / rate, lasting: length,
-                isComplete: read.isComplete)
-            guard !read.isComplete, retriesCut,
-                let rest = Self.rest(of: window, after: segments.last?.end)
-            else { return segments }
-            let done = Double(rest.lowerBound - window.lowerBound) / Double(window.count)
-            return try segments
-                + transcribe(
+            return try transcribeMoss(
+                window, request, until: stopIfAsked, progress: progress
+            ) { rest, done in
+                guard retriesCut else { return nil }
+                return try transcribe(
                     samples, rest, language: language, hotwords: hotwords, retriesCut: false,
                     until: stopIfAsked, progress: { progress(done + $0 * (1 - done)) })
+            }
         case .audio:
             return try Self.streamVoxtral(
                 to: session, audio, request, from: Double(window.lowerBound) / rate,
                 until: stopIfAsked, progress: progress)
         }
         return try Self.qwenSegments(of: result, in: window)
+    }
+
+    /// A MOSS window. When its token limit stopped it, `again` reads the rest
+    /// from its last finished passage, given the part of the window already
+    /// done, or answers nil.
+    private func transcribeMoss(
+        _ window: Range<Int>, _ request: OpaquePointer,
+        until stopIfAsked: () throws -> Void, progress: (Double) -> Void,
+        again: (Range<Int>, Double) throws -> [Segment]?
+    ) throws -> [Segment] {
+        let rate = Double(AudioDecoder.sampleRate)
+        let length = Double(window.count) / rate
+        func segments(of text: String, isComplete: Bool) -> [Segment] {
+            Self.mossSegments(
+                in: text, from: Double(window.lowerBound) / rate, lasting: length,
+                isComplete: isComplete)
+        }
+        let read: (text: String, isComplete: Bool)
+        do {
+            read = try Self.readMoss(
+                from: session, request, lasting: length, until: stopIfAsked,
+                progress: progress)
+        } catch let stopped as StoppedReading {
+            throw StoppedWindow(segments: segments(of: stopped.text, isComplete: false))
+        }
+        let found = segments(of: read.text, isComplete: read.isComplete)
+        guard !read.isComplete, let rest = Self.rest(of: window, after: found.last?.end) else {
+            return found
+        }
+        let done = Double(rest.lowerBound - window.lowerBound) / Double(window.count)
+        do {
+            return try found + (again(rest, done) ?? [])
+        } catch let stopped as StoppedWindow {
+            throw StoppedWindow(segments: found + stopped.segments)
+        }
+    }
+
+    /// A stop inside a window, with the passages that window had finished.
+    struct StoppedWindow: Error {
+        let segments: [Segment]
     }
 
     /// What is left of a window after its last finished passage, when that

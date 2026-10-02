@@ -68,21 +68,19 @@ nonisolated extension AudioCppEngine {
         var replayedTo = 0
         var shown = 0.0
         while pushed < padded.count {
-            try stopIfAsked()
+            do {
+                try stopIfAsked()
+            } catch {
+                throw StoppedWindow(
+                    segments: finishedSpans(of: streamed, marks: marks, from: offset))
+            }
             let count = min(voxtralStep, padded.count - pushed)
             let piece = try push(
                 padded[pushed..<(pushed + count)], to: session, at: pushed - origin)
             pushed += count
             let heard = min(audio.count, max(origin, pushed - voxtralDelay))
-            if let first = piece.first {
-                // The first words of a new stream, kept apart from the last ones.
-                if textStart > 0, streamed.count == textStart, let last = streamed.last,
-                    !isSpace(last), !isSpace(first)
-                {
-                    streamed.append(0x20)
-                    textStart += 1
-                }
-                streamed += piece
+            if !piece.isEmpty {
+                append(piece, to: &streamed, streamStart: &textStart)
                 lastText = heard
             }
             if heard - (marks.last?.end ?? 0) >= span { marks.append((heard, streamed.count)) }
@@ -107,6 +105,35 @@ nonisolated extension AudioCppEngine {
         let transcript = Array(streamed[..<textStart]) + (try bytes(of: result))
         return streamedSegments(
             of: transcript, streamed: streamed, marks: marks, lasting: audio.count, from: offset)
+    }
+
+    /// The spans a stopped window had read to their end, as segments. The
+    /// text stops at its last space, since the word read last may not be
+    /// whole yet.
+    static func finishedSpans(
+        of streamed: [UInt8], marks: [(end: Int, read: Int)], from offset: TimeInterval
+    ) -> [Segment] {
+        guard let last = marks.last else { return [] }
+        var read = min(last.read, streamed.count)
+        while read > 0, !isSpace(streamed[read - 1]) { read -= 1 }
+        let text = Array(streamed[..<read])
+        return streamedSegments(
+            of: text, streamed: text, marks: marks, lasting: last.end, from: offset)
+    }
+
+    /// Adds a step's text. The first words of a new stream are kept apart
+    /// from the last ones of the stream before, which moves where the new
+    /// stream's text starts.
+    private static func append(
+        _ piece: [UInt8], to streamed: inout [UInt8], streamStart: inout Int
+    ) {
+        if streamStart > 0, streamed.count == streamStart, let last = streamed.last,
+            let first = piece.first, !isSpace(last), !isSpace(first)
+        {
+            streamed.append(0x20)
+            streamStart += 1
+        }
+        streamed += piece
     }
 
     /// Pushes one step of audio, `sample` samples into the current stream,
