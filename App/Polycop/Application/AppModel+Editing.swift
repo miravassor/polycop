@@ -99,6 +99,20 @@ extension AppModel {
         }
     }
 
+    /// Names the transcript in the library. Only the title changes: the
+    /// recording, the text, the corrections, the exports and the folder stay
+    /// as they are. The recording's own file name clears the title, so the
+    /// transcript follows it again.
+    func rename(_ id: Entry.ID, to name: String) {
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !isShuttingDown, !name.isEmpty, let entry = entry(id), name != entry.name else {
+            return
+        }
+        updateEntry(id) {
+            $0.title = name == $0.recording.lastPathComponent ? nil : name
+        }
+    }
+
     /// A second transcript of the same recording, to correct it another way
     /// without losing the first. Nothing is transcribed again.
     @discardableResult
