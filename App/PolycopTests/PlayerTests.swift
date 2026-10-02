@@ -168,19 +168,19 @@ private func open(_ player: Player) async throws {
     #expect(!player.isPlaying)
 }
 
-/// Both observers pause every player they watch, and a test posts the sleep
-/// notification to the system-wide center, so these tests do not run at once.
+/// Sleep and a departed output pause playback. Each test posts on a center of
+/// its own and leaves the real audio devices alone, so tests running at once
+/// never pause one another's players.
 @MainActor
-@Suite(.serialized)
 struct InterruptionTests {
-    /// A device change cannot be staged in a test, so the observer's one method is
-    /// called; the listener only calls it. It also keeps paused what typing was
-    /// about to resume, so playback never moves to the speakers by itself.
+    /// It also keeps paused what typing was about to resume, so playback never
+    /// comes back by itself after the Mac woke or the headphones left.
     @Test func anInterruptionPausesPlaybackAndCancelsAResumeAfterTyping() async throws {
         let settings = Settings()
         settings.values[Player.resumeAfterTypingKey] = 0.2
         let player = Player(defaults: settings)
-        let interruptions = PlaybackInterruptions(player: player)
+        let interruptions = PlaybackInterruptions(
+            player: player, center: NotificationCenter(), watchesOutput: false)
         defer { player.stop() }
         try await open(player)
         #expect(player.isPlaying)
@@ -198,16 +198,16 @@ struct InterruptionTests {
         #expect(!player.isPlaying)
     }
 
-    /// Posted on the workspace's own center, as the system does before sleeping.
     @Test func theMacGoingToSleepPausesPlayback() async throws {
+        let center = NotificationCenter()
         let player = Player(defaults: Settings())
-        var interruptions: PlaybackInterruptions? = PlaybackInterruptions(player: player)
+        var interruptions: PlaybackInterruptions? = PlaybackInterruptions(
+            player: player, center: center, watchesOutput: false)
         defer { player.stop() }
         try await open(player)
         try #require(player.isPlaying)
 
-        NSWorkspace.shared.notificationCenter.post(
-            name: NSWorkspace.willSleepNotification, object: NSWorkspace.shared)
+        center.post(name: NSWorkspace.willSleepNotification, object: nil)
         for _ in 0..<100 where player.isPlaying {
             try await Task.sleep(for: .milliseconds(50))
         }
@@ -218,9 +218,16 @@ struct InterruptionTests {
         interruptions = nil
         player.toggle()
         try #require(player.isPlaying)
-        NSWorkspace.shared.notificationCenter.post(
-            name: NSWorkspace.willSleepNotification, object: NSWorkspace.shared)
+        center.post(name: NSWorkspace.willSleepNotification, object: nil)
         try await Task.sleep(for: .milliseconds(300))
         #expect(player.isPlaying)
+    }
+
+    /// As Music does: headphones that leave pause playback; headphones plugged
+    /// in, or another output chosen, take it over.
+    @Test func onlyAnOutputThatWentAwayPauses() {
+        #expect(PlaybackInterruptions.wentAway(7, devices: [1, 2]))
+        #expect(!PlaybackInterruptions.wentAway(7, devices: [1, 7, 9]))
+        #expect(!PlaybackInterruptions.wentAway(nil, devices: [1]))
     }
 }
