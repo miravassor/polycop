@@ -86,7 +86,8 @@ extension AppModel {
             // A paragraph that was only "Euh." would export as a bare time.
             paragraphs.removeAll { $0.text.isEmpty }
         }
-        let title = Transcript.suggestedName(for: entry.name, partial: entry.isPartial)
+        let title = Transcript.suggestedName(
+            for: entry.name, of: entry.recording, partial: entry.isPartial)
         let text =
             layout == .word
             ? try WordDocument.data(paragraphs, title: title)
