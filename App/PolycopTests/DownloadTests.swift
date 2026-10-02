@@ -224,6 +224,63 @@ private func fails(_ operation: () async throws -> URL, with expected: (Download
     #expect(leftovers(in: folder).isEmpty)
 }
 
+/// A volume that is too full is told up front, before a request is made or
+/// a byte is written, instead of after gigabytes.
+@Test func aDownloadIsRefusedWhenTheVolumeLacksRoom() async throws {
+    let server = try LoopbackServer(body: body) { _ in .file }
+    defer { server.stop() }
+    let url = try await server.start()
+    let folder = temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let free = Int64(body.count) + ModelStore.spaceMargin - 1
+
+    do {
+        _ = try await ModelDownloader.download(
+            model(of: body), from: url, in: folder, availableCapacity: { _ in free })
+        Issue.record("the download should have been refused")
+    } catch let error as DownloadError {
+        guard case .notEnoughSpace(let needed, let available) = error else {
+            Issue.record("unexpected error \(error)")
+            return
+        }
+        #expect(needed == Int64(body.count) + ModelStore.spaceMargin)
+        #expect(available == free)
+        // The message names both amounts, in the style the model list uses for sizes.
+        let message = try #require(error.errorDescription)
+        for amount in [needed, available] {
+            let written = ByteCountFormatter.string(fromByteCount: amount, countStyle: .file)
+            #expect(message.contains(written))
+        }
+    }
+    #expect(server.requests.isEmpty)
+    #expect(leftovers(in: folder).isEmpty)
+}
+
+@Test(arguments: [Int64?.some(0), nil])
+func aDownloadRunsWhenThereIsRoomOrTheCapacityIsUnknown(shortBy: Int64?) async throws {
+    let server = try LoopbackServer(body: body) { _ in .file }
+    defer { server.stop() }
+    let url = try await server.start()
+    let folder = temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: folder) }
+    // Exactly enough is enough; an unreadable value never blocks.
+    let free = shortBy.map { Int64(body.count) + ModelStore.spaceMargin - $0 }
+
+    let file = try await ModelDownloader.download(
+        model(of: body), from: url, in: folder, availableCapacity: { _ in free })
+
+    #expect(try Data(contentsOf: file) == body)
+    #expect(leftovers(in: folder).isEmpty)
+}
+
+@Test func theRealCapacityOfAFolderCanBeRead() throws {
+    let folder = temporaryFolder()
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: folder) }
+
+    #expect(try #require(ModelStore.availableCapacity(of: folder)) > 0)
+}
+
 /// Cancel and Quit stop the download with the bytes kept, and the next
 /// attempt asks only for the rest.
 @Test(.timeLimit(.minutes(1)))
