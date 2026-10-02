@@ -348,7 +348,7 @@ private func finished(_ recording: URL, in history: URL, model: String, language
 /// the save panel do not offer the same thing twice, and correcting one leaves
 /// the other alone.
 @MainActor
-@Test func recordingsOfTheSameNameAreTwoTranscriptsToldApart() throws {
+@Test func recordingsOfTheSameNameAreTwoTranscriptsToldApart() async throws {
     let (folder, recording) = try library()
     defer { try? FileManager.default.removeItem(at: folder) }
     let elsewhere = folder.appending(path: "Autre dossier")
@@ -368,6 +368,8 @@ private func finished(_ recording: URL, in history: URL, model: String, language
 
     // Corrections belong to one transcript, never to the other.
     let first = try #require(model.entries.last)
+    // The first model's own writes of these entries land before this one.
+    await model.finishWrites()
     var published = first
     published.publish([Segment(start: 0, end: 2, text: "Le cours.")], partial: false)
     published.state = .finished
@@ -437,7 +439,7 @@ private func finished(_ recording: URL, in history: URL, model: String, language
     defer { try? FileManager.default.removeItem(at: folder) }
     let model = AppModel(history: folder.appending(path: "History"))
     model.transcribe([recording])
-    #expect(model.retrySavingHistory())
+    #expect(await model.retrySavingHistory())
     #expect(model.running == nil)
     #expect(model.entries.first?.state == .waiting)
     await model.shutDown()
@@ -522,7 +524,7 @@ private func finished(_ recording: URL, in history: URL, model: String, language
 }
 
 @MainActor
-@Test func anUnsavedGlossarySurvivesRefreshAndBlocksSilentQuit() {
+@Test func anUnsavedGlossarySurvivesRefreshAndBlocksSilentQuit() async {
     let root = URL.temporaryDirectory.appending(path: UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: root) }
     let model = AppModel(history: root, glossaries: root)
@@ -531,6 +533,6 @@ private func finished(_ recording: URL, in history: URL, model: String, language
     #expect(model.hasUnsavedHistory)
     model.refreshGlossaries()
     #expect(model.glossaries.contains(glossary))
-    #expect(!model.retrySavingHistory())
+    #expect(await !model.retrySavingHistory())
     #expect(model.storageFailure != nil)
 }

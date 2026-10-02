@@ -258,7 +258,7 @@ extension LoadingAModel {
 /// A job cut short by quitting cannot resume, so it comes back stopped; a
 /// recording that never started comes back waiting for the next Start.
 @MainActor
-@Test func workCutShortByQuittingComesBackStopped() throws {
+@Test func workCutShortByQuittingComesBackStopped() async throws {
     let history = URL.temporaryDirectory.appending(path: UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: history) }
     var interrupted = Entry(
@@ -272,6 +272,7 @@ extension LoadingAModel {
     try HistoryStore.write(queued, in: history)
 
     let model = AppModel(history: history)
+    await model.finishWrites()
 
     #expect(model.entries.map(\.state) == [.waiting, .stopped])
     #expect(HistoryStore.all(in: history).entries.map(\.state) == [.waiting, .stopped])
@@ -297,14 +298,15 @@ extension LoadingAModel {
     try FileManager.default.setAttributes([.posixPermissions: 0o500], ofItemAtPath: history.path)
     model.edit(entry.id, paragraphAt: 0, text: "Correction.")
     model.pane = .new
+    await model.finishWrites()
     #expect(model.hasUnsavedHistory)
     #expect(model.storageFailure != nil)
     await model.shutDown()
-    #expect(!model.retrySavingHistory())
+    #expect(await !model.retrySavingHistory())
     #expect(
         HistoryStore.all(in: history).entries.first?.paragraphs.first?.text == "Original.")
     try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: history.path)
-    #expect(model.retrySavingHistory())
+    #expect(await model.retrySavingHistory())
     #expect(model.storageFailure == nil)
     #expect(
         HistoryStore.all(in: history).entries.first?.paragraphs.first?.text == "Correction.")
@@ -448,6 +450,7 @@ extension LoadingAModel {
             #expect(!entry.decoded.isEmpty)
             #expect(entry.isPartial)
             #expect(entry.sentenceTimes == true || !model.alignerInstalled)
+            await model.finishWrites()
             #expect(HistoryStore.all(in: history).entries.first == entry)
         }
     }
@@ -456,7 +459,7 @@ extension LoadingAModel {
 /// The queue waits for a failed history write, so starting is not offered
 /// until the write succeeds.
 @MainActor
-@Test func startingWaitsForAFailedHistoryWrite() throws {
+@Test func startingWaitsForAFailedHistoryWrite() async throws {
     let history = URL.temporaryDirectory.appending(path: UUID().uuidString)
     try FileManager.default.createDirectory(at: history, withIntermediateDirectories: true)
     defer {
@@ -467,6 +470,7 @@ extension LoadingAModel {
     let model = AppModel(history: history)
     try FileManager.default.setAttributes([.posixPermissions: 0o500], ofItemAtPath: history.path)
     model.transcribe([clip])
+    await model.finishWrites()
     #expect(!model.waiting.isEmpty)
     #expect(model.hasUnsavedHistory)
     #expect(!model.canStart)
@@ -498,6 +502,7 @@ extension LoadingAModel {
 
         model.edit(id, paragraphAt: 0, text: "Premier essai.")
         model.savePending()
+        await model.finishWrites()
         #expect(
             HistoryStore.all(in: history).entries.first?.paragraphs.first?.text
                 == "Premier essai.")
@@ -583,13 +588,15 @@ extension LoadingAModel {
     try FileManager.default.setAttributes(
         [.posixPermissions: 0o500], ofItemAtPath: history.path)
     model.transcribe([folder.appending(path: "one.wav")])
-    model.start()
     let id = try #require(model.entries.first?.id)
+    await model.finishWrites()
+    model.start()
     #expect(model.running == nil)
     #expect(model.hasUnsavedHistory)
     try FileManager.default.setAttributes(
         [.posixPermissions: 0o700], ofItemAtPath: history.path)
     model.moveEntry(id, to: destination)
+    await model.finishWrites()
     #expect(!model.hasUnsavedHistory)
     #expect(model.running == id)
     await model.shutDown()
@@ -609,8 +616,9 @@ extension LoadingAModel {
     try FileManager.default.setAttributes(
         [.posixPermissions: 0o500], ofItemAtPath: history.path)
     model.transcribe([folder.appending(path: "one.wav")])
-    model.start()
     let id = try #require(model.entries.first?.id)
+    await model.finishWrites()
+    model.start()
     #expect(model.hasUnsavedHistory)
     model.removeEntry(id)
     #expect(model.entries.isEmpty)

@@ -239,7 +239,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         Task {
             await model.shutDown()
-            if !model.retrySavingHistory() {
+            if await !model.retrySavingHistory() {
                 let alert = NSAlert()
                 alert.alertStyle = .warning
                 alert.messageText = String(localized: "Some changes could not be saved")

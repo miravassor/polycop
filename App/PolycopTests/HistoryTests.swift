@@ -8,7 +8,7 @@ import Testing
 @testable import Polycop
 
 @MainActor
-@Test func foldersPersistWithoutMovingAudioAndCanOnlyBeDeletedWhenEmpty() throws {
+@Test func foldersPersistWithoutMovingAudioAndCanOnlyBeDeletedWhenEmpty() async throws {
     let history = URL.temporaryDirectory.appending(path: UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: history) }
     let audio = history.appending(path: "lecture.wav")
@@ -24,12 +24,14 @@ import Testing
     try model.removeFolder(folder)
     #expect(model.folders.count == 1)
     try model.renameFolder(folder, to: "Ethics")
+    await model.finishWrites()
     let reloaded = AppModel(history: history)
     #expect(reloaded.folders.first?.name == "Ethics")
     #expect(reloaded.entry(entry.id)?.folderID == folder)
     #expect(reloaded.entry(entry.id)?.recording == audio)
     reloaded.moveEntry(entry.id, to: nil)
     try reloaded.removeFolder(folder)
+    await reloaded.finishWrites()
     #expect(try HistoryStore.folders(in: history).isEmpty)
     #expect(HistoryStore.all(in: history).entries.first?.folderID == nil)
 }
@@ -274,7 +276,7 @@ private func entry(_ name: String, in folder: URL, added: Date = .now) -> Entry 
 }
 
 @MainActor
-@Test func aDuplicateCarriesTheTextAndTakesTheNextNumber() throws {
+@Test func aDuplicateCarriesTheTextAndTakesTheNextNumber() async throws {
     let history = URL.temporaryDirectory.appending(path: UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: history) }
     var entry = Entry(
@@ -294,6 +296,7 @@ private func entry(_ name: String, in folder: URL, added: Date = .now) -> Entry 
     #expect(model.entry(second)?.recording == model.entry(entry.id)?.recording)
     // Each one is corrected on its own.
     model.edit(second, paragraphAt: 0, text: "Autre texte.")
+    await model.finishWrites()
     #expect(model.entry(entry.id)?.paragraphs.first?.text == "Le cours.")
     #expect(HistoryStore.all(in: history).entries.count == 3)
 }
@@ -480,7 +483,7 @@ private func entry(_ name: String, in folder: URL, added: Date = .now) -> Entry 
     #expect(try written() == "Bonjour à toutes.")
 
     model.edit(entry.id, paragraphAt: 0, text: "Bonsoir à toutes.")
-    #expect(model.retrySavingHistory())
+    #expect(await model.retrySavingHistory())
     #expect(try written() == "Bonsoir à toutes.")
 }
 
@@ -540,6 +543,7 @@ private func entry(_ name: String, in folder: URL, added: Date = .now) -> Entry 
     let left = try #require(model.entry(entry.id))
     #expect(left.readingParagraph == 1)
     #expect((left.playbackPosition ?? 0) >= 2 && (left.playbackPosition ?? 0) < 3)
+    await model.finishWrites()
     #expect(AppModel(history: history).entry(entry.id)?.readingParagraph == 1)
 
     model.pane = .entry(entry.id)
