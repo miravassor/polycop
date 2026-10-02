@@ -63,13 +63,13 @@ jobs:
         run: command -v gpg >/dev/null || brew install gnupg
 
       # Both dependencies take minutes to build, so each is cached on the
-      # script that builds it.
+      # script that builds it and the versions it reads.
       - name: Restore ffmpeg
         id: ffmpeg
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: build/ffmpeg
-          key: ffmpeg-${{ runner.os }}-${{ hashFiles('Tools/build-ffmpeg.sh') }}
+          key: ffmpeg-${{ runner.os }}-${{ hashFiles('Tools/build-ffmpeg.sh', 'Tools/versions.sh') }}
 
       - name: Build ffmpeg
         if: steps.ffmpeg.outputs.cache-hit != 'true'
@@ -80,7 +80,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: Packages/AudioCppFramework/audiocpp.xcframework
-          key: audiocpp-${{ runner.os }}-${{ hashFiles('Tools/build-audiocpp.sh') }}
+          key: audiocpp-${{ runner.os }}-${{ hashFiles('Tools/build-audiocpp.sh', 'Tools/versions.sh') }}
 
       - name: Build audio.cpp
         if: steps.audiocpp.outputs.cache-hit != 'true'
