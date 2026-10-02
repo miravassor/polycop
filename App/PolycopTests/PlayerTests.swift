@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+import AppKit
 import Foundation
 import Testing
 
@@ -165,4 +166,61 @@ private func open(_ player: Player) async throws {
     player.pauseForTyping()
     try await Task.sleep(for: .milliseconds(500))
     #expect(!player.isPlaying)
+}
+
+/// Both observers pause every player they watch, and a test posts the sleep
+/// notification to the system-wide center, so these tests do not run at once.
+@MainActor
+@Suite(.serialized)
+struct InterruptionTests {
+    /// A device change cannot be staged in a test, so the observer's one method is
+    /// called; the listener only calls it. It also keeps paused what typing was
+    /// about to resume, so playback never moves to the speakers by itself.
+    @Test func anInterruptionPausesPlaybackAndCancelsAResumeAfterTyping() async throws {
+        let settings = Settings()
+        settings.values[Player.resumeAfterTypingKey] = 0.2
+        let player = Player(defaults: settings)
+        let interruptions = PlaybackInterruptions(player: player)
+        defer { player.stop() }
+        try await open(player)
+        #expect(player.isPlaying)
+
+        interruptions.interrupt()
+        #expect(!player.isPlaying)
+
+        // Resuming works as any resume.
+        player.toggle()
+        #expect(player.isPlaying)
+
+        player.pauseForTyping()
+        interruptions.interrupt()
+        try await Task.sleep(for: .milliseconds(500))
+        #expect(!player.isPlaying)
+    }
+
+    /// Posted on the workspace's own center, as the system does before sleeping.
+    @Test func theMacGoingToSleepPausesPlayback() async throws {
+        let player = Player(defaults: Settings())
+        var interruptions: PlaybackInterruptions? = PlaybackInterruptions(player: player)
+        defer { player.stop() }
+        try await open(player)
+        try #require(player.isPlaying)
+
+        NSWorkspace.shared.notificationCenter.post(
+            name: NSWorkspace.willSleepNotification, object: NSWorkspace.shared)
+        for _ in 0..<100 where player.isPlaying {
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        #expect(!player.isPlaying)
+
+        // Once the observer is gone, sleep no longer touches the player.
+        withExtendedLifetime(interruptions) {}
+        interruptions = nil
+        player.toggle()
+        try #require(player.isPlaying)
+        NSWorkspace.shared.notificationCenter.post(
+            name: NSWorkspace.willSleepNotification, object: NSWorkspace.shared)
+        try await Task.sleep(for: .milliseconds(300))
+        #expect(player.isPlaying)
+    }
 }

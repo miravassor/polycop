@@ -8,6 +8,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 * Play From Cursor (⌥⌘P), in a new Playback menu, plays from the word at the text cursor: Option-click without the mouse.
 * The text cursor can follow playback: after a correction, it moves with the word being heard, so the next one is typed where the audio is. Off by default, in Settings; a click keeps the cursor where you put it until you type.
+* Playback pauses by itself when the Mac goes to sleep, and when the sound output changes while it plays, as when headphones or AirPods disconnect, so a lecture never moves to the speakers. Resuming works as usual.
 * Each release's disk image and zip are attested by GitHub: `gh attestation verify Polycop-X.Y.Z.dmg --repo miravassor/polycop` names the commit and the workflow run that built the file. The build can no longer write to the repository; only the step that drafts the release can.
 
 ### Changed

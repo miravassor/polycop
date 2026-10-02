@@ -82,6 +82,8 @@ final class AppModel {
     }
     private(set) var imported: [ModelStore.Imported] = []
     let player: Player
+    /// Pauses playback for sleep and a change of output device, for as long as the model lives.
+    @ObservationIgnored private let interruptions: PlaybackInterruptions
     /// The course glossaries, and each course's corrections beside them.
     let glossaryFolder: URL
     /// The downloaded models. Tests that transcribe read the user's, never
@@ -217,7 +219,9 @@ final class AppModel {
         historyWriter = HistoryWriter(folder: history)
         glossaryFolder = glossaries
         modelFolder = models
-        player = Player(copies: playbackCopies)
+        let player = Player(copies: playbackCopies)
+        self.player = player
+        interruptions = PlaybackInterruptions(player: player)
         self.engines = engines ?? .live(models: models)
         refreshInstalled()
         selected = ModelCatalog.startingModel(installed: installed).id
