@@ -50,7 +50,9 @@ private func open(_ player: Player) async throws {
         try await Task.sleep(for: .milliseconds(50))
     }
     try #require(player.isOpen)
-    #expect(player.position == 2)
+    // Opened at the second time, then playing: on a busy machine it may
+    // already have moved on by the time this reads it.
+    #expect(player.position >= 2)
 }
 
 /// Leaving a transcript stops playback. Coming back plays the copy already

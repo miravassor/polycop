@@ -598,7 +598,10 @@ extension LoadingAModel {
     model.moveEntry(id, to: destination)
     await model.finishWrites()
     #expect(!model.hasUnsavedHistory)
-    #expect(model.running == id)
+    // The scripted job can start and finish while the write is awaited, so
+    // what is checked is that it ran, not that it is still running.
+    try await settle(model)
+    #expect(model.entry(id)?.state == .finished)
     await model.shutDown()
 }
 
