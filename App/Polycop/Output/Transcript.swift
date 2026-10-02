@@ -187,11 +187,17 @@ nonisolated enum Transcript {
     }
 
     /// The name the save panel opens with, based on the transcript's own
-    /// name, which tells apart two transcripts of the same lecture. A
-    /// transcript stopped before the end says so in its name, so it cannot
-    /// pass for a whole lecture later.
-    static func suggestedName(for transcript: String, partial: Bool) -> String {
-        let name = (transcript as NSString).deletingPathExtension
+    /// name, which tells apart two transcripts of the same lecture. Only the
+    /// recording's extension is taken off: a name the user gave, such as
+    /// "Séance 3.2", keeps what follows its dot. A transcript stopped before
+    /// the end says so in its name, so it cannot pass for a whole lecture later.
+    static func suggestedName(for transcript: String, of recording: URL, partial: Bool) -> String {
+        let suffix = "." + recording.pathExtension
+        let name =
+            recording.pathExtension.isEmpty
+                || transcript.range(of: suffix, options: [.anchored, .backwards, .caseInsensitive])
+                    == nil
+            ? transcript : String(transcript.dropLast(suffix.count))
         return partial ? String(localized: "\(name) (partial)") : name
     }
 

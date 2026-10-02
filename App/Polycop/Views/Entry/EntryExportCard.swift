@@ -105,7 +105,7 @@ struct EntryExportCard: View {
     static func exportAs(_ entry: Entry, with model: AppModel) {
         let panel = NSSavePanel()
         panel.nameFieldStringValue = Transcript.suggestedName(
-            for: entry.name, partial: entry.isPartial)
+            for: entry.name, of: entry.recording, partial: entry.isPartial)
         let format = FormatChoice(panel: panel, layout: entry.exportLayout)
         panel.accessoryView = format.view
         panel.directoryURL = entry.location.deletingLastPathComponent()

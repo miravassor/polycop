@@ -191,9 +191,27 @@ private func segments(fromSubRip text: String) throws -> [Segment] {
     try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: folder) }
 
-    #expect(Transcript.suggestedName(for: "cours.m4a", partial: true) == "cours (partial)")
+    let recording = URL(filePath: "/tmp/cours.m4a")
+    #expect(
+        Transcript.suggestedName(for: "cours.m4a", of: recording, partial: true)
+            == "cours (partial)")
     // A second transcript of the same lecture keeps its own name apart.
-    #expect(Transcript.suggestedName(for: "cours 2.m4a", partial: false) == "cours 2")
+    #expect(
+        Transcript.suggestedName(for: "cours 2.m4a", of: recording, partial: false) == "cours 2")
+}
+
+/// A name the user gave keeps what follows a dot: only the recording's
+/// extension is taken off.
+@Test func aRenamedTranscriptKeepsItsWholeNameForExport() {
+    let recording = URL(filePath: "/tmp/cours.M4A")
+    #expect(
+        Transcript.suggestedName(for: "Séance 3.2", of: recording, partial: false) == "Séance 3.2")
+    #expect(
+        Transcript.suggestedName(for: "Séance 3.2.m4a", of: recording, partial: false)
+            == "Séance 3.2")
+    #expect(
+        Transcript.suggestedName(for: "notes.txt", of: URL(filePath: "/tmp/notes"), partial: false)
+            == "notes.txt")
 }
 
 /// A second save of the same result updates its files, but only while they
