@@ -27,8 +27,9 @@ Tools/package.sh           # locally signed app and zip with its sources, in bui
   never reaches the engines. After changing `Engine/`, `Audio/` or any code that uses
   unsafe pointers, run the suite locally with the models installed, once with
   `-enableThreadSanitizer YES` and once with `-enableAddressSanitizer YES`.
-* A release starts on a branch `release/X.Y.Z` that sets `MARKETING_VERSION`, raises
-  `CURRENT_PROJECT_VERSION`, and turns the changelog's "Unreleased" into "X.Y.Z (date)".
+* A release starts on a branch `release/X.Y.Z` that sets `MARKETING_VERSION` and raises
+  `CURRENT_PROJECT_VERSION` in both targets and both configurations (four lines in
+  the project file, one value), and turns the changelog's "Unreleased" into "X.Y.Z (date)".
   Once it is merged, pushing the tag `vX.Y.Z` makes `.github/workflows/release.yml`
   build and test with read access only, then attest the files and draft the
   GitHub release in a separate job. Only that job may write to the repository.
@@ -39,7 +40,7 @@ How the parts fit, who owns which state and where work runs: `ARCHITECTURE.md`.
 
 ```
 App/Polycop/
-  Application/         PolycopApp, and AppModel: the single @Observable state holder,
+  Application/         PolycopApp, and AppModel: the one holder of app state,
                        split by concern into AppModel+*.swift
   Views/               SwiftUI views and sheets; Views/Entry/ holds the transcript page
   Engine/              TranscriptionEngine protocol, WhisperEngine (whisper.cpp), AudioCppEngine (audio.cpp)
@@ -51,7 +52,7 @@ App/Polycop/
   Support/             small helpers shared across folders: text decoding, file digests,
                        blocking work run on a queue
   Resources/Licenses/  licence texts shipped in the app
-App/PolycopTests/      Swift Testing suites; Fixtures/ holds synthetic audio only
+App/PolycopTests/      Swift Testing suites; Fixtures/ holds synthetic data only
 Packages/              local packages wrapping the whisper.cpp and audio.cpp binaries
 Tools/                 build, fixture and packaging scripts
 ```
@@ -71,7 +72,8 @@ Tools/                 build, fixture and packaging scripts
   saying which. Prefer checked `Sendable`.
 * The build has no warnings: CI compiles with `SWIFT_TREAT_WARNINGS_AS_ERRORS=YES`.
 * Comments are English, short, and say why, not what. No dates, no measurement stories.
-* Every file starts with `// SPDX-License-Identifier: GPL-3.0-or-later` (`#` in scripts).
+* Every Swift file, script and workflow starts with
+  `// SPDX-License-Identifier: GPL-3.0-or-later` (`#` in scripts and workflows).
 * Formatting follows `.swift-format`; the lint must stay clean. No force unwrap or
   `try!`: where a value can never be missing, such as a URL built from literals, say
   why in a comment above a `swift-format-ignore` for that one rule.
@@ -87,7 +89,8 @@ Tools/                 build, fixture and packaging scripts
   `ARCHITECTURE.md` in the same pull request.
 * A new dependency, tool or model is pinned to a version and checked against a digest,
   as the build scripts and `Tools/lint.sh` do. Versions of what ships with its source
-  live in `Tools/versions.sh`; `Tools/check-versions.sh` checks the rest agree.
+  live in `Tools/versions.sh`; `Tools/check-versions.sh` checks that both
+  `Package.swift` files and the notices agree.
 * Interface strings are in English. No emoji, and no dashes as punctuation, in the
   interface or the documentation.
 
@@ -118,9 +121,9 @@ Every page speaks the same visual language. The shared pieces live in
 
 ## Things that break silently
 
-* `Entry`, `Segment`, `Transcript.Paragraph`, `TranscriptFolder`, glossaries and the
-  course corrections beside them (`<course>.corrections.json`) are stored as JSON in
-  `~/Library/Application Support/Polycop/`. Never rename their stored properties or
+* `Entry`, `Segment`, `Transcript.Paragraph`, `TranscriptFolder` and the course
+  corrections (`<course>.corrections.json`) are stored as JSON, and glossaries as
+  `<course>.txt`, in `~/Library/Application Support/Polycop/`. Never rename their stored properties or
   change their meaning: existing libraries must still load.
 * A stored property added to them is optional. Synthesized decoding ignores default
   values, so `var isPinned = false` would make every record written before it fail
@@ -134,8 +137,10 @@ Every page speaks the same visual language. The shared pieces live in
 * Space plays and pauses through a key monitor (`SpaceToPlay`) unless text being
   edited or a control reached with the keyboard has it. A new view that needs Space
   must be one of those, or the player takes the key.
-* Engines call C APIs on their own serial queue. Keep every whisper.cpp and audio.cpp
-  call on that queue and respect the object lifetimes documented next to them.
+* Engines call C APIs on their own serial queue: every call that uses a loaded
+  context stays on that instance's queue. Loading a model and Whisper's silence
+  detector run on queues of their own on purpose. Respect the object lifetimes
+  documented next to them.
 * The app must work offline. The only network uses are downloading catalog models and
   the update check, run when the user asks or daily once they allow it. A failed
   automatic check is only logged.
@@ -147,7 +152,9 @@ Every page speaks the same visual language. The shared pieces live in
 * Tests use Swift Testing. Add a test with each behaviour change. A bug fix comes with
   the test that fails without it, unless the bug lives only in audio timing or on
   screen; the pull request then says how it was checked.
-* Fixtures are synthetic, made with `Tools/fixtures.sh` and the macOS `say` voices.
+* Fixtures are synthetic: the recordings in `Fixtures/formats/` are made by
+  `Tools/fixtures.sh` from the macOS `say` voices; records and paragraphs are written
+  by hand from made-up text.
 * Never commit recordings, transcripts of real lectures, or model weights, nor a
   screenshot that shows a real library: blur course names first.
 * Tests never touch the user's library, preferences or Trash: use a temporary folder or

@@ -18,7 +18,7 @@ struct ShortcutHelpView: View {
                 shortcut("Smaller text", "⌘−")
                 shortcut("Larger text", "⌘+")
                 Text(
-                    "Replay starts two seconds before the active paragraph. While you edit, Space types a space and the other shortcuts keep working; Esc leaves the text."
+                    "Replay starts two seconds before the active paragraph. Playing from a word or the cursor needs a transcript timed word by word. While you edit, Space types a space and the other shortcuts keep working; Esc leaves the text."
                 )
                 .font(.caption).foregroundStyle(.secondary)
             }

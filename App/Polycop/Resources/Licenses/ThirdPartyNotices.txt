@@ -3,7 +3,7 @@
 Polycop is distributed under the GNU General Public License version 3 or
 later. It ships the components below, each under its own licence. The full
 licence texts are in `App/Polycop/Resources/Licenses/` and inside the app, in
-`Contents/Resources/Licenses/`.
+`Contents/Resources/`.
 
 ## whisper.cpp
 

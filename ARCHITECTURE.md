@@ -11,13 +11,15 @@ protect.
 Views (SwiftUI, AppKit text views)          main actor
    │  read state, call AppModel methods
    ▼
-AppModel (+ one extension per concern)      main actor, the only @Observable app state
+AppModel (+ one extension per concern)      main actor, the one holder of app state
    │  starts tasks, receives their results
-   ├──► Player, NowPlaying                  main actor, AVPlayer and media keys
+   ├──► Player, NowPlaying,                 main actor, AVPlayer, media keys,
+   │    PlaybackInterruptions               sleep and output changes
    ├──► AudioDecoder                        off the main actor, runs the bundled ffmpeg
    ├──► WhisperEngine, AudioCppEngine       own serial queues, C libraries
-   ├──► ModelDownloader, ModelStore         URLSession, SHA-256 proofs
-   └──► HistoryStore, GlossaryStore         JSON and text files in Application Support
+   ├──► ModelDownloader, ModelStore         URLSession, SHA-256 proofs, free space
+   └──► HistoryStore, HistoryWriter,        JSON and text files in Application Support;
+        GlossaryStore                       records written on the writer's queue
 Output/                                     pure functions on values: paragraphs,
                                             SRT, word timing, loop and credit rules
 ```
@@ -63,9 +65,9 @@ there.
 * Cancellation is cooperative: tasks check it between steps, the engines
   answer it from the callbacks the C libraries call while they compute, and
   the decoder terminates ffmpeg.
-* Progress and segments reach the main actor through `@Sendable` callbacks;
-  segments are also collected under a lock, so a paused job keeps what it had
-  decoded.
+* Progress reaches the main actor through a `@Sendable` callback. Segments
+  are collected under a lock and published when the job ends, pauses, stops
+  or fails, so a paused job keeps what it had decoded.
 
 ## A transcription
 
@@ -93,11 +95,12 @@ memory.
 * A paragraph is an `NSTextView` (`ParagraphEditor`) inside a lazy list
   (`TranscriptView`). Word times come from `WordLayout`, which places the
   engine's timed words on the corrected text with a word diff (`Edits`).
-* An edit becomes a correction in `AppModel.corrections`, so undo and revert
+* An edit becomes an undo step in `AppModel.undoSteps`, so undo and revert
   work per transcript. Typing is saved after a one second pause; any other
-  change is saved at once.
+  change is written at once, in the background.
 * The player bar and `SpaceToPlay` drive `Player`; `NowPlaying` connects it to
-  the media keys and Control Center.
+  the media keys and Control Center; `PlaybackInterruptions` pauses it when the
+  Mac sleeps or the output it plays through goes away.
 
 ## Persistence
 
@@ -135,7 +138,7 @@ before losing one that failed. Stored property names never change (see
 
 `App/PolycopTests/` has one suite per subject. Pure code in `Output/`,
 `Glossary/` and `History/` is tested directly on values. `AppModel` is
-tested with temporary folders and settings in memory. Its queue is
+tested with temporary folders; the player with settings in memory. Its queue is
 also tested with a scripted engine given through `Engines`, so pause, resume,
 stop, quit and failures run in CI; engine tests run only when their model is
 installed. Audio timing is never asserted: CI
