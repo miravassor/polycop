@@ -41,7 +41,7 @@ xcodebuild build \
     -scheme Polycop -configuration Release \
     -destination 'platform=macOS,arch=arm64' \
     -derivedDataPath "$ROOT/build/local-derived" \
-    CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual
+    CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
 
 APP="$ROOT/build/local-derived/Build/Products/Release/Polycop.app"
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist")"
