@@ -68,3 +68,58 @@ func aTranscriptWrittenByAnEarlierReleaseStillLoads(release: String) throws {
         CourseCorrections.all(for: "Philosophie", in: glossaries)
             == [CourseCorrection(text: "des cartes", replacement: "Descartes")])
 }
+
+/// A copy of the 0.3.2 record, changed as `change` says, in a folder of its own.
+private func changed(_ change: (inout [String: Any]) -> Void) throws -> URL {
+    var record = try #require(
+        JSONSerialization.jsonObject(
+            with: Data(contentsOf: records.appending(path: "entry-0.3.2.json")))
+            as? [String: Any])
+    change(&record)
+    let id = try #require(record["id"] as? String)
+    let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    try JSONSerialization.data(withJSONObject: record).write(
+        to: folder.appending(path: id + ".json"))
+    return folder
+}
+
+/// Before 0.4, MOSS could save a turn before the one it follows, and the
+/// record was refused at the next launch. It opens, each text with its time,
+/// and the reading place follows its paragraph.
+@Test func aRecordWithParagraphsOutOfOrderOpensSorted() throws {
+    let history = try changed { record in
+        for key in ["paragraphs", "originalParagraphs", "decoded"] {
+            record[key] = (record[key] as? [Any]).map { Array($0.reversed()) }
+        }
+        record["readingParagraph"] = 0
+    }
+    defer { try? FileManager.default.removeItem(at: history) }
+
+    let library = HistoryStore.all(in: history)
+
+    #expect(library.damaged.isEmpty)
+    let entry = try #require(library.entries.first)
+    #expect(entry.paragraphs.map(\.start) == [0, 4000])
+    #expect(entry.paragraphs.first?.text == "Bonjour à toutes et à tous.")
+    #expect(entry.original.map(\.start) == [0, 4000])
+    #expect(entry.decoded.map(\.start) == [0, 4])
+    #expect(entry.readingParagraph == 1)
+    #expect(entry.isEdited)
+}
+
+/// A playback position out of bounds is forgotten rather than refusing the
+/// transcript, or trapping when the player shows it.
+@Test func aPlaybackPositionOutOfBoundsIsForgotten() throws {
+    let history = try changed { record in
+        record["playbackPosition"] = 1e100
+    }
+    defer { try? FileManager.default.removeItem(at: history) }
+
+    let library = HistoryStore.all(in: history)
+
+    #expect(library.damaged.isEmpty)
+    let entry = try #require(library.entries.first)
+    #expect(entry.playbackPosition == nil)
+    #expect(PlayerBar.clock(1e100) == PlayerBar.clock(AudioDecoder.longestRecording + 60))
+}

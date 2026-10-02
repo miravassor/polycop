@@ -84,7 +84,7 @@ nonisolated enum HistoryStore {
         } catch {
             return damaged("the file cannot be read")
         }
-        let entry: Entry
+        var entry: Entry
         do {
             entry = try decoder.decode(Entry.self, from: data)
         } catch DecodingError.keyNotFound(let key, let context) {
@@ -101,6 +101,7 @@ nonisolated enum HistoryStore {
         guard entry.id == UUID(uuidString: file.deletingPathExtension().lastPathComponent) else {
             return damaged("its id differs from the file name")
         }
+        entry.repair()
         guard entry.hasValidHistory else { return damaged("a time or a path is out of bounds") }
         return .success(entry)
     }
@@ -172,6 +173,26 @@ nonisolated enum HistoryStore {
 }
 
 nonisolated extension Entry {
+    /// Mends what a record can hold out of place without losing anything the
+    /// user wrote. Before 0.4, MOSS could write a turn before the one it
+    /// follows where voices overlap, and the record was refused: its segments
+    /// and paragraphs are sorted by start, each text staying with its time.
+    /// A playback position out of bounds is forgotten; the page already
+    /// ignores a reading place it does not have.
+    mutating func repair() {
+        let order = paragraphs.indices.sorted { paragraphs[$0].start < paragraphs[$1].start }
+        if order != Array(paragraphs.indices) {
+            decoded.sort { $0.start < $1.start }
+            paragraphs = order.map { paragraphs[$0] }
+            originalParagraphs = originalParagraphs?.sorted { $0.start < $1.start }
+            readingParagraph = readingParagraph.flatMap { order.firstIndex(of: $0) }
+        }
+        let ceiling = AudioDecoder.longestRecording + 60
+        if let position = playbackPosition, !(0...ceiling).contains(position) {
+            playbackPosition = nil
+        }
+    }
+
     /// Whether every numeric field is finite and within plausible bounds;
     /// used to reject a record too corrupted to display safely.
     var hasValidHistory: Bool {

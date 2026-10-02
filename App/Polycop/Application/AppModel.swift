@@ -278,17 +278,25 @@ final class AppModel {
             foldersAreDamaged = true
             damaged += 1
         }
-        if damaged > 0 {
-            libraryWarning = String(
-                localized:
-                    "\(damaged) file of your library could not be read. It has been left untouched in \(history.path(percentEncoded: false)). The rest of your transcripts are here."
-            )
-        }
+        if damaged > 0 { libraryWarning = Self.warning(damaged: damaged, in: history) }
         // A job cut short by quitting cannot resume: its audio is gone.
         // Recordings that never started stay waiting for the next Start.
         for entry in entries where entry.state == .running {
             updateEntry(entry.id) { $0.state = .stopped }
         }
+    }
+
+    private static func warning(damaged: Int, in history: URL) -> String {
+        let place = history.path(percentEncoded: false)
+        return damaged == 1
+            ? String(
+                localized:
+                    "1 file of your library could not be read. It has been left untouched in \(place). The rest of your transcripts are here."
+            )
+            : String(
+                localized:
+                    "\(damaged) files of your library could not be read. They have been left untouched in \(place). The rest of your transcripts are here."
+            )
     }
 
     func refreshInstalled() {
