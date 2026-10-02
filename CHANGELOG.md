@@ -17,7 +17,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 * Polycop opens a large library about three times faster: transcripts are read on every core at once. 200 three-hour lectures timed word by word took 10.5 seconds to read, now 3.1.
 * Corrections are saved without holding up the window: each transcript is written in the background, in order. On a three-hour lecture timed word by word, every correction used to stop the window for about 50 milliseconds.
-* Model downloads send only the app's name, as the update check does, rather than your macOS version and languages, and keep no cookie between downloads. The download progress redraws once per percent instead of at every network packet, and a download interrupted while it was being checked no longer leaves gigabytes in the system's temporary folder.
+* Model downloads and the update check send only the app's name, rather than your macOS version and languages, and downloads keep no cookie between them. The download progress redraws once per percent instead of at every network packet, and a download interrupted while it was being checked no longer leaves gigabytes in the system's temporary folder.
 * The disk image now holds a READ-ME naming the commit it was built from, how to check its origin, and where the complete source is. The About window says the app is free software and where its source and licences are.
 * Released builds keep macOS's hardened runtime, so another program can no longer slip code into Polycop through environment variables and read the folders you let it open. Only library validation, which needs a developer signature, is lifted.
 * Warnings and failures keep their colour on the icon and draw their text in the normal text colour, which reads better than orange or red on a light window. In Compare original, added words are underlined in green rather than written in green.
@@ -59,7 +59,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 * Subtitles and timestamped text saved in Windows Latin, as older subtitle tools do, are imported instead of being refused as an unsupported format.
 * Playback you pause just after it starts, as typing does, stays paused: the player no longer takes a late report from the audio system as a request to play again.
 * A transcript whose recording is on a disk that is not connected no longer mounts that disk while the page draws, which could wait on the network or ask for a password while you type. The recording shows as unavailable until you connect the disk.
-* The update check sends only the app's name: the system no longer adds your macOS version and languages to the request. It also accepts only a page of Polycop's own releases from the answer.
+* The update check accepts only a page of Polycop's own releases from the answer.
 * An export never replaces a file the save panel did not ask about: naming it "cours.text" no longer writes over a "cours.txt" already in that folder.
 * While the list of folders cannot be read, transcripts stay in their folders: moving them is refused until the list is repaired, rather than taking them out of folders the app can no longer name.
 

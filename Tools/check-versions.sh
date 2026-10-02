@@ -24,6 +24,7 @@ expect() {
 
 expect Packages/WhisperFramework/Package.swift "download/$WHISPER_BUILD\""
 expect Packages/WhisperFramework/Package.swift "whisper-$WHISPER_BUILD-xcframework.zip"
+expect Packages/AudioCppFramework/Package.swift "audio.cpp $AUDIOCPP_VERSION "
 expect THIRD_PARTY_NOTICES.md "release $WHISPER_BUILD (version ${WHISPER_VERSION#v})"
 expect THIRD_PARTY_NOTICES.md "unmodified $AUDIOCPP_VERSION source"
 expect THIRD_PARTY_NOTICES.md "commit $AUDIOCPP_COMMIT"

@@ -11,7 +11,7 @@ protect.
 Views (SwiftUI, AppKit text views)          main actor
    │  read state, call AppModel methods
    ▼
-AppModel (+ one extension per concern)      main actor, the only @Observable app state
+AppModel (+ one extension per concern)      main actor, the one holder of app state
    │  starts tasks, receives their results
    ├──► Player, NowPlaying,                 main actor, AVPlayer, media keys,
    │    PlaybackInterruptions               sleep and output changes
@@ -65,9 +65,9 @@ there.
 * Cancellation is cooperative: tasks check it between steps, the engines
   answer it from the callbacks the C libraries call while they compute, and
   the decoder terminates ffmpeg.
-* Progress and segments reach the main actor through `@Sendable` callbacks;
-  segments are also collected under a lock, so a paused job keeps what it had
-  decoded.
+* Progress reaches the main actor through a `@Sendable` callback. Segments
+  are collected under a lock and published when the job ends, pauses, stops
+  or fails, so a paused job keeps what it had decoded.
 
 ## A transcription
 
@@ -138,7 +138,7 @@ before losing one that failed. Stored property names never change (see
 
 `App/PolycopTests/` has one suite per subject. Pure code in `Output/`,
 `Glossary/` and `History/` is tested directly on values. `AppModel` is
-tested with temporary folders and settings in memory. Its queue is
+tested with temporary folders; the player with settings in memory. Its queue is
 also tested with a scripted engine given through `Engines`, so pause, resume,
 stop, quit and failures run in CI; engine tests run only when their model is
 installed. Audio timing is never asserted: CI

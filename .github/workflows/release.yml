@@ -108,7 +108,7 @@ jobs:
             echo
             echo "Built from commit $GITHUB_SHA in run $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID, with $(xcodebuild -version | head -1)."
             echo "Polycop-$VERSION.zip holds the same app and the complete corresponding source of the app and of every bundled component. Polycop-$VERSION.dSYM.zip holds the debugging symbols that turn a crash report into lines of code."
-            echo "Both files are attested by GitHub: \`gh attestation verify Polycop-$VERSION.dmg --repo $GITHUB_REPOSITORY\` names the commit and the run that built it."
+            echo "The disk image and both zips are attested by GitHub: \`gh attestation verify Polycop-$VERSION.dmg --repo $GITHUB_REPOSITORY\` names the commit and the run that built it."
             echo
             echo "SHA-256:"
             echo

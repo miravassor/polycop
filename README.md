@@ -42,15 +42,22 @@ unless they agree to more.
   it the same way.
 * **Library** of transcripts, sorted in folders. Your recordings stay where they
   are.
-* **Safeguards**: a passage where a model repeats itself is shortened, stretches
-  that need a second listen are marked, and the Mac stays awake during a long
+* **Your own model files**: a model downloaded elsewhere can be imported, once
+  checked against the catalogue.
+* **Silence skipping** for Whisper, which leaves out the stretches without
+  speech, and says how much was left out.
+* **Safeguards**: a passage where a model repeats itself is shortened and can be
+  transcribed again, subtitle credits Whisper invents over silence are set aside
+  with a button to put them back, stretches that need a second listen are
+  marked, and the Mac stays awake during a long
   job.
 
 ### Editing
 
-* **Correction while listening.** Click a timestamp, Option-click a word, or
-  press Option Command P to play from the text cursor; the word being heard is
-  highlighted. Playback pauses when you
+* **Correction while listening.** Click a timestamp to hear the passage. In a
+  transcript timed word by word (Whisper, and Qwen3-ASR with its aligner),
+  Option-click a word or press Option Command P to play from the text cursor,
+  and the word being heard is highlighted. Playback pauses when you
   start typing, resumes on its own once you stop, and steps back a little so the
   sentence is heard again. Fix the text in place, step back one correction at a
   time, or return to the original.
@@ -78,7 +85,7 @@ unless they agree to more.
 | Whisper Large v3 turbo (recommended) | 1.6 GB | 2.8 GB | fast; reads a glossary |
 | Whisper Large v3 turbo quantized | 0.9 GB | 2.0 GB | fast; half the download |
 | Whisper Large v3 | 3.1 GB | 5.0 GB | the full Whisper model, slower |
-| Qwen3-ASR 1.7B | 2.5 GB | 3.9 GB | sentence timings with the optional aligner |
+| Qwen3-ASR 1.7B | 2.5 GB | 3.9 GB | sentence timings with the optional aligner (1.1 GB more) |
 | MOSS-Transcribe-Diarize 0.9B | 1.1 GB | 5.6 GB | labels speaker turns |
 | Voxtral Mini 4B Realtime | 5.1 GB | 6.0 GB | streamed; takes about as long as the recording |
 
@@ -123,8 +130,8 @@ every component it ships and the instructions to build it.
 
 Polycop does not update itself. On its second launch it asks whether to check for
 a new version once a day; you can change that in Settings, or choose **Check for
-Updates…** in the Polycop menu at any time. When a newer version is out, it opens
-its release page.
+Updates…** in the Polycop menu at any time. When a newer version is out, it offers to
+open its release page.
 
 ### If macOS refuses to open it
 
@@ -139,15 +146,17 @@ its release page.
    ```
 
    It removes the mark macOS puts on downloaded files, for this app only, and
-   changes no other setting. Do it only for a copy you checked in step 2,
+   changes no other setting. Do it only for a copy you checked in install step 2,
    ideally with the attestation.
 
 ## Using it
 
 1. Download a model from inside the app. Start with Whisper Large v3 turbo.
 2. Choose a course glossary if you have one, then add your recordings. They are
-   transcribed one after another, with no conversion on your side.
-3. Listen back and correct the text: Option-click a word to hear it, and use Find
+   transcribed one after another once you click Start Transcription, with no
+   conversion on your side.
+3. Listen back and correct the text: click a time, or Option-click a word in a
+   transcript timed word by word, to hear it, and use Find
    and Replace for a name the model keeps mishearing. Corrections are saved in
    the library.
 4. Export the text in the layout you want, with subtitles if you want them.
@@ -174,7 +183,7 @@ its release page.
 1. Quit Polycop and move `Polycop.app` to the Bin.
 2. To remove your transcripts, glossaries and downloaded models as well, delete
    the folder `~/Library/Application Support/Polycop/` (in the Finder, choose
-   Go > Go to Folder). Models take up to 5 GB each.
+   Go > Go to Folder). Models take up to about 5 GB each.
 
 Your recordings and exported files are never stored there, and stay where they
 are.
@@ -182,7 +191,9 @@ are.
 ## Build from source
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). You need Xcode 27, CMake and GnuPG; the
-scripts in `Tools/` build every dependency from pinned, verified sources.
+scripts in `Tools/` build ffmpeg and audio.cpp from pinned, verified sources, and
+Swift Package Manager checks the official whisper.cpp framework against its
+checksum.
 
 ## Licence
 
