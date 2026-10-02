@@ -7,6 +7,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 ### Added
 
 * Export to Word: a fourth text layout in Export options writes a .docx with the title as a heading and each paragraph after its time in bold, ready to open in Word, Pages or Google Docs. A transcript exported this way still opens in earlier versions of Polycop.
+* Export As… once a transcript has been exported, beside Update Export, and a Format menu in the save panel, so an unchanged transcript can be exported again as another copy or in another format. The latest export is the one Update Export writes to.
 * Each release also carries its debugging symbols (`Polycop-X.Y.Z.dSYM.zip`), so a crash report sent by a user can be read back to the line of code. Published releases can no longer be changed afterwards.
 * Play From Cursor (⌥⌘P), in a new Playback menu, plays from the word at the text cursor: Option-click without the mouse.
 * The text cursor can follow playback: after a correction, it moves with the word being heard, so the next one is typed where the audio is. Off by default, in Settings; a click keeps the cursor where you put it until you type.

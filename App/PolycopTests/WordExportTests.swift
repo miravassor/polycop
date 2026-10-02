@@ -72,3 +72,33 @@ private func readBack(_ data: Data) throws -> NSAttributedString {
     #expect(model.entry(entry.id)?.exportLayout == .plain)
     #expect(model.entry(entry.id)?.exportsWord == nil)
 }
+
+/// An exported transcript, unchanged since, can be exported again in another
+/// format, which becomes its export format.
+@MainActor
+@Test func anUnchangedExportCanBeExportedAgainAsWord() async throws {
+    let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let history = folder.appending(path: "History")
+    var entry = Entry(
+        recording: folder.appending(path: "cours.wav"), modelFile: ModelCatalog.recommended.id,
+        glossary: nil, skipsSilence: false, subtitles: false)
+    entry.publish([Segment(start: 0, end: 2, text: "Bonjour.")], partial: false)
+    entry.state = .finished
+    try HistoryStore.write(entry, in: history)
+    let model = AppModel(history: history)
+    let text = folder.appending(path: "cours.txt")
+    model.export(entry.id, as: .timestamped, to: text)
+    #expect(model.exportState(of: try #require(model.entry(entry.id))) == .current)
+
+    let document = folder.appending(path: "cours.docx")
+    model.export(entry.id, as: .word, to: document)
+
+    let exported = try #require(model.entry(entry.id))
+    #expect(exported.saved == [document])
+    #expect(exported.exportLayout == .word)
+    #expect(model.exportState(of: exported) == .current)
+    #expect(try readBack(try Data(contentsOf: document)).string.contains("Bonjour."))
+    #expect(FileManager.default.fileExists(atPath: text.path(percentEncoded: false)))
+    await model.finishWrites()
+}

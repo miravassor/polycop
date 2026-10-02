@@ -21,10 +21,9 @@ struct EntryExportOptions: View {
                 selection: Binding(
                     get: { entry.exportLayout }, set: { setTextLayout($0) })
             ) {
-                Text("With timestamps").tag(Transcript.TextLayout.timestamped)
-                Text("Without timestamps").tag(Transcript.TextLayout.plain)
-                Text("Markdown").tag(Transcript.TextLayout.markdown)
-                Text("Word document").tag(Transcript.TextLayout.word)
+                ForEach(Transcript.TextLayout.allCases, id: \.self) {
+                    Text(Self.title(of: $0)).tag($0)
+                }
             }
             .disabled(isRunning)
             Toggle(
@@ -61,5 +60,15 @@ struct EntryExportOptions: View {
         }
         .padding(20)
         .frame(width: 340)
+    }
+
+    /// The name of each format, here and in the save panel.
+    static func title(of layout: Transcript.TextLayout) -> String {
+        switch layout {
+        case .timestamped: String(localized: "With timestamps")
+        case .plain: String(localized: "Without timestamps")
+        case .markdown: String(localized: "Markdown")
+        case .word: String(localized: "Word document")
+        }
     }
 }
