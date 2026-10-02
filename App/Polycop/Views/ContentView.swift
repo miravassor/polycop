@@ -14,6 +14,8 @@ struct ContentView: View {
     @State private var namingFolder = false
     @State private var renamedFolder: UUID?
     @State private var folderName = ""
+    @State private var renamedEntry: Entry.ID?
+    @State private var entryName = ""
     @State private var expandedFolders: Set<UUID> = []
     @State private var highlighted: UUID?
     @State private var reverting: Entry?
@@ -104,6 +106,7 @@ struct ContentView: View {
         } message: {
             Text("Folders organize your library. Audio files stay where they are.")
         }
+        .modifier(RenameAlert(renamed: $renamedEntry, name: $entryName, model: model))
         .confirmationDialog(
             removing.count > 1
                 ? "Remove \(removing.count) transcripts from the library?"
@@ -288,6 +291,10 @@ struct ContentView: View {
                 // reverting several at once is not what a right click means.
                 if targets.count == 1 {
                     Divider()
+                    Button("Rename Transcript…") {
+                        entryName = entry.name
+                        renamedEntry = entry.id
+                    }
                     Button("Undo Last Correction") { model.undo(entry.id) }
                         .disabled(!model.canUndo(entry.id) || entry.id == model.busyEntry)
                     Button("Revert to Original…") { reverting = entry }
@@ -336,4 +343,27 @@ struct ContentView: View {
         model: AppModel(
             history: folder.appending(path: "History"),
             glossaries: folder.appending(path: "Glossaries")))
+}
+
+/// Asks for a transcript's new name in the library.
+private struct RenameAlert: ViewModifier {
+    @Binding var renamed: Entry.ID?
+    @Binding var name: String
+    let model: AppModel
+
+    func body(content: Content) -> some View {
+        content.alert(
+            "Rename transcript",
+            isPresented: Binding(get: { renamed != nil }, set: { if !$0 { renamed = nil } })
+        ) {
+            TextField("Transcript name", text: $name)
+            Button("Cancel", role: .cancel) {}
+            Button("Rename") {
+                if let renamed { model.rename(renamed, to: name) }
+            }
+            .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        } message: {
+            Text("Only the name in the library changes. The recording keeps its own.")
+        }
+    }
 }
