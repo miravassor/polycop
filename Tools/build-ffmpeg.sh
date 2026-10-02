@@ -19,6 +19,12 @@ KEY_FINGERPRINT="$FFMPEG_KEY_FINGERPRINT"
 # deployment target of the build machine.
 export MACOSX_DEPLOYMENT_TARGET=14.0
 
+# What audio decoding needs, and nothing else.
+DEMUXERS="aac,aiff,amr,asf,caf,flac,matroska,mov,mp3,ogg,wav"
+PARSERS="aac,aac_latm,flac,mpegaudio,opus,vorbis"
+DECODERS="aac,aac_latm,adpcm_ima_qt,adpcm_ms,alac,amrnb,amrwb,flac,mp3,mp3float,opus,vorbis,wmapro,wmav1,wmav2,pcm_alaw,pcm_mulaw,pcm_u8,pcm_s16be,pcm_s16le,pcm_s24be,pcm_s24le,pcm_s32be,pcm_s32le,pcm_f32be,pcm_f32le,pcm_f64le"
+FILTERS="aformat,anull,aresample"
+
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 WORK="$ROOT/build/ffmpeg-source"
 PREFIX="$ROOT/build/ffmpeg"
@@ -74,10 +80,10 @@ cd "ffmpeg-$VERSION"
     --enable-ffmpeg \
     --enable-swresample \
     --enable-protocol=file,pipe \
-    --enable-demuxer=aac,aiff,amr,asf,caf,flac,matroska,mov,mp3,ogg,wav \
-    --enable-parser=aac,aac_latm,flac,mpegaudio,opus,vorbis \
-    --enable-decoder=aac,aac_latm,adpcm_ima_qt,adpcm_ms,alac,amrnb,amrwb,flac,mp3,mp3float,opus,vorbis,wmapro,wmav1,wmav2,pcm_alaw,pcm_mulaw,pcm_u8,pcm_s16be,pcm_s16le,pcm_s24be,pcm_s24le,pcm_s32be,pcm_s32le,pcm_f32be,pcm_f32le,pcm_f64le \
-    --enable-filter=aformat,anull,aresample \
+    --enable-demuxer="$DEMUXERS" \
+    --enable-parser="$PARSERS" \
+    --enable-decoder="$DECODERS" \
+    --enable-filter="$FILTERS" \
     --enable-encoder=pcm_f32le,pcm_s16le \
     --enable-muxer=pcm_f32le,pcm_s16le,wav \
     | tee configure.log
@@ -91,16 +97,20 @@ make -j "$(sysctl -n hw.ncpu)"
 make install
 
 # configure silently ignores unknown component names, so the built binary is
-# checked for each one. The muxer is pcm_f32le here and f32le on the command line.
+# checked for each one. The muxer is pcm_f32le here and f32le on the command
+# line. Parsers are not listed by ffmpeg, so they are read from the list
+# configure generated.
+# The list is read whole before matching: grep -q stops at the first match,
+# which under pipefail would fail the commands still writing to it.
 require() {
-    "$PREFIX/bin/ffmpeg" -hide_banner "-${1}s" 2>/dev/null \
+    local listed
+    listed="$("$PREFIX/bin/ffmpeg" -hide_banner "-${1}s" 2>/dev/null \
         | awk 'seen { print $2 } /^ *--/ { seen = 1 }' \
-        | tr ',' '\n' \
-        | grep -qx "$2" \
-        || {
-            echo "The build has no $2 $1" >&2
-            exit 1
-        }
+        | tr ',' '\n')"
+    grep -qx "$2" <<< "$listed" || {
+        echo "The build has no $2 $1" >&2
+        exit 1
+    }
 }
 
 # A helper built for a newer macOS than the app's minimum would fail to load
@@ -112,8 +122,16 @@ if [ "$minimum" != "$MACOSX_DEPLOYMENT_TARGET" ]; then
 fi
 
 require muxer f32le
-for name in aac aiff amr asf caf flac matroska mov mp3 ogg wav; do
-    require demuxer "$name"
+require muxer wav
+require encoder pcm_s16le
+for name in ${DEMUXERS//,/ }; do require demuxer "$name"; done
+for name in ${DECODERS//,/ }; do require decoder "$name"; done
+for name in ${FILTERS//,/ }; do require filter "$name"; done
+for name in ${PARSERS//,/ }; do
+    grep -q "&ff_${name}_parser," libavcodec/parser_list.c || {
+        echo "The build has no $name parser" >&2
+        exit 1
+    }
 done
 
 # What this build came from, which Tools/package.sh checks before shipping

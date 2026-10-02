@@ -10,9 +10,11 @@ on:
 permissions:
   contents: read # to check out the code
 
+# A new push to a pull request replaces its run. Every commit on main keeps
+# its own, since a release checks that CI passed on its commit.
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.ref }}-${{ github.event_name == 'pull_request' && 'pr' || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   workflows:

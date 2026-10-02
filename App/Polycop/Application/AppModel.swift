@@ -81,9 +81,12 @@ final class AppModel {
         alignerInstalled && Memory.areLikelyToFit(ModelCatalog.qwen, ModelCatalog.qwenAligner)
     }
     private(set) var imported: [ModelStore.Imported] = []
-    let player = Player()
+    let player: Player
     /// The course glossaries, and each course's corrections beside them.
     let glossaryFolder: URL
+    /// The downloaded models. Tests that transcribe read the user's, never
+    /// writing to them.
+    let modelFolder: URL
     /// Each course's corrections, read from disk once: every run of the course
     /// and the glossary editor ask for them.
     @ObservationIgnored var readCourseCorrections: [String: [CourseCorrection]] = [:]
@@ -201,13 +204,18 @@ final class AppModel {
     var pausedAt = 0.0
     private var activity: NSObjectProtocol?
 
+    /// The user's folders unless told otherwise: tests and a second copy of
+    /// the app pass folders of their own.
     init(
         history: URL = HistoryStore.directory, glossaries: URL = GlossaryStore.directory,
-        engines: Engines = .live
+        models: URL = ModelStore.directory, playbackCopies: URL = Player.copies,
+        engines: Engines? = nil
     ) {
         self.history = history
         glossaryFolder = glossaries
-        self.engines = engines
+        modelFolder = models
+        player = Player(copies: playbackCopies)
+        self.engines = engines ?? .live(models: models)
         refreshInstalled()
         selected = ModelCatalog.startingModel(installed: installed).id
         refreshGlossaries()
@@ -238,8 +246,8 @@ final class AppModel {
 
     func refreshInstalled() {
         installed = engines.installed()
-        alignerInstalled = ModelStore.isInstalled(ModelCatalog.qwenAligner)
-        imported = ModelStore.imported()
+        alignerInstalled = ModelStore.isInstalled(ModelCatalog.qwenAligner, in: modelFolder)
+        imported = ModelStore.imported(in: modelFolder)
         if selectedCatalogue == nil { selected = ModelCatalog.recommended.id }
     }
 
@@ -342,6 +350,7 @@ final class AppModel {
         downloadingModel = nil
         stage = .stopping
         player.stop()
+        player.discardCopy()
         pausing = false
         paused = nil
         job += 1

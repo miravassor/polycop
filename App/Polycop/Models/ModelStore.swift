@@ -6,20 +6,26 @@ import os
 
 /// Where downloaded models live, and how their contents are proven.
 nonisolated enum ModelStore {
-    /// A plain folder name rather than the bundle identifier, because the app
-    /// is renamed before its first public build and a 1.5 GB download must
-    /// survive that.
+    /// A plain folder name rather than the bundle identifier, beside the
+    /// library, so gigabytes of downloads never depend on the identifier.
     static let directory = URL.applicationSupportDirectory.appending(path: "Polycop/Models")
 
-    static func location(of model: Model) -> URL {
-        directory.appending(path: model.id)
+    static func location(of model: Model, in folder: URL = directory) -> URL {
+        folder.appending(path: model.id)
+    }
+
+    /// Where an interrupted download of `model` keeps what it needs to
+    /// continue. Named by hash, so a catalogue update that pins a new file
+    /// under the same id never resumes the old one.
+    static func resumeFile(of model: Model, in folder: URL = directory) -> URL {
+        folder.appending(path: model.sha256 + ".resume")
     }
 
     /// Installed means present at the expected size. Listing the library must
     /// stay instant, so the contents are proven elsewhere, when the file
     /// arrives and again before each native load.
-    static func isInstalled(_ model: Model) -> Bool {
-        let file = location(of: model)
+    static func isInstalled(_ model: Model, in folder: URL = directory) -> Bool {
+        let file = location(of: model, in: folder)
         guard let size = try? file.resourceValues(forKeys: [.fileSizeKey]).fileSize else {
             return false
         }
@@ -27,11 +33,12 @@ nonisolated enum ModelStore {
     }
 
     static func installed() -> [Model] {
-        ModelCatalog.all.filter(isInstalled)
+        ModelCatalog.all.filter { isInstalled($0) }
     }
 
-    /// A model the user brought themselves. It carries no hash, no licence and
-    /// no measured memory cost, because nothing about it was checked here. It is
+    /// A model file in the store that the catalogue does not claim, such as one
+    /// copied there by hand. Imports accept only catalogue files, so the app
+    /// never loads it; the model list shows it as unverified, to delete. It is
     /// a separate type rather than a catalogue entry with invented fields.
     struct Imported: Identifiable, Equatable, Sendable {
         let id: String
@@ -40,11 +47,10 @@ nonisolated enum ModelStore {
     }
 
     /// Anything in the store that the catalogue does not claim. The folder is
-    /// the whole record, so an import survives a restart, and deleting the
-    /// file is the only way to uninstall it.
-    static func imported() -> [Imported] {
+    /// the whole record, so deleting the file is the only way to remove it.
+    static func imported(in folder: URL = directory) -> [Imported] {
         let manager = FileManager.default
-        let path = directory.path(percentEncoded: false)
+        let path = folder.path(percentEncoded: false)
         guard let names = try? manager.contentsOfDirectory(atPath: path) else { return [] }
 
         let catalogued = Set(ModelCatalog.files.map { $0.id.lowercased() })
@@ -56,7 +62,7 @@ nonisolated enum ModelStore {
             }
             .compactMap { name in
                 let size =
-                    (try? directory.appending(path: name)
+                    (try? folder.appending(path: name)
                         .resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
                 return size > 0 ? Imported(id: name, bytes: Int64(size)) : nil
             }
@@ -108,11 +114,33 @@ nonisolated enum ModelStore {
     }
 
     /// Verifies the copied bytes before publishing or passing them to whisper.cpp.
-    @concurrent
+    /// The copy runs on a queue of its own: gigabytes from a slow disk would
+    /// hold a thread of the Swift concurrency pool for minutes. A stop is read
+    /// between blocks.
     static func install(
         _ source: URL, in folder: URL = directory, catalogue: [Model] = ModelCatalog.files
     ) async throws -> Model {
         try Task.checkCancellation()
+        let cancelled = OSAllocatedUnfairLock(initialState: false)
+        return try await withTaskCancellationHandler {
+            try await copyingQueue.run {
+                try copy(source, into: folder, catalogue: catalogue, until: cancelled)
+            }
+        } onCancel: {
+            cancelled.withLock { $0 = true }
+        }
+    }
+
+    private static let copyingQueue = DispatchQueue(
+        label: "io.github.miravassor.Polycop.importing", qos: .userInitiated)
+
+    private static func copy(
+        _ source: URL, into folder: URL, catalogue: [Model],
+        until cancelled: OSAllocatedUnfairLock<Bool>
+    ) throws -> Model {
+        func checkCancellation() throws {
+            if cancelled.withLock({ $0 }) { throw CancellationError() }
+        }
         guard source.isFileURL else { throw ImportError.unrecognized }
         let values = try source.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
         guard values.isRegularFile == true, let size = values.fileSize else {
@@ -137,7 +165,7 @@ nonisolated enum ModelStore {
         var hasher = SHA256()
         var copied = 0
         while let block = try input.read(upToCount: 1 << 20), !block.isEmpty {
-            try Task.checkCancellation()
+            try checkCancellation()
             copied += block.count
             guard copied <= size else { throw ImportError.unrecognized }
             hasher.update(data: block)
@@ -148,13 +176,13 @@ nonisolated enum ModelStore {
         guard copied == size, let model = candidates.first(where: { $0.sha256 == digest }) else {
             throw ImportError.unrecognized
         }
-        try Task.checkCancellation()
+        try checkCancellation()
         try publish(partial, as: folder.appending(path: model.id))
         return model
     }
 
-    static func remove(imported: Imported) throws {
-        try FileManager.default.removeItem(at: directory.appending(path: imported.id))
+    static func remove(imported: Imported, in folder: URL = directory) throws {
+        try FileManager.default.removeItem(at: folder.appending(path: imported.id))
     }
 
     private static let hashingQueue = DispatchQueue(
@@ -173,26 +201,25 @@ nonisolated enum ModelStore {
         }
     }
 
-    static func remove(_ model: Model) throws {
-        try FileManager.default.removeItem(at: location(of: model))
+    static func remove(_ model: Model, in folder: URL = directory) throws {
+        try FileManager.default.removeItem(at: location(of: model, in: folder))
         // An interrupted transfer of the same model would outlive it otherwise.
-        try? FileManager.default.removeItem(at: directory.appending(path: model.id + ".resume"))
+        try? FileManager.default.removeItem(at: resumeFile(of: model, in: folder))
     }
 
     /// Removes what interrupted work leaves behind: files received or copied
     /// but never published, and resume data for a model that has since
-    /// finished downloading or that the catalogue no longer offers.
-    static func sweep(in folder: URL = directory) {
+    /// finished downloading or for a file the catalogue no longer pins.
+    static func sweep(in folder: URL = directory, catalogue: [Model] = ModelCatalog.files) {
         let manager = FileManager.default
         let path = folder.path(percentEncoded: false)
         guard let entries = try? manager.contentsOfDirectory(atPath: path) else { return }
 
-        let offered = Set(ModelCatalog.files.map(\.id))
         for name in entries where name.hasSuffix(".resume") || name.hasSuffix(".part") {
             let owner = (name as NSString).deletingPathExtension
-            let finished = manager.fileExists(
-                atPath: folder.appending(path: owner).path(percentEncoded: false))
-            if finished || !offered.contains(owner) {
+            let model = catalogue.first { $0.sha256 == owner }
+            let isWanted = model.map { !isInstalled($0, in: folder) } ?? false
+            if !isWanted {
                 try? manager.removeItem(at: folder.appending(path: name))
             }
         }

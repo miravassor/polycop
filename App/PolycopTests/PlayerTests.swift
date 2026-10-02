@@ -26,6 +26,59 @@ private func open(_ player: Player) async throws {
         try await Task.sleep(for: .milliseconds(50))
     }
     try #require(player.isOpen && player.duration > 3)
+    // Heard by nobody: the suite runs beside people at work.
+    #expect(player.isSilent)
+}
+
+/// A recording AVFoundation cannot play is decoded into a copy first. A click
+/// meanwhile moves where it opens, rather than starting the decoding over.
+@MainActor
+@Test func aSecondClickWhilePreparingMovesTheStart() async throws {
+    let ogg = URL(filePath: #filePath)
+        .deletingLastPathComponent()
+        .appending(path: "Fixtures/formats/clip.ogg")
+    let player = Player(defaults: Settings())
+    defer { player.stop() }
+
+    player.play(ogg, from: 0)
+    try #require(player.isPreparing)
+    player.play(ogg, from: 2)
+    #expect(player.isPreparing)
+
+    for _ in 0..<100 where !(player.isOpen && player.duration > 0) {
+        try await Task.sleep(for: .milliseconds(50))
+    }
+    try #require(player.isOpen)
+    #expect(player.position == 2)
+}
+
+/// Leaving a transcript stops playback. Coming back plays the copy already
+/// decoded rather than decoding the whole recording again.
+@MainActor
+@Test func aDecodedCopyIsKeptForTheNextPlayback() async throws {
+    let mkv = URL(filePath: #filePath)
+        .deletingLastPathComponent()
+        .appending(path: "Fixtures/formats/clip.mkv")
+    let player = Player(defaults: Settings())
+    defer { player.discardCopy() }
+
+    var copies: [Player.KeptCopy] = []
+    for _ in 0..<2 {
+        player.play(mkv, from: 0)
+        for _ in 0..<100 where !(player.isOpen && player.duration > 0) {
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        try #require(player.isOpen)
+        player.stop()
+        copies.append(try #require(player.keptCopy))
+    }
+    let kept = copies[0]
+    #expect(copies[1] == kept)
+    #expect(FileManager.default.fileExists(atPath: kept.file.path(percentEncoded: false)))
+    #expect(kept.recording == mkv)
+
+    player.discardCopy()
+    #expect(!FileManager.default.fileExists(atPath: kept.file.path(percentEncoded: false)))
 }
 
 @MainActor

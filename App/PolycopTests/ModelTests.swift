@@ -88,15 +88,17 @@ func everyModelIsPinned(_ model: Model) {
 @Test(.enabled(if: ProcessInfo.processInfo.environment["POLYCOP_NETWORK_TESTS"] == "1"))
 func downloadsAndVerifiesAPinnedFile() async throws {
     let silero = ModelCatalog.voiceDetector
-    defer { try? ModelStore.remove(silero) }
+    // A folder of its own: the user's store would list the file meanwhile.
+    let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: folder) }
 
     let reported = OSAllocatedUnfairLock(initialState: 0.0)
-    let file = try await ModelDownloader.download(silero) { progress in
+    let file = try await ModelDownloader.download(silero, in: folder) { progress in
         reported.withLock { $0 = max($0, progress) }
     }
 
     #expect(try await ModelStore.sha256(of: file) == silero.sha256)
-    #expect(ModelStore.isInstalled(silero))
+    #expect(ModelStore.isInstalled(silero, in: folder))
     #expect(reported.withLock { $0 } > 0)
 }
 
@@ -259,4 +261,25 @@ func launchStartsOnTheRecommendedModelOrAnInstalledOne(installed: [String], expe
 
     #expect(following.allSatisfy { $0.contains("Word following") })
     #expect(notFollowing.allSatisfy { $0.contains("word following") && !$0.contains("Word") })
+}
+
+/// The models a window lists and deletes are those of the folder it was
+/// given, so a test never reads or removes the user's.
+@MainActor
+@Test func theModelListUsesTheFolderGiven() throws {
+    let root = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let models = root.appending(path: "Models")
+    try FileManager.default.createDirectory(at: models, withIntermediateDirectories: true)
+    let stray = models.appending(path: "stray.bin")
+    try Data("not a model".utf8).write(to: stray)
+
+    let model = AppModel(
+        history: root.appending(path: "History"), glossaries: root.appending(path: "Glossaries"),
+        models: models, playbackCopies: root.appending(path: "Replay"))
+
+    #expect(model.installed.isEmpty)
+    #expect(model.imported.map(\.id) == ["stray.bin"])
+    model.delete(try #require(model.imported.first))
+    #expect(!FileManager.default.fileExists(atPath: stray.path(percentEncoded: false)))
 }

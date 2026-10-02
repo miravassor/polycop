@@ -16,7 +16,8 @@ extension AppModel {
         work = Task { [weak self] in
             guard let self else { return }
             do {
-                _ = try await ModelDownloader.download(model) { [weak self] progress in
+                _ = try await ModelDownloader.download(model, in: modelFolder) {
+                    [weak self] progress in
                     Task { @MainActor in
                         guard let self, self.isCurrent(number), case .downloading = self.stage
                         else {
@@ -33,7 +34,7 @@ extension AppModel {
                 finish()
             } catch {
                 guard isCurrent(number) else { return }
-                // The partial transfer is kept, so a retry continues from it.
+                // What was received is kept, so a retry continues from it.
                 failure = error.localizedDescription
                 finish()
             }
@@ -42,11 +43,11 @@ extension AppModel {
 
     /// Removes the weights and any interrupted transfer of the same model.
     func delete(_ model: Model) {
-        remove(named: model.id) { try ModelStore.remove(model) }
+        remove(named: model.id) { try ModelStore.remove(model, in: modelFolder) }
     }
 
     func delete(_ model: ModelStore.Imported) {
-        remove(named: model.id) { try ModelStore.remove(imported: model) }
+        remove(named: model.id) { try ModelStore.remove(imported: model, in: modelFolder) }
     }
 
     private func remove(named name: String, _ erase: () throws -> Void) {
@@ -82,7 +83,7 @@ extension AppModel {
         work = Task { [weak self] in
             guard let self else { return }
             do {
-                let installed = try await ModelStore.install(source)
+                let installed = try await ModelStore.install(source, in: modelFolder)
                 guard isCurrent(number) else { return }
                 refreshInstalled()
                 // The aligner is no model to transcribe with.

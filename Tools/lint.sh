@@ -21,17 +21,23 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TOOL="$ROOT/build/swiftlint-$VERSION"
 SWIFTLINT="$TOOL/swiftlint"
 
-if [ ! -x "$SWIFTLINT" ]; then
+# Unpacked beside its final place and moved there whole, with the digest it
+# came from, so an interrupted unpacking is never taken for the tool.
+if [ "$(cat "$TOOL/.archive-sha256" 2>/dev/null)" != "$SHA256" ]; then
     ARCHIVE="$(mktemp -t swiftlint).zip"
-    trap 'rm -f "$ARCHIVE"' EXIT
+    mkdir -p "$ROOT/build"
+    UNPACKED="$(mktemp -d "$ROOT/build/swiftlint.XXXXXX")"
+    trap 'rm -rf "$ARCHIVE" "$UNPACKED"' EXIT
     curl --fail --silent --show-error --location --output "$ARCHIVE" \
         "https://github.com/realm/SwiftLint/releases/download/$VERSION/portable_swiftlint.zip"
     echo "$SHA256  $ARCHIVE" | shasum -a 256 --check --quiet || {
         echo "The SwiftLint $VERSION download does not match its pinned digest" >&2
         exit 1
     }
-    mkdir -p "$TOOL"
-    unzip -q -o "$ARCHIVE" -d "$TOOL"
+    unzip -q "$ARCHIVE" -d "$UNPACKED"
+    echo "$SHA256" > "$UNPACKED/.archive-sha256"
+    rm -rf "$TOOL"
+    mv "$UNPACKED" "$TOOL"
 fi
 
 cd "$ROOT"

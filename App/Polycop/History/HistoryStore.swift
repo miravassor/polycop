@@ -33,17 +33,28 @@ nonisolated enum HistoryStore {
         } catch {
             return Library(damaged: [folder.lastPathComponent])
         }
-        let decoder = JSONDecoder()
-        var library = Library()
         // `folders.json` lives in the same folder but is not an entry; isRecord
         // filters it out so it is never reported as a damaged record.
-        for name in names where isRecord(name) {
-            switch record(folder.appending(path: name), decoder: decoder) {
+        let records = names.filter(isRecord).sorted()
+        // Decoding is nearly all of a launch, and records do not depend on one
+        // another, so they are decoded on every core at once: one by one, 200
+        // three-hour lectures timed by word took ten seconds.
+        let read = OSAllocatedUnfairLock(
+            initialState: [Result<Entry, DamagedRecord>?](repeating: nil, count: records.count))
+        DispatchQueue.concurrentPerform(iterations: records.count) { index in
+            let result = record(folder.appending(path: records[index]))
+            read.withLock { $0[index] = result }
+        }
+        var library = Library()
+        for (name, result) in zip(records, read.withLock { $0 }) {
+            switch result {
             case .success(let entry):
                 library.entries.append(entry)
             case .failure(let damage):
                 Log.persistence.error(
                     "a transcript record could not be read: \(damage.reason, privacy: .public)")
+                library.damaged.append(name)
+            case nil:
                 library.damaged.append(name)
             }
         }

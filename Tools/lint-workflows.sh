@@ -37,11 +37,12 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TOOLS="$ROOT/build/workflow-linters"
 
 # Downloads an archive, checks its digest, and unpacks it into a folder of
-# its own.
+# its own. The folder is filled beside its final place and moved there whole,
+# with the digest it came from, so an interrupted unpacking is never reused.
 fetch() {
     local url="$1" sha256="$2" folder="$3"
-    [ -d "$folder" ] && return
-    local archive
+    [ "$(cat "$folder/.archive-sha256" 2>/dev/null)" = "$sha256" ] && return
+    local archive unpacked
     archive="$(mktemp)"
     curl --fail --silent --show-error --location --output "$archive" "$url"
     echo "$sha256  $archive" | shasum -a 256 --check --quiet || {
@@ -49,9 +50,13 @@ fetch() {
         rm -f "$archive"
         exit 1
     }
-    mkdir -p "$folder"
-    tar -xzf "$archive" -C "$folder"
+    mkdir -p "$(dirname "$folder")"
+    unpacked="$(mktemp -d "$folder.XXXXXX")"
+    tar -xzf "$archive" -C "$unpacked"
     rm -f "$archive"
+    echo "$sha256" > "$unpacked/.archive-sha256"
+    rm -rf "$folder"
+    mv "$unpacked" "$folder"
 }
 
 fetch "https://github.com/rhysd/actionlint/releases/download/v$ACTIONLINT/$ACTIONLINT_ASSET" \

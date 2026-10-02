@@ -46,7 +46,7 @@ License version 2.1 or later (`FFmpeg-LGPL-2.1.txt`).
 Audio decoding. The `ffmpeg` executable in `Contents/Helpers` is built by
 `Tools/build-ffmpeg.sh` from the unmodified, signature-checked 9.0.2 release,
 with a minimal set of demuxers and decoders, no GPL, nonfree or external
-library. The script records every configuration option and checks that the
+library. The script lists every configuration option and checks that the
 result reports LGPL version 2.1 or later.
 
 Corresponding source: https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz, also
