@@ -6,6 +6,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ### Added
 
+* Each release also carries its debugging symbols (`Polycop-X.Y.Z.dSYM.zip`), so a crash report sent by a user can be read back to the line of code. Published releases can no longer be changed afterwards.
 * Play From Cursor (⌥⌘P), in a new Playback menu, plays from the word at the text cursor: Option-click without the mouse.
 * The text cursor can follow playback: after a correction, it moves with the word being heard, so the next one is typed where the audio is. Off by default, in Settings; a click keeps the cursor where you put it until you type.
 * Each release's disk image and zip are attested by GitHub: `gh attestation verify Polycop-X.Y.Z.dmg --repo miravassor/polycop` names the commit and the workflow run that built the file. The build can no longer write to the repository; only the step that drafts the release can.

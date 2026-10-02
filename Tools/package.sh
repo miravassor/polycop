@@ -184,12 +184,17 @@ ln "$STAGE/package.zip" "$ARCHIVE"
 ln "$STAGE/package.dmg" "$IMAGE"
 mv "$FOLDER/Polycop.app" "$OUTPUT/Polycop.app"
 cp "$FOLDER/READ-ME.txt" "$OUTPUT/READ-ME.txt"
+# The debugging symbols of this exact build: without them a crash report
+# from a user cannot be read back to lines of code.
+ditto -c -k --keepParent "$APP.dSYM" "$OUTPUT/Polycop-$VERSION.dSYM.zip"
 (
     cd "$OUTPUT"
     shasum -a 256 "Polycop-$VERSION.zip" > "Polycop-$VERSION.zip.sha256"
     shasum -a 256 "Polycop-$VERSION.dmg" > "Polycop-$VERSION.dmg.sha256"
+    shasum -a 256 "Polycop-$VERSION.dSYM.zip" > "Polycop-$VERSION.dSYM.zip.sha256"
 )
 echo "Local app: $OUTPUT/Polycop.app"
 echo "Disk image: $IMAGE"
 echo "Archive with sources: $ARCHIVE"
+echo "Debugging symbols: $OUTPUT/Polycop-$VERSION.dSYM.zip"
 cat "$OUTPUT/Polycop-$VERSION.dmg.sha256" "$OUTPUT/Polycop-$VERSION.zip.sha256"
