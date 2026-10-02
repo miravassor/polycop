@@ -20,7 +20,6 @@ extension AppModel {
             entries.removeAll { $0.id == id }
             unsavedHistory.remove(id)
             scheduled.remove(id)
-            retries.remove(id)
             undoSteps[id] = nil
             pendingSaves.remove(id)
             if !hasUnsavedHistory { storageFailure = nil }

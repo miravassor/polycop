@@ -274,6 +274,39 @@ private func entry(_ model: AppModel, _ file: URL) throws -> Entry {
         #expect(finished.language == "en")
     }
 
+    /// A retry waiting for its model is still a retry after a relaunch: Start
+    /// on the next launch leaves it the settings of the job it repeats.
+    @Test func aRetryKeepsItsSettingsAcrossARelaunch() async throws {
+        let (folder, files) = try recordings(1)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let history = folder.appending(path: "history")
+        var failed = Entry(
+            recording: files[0], modelFile: ModelCatalog.turboQuantized.id, glossary: nil,
+            skipsSilence: false, subtitles: false, language: "en")
+        failed.state = .failed("")
+        try HistoryStore.write(failed, in: history)
+        let first = AppModel(history: history, engines: Opener(ScriptedEngine()).engines)
+        first.retry(failed.id)
+        let retry = try #require(first.waiting.first)
+        await first.shutDown()
+
+        let opener = Opener(ScriptedEngine())
+        opener.installed.insert(ModelCatalog.turboQuantized.id)
+        let model = AppModel(history: history, engines: opener.engines)
+        try #require(model.waiting.map(\.id) == [retry.id])
+        model.selected = ModelCatalog.recommended.id
+        model.language = "fr"
+        model.start()
+        try await until { !model.hasWork && !model.stage.isBusy }
+
+        let finished = try #require(model.entry(retry.id))
+        #expect(finished.state == .finished)
+        #expect(finished.modelFile == ModelCatalog.turboQuantized.id)
+        #expect(finished.language == "en")
+        #expect(finished.keepsSettings == nil)
+        await model.shutDown()
+    }
+
     /// A loop is replaced by what the engine writes over its stretch, and the
     /// rest of the transcript, its state included, is left as it was.
     @Test(arguments: [Entry.State.finished, .stopped])

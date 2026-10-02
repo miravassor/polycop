@@ -1,0 +1,120 @@
+{
+  "added": 781000000,
+  "bookmark": "c3ludGhldGljIGJvb2ttYXJrLCBuZXZlciByZXNvbHZlZA==",
+  "courseCorrections": [
+    {
+      "replacement": "Descartes",
+      "text": "des cartes"
+    }
+  ],
+  "decoded": [
+    {
+      "end": 2.5,
+      "speaker": "S01",
+      "start": 0,
+      "text": "Bonjour à tous.",
+      "words": [
+        {
+          "confidence": 0.92,
+          "end": 0.8,
+          "start": 0,
+          "text": "Bonjour"
+        },
+        {
+          "confidence": 0.88,
+          "end": 1,
+          "start": 0.8,
+          "text": "à"
+        },
+        {
+          "confidence": 0.95,
+          "end": 2.5,
+          "start": 1,
+          "text": "tous."
+        }
+      ]
+    },
+    {
+      "end": 6,
+      "speaker": "S01",
+      "start": 4,
+      "text": "Nous parlons de Descartes.",
+      "words": [
+        {
+          "end": 4.3,
+          "start": 4,
+          "text": "Nous"
+        }
+      ]
+    }
+  ],
+  "duration": 6.5,
+  "exportsWord": true,
+  "folderID": "1A2B3C4D-5E6F-4A1B-8C2D-3E4F5A6B7C8D",
+  "glossary": "Philosophie",
+  "glossaryWarning": "The glossary is long.",
+  "id": "0F0F32EE-5401-41A8-A37D-CF1F95D061F8",
+  "isEdited": true,
+  "isPartial": false,
+  "isSaved": true,
+  "keepsSettings": true,
+  "language": "fr",
+  "modelFile": "ggml-large-v3-turbo.bin",
+  "originalParagraphs": [
+    {
+      "start": 0,
+      "text": "Speaker 1: Bonjour à tous."
+    },
+    {
+      "start": 4000,
+      "text": "Speaker 1: Nous parlons de Descartes."
+    }
+  ],
+  "paragraphs": [
+    {
+      "start": 0,
+      "text": "Bonjour à toutes et à tous."
+    },
+    {
+      "start": 4000,
+      "text": "Speaker 1: Nous parlons de Descartes."
+    }
+  ],
+  "playbackPosition": 4.5,
+  "prompt": "Descartes, cogito, Méditations métaphysiques.",
+  "readingParagraph": 1,
+  "recording": "file:///Users/student/Cours/Cours%2012.m4a",
+  "removesHesitations": true,
+  "resumedAt": [
+    4
+  ],
+  "reviewMarks": [
+    4000
+  ],
+  "saved": [
+    "file:///Users/student/Cours/Cours%2012%20(2).docx"
+  ],
+  "savedDigests": [
+    "0123456789abcdef"
+  ],
+  "sentenceTimes": true,
+  "showsCredits": false,
+  "skipsSilence": true,
+  "speech": [
+    [
+      0,
+      2.5
+    ],
+    [
+      4,
+      6
+    ]
+  ],
+  "state": {
+    "finished": {}
+  },
+  "subtitles": true,
+  "textLayout": "markdown",
+  "title": "Cours 12 (2).m4a",
+  "transcribedIn": 12.25
+}

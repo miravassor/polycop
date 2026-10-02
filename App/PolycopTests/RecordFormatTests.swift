@@ -24,7 +24,7 @@ private func folder(holding name: String, as stored: String) throws -> URL {
     return folder
 }
 
-@Test(arguments: ["0.2.0", "0.3.0", "0.3.2"])
+@Test(arguments: ["0.2.0", "0.3.0", "0.3.2", "0.4.0"])
 func aTranscriptWrittenByAnEarlierReleaseStillLoads(release: String) throws {
     let name = "entry-\(release).json"
     let written = try JSONSerialization.jsonObject(
@@ -44,7 +44,9 @@ func aTranscriptWrittenByAnEarlierReleaseStillLoads(release: String) throws {
     // What each release added is there from that release on, and absent before.
     #expect((entry.decoded.first?.words != nil) == (release != "0.2.0"))
     #expect((entry.courseCorrections != nil) == (release != "0.2.0"))
-    #expect((entry.readingParagraph != nil) == (release == "0.3.2"))
+    #expect((entry.readingParagraph != nil) == ["0.3.2", "0.4.0"].contains(release))
+    #expect((entry.exportsWord == true) == (release == "0.4.0"))
+    #expect((entry.keepsSettings == true) == (release == "0.4.0"))
     switch release {
     case "0.2.0": #expect(entry.state == .stopped)
     case "0.3.0": #expect(entry.state == .failed("The model could not be read."))

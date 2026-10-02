@@ -59,7 +59,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 * Undoing a revert brings back the corrections remembered for the course along with the text, so repairing the repeats and putting credits back stay possible.
 * A transcript where a speaker starts before the one they follow, as MOSS can write when voices overlap, opens again after a relaunch instead of being reported as a file that could not be read.
 * A transcript whose saved playback position is out of range, as a damaged file can hold, opens without it instead of closing Polycop when its page shows the player. When several library files cannot be read, the warning counts them in the plural.
-* A retry waiting for a model you deleted keeps the settings of the transcript it repeats when you press Start, instead of taking those on the New Transcription page.
+* A retry waiting for a model you deleted keeps the settings of the transcript it repeats when you press Start, instead of taking those on the New Transcription page, also after quitting and reopening Polycop.
 * A second transcript of a numbered lecture keeps its number: retrying or duplicating "Cours 12.m4a" now gives "Cours 12 (2).m4a" rather than "Cours 2.m4a", another lecture's name.
 * Subtitles and timestamped text saved in Windows Latin, as older subtitle tools do, are imported instead of being refused as an unsupported format.
 * Playback you pause just after it starts, as typing does, stays paused: the player no longer takes a late report from the audio system as a request to play again.
