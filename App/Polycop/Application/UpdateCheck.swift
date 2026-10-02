@@ -150,25 +150,49 @@ enum UpdatePrompt {
         }
     }
 
-    /// Called once per launch. A failure is only logged: the automatic check
-    /// never interrupts or blocks anything.
-    static func checkAutomaticallyIfDue(defaults: UserDefaults = .standard) {
+    /// Called after launch, and whenever the app comes forward, so a copy left
+    /// open for days still checks once a day. A failure is only logged: the
+    /// automatic check never interrupts or blocks anything.
+    static func checkAutomaticallyIfDue(atLaunch: Bool, defaults: UserDefaults = .standard) {
         guard !PolycopApp.isHostingTests else { return }
-        let launches = defaults.integer(forKey: launchesKey) + 1
-        defaults.set(launches, forKey: launchesKey)
-        let decision = UpdateSchedule.decision(
-            allowed: defaults.object(forKey: automaticKey) as? Bool, launches: launches,
-            lastCheck: defaults.object(forKey: lastCheckKey) as? Date, now: .now)
-        switch decision {
+        switch step(atLaunch: atLaunch, defaults: defaults) {
         case .wait:
             return
         case .ask:
             let allowed = askToCheckAutomatically()
             defaults.set(allowed, forKey: automaticKey)
-            if allowed { checkQuietly(defaults) }
+            guard allowed else { return }
+            defaults.set(Date.now, forKey: lastCheckKey)
+            checkQuietly(defaults)
         case .check:
             checkQuietly(defaults)
         }
+    }
+
+    /// What the automatic check does now. Launches are counted only at
+    /// launch, and the question is asked only then. A check counts from the
+    /// moment it starts, so one that fails waits a day like one that worked
+    /// instead of asking GitHub again at every launch.
+    static func step(atLaunch: Bool, defaults: UserDefaults, now: Date = .now)
+        -> UpdateSchedule.Decision
+    {
+        var launches = defaults.integer(forKey: launchesKey)
+        if atLaunch {
+            launches += 1
+            defaults.set(launches, forKey: launchesKey)
+        }
+        let decision = UpdateSchedule.decision(
+            allowed: defaults.object(forKey: automaticKey) as? Bool, launches: launches,
+            lastCheck: defaults.object(forKey: lastCheckKey) as? Date, now: now)
+        switch decision {
+        case .ask where !atLaunch:
+            return .wait
+        case .check:
+            defaults.set(now, forKey: lastCheckKey)
+        default:
+            break
+        }
+        return decision
     }
 
     private static func checkQuietly(_ defaults: UserDefaults) {
@@ -179,7 +203,6 @@ enum UpdatePrompt {
             defer { isChecking = false }
             do {
                 let release = try await UpdateCheck.latest()
-                defaults.set(Date.now, forKey: lastCheckKey)
                 guard UpdateCheck.isNewer(release.version, than: current),
                     release.version != defaults.string(forKey: skippedKey)
                 else { return }

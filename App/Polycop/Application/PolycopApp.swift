@@ -52,7 +52,25 @@ struct PolycopApp: App {
     /// Whether another copy of the app has the user's library. Each copy
     /// writes what it read at launch, so a second one would write over the
     /// first one's changes: it opens nothing and hands over instead.
-    static let isSecondCopy = !isHostingTests && !HistoryStore.claim()
+    static let isSecondCopy = !isHostingTests && (!HistoryStore.claim() || isOlderCopyRunning)
+
+    /// Whether a copy of an earlier build is open. Builds before the library
+    /// lock, such as 0.3.2, open the library without taking it, so the lock
+    /// alone does not see them.
+    private static var isOlderCopyRunning: Bool {
+        guard let identifier = Bundle.main.bundleIdentifier else { return false }
+        let current = NSRunningApplication.current.processIdentifier
+        let own = build(of: Bundle.main)
+        return NSRunningApplication.runningApplications(withBundleIdentifier: identifier)
+            .contains { other in
+                other.processIdentifier != current
+                    && (other.bundleURL.flatMap(Bundle.init(url:)).map(build(of:)) ?? own) < own
+            }
+    }
+
+    private static func build(of bundle: Bundle) -> Int {
+        (bundle.object(forInfoDictionaryKey: "CFBundleVersion") as? String).flatMap(Int.init) ?? 0
+    }
 
     /// The library the window opens. A test run and a second copy get an empty
     /// one of their own, since opening the user's marks what was waiting or
@@ -210,12 +228,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.terminate(nil)
     }
 
+    /// Whether the check after launch has run, before which coming forward
+    /// checks nothing.
+    private var hasCheckedAtLaunch = false
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Late enough that the window is on screen before any question.
         Task {
             try? await Task.sleep(for: .seconds(5))
-            UpdatePrompt.checkAutomaticallyIfDue()
+            UpdatePrompt.checkAutomaticallyIfDue(atLaunch: true)
+            hasCheckedAtLaunch = true
         }
+    }
+
+    func applicationDidBecomeActive(_ notification: Notification) {
+        guard hasCheckedAtLaunch else { return }
+        UpdatePrompt.checkAutomaticallyIfDue(atLaunch: false)
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
