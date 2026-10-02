@@ -21,6 +21,13 @@ nonisolated enum ModelStore {
         folder.appending(path: model.sha256 + ".resume")
     }
 
+    /// Where a transfer of `model` that arrived whole waits for its check.
+    /// Named by hash, as resume data is; the sweep keeps it while the model
+    /// is not installed.
+    static func receivedFile(of model: Model, in folder: URL = directory) -> URL {
+        folder.appending(path: model.sha256 + ".part")
+    }
+
     /// Installed means present at the expected size. Listing the library must
     /// stay instant, so the contents are proven elsewhere, when the file
     /// arrives and again before each native load.
@@ -252,6 +259,7 @@ nonisolated enum ModelStore {
         try FileManager.default.removeItem(at: location(of: model, in: folder))
         // An interrupted transfer of the same model would outlive it otherwise.
         try? FileManager.default.removeItem(at: resumeFile(of: model, in: folder))
+        try? FileManager.default.removeItem(at: receivedFile(of: model, in: folder))
     }
 
     /// Removes what interrupted work leaves behind: files received or copied
