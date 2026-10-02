@@ -33,8 +33,12 @@ private func open(_ player: Player) async throws {
     let ogg = URL(filePath: #filePath)
         .deletingLastPathComponent()
         .appending(path: "Fixtures/formats/clip.ogg")
-    let player = Player(defaults: Settings())
-    defer { player.stop() }
+    let copies = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    let player = Player(defaults: Settings(), copies: copies)
+    defer {
+        player.stop()
+        try? FileManager.default.removeItem(at: copies)
+    }
 
     player.play(ogg, from: 0)
     try #require(player.isPreparing)
@@ -50,6 +54,35 @@ private func open(_ player: Player) async throws {
     #expect(player.position >= 2)
 }
 
+/// Sleep or headphones going away while a copy is being decoded pause what
+/// was asked: the recording opens where it was asked, without playing.
+@MainActor
+@Test func anInterruptionWhilePreparingOpensPaused() async throws {
+    let ogg = URL(filePath: #filePath)
+        .deletingLastPathComponent()
+        .appending(path: "Fixtures/formats/clip.ogg")
+    let copies = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    let player = Player(defaults: Settings(), copies: copies)
+    defer {
+        player.stop()
+        try? FileManager.default.removeItem(at: copies)
+    }
+
+    player.play(ogg, from: 1)
+    try #require(player.isPreparing)
+    player.pause()
+
+    for _ in 0..<100 where !player.isOpen {
+        try await Task.sleep(for: .milliseconds(50))
+    }
+    try #require(player.isOpen)
+    #expect(!player.isPlaying)
+    #expect(player.position == 1)
+
+    player.play(ogg, from: 1)
+    #expect(player.isPlaying)
+}
+
 /// Leaving a transcript stops playback. Coming back plays the copy already
 /// decoded rather than decoding the whole recording again.
 @MainActor
@@ -57,8 +90,12 @@ private func open(_ player: Player) async throws {
     let mkv = URL(filePath: #filePath)
         .deletingLastPathComponent()
         .appending(path: "Fixtures/formats/clip.mkv")
-    let player = Player(defaults: Settings())
-    defer { player.discardCopy() }
+    let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    let player = Player(defaults: Settings(), copies: folder)
+    defer {
+        player.discardCopy()
+        try? FileManager.default.removeItem(at: folder)
+    }
 
     var copies: [Player.KeptCopy] = []
     for _ in 0..<2 {

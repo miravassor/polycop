@@ -66,6 +66,9 @@ final class Player {
     /// Where the recording being prepared opens. A later click while it is
     /// prepared moves it rather than starting the preparation over.
     @ObservationIgnored private var preparedStart: TimeInterval = 0
+    /// Whether a recording still being prepared opens paused, as after sleep
+    /// or headphones going away; a new click wants it playing again.
+    @ObservationIgnored private var opensPaused = false
     @ObservationIgnored private let nowPlaying = NowPlaying()
     @ObservationIgnored private let defaults: UserDefaults
     /// Whether playback was paused while playing, as opposed to moved while
@@ -127,6 +130,7 @@ final class Player {
         guard time.isFinite else { return }
         cancelResumeAfterTyping()
         failure = nil
+        opensPaused = false
         if recording == self.recording {
             // A copy being decoded would be decoded again from the start.
             if isPreparing {
@@ -274,6 +278,7 @@ final class Player {
     /// Pauses, and keeps paused what typing was about to resume.
     func pause() {
         cancelResumeAfterTyping()
+        if isPreparing { opensPaused = true }
         if isPlaying { toggle() }
     }
 
@@ -411,7 +416,8 @@ final class Player {
         }
         self.player = player
         nowPlaying.activate(for: self)
-        seek(player, to: time)
+        seek(player, to: time, playing: !opensPaused)
+        opensPaused = false
     }
 
     /// Called four times a second, and whenever playback starts or stops.
@@ -437,9 +443,9 @@ final class Player {
     }
 
     /// Opens at the requested point; paragraph actions supply their own lead-in.
-    private func seek(_ player: AVPlayer, to time: TimeInterval) {
+    private func seek(_ player: AVPlayer, to time: TimeInterval, playing: Bool = true) {
         ask(for: time)
-        isPlaying = true
+        isPlaying = playing
         apply(player, fadeOut: Self.cut)
         publishNowPlaying()
     }
