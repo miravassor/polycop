@@ -7,9 +7,12 @@ nonisolated enum DownloadError: LocalizedError {
     case httpFailure(Int)
     case checksumMismatch(Model)
     case tooLarge
+    case notEnoughSpace(needed: Int64, available: Int64)
 
     var errorDescription: String? {
         switch self {
+        case .notEnoughSpace(let needed, let available):
+            ModelStore.notEnoughSpaceMessage(needed: needed, available: available)
         case .tooLarge:
             String(localized: "The download exceeded the model's expected size and was stopped.")
         case .httpFailure(let code):
@@ -30,19 +33,29 @@ nonisolated enum DownloadError: LocalizedError {
 /// asynchronous convenience methods deliver only the callbacks their own
 /// handler does not cover, so a delegate passed to them never sees progress.
 nonisolated enum ModelDownloader {
-    /// `url`, `folder` and `configuration` are for tests, which serve the
-    /// file themselves; the app downloads the pinned address into the store.
+    /// `url`, `folder`, `configuration` and `availableCapacity` are for tests,
+    /// which serve the file themselves and cannot fill a disk; the app
+    /// downloads the pinned address into the store. `availableCapacity` comes
+    /// last so that a closure written after the call is still `onProgress`.
     static func download(
         _ model: Model,
         from url: URL? = nil,
         in folder: URL = ModelStore.directory,
         configuration: URLSessionConfiguration = configuration,
-        onProgress: @escaping @Sendable (Double) -> Void = { _ in }
+        onProgress: @escaping @Sendable (Double) -> Void = { _ in },
+        availableCapacity: @Sendable (URL) -> Int64? = ModelStore.availableCapacity(of:)
     ) async throws -> URL {
         if ModelStore.isInstalled(model, in: folder) {
             return ModelStore.location(of: model, in: folder)
         }
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        // Refused before the request, not after gigabytes. A resumed download
+        // is counted in full too: what it already holds is not simply known.
+        if let short = ModelStore.shortfall(
+            forBytes: model.bytes, in: folder, available: availableCapacity)
+        {
+            throw DownloadError.notEnoughSpace(needed: short.needed, available: short.available)
+        }
         let place = Place(
             url: url ?? model.url, folder: folder, configuration: configuration,
             onProgress: onProgress)
