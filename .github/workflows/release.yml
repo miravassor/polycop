@@ -94,7 +94,8 @@ jobs:
           Tools/package.sh
           folder="build/releases/Polycop-$VERSION"
           mkdir build/upload
-          cp "$folder"/Polycop-"$VERSION".{dmg,zip} "$folder"/Polycop-"$VERSION".{dmg,zip}.sha256 \
+          cp "$folder"/Polycop-"$VERSION".{dmg,zip,dSYM.zip} \
+            "$folder"/Polycop-"$VERSION".{dmg,zip,dSYM.zip}.sha256 \
             build/notes/notes.md build/upload/
 
       # GPL directions to the source belong next to the download, and the
@@ -106,7 +107,7 @@ jobs:
             echo "### Files"
             echo
             echo "Built from commit $GITHUB_SHA in run $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID, with $(xcodebuild -version | head -1)."
-            echo "Polycop-$VERSION.zip holds the same app and the complete corresponding source of the app and of every bundled component."
+            echo "Polycop-$VERSION.zip holds the same app and the complete corresponding source of the app and of every bundled component. Polycop-$VERSION.dSYM.zip holds the debugging symbols that turn a crash report into lines of code."
             echo "Both files are attested by GitHub: \`gh attestation verify Polycop-$VERSION.dmg --repo $GITHUB_REPOSITORY\` names the commit and the run that built it."
             echo
             echo "SHA-256:"
@@ -125,6 +126,8 @@ jobs:
     name: publish
     needs: build
     if: github.event_name == 'push'
+    # Only version tags may use this environment (repository setting).
+    environment: release
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -155,4 +158,5 @@ jobs:
           gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
             "Polycop-$version.dmg" "Polycop-$version.dmg.sha256" \
             "Polycop-$version.zip" "Polycop-$version.zip.sha256" \
+            "Polycop-$version.dSYM.zip" "Polycop-$version.dSYM.zip.sha256" \
             --title "Polycop $version" --notes-file notes.md --draft

@@ -34,9 +34,10 @@ of its own. Tests that need a model are skipped unless it is installed.
 4. Once CI has passed on the merged commit, push a tag `vX.Y.Z` on it. The
    release workflow checks that CI passed there and that the tag matches the
    version, builds every dependency from its pinned source, runs the tests and
-   packages the app in a job that can only read the repository. A second job attests the disk image and the zip, then drafts a
-   GitHub release with both, their SHA-256 files and the changelog section as
-   notes.
+   packages the app in a job that can only read the repository. A second job, in the `release` environment that only version tags
+   may use, attests the disk image and the zips, then drafts a GitHub release
+   with them, the debugging symbols, their SHA-256 files and the changelog
+   section as notes. Releases are immutable once published.
 5. Read the draft and publish it. Check for Updates finds a release only once it
    is published.
 
