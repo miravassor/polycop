@@ -140,9 +140,8 @@ struct PolycopApp: App {
         }
         .windowResizability(.contentSize)
 
-        // The one preference that is not part of a recording's settings: it
-        // applies to the Mac while any work runs, and changes take effect at
-        // once rather than with the recordings added next.
+        // Preferences that are not part of a recording's settings: they apply
+        // at once rather than with the recordings added next.
         Settings {
             Form {
                 Section("Polycop") {

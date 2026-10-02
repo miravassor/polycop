@@ -310,3 +310,28 @@ func launchStartsOnTheRecommendedModelOrAnInstalledOne(installed: [String], expe
     model.delete(try #require(model.imported.first))
     #expect(!FileManager.default.fileExists(atPath: stray.path(percentEncoded: false)))
 }
+
+/// Settings kept in memory, written and read back, so a test leaves no
+/// preferences file behind.
+private nonisolated final class MemoryDefaults: UserDefaults, @unchecked Sendable {
+    // Written and read by the test on the main actor only.
+    var values: [String: Any] = [:]
+    override func object(forKey key: String) -> Any? { values[key] }
+    override func set(_ value: Any?, forKey key: String) { values[key] = value }
+    override func set(_ value: Bool, forKey key: String) { values[key] = value }
+}
+
+/// Keep the Mac awake is a preference: turned off, it stays off at the next launch.
+@MainActor
+@Test func keepingTheMacAwakeIsRemembered() {
+    let root = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let defaults = MemoryDefaults()
+
+    let first = AppModel(history: root.appending(path: "History"), defaults: defaults)
+    #expect(first.keepAwake)
+    first.keepAwake = false
+
+    let next = AppModel(history: root.appending(path: "History"), defaults: defaults)
+    #expect(!next.keepAwake)
+}

@@ -102,13 +102,18 @@ final class AppModel {
     /// The language spoken in the recordings that have not started.
     var language = "fr"
     /// Holds off idle sleep while a job runs. It cannot hold off the lid:
-    /// closing a MacBook sleeps it whatever an application asks.
+    /// closing a MacBook sleeps it whatever an application asks. A preference,
+    /// so it is remembered across launches.
     var keepAwake = true {
         didSet {
+            defaults.set(keepAwake, forKey: Self.keepAwakeKey)
             holdActivity(while: false)
             holdActivity(while: stage.isRunning)
         }
     }
+    static let keepAwakeKey = "keepAwake"
+    /// Where the preferences are kept; tests give settings of their own.
+    @ObservationIgnored private let defaults: UserDefaults
     var failure: String?
     /// A failure that belongs to one transcript rather than to the library, so
     /// that it cannot appear under another one after the list moves on.
@@ -213,13 +218,15 @@ final class AppModel {
     init(
         history: URL = HistoryStore.directory, glossaries: URL = GlossaryStore.directory,
         models: URL = ModelStore.directory, playbackCopies: URL = Player.copies,
-        engines: Engines? = nil
+        engines: Engines? = nil, defaults: UserDefaults = .standard
     ) {
+        self.defaults = defaults
+        keepAwake = defaults.object(forKey: Self.keepAwakeKey) as? Bool ?? true
         self.history = history
         historyWriter = HistoryWriter(folder: history)
         glossaryFolder = glossaries
         modelFolder = models
-        let player = Player(copies: playbackCopies)
+        let player = Player(defaults: defaults, copies: playbackCopies)
         self.player = player
         interruptions = PlaybackInterruptions(player: player)
         self.engines = engines ?? .live(models: models)
