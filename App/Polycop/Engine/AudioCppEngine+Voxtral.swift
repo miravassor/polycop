@@ -20,10 +20,33 @@ nonisolated extension AudioCppEngine {
     /// appends none, so the last words before each cut would be lost.
     static let voxtralFlush = (6 + 1 + 10) * voxtralStep
 
+    /// Steps without text after which the stream starts again, 5.12 s, as
+    /// voxtral.c does for long live input (`voxtral.c`, 64 steps). The decoder
+    /// can stop writing in the middle of speech, after an end of sequence that
+    /// audio.cpp feeds back like any token, and stay silent to the end of the
+    /// stream; a new stream reads normally.
+    static let voxtralSilentSteps = 64
+
+    /// Where a stream that has written nothing for `voxtralSilentSteps` starts
+    /// again, in samples of the window, or nil to let it run. It starts from
+    /// the last text heard, so speech a stalled decoder passed over is read
+    /// again, but never before audio already read twice, so in a real silence
+    /// it moves on without replaying; and never once the real audio has all
+    /// been pushed.
+    static func voxtralRestart(
+        heard: Int, lastText: Int, replayedTo: Int, pushed: Int, audioCount: Int
+    ) -> Int? {
+        guard heard - lastText >= voxtralSilentSteps * voxtralStep, pushed < audioCount else {
+            return nil
+        }
+        return min(max(lastText, replayedTo), pushed)
+    }
+
     /// Pushes the window to Voxtral one step at a time, as a live input
     /// reaches audiocpp_cli, then the silence that flushes its last words.
     /// The text read by the end of every 30 seconds of audio, less the delay,
-    /// cuts the final transcript into segments.
+    /// cuts the final transcript into segments. A stream silent for too long
+    /// starts again (`voxtralRestart`); the streams' texts follow one another.
     /// Runs on the engine's queue, which owns `session`.
     static func streamVoxtral(
         to session: OpaquePointer, _ audio: [Float], _ request: OpaquePointer,
@@ -36,31 +59,71 @@ nonisolated extension AudioCppEngine {
         var marks: [(end: Int, read: Int)] = []
         var streamed: [UInt8] = []
         var pushed = 0
+        // Where the current stream's audio and text start, the audio heard
+        // at the last text, how far audio went before the last restart, and
+        // the furthest progress shown, which a replay does not take back.
+        var origin = 0
+        var textStart = 0
+        var lastText = 0
+        var replayedTo = 0
+        var shown = 0.0
         while pushed < padded.count {
             try stopIfAsked()
             let count = min(voxtralStep, padded.count - pushed)
-            var event: OpaquePointer?
-            try padded[pushed..<(pushed + count)].withUnsafeBufferPointer {
-                try check(
-                    audiocpp_stream_push(
-                        session, $0.baseAddress, count, Int32(AudioDecoder.sampleRate), 1,
-                        Int64(pushed), &event))
-            }
-            if let event {
-                defer { audiocpp_event_free(event) }
-                streamed += try bytes(of: audiocpp_event_as_result(event))
-            }
+            let piece = try push(
+                padded[pushed..<(pushed + count)], to: session, at: pushed - origin)
             pushed += count
-            let heard = min(audio.count, max(0, pushed - voxtralDelay))
+            let heard = min(audio.count, max(origin, pushed - voxtralDelay))
+            if let first = piece.first {
+                // The first words of a new stream, kept apart from the last ones.
+                if textStart > 0, streamed.count == textStart, let last = streamed.last,
+                    !isSpace(last), !isSpace(first)
+                {
+                    streamed.append(0x20)
+                    textStart += 1
+                }
+                streamed += piece
+                lastText = heard
+            }
             if heard - (marks.last?.end ?? 0) >= span { marks.append((heard, streamed.count)) }
-            progress(Double(heard) / Double(audio.count))
+            shown = max(shown, Double(heard) / Double(audio.count))
+            progress(shown)
+            if let restart = voxtralRestart(
+                heard: heard, lastText: lastText, replayedTo: replayedTo, pushed: pushed,
+                audioCount: audio.count)
+            {
+                replayedTo = pushed
+                origin = restart
+                pushed = restart
+                lastText = restart
+                textStart = streamed.count
+                try check(audiocpp_stream_start(session, request))
+            }
         }
         var result: OpaquePointer?
         defer { audiocpp_result_free(result) }
         try check(audiocpp_stream_finish(session, &result))
+        // The final text of the last stream replaces what it streamed.
+        let transcript = Array(streamed[..<textStart]) + (try bytes(of: result))
         return streamedSegments(
-            of: try bytes(of: result), streamed: streamed, marks: marks,
-            lasting: audio.count, from: offset)
+            of: transcript, streamed: streamed, marks: marks, lasting: audio.count, from: offset)
+    }
+
+    /// Pushes one step of audio, `sample` samples into the current stream,
+    /// and returns the text that step wrote.
+    private static func push(
+        _ step: ArraySlice<Float>, to session: OpaquePointer, at sample: Int
+    ) throws -> [UInt8] {
+        var event: OpaquePointer?
+        try step.withUnsafeBufferPointer {
+            try check(
+                audiocpp_stream_push(
+                    session, $0.baseAddress, $0.count, Int32(AudioDecoder.sampleRate), 1,
+                    Int64(sample), &event))
+        }
+        guard let event else { return [] }
+        defer { audiocpp_event_free(event) }
+        return try bytes(of: audiocpp_event_as_result(event))
     }
 
     /// Cuts Voxtral's transcript of a window into the spans read while it

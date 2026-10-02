@@ -20,6 +20,7 @@ struct EntryNotices: View {
             !findings.repeats.isEmpty || !findings.hiddenCredits.isEmpty
             || !findings.shortenedLoops.isEmpty
         let canRebuild = offersRebuild && model.canRebuildParagraphs(of: entry)
+        let gaps = entry.textGaps
         if let warning = entry.glossaryWarning {
             Label(warning, systemImage: "exclamationmark.triangle")
                 .font(.callout)
@@ -63,6 +64,31 @@ struct EntryNotices: View {
                             .font(.callout.monospacedDigit())
                             .foregroundStyle(.tint)
                             .help("Listen from ten seconds before")
+                        }
+                    }
+                }
+            }
+        }
+        if !gaps.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+                Label(
+                    "No text for a minute or more from these points. A long pause, or speech the model missed: listen to check, or transcribe again with another model.",
+                    systemImage: "text.badge.xmark"
+                )
+                .font(.callout)
+                .notice(.orange)
+                ScrollView(.horizontal) {
+                    HStack {
+                        ForEach(Array(gaps.enumerated()), id: \.offset) { _, gap in
+                            Button(
+                                "\(Transcript.clock(Int(gap.lowerBound * 1000))) to \(Transcript.clock(Int(gap.upperBound * 1000)))"
+                            ) {
+                                model.replay(entry.id, from: gap.lowerBound)
+                            }
+                            .buttonStyle(.plain)
+                            .font(.callout.monospacedDigit())
+                            .foregroundStyle(.tint)
+                            .help("Listen from the start of this stretch")
                         }
                     }
                 }
