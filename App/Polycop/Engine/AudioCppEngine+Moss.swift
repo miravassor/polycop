@@ -28,7 +28,11 @@ nonisolated extension AudioCppEngine {
         try check(audiocpp_stream_start(session, request))
         var text = ""
         while true {
-            try stopIfAsked()
+            do {
+                try stopIfAsked()
+            } catch {
+                throw StoppedReading(text: text)
+            }
             var event: OpaquePointer?
             let status = audiocpp_stream_next_event(session, &event)
             if status == AUDIOCPP_ERR_RUNTIME,
@@ -48,6 +52,11 @@ nonisolated extension AudioCppEngine {
             }
         }
         return (text, true)
+    }
+
+    /// A stop while MOSS was reading, with what it had written.
+    struct StoppedReading: Error {
+        let text: String
     }
 
     /// MOSS's passages as segments on the recording, for a window starting at

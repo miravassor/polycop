@@ -52,3 +52,18 @@ import Testing
     #expect(TextGaps.stretches(in: segments, lasting: nil) == [0...61])
     #expect(TextGaps.stretches(in: [], lasting: 30).isEmpty)
 }
+
+/// A Voxtral window stopped part way keeps the spans it had read to their
+/// end, without the word being read last.
+@Test func aStoppedVoxtralWindowKeepsTheSpansItFinished() {
+    let streamed = Array(" Bonjour à tous. Nous commen".utf8)
+    let first = " Bonjour à tous.".utf8.count
+    let segments = AudioCppEngine.finishedSpans(
+        of: streamed, marks: [(480_000, first), (960_000, streamed.count)], from: 60)
+    #expect(
+        segments == [
+            Segment(start: 60, end: 90, text: "Bonjour à tous."),
+            Segment(start: 90, end: 120, text: "Nous"),
+        ])
+    #expect(AudioCppEngine.finishedSpans(of: streamed, marks: [], from: 0).isEmpty)
+}
