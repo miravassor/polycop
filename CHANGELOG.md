@@ -28,6 +28,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ### Fixed
 
+* Jumping by clicking a paragraph's time, the timeline or a word no longer shows the old position for a moment: the highlighted word and the timeline mark go straight to the new place.
 * A glossary or transcript saved as "UTF-8 with BOM", as Excel and older Notepad write them, no longer starts with an invisible character on macOS versions that keep it, which made the first term never match.
 * Playing a recording that needs a decoded copy, such as Ogg, WebM, Matroska or WMA, no longer holds the whole recording in memory while the copy is made (about 230 MB per hour), and coming back to its transcript plays the copy already made instead of decoding the recording again. The copy is deleted at quit.
 * With a recording that needs a decoded copy, such as Ogg or WMA, a second click on a timestamp while the copy is being made no longer starts the decoding over; playback opens where the last click asked. After a recording failed to play, for example on a disconnected disk, clicking again reopens it instead of silently seeking the failed player.

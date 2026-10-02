@@ -81,6 +81,27 @@ private func open(_ player: Player) async throws {
     #expect(!FileManager.default.fileExists(atPath: kept.file.path(percentEncoded: false)))
 }
 
+/// After a jump, the position shown never goes back to where playback was
+/// while the audio is still moving to the new place: the word highlight and
+/// the timeline went back for a moment before reaching it.
+@MainActor
+@Test func aJumpNeverShowsTheOldPositionAgain() async throws {
+    let player = Player(defaults: Settings())
+    defer { player.stop() }
+    try await open(player)
+    try await Task.sleep(for: .milliseconds(300))
+
+    for target in [2.5, 0.5, 3.0] {
+        player.seek(to: target)
+        var lowest = player.position
+        for _ in 0..<40 {
+            try await Task.sleep(for: .milliseconds(10))
+            lowest = min(lowest, player.position)
+        }
+        #expect(lowest >= target)
+    }
+}
+
 @MainActor
 @Test func resumingStepsBackSoTheSentenceIsHeardAgain() async throws {
     let settings = Settings()
