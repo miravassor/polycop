@@ -38,3 +38,29 @@ import Testing
     #expect(model.entry(entry.id)?.title == nil)
     #expect(model.entry(entry.id)?.name == "Cours 12.m4a")
 }
+
+/// A Markdown or Word export heads its text with the transcript's name, so a
+/// rename makes it out of date; a plain text export does not hold the name.
+@MainActor
+@Test func renamingMakesAnExportHeadedWithTheNameOutOfDate() throws {
+    let history = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: history) }
+    var entry = Entry(
+        recording: URL(filePath: "/tmp/Cours 12.m4a"), modelFile: ModelCatalog.recommended.id,
+        glossary: nil, skipsSilence: false, subtitles: false)
+    entry.publish([Segment(start: 0, end: 4, text: "Bonjour à tous.")], partial: false)
+    entry.state = .finished
+    entry.isSaved = true
+    var word = entry
+    word.id = UUID()
+    word.exportsWord = true
+    try HistoryStore.write(entry, in: history)
+    try HistoryStore.write(word, in: history)
+    let model = AppModel(history: history)
+
+    model.rename(entry.id, to: "Le cogito")
+    model.rename(word.id, to: "Le cogito, suite")
+
+    #expect(model.entry(entry.id)?.isSaved == true)
+    #expect(model.entry(word.id)?.isSaved == false)
+}

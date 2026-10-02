@@ -192,12 +192,7 @@ nonisolated enum Transcript {
     /// "Séance 3.2", keeps what follows its dot. A transcript stopped before
     /// the end says so in its name, so it cannot pass for a whole lecture later.
     static func suggestedName(for transcript: String, of recording: URL, partial: Bool) -> String {
-        let suffix = "." + recording.pathExtension
-        let name =
-            recording.pathExtension.isEmpty
-                || transcript.range(of: suffix, options: [.anchored, .backwards, .caseInsensitive])
-                    == nil
-            ? transcript : String(transcript.dropLast(suffix.count))
+        let name = RecordingName.split(transcript, of: recording).stem
         return partial ? String(localized: "\(name) (partial)") : name
     }
 

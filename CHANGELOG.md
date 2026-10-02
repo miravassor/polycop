@@ -15,7 +15,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 * Each release's disk image and zip are attested by GitHub: `gh attestation verify Polycop-X.Y.Z.dmg --repo miravassor/polycop` names the commit and the workflow run that built the file. The build can no longer write to the repository; only the step that drafts the release can.
 * A model download or import is refused up front when the disk lacks room for it plus 1 GB of margin, with a message saying how much is needed and how much is free, instead of failing after gigabytes.
 * A transcript says where it has no text for a minute or more, with each stretch's times to listen from: a long pause, or speech the model missed.
-* Rename Transcript…, in a transcript's menu in the library, changes the name the library shows. The recording keeps its file name, and the text, corrections, exports and folder stay as they were; giving it the recording's name back follows the recording again. New exports take the new name; files already exported keep theirs, and Update Export still writes to them.
+* Rename Transcript…, in a transcript's menu in the library, changes the name the library shows. The recording keeps its file name, and the text, corrections, exports and folder stay as they were; giving it the recording's name back follows the recording again. New exports take the new name; files already exported keep theirs, and Update Export still writes to them. A Markdown or Word export, which starts with the name, then shows Update Export, and a copy or retry of "Séance 3.2" is named "Séance 3.2 (2)".
 
 ### Changed
 
