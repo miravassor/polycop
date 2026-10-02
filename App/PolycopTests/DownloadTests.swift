@@ -337,6 +337,42 @@ func aRefusedResumeStartsOver() async throws {
     #expect(leftovers(in: folder).isEmpty)
 }
 
+/// macOS deletes temporary files left untouched for days, the partial file
+/// resume data points to among them. The download then starts over once.
+@Test(.timeLimit(.minutes(1)))
+func aResumeWhosePartialFileIsGoneStartsOver() async throws {
+    let isFirst = OSAllocatedUnfairLock(initialState: true)
+    let server = try LoopbackServer(body: body) { _ in
+        isFirst.withLock { first in
+            defer { first = false }
+            return first ? .stall(after: body.count / 2) : .file
+        }
+    }
+    defer { server.stop() }
+    let url = try await server.start()
+    let folder = temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let model = model(of: body)
+
+    try await stopDownloading(model, from: url, in: folder)
+    let resumeData = try Data(contentsOf: ModelStore.resumeFile(of: model, in: folder))
+    let info = try #require(
+        PropertyListSerialization.propertyList(from: resumeData, format: nil) as? [String: Any])
+    // A keyed archive: the partial file's name is one of its strings.
+    let strings = (info["$objects"] as? [Any] ?? []).compactMap { $0 as? String }
+    let partial = try #require(strings.first { $0.contains("CFNetworkDownload_") })
+    let place =
+        partial.hasPrefix("/")
+        ? URL(filePath: partial) : FileManager.default.temporaryDirectory.appending(path: partial)
+    try FileManager.default.removeItem(at: place)
+
+    let file = try await ModelDownloader.download(model, from: url, in: folder)
+
+    #expect(try Data(contentsOf: file) == body)
+    #expect(server.requests.last?.headers["range"] == nil)
+    #expect(leftovers(in: folder).isEmpty)
+}
+
 /// Starts a download, waits for its first bytes, then stops it as Cancel does.
 private func stopDownloading(_ model: Model, from url: URL, in folder: URL) async throws {
     let progressed = AsyncStream<Void>.makeStream()

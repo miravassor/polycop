@@ -389,7 +389,6 @@ func aCreditLineIsRemoved(_ line: String) {
     }
     let done = model("done.bin", hash: "a")
     let pending = model("pending.bin", hash: "b")
-    let catalogue = [done, pending]
 
     let finished = ModelStore.location(of: done, in: folder)
     let ofFinished = ModelStore.resumeFile(of: done, in: folder)
@@ -397,11 +396,16 @@ func aCreditLineIsRemoved(_ line: String) {
     // Resume data of a file the catalogue no longer pins, as an update that
     // keeps the id but pins new weights leaves, or as older versions named it.
     let ofRetired = folder.appending(path: String(repeating: "c", count: 64) + ".resume")
+    // Named by id, as 0.3.2 named it: renamed by hash while nothing has that
+    // name yet, removed when resume data named by hash is already there.
     let byName = folder.appending(path: "pending.bin.resume")
+    let legacy = model("legacy.bin", hash: "d")
+    let catalogue = [done, pending, legacy]
+    let byLegacyName = folder.appending(path: "legacy.bin.resume")
     // A download received but not yet hashed when the app stopped.
     let received = folder.appending(path: UUID().uuidString + ".part")
 
-    for file in [finished, ofFinished, ofPending, ofRetired, byName, received] {
+    for file in [finished, ofFinished, ofPending, ofRetired, byName, byLegacyName, received] {
         try Data("x".utf8).write(to: file)
     }
     ModelStore.sweep(in: folder, catalogue: catalogue)
@@ -415,6 +419,10 @@ func aCreditLineIsRemoved(_ line: String) {
     // This transfer can still be continued, so it stays.
     #expect(manager.fileExists(atPath: ofPending.path(percentEncoded: false)))
     #expect(manager.fileExists(atPath: finished.path(percentEncoded: false)))
+    #expect(!manager.fileExists(atPath: byLegacyName.path(percentEncoded: false)))
+    #expect(
+        manager.fileExists(
+            atPath: ModelStore.resumeFile(of: legacy, in: folder).path(percentEncoded: false)))
 }
 
 /// A result of one to three distinct segments has no repetition at all.
