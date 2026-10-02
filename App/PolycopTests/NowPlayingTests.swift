@@ -5,11 +5,10 @@ import Testing
 
 @testable import Polycop
 
-/// A player that reads none of the user's settings: a suite of its own, never
-/// written, so no file is left behind.
+/// A player that reads none of the user's settings and leaves no file behind.
 @MainActor
 private func playerOfItsOwn() throws -> Player {
-    Player(defaults: try #require(UserDefaults(suiteName: "PolycopTests-\(UUID().uuidString)")))
+    Player(defaults: MemoryDefaults())
 }
 
 /// The system controls follow an open recording and let go of it when it stops.

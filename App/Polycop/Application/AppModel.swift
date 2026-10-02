@@ -95,12 +95,18 @@ final class AppModel {
 
     /// The file name of the chosen model. A name rather than a value, because
     /// the choice can be a catalogue entry or a file the user imported.
-    var selected = ModelCatalog.recommended.id
+    var selected = ModelCatalog.recommended.id {
+        didSet { defaults.set(selected, forKey: Self.selectedKey) }
+    }
 
     /// Off by default: silence removal can discard speech along with the silence.
-    var skipsSilence = false
+    var skipsSilence = false {
+        didSet { defaults.set(skipsSilence, forKey: Self.skipsSilenceKey) }
+    }
     /// The language spoken in the recordings that have not started.
-    var language = "fr"
+    var language = "fr" {
+        didSet { defaults.set(language, forKey: Self.languageKey) }
+    }
     /// Holds off idle sleep while a job runs. It cannot hold off the lid:
     /// closing a MacBook sleeps it whatever an application asks. A preference,
     /// so it is remembered across launches.
@@ -111,7 +117,13 @@ final class AppModel {
             holdActivity(while: stage.isRunning)
         }
     }
+    /// The New Transcription settings and Keep awake are remembered across
+    /// launches, as a student keeps the same model and course for weeks.
     static let keepAwakeKey = "keepAwake"
+    static let selectedKey = "selectedModel"
+    static let skipsSilenceKey = "skipsSilence"
+    static let languageKey = "language"
+    static let glossaryKey = "glossaryName"
     /// Where the preferences are kept; tests give settings of their own.
     @ObservationIgnored private let defaults: UserDefaults
     var failure: String?
@@ -138,7 +150,9 @@ final class AppModel {
 
     /// Course glossaries, and the one sent with the next recordings added.
     var glossaries: [Glossary] = []
-    var glossaryName: String?
+    var glossaryName: String? {
+        didSet { defaults.set(glossaryName, forKey: Self.glossaryKey) }
+    }
 
     var selectedCatalogue: Model? { ModelCatalog.model(selected) }
     /// A glossary only applies to a model that reads one.
@@ -218,10 +232,16 @@ final class AppModel {
     init(
         history: URL = HistoryStore.directory, glossaries: URL = GlossaryStore.directory,
         models: URL = ModelStore.directory, playbackCopies: URL = Player.copies,
-        engines: Engines? = nil, defaults: UserDefaults = .standard
+        engines: Engines? = nil, defaults: UserDefaults = MemoryDefaults.forThisRun
     ) {
         self.defaults = defaults
         keepAwake = defaults.object(forKey: Self.keepAwakeKey) as? Bool ?? true
+        skipsSilence = defaults.object(forKey: Self.skipsSilenceKey) as? Bool ?? false
+        if let remembered = defaults.object(forKey: Self.languageKey) as? String,
+            DecodingSettings.languages.contains(where: { $0.code == remembered })
+        {
+            language = remembered
+        }
         self.history = history
         historyWriter = HistoryWriter(folder: history)
         glossaryFolder = glossaries
@@ -231,8 +251,21 @@ final class AppModel {
         interruptions = PlaybackInterruptions(player: player)
         self.engines = engines ?? .live(models: models)
         refreshInstalled()
-        selected = ModelCatalog.startingModel(installed: installed).id
+        // What was chosen last, while it is still there; otherwise the
+        // starting model and no glossary.
+        if let remembered = defaults.object(forKey: Self.selectedKey) as? String,
+            installed.contains(remembered)
+        {
+            selected = remembered
+        } else {
+            selected = ModelCatalog.startingModel(installed: installed).id
+        }
         refreshGlossaries()
+        if let remembered = defaults.object(forKey: Self.glossaryKey) as? String,
+            self.glossaries.contains(where: { $0.name == remembered })
+        {
+            glossaryName = remembered
+        }
         let library = HistoryStore.all(in: history)
         entries = library.entries
         var damaged = library.damaged.count
