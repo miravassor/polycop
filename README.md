@@ -42,14 +42,22 @@ unless they agree to more.
   it the same way.
 * **Library** of transcripts, sorted in folders. Your recordings stay where they
   are.
-* **Safeguards**: a passage where a model repeats itself is shortened, stretches
-  that need a second listen are marked, and the Mac stays awake during a long
+* **Your own model files**: a model downloaded elsewhere can be imported, once
+  checked against the catalogue.
+* **Silence skipping** for Whisper, which leaves out the stretches without
+  speech, and says how much was left out.
+* **Safeguards**: a passage where a model repeats itself is shortened and can be
+  transcribed again, subtitle credits Whisper invents over silence are set aside
+  with a button to put them back, stretches that need a second listen are
+  marked, and the Mac stays awake during a long
   job.
 
 ### Editing
 
-* **Correction while listening.** Click a timestamp, or Option-click a word, to
-  hear the passage; the word being heard is highlighted. Playback pauses when you
+* **Correction while listening.** Click a timestamp to hear the passage. In a
+  transcript timed word by word (Whisper, and Qwen3-ASR with its aligner),
+  Option-click a word or press Option Command P to play from the text cursor,
+  and the word being heard is highlighted. Playback pauses when you
   start typing, resumes on its own once you stop, and steps back a little so the
   sentence is heard again. Fix the text in place, step back one correction at a
   time, or return to the original.
@@ -63,11 +71,12 @@ unless they agree to more.
   paragraphs, the next or previous paragraph from the keyboard, and the text
   following playback until you scroll away. Space plays and pauses when you are
   not typing, and Esc leaves the text. The keyboard media keys, Control Center
-  and headphone buttons control it too.
+  and headphone buttons control it too. It pauses when the Mac goes to sleep or
+  when the headphones it plays through disconnect.
 * **Review marks** on passages to check later.
-* **Export** to text with or without timestamps, or to Markdown, with hesitations
-  such as "euh" left out if you want, and to SRT subtitles when the model times
-  its sentences.
+* **Export** to text with or without timestamps, to Markdown or to a Word
+  document, with hesitations such as "euh" left out if you want, and to SRT
+  subtitles when the model times its sentences.
 
 ## Models
 
@@ -76,7 +85,7 @@ unless they agree to more.
 | Whisper Large v3 turbo (recommended) | 1.6 GB | 2.8 GB | fast; reads a glossary |
 | Whisper Large v3 turbo quantized | 0.9 GB | 2.0 GB | fast; half the download |
 | Whisper Large v3 | 3.1 GB | 5.0 GB | the full Whisper model, slower |
-| Qwen3-ASR 1.7B | 2.5 GB | 3.9 GB | sentence timings with the optional aligner |
+| Qwen3-ASR 1.7B | 2.5 GB | 3.9 GB | sentence timings with the optional aligner (1.1 GB more) |
 | MOSS-Transcribe-Diarize 0.9B | 1.1 GB | 5.6 GB | labels speaker turns |
 | Voxtral Mini 4B Realtime | 5.1 GB | 6.0 GB | streamed; takes about as long as the recording |
 
@@ -95,7 +104,8 @@ speaker, so trying two models on your own recordings is worth it.
 
 * A Mac with Apple Silicon (M1 or later) and macOS 14 Sonoma or later.
 * Enough free disk space for the models you choose, and enough memory for the
-  one you run: the app refuses a model too large for your Mac, and says why.
+  one you run: the app checks the disk before a download and the memory before
+  it loads a model, and says why it refuses.
 * Nothing else to install. The app downloads the models itself, over a secure
   connection, and checks each file against its published SHA-256 fingerprint.
 
@@ -120,8 +130,8 @@ every component it ships and the instructions to build it.
 
 Polycop does not update itself. On its second launch it asks whether to check for
 a new version once a day; you can change that in Settings, or choose **Check for
-Updates…** in the Polycop menu at any time. When a newer version is out, it opens
-its release page.
+Updates…** in the Polycop menu at any time. When a newer version is out, it offers to
+open its release page.
 
 ### If macOS refuses to open it
 
@@ -136,15 +146,17 @@ its release page.
    ```
 
    It removes the mark macOS puts on downloaded files, for this app only, and
-   changes no other setting. Do it only for a copy you checked in step 2,
+   changes no other setting. Do it only for a copy you checked in install step 2,
    ideally with the attestation.
 
 ## Using it
 
 1. Download a model from inside the app. Start with Whisper Large v3 turbo.
 2. Choose a course glossary if you have one, then add your recordings. They are
-   transcribed one after another, with no conversion on your side.
-3. Listen back and correct the text: Option-click a word to hear it, and use Find
+   transcribed one after another once you click Start Transcription, with no
+   conversion on your side.
+3. Listen back and correct the text: click a time, or Option-click a word in a
+   transcript timed word by word, to hear it, and use Find
    and Replace for a name the model keeps mishearing. Corrections are saved in
    the library.
 4. Export the text in the layout you want, with subtitles if you want them.
@@ -159,6 +171,9 @@ its release page.
   its last 223 tokens, and the app warns when yours is longer. MOSS reads it as
   hotwords. Qwen3-ASR and Voxtral do not use it.
 * Recordings can be up to four hours long.
+* A model download that is cancelled, cut off or stopped by quitting continues
+  where it left off the next time.
+* Recordings waiting in the queue stay there when you quit, for the next Start.
 * Pausing keeps the text obtained so far; a few words may be dropped or repeated
   where the work resumes, and those spots are marked. A paused job does not
   survive quitting the app.
@@ -168,7 +183,7 @@ its release page.
 1. Quit Polycop and move `Polycop.app` to the Bin.
 2. To remove your transcripts, glossaries and downloaded models as well, delete
    the folder `~/Library/Application Support/Polycop/` (in the Finder, choose
-   Go > Go to Folder). Models take up to 5 GB each.
+   Go > Go to Folder). Models take up to about 5 GB each.
 
 Your recordings and exported files are never stored there, and stay where they
 are.
@@ -176,7 +191,9 @@ are.
 ## Build from source
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). You need Xcode 27, CMake and GnuPG; the
-scripts in `Tools/` build every dependency from pinned, verified sources.
+scripts in `Tools/` build ffmpeg and audio.cpp from pinned, verified sources, and
+Swift Package Manager checks the official whisper.cpp framework against its
+checksum.
 
 ## Licence
 

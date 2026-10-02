@@ -65,12 +65,12 @@ extension AppModel {
 
     /// The files an export writes, without building their text.
     private func suffixes(of entry: Entry) -> [String] {
-        [(entry.textLayout ?? .timestamped).suffix]
+        [entry.exportLayout.suffix]
             + (entry.subtitles && entry.timesSentences ? ["srt"] : [])
     }
 
-    private func formats(of entry: Entry) -> [(suffix: String, contents: String)] {
-        let layout = entry.textLayout ?? .timestamped
+    private func formats(of entry: Entry) throws -> [(suffix: String, contents: Data)] {
+        let layout = entry.exportLayout
         var paragraphs = entry.paragraphs
         if entry.removesHesitations == true {
             for index in paragraphs.indices {
@@ -79,27 +79,32 @@ extension AppModel {
             // A paragraph that was only "Euh." would export as a bare time.
             paragraphs.removeAll { $0.text.isEmpty }
         }
-        var formats = [
-            (
-                suffix: layout.suffix,
-                contents: Transcript.text(
-                    paragraphs, layout: layout,
-                    title: Transcript.suggestedName(for: entry.name, partial: entry.isPartial))
-            )
-        ]
+        let title = Transcript.suggestedName(for: entry.name, partial: entry.isPartial)
+        let text =
+            layout == .word
+            ? try WordDocument.data(paragraphs, title: title)
+            : Data(Transcript.text(paragraphs, layout: layout, title: title).utf8)
+        var formats = [(suffix: layout.suffix, contents: text)]
         if entry.subtitles, entry.timesSentences {
-            formats.append((suffix: "srt", contents: Transcript.subRip(entry.shown)))
+            formats.append((suffix: "srt", contents: Data(Transcript.subRip(entry.shown).utf8)))
         }
         return formats
     }
 
     private func write(
-        _ id: Entry.ID, _ writing: ([(suffix: String, contents: String)]) throws -> [URL]
+        _ id: Entry.ID, _ writing: ([(suffix: String, contents: Data)]) throws -> [URL]
     ) {
         guard !isShuttingDown, let entry = entry(id), !entry.paragraphs.isEmpty else { return }
         failure = nil
         if entryFailure?.id == id { entryFailure = nil }
-        let formats = formats(of: entry)
+        let formats: [(suffix: String, contents: Data)]
+        do {
+            formats = try self.formats(of: entry)
+        } catch {
+            Log.persistence.error("an export could not be built: \(error, privacy: .private)")
+            entryFailure = EntryFailure(id: id, message: error.localizedDescription)
+            return
+        }
         let digests = formats.map { Transcript.digest($0.contents) }
         do {
             let files = try writing(formats)

@@ -43,6 +43,9 @@ nonisolated struct Entry: Identifiable, Equatable, Codable, Sendable {
     /// Layout of the text export. Nil in records written before the choice
     /// existed, which exported timestamped paragraphs.
     var textLayout: Transcript.TextLayout?
+    /// Whether the export is a Word document. Kept apart from `textLayout`, so
+    /// a version that knows no Word export still reads the record.
+    var exportsWord: Bool?
     /// Whether the text export leaves out hesitation sounds.
     var removesHesitations: Bool?
     /// The course corrections this transcript took when it started, applied
@@ -436,5 +439,12 @@ nonisolated struct Entry: Identifiable, Equatable, Codable, Sendable {
         isSaved = false
         apply(courseCorrections ?? [])
         return true
+    }
+}
+
+extension Entry {
+    /// The layout the export uses.
+    var exportLayout: Transcript.TextLayout {
+        exportsWord == true ? .word : (textLayout ?? .timestamped)
     }
 }

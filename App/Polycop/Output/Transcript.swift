@@ -85,18 +85,27 @@ nonisolated enum Transcript {
         paragraphs.map { "[\($0.time)] \($0.text)\n\n" }.joined()
     }
 
-    /// How the text export lays out paragraphs. Stored with each transcript.
+    /// How the text export lays out paragraphs. Stored with each transcript,
+    /// except `word`: older versions refuse a record holding a value they do
+    /// not know, so a Word export is recorded in `Entry.exportsWord` instead.
     nonisolated enum TextLayout: String, Codable, CaseIterable, Sendable {
         case timestamped
         case plain
         case markdown
+        case word
 
-        var suffix: String { self == .markdown ? "md" : "txt" }
+        var suffix: String {
+            switch self {
+            case .timestamped, .plain: "txt"
+            case .markdown: "md"
+            case .word: "docx"
+            }
+        }
     }
 
     static func text(_ paragraphs: [Paragraph], layout: TextLayout, title: String) -> String {
         switch layout {
-        case .timestamped: text(paragraphs)
+        case .timestamped, .word: text(paragraphs)
         case .plain: paragraphs.map { "\($0.text)\n\n" }.joined()
         case .markdown:
             "# \(markdownEscaped(title))\n\n"
@@ -147,7 +156,7 @@ nonisolated enum Transcript {
     /// never replaces one already there.
     @discardableResult
     static func write(
-        _ formats: [(suffix: String, contents: String)], as destination: URL
+        _ formats: [(suffix: String, contents: Data)], as destination: URL
     ) throws -> [URL] {
         let folder = destination.deletingLastPathComponent()
         let stem = destination.deletingPathExtension().lastPathComponent
@@ -192,7 +201,7 @@ nonisolated enum Transcript {
     /// changed elsewhere is never overwritten.
     static func update(
         _ files: [URL], holding digests: [String],
-        with formats: [(suffix: String, contents: String)]
+        with formats: [(suffix: String, contents: Data)]
     ) throws -> [URL]? {
         guard !files.isEmpty, files.count == formats.count, digests.count == files.count,
             zip(files, formats).allSatisfy({ $0.pathExtension == $1.suffix }),
@@ -202,12 +211,12 @@ nonisolated enum Transcript {
     }
 
     private static func write(
-        _ formats: [(suffix: String, contents: String)], to files: [URL]
+        _ formats: [(suffix: String, contents: Data)], to files: [URL]
     ) throws -> [URL] {
         var written: [URL] = []
         for (file, format) in zip(files, formats) {
             do {
-                try format.contents.write(to: file, atomically: true, encoding: .utf8)
+                try format.contents.write(to: file, options: .atomic)
                 written.append(file)
             } catch {
                 if written.isEmpty { throw error }

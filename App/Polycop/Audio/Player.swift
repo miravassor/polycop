@@ -73,6 +73,10 @@ final class Player {
     @ObservationIgnored private var resumesEarlier = false
     /// A position asked for and not yet reached, since the audio first fades.
     @ObservationIgnored private var pendingSeek: TimeInterval?
+    /// The seek sent to AVPlayer and not yet finished: until it lands, the
+    /// player still reports where it was, which must not be shown.
+    @ObservationIgnored private var landingSeek: Int?
+    @ObservationIgnored private var seeks = 0
     /// The fade bringing the audio to what was asked, if one runs.
     @ObservationIgnored private var transition: Task<Void, Never>?
     /// Resumes playback that typing paused, once typing stops. Any command of
@@ -201,9 +205,19 @@ final class Player {
             guard let self, self.player === player else { return }
             if let time = pendingSeek {
                 pendingSeek = nil
+                seeks += 1
+                let number = seeks
+                landingSeek = number
                 player.seek(
                     to: CMTime(seconds: time, preferredTimescale: 1000), toleranceBefore: .zero,
-                    toleranceAfter: .zero, completionHandler: { _ in })
+                    toleranceAfter: .zero
+                ) { [weak self] _ in
+                    // Finished or replaced by a later seek, either way this
+                    // one no longer holds the position.
+                    Task { @MainActor in
+                        if self?.landingSeek == number { self?.landingSeek = nil }
+                    }
+                }
             }
             if isPlaying {
                 player.volume = 0
@@ -290,6 +304,7 @@ final class Player {
         transition?.cancel()
         transition = nil
         pendingSeek = nil
+        landingSeek = nil
         cancelResumeAfterTyping()
         nowPlaying.deactivate()
         if let observer { player?.removeTimeObserver(observer) }
@@ -403,7 +418,7 @@ final class Player {
     private func update(_ time: CMTime) {
         guard let player, time.seconds.isFinite else { return }
         // A position asked for stands until the audio has gone there.
-        if pendingSeek == nil { position = time.seconds }
+        if pendingSeek == nil, landingSeek == nil { position = time.seconds }
         let wasPlaying = isPlaying
         // While a fade runs, what was asked stands. Otherwise the player can
         // only end playback, as at the end of the recording: it never starts

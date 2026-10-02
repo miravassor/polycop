@@ -6,6 +6,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ### Added
 
+* Export to Word: a fourth text layout in Export options writes a .docx with the title as a heading and each paragraph after its time in bold, ready to open in Word, Pages or Google Docs. A transcript exported this way still opens in earlier versions of Polycop.
 * Each release also carries its debugging symbols (`Polycop-X.Y.Z.dSYM.zip`), so a crash report sent by a user can be read back to the line of code. Published releases can no longer be changed afterwards.
 * Play From Cursor (⌥⌘P), in a new Playback menu, plays from the word at the text cursor: Option-click without the mouse.
 * The text cursor can follow playback: after a correction, it moves with the word being heard, so the next one is typed where the audio is. Off by default, in Settings; a click keeps the cursor where you put it until you type.
@@ -17,7 +18,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 * Polycop opens a large library about three times faster: transcripts are read on every core at once. 200 three-hour lectures timed word by word took 10.5 seconds to read, now 3.1.
 * Corrections are saved without holding up the window: each transcript is written in the background, in order. On a three-hour lecture timed word by word, every correction used to stop the window for about 50 milliseconds.
-* Model downloads send only the app's name, as the update check does, rather than your macOS version and languages, and keep no cookie between downloads. The download progress redraws once per percent instead of at every network packet, and a download interrupted while it was being checked no longer leaves gigabytes in the system's temporary folder.
+* Model downloads and the update check send only the app's name, rather than your macOS version and languages, and downloads keep no cookie between them. The download progress redraws once per percent instead of at every network packet, and a download interrupted while it was being checked no longer leaves gigabytes in the system's temporary folder.
 * The disk image now holds a READ-ME naming the commit it was built from, how to check its origin, and where the complete source is. The About window says the app is free software and where its source and licences are.
 * Released builds keep macOS's hardened runtime, so another program can no longer slip code into Polycop through environment variables and read the folders you let it open. Only library validation, which needs a developer signature, is lifted.
 * Warnings and failures keep their colour on the icon and draw their text in the normal text colour, which reads better than orange or red on a light window. In Compare original, added words are underlined in green rather than written in green.
@@ -29,6 +30,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ### Fixed
 
+* Jumping by clicking a paragraph's time, the timeline or a word no longer shows the old position for a moment: the highlighted word and the timeline mark go straight to the new place.
 * Settings are remembered across launches: the model, the language, the course glossary and Skip silences on New Transcription, the playback speed, and Keep the Mac awake. A model or glossary removed since falls back to the default.
 * A glossary or transcript saved as "UTF-8 with BOM", as Excel and older Notepad write them, no longer starts with an invisible character on macOS versions that keep it, which made the first term never match.
 * Playing a recording that needs a decoded copy, such as Ogg, WebM, Matroska or WMA, no longer holds the whole recording in memory while the copy is made (about 230 MB per hour), and coming back to its transcript plays the copy already made instead of decoding the recording again. The copy is deleted at quit.
@@ -60,7 +62,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 * Subtitles and timestamped text saved in Windows Latin, as older subtitle tools do, are imported instead of being refused as an unsupported format.
 * Playback you pause just after it starts, as typing does, stays paused: the player no longer takes a late report from the audio system as a request to play again.
 * A transcript whose recording is on a disk that is not connected no longer mounts that disk while the page draws, which could wait on the network or ask for a password while you type. The recording shows as unavailable until you connect the disk.
-* The update check sends only the app's name: the system no longer adds your macOS version and languages to the request. It also accepts only a page of Polycop's own releases from the answer.
+* The update check accepts only a page of Polycop's own releases from the answer.
 * An export never replaces a file the save panel did not ask about: naming it "cours.text" no longer writes over a "cours.txt" already in that folder.
 * While the list of folders cannot be read, transcripts stay in their folders: moving them is refused until the list is repaired, rather than taking them out of folders the app can no longer name.
 

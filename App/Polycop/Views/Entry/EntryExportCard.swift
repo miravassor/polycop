@@ -105,8 +105,11 @@ struct EntryExportCard: View {
         panel.nameFieldStringValue = Transcript.suggestedName(
             for: entry.name, partial: entry.isPartial)
         panel.allowedContentTypes =
-            entry.textLayout == .markdown
-            ? [UTType(filenameExtension: "md") ?? .plainText] : [.plainText]
+            switch entry.exportLayout {
+            case .markdown: [UTType(filenameExtension: "md") ?? .plainText]
+            case .word: [UTType(filenameExtension: "docx") ?? .data]
+            case .timestamped, .plain: [.plainText]
+            }
         panel.directoryURL = entry.location.deletingLastPathComponent()
         panel.canCreateDirectories = true
         if entry.subtitles && entry.timesSentences {
