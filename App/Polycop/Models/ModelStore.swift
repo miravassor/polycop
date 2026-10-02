@@ -257,18 +257,30 @@ nonisolated enum ModelStore {
     /// Removes what interrupted work leaves behind: files received or copied
     /// but never published, and resume data for a model that has since
     /// finished downloading or for a file the catalogue no longer pins.
+    /// Resume data named by catalogue id, as 0.3.2 and earlier named it, is
+    /// renamed by hash while the catalogue pins the same file under that id.
     static func sweep(in folder: URL = directory, catalogue: [Model] = ModelCatalog.files) {
         let manager = FileManager.default
         let path = folder.path(percentEncoded: false)
         guard let entries = try? manager.contentsOfDirectory(atPath: path) else { return }
 
         for name in entries where name.hasSuffix(".resume") || name.hasSuffix(".part") {
+            let file = folder.appending(path: name)
             let owner = (name as NSString).deletingPathExtension
-            let model = catalogue.first { $0.sha256 == owner }
-            let isWanted = model.map { !isInstalled($0, in: folder) } ?? false
-            if !isWanted {
-                try? manager.removeItem(at: folder.appending(path: name))
+            if let model = catalogue.first(where: { $0.sha256 == owner }) {
+                if isInstalled(model, in: folder) { try? manager.removeItem(at: file) }
+                continue
             }
+            // The move fails, and the file goes, when resume data named by
+            // hash is already there.
+            if name.hasSuffix(".resume"),
+                let model = catalogue.first(where: { $0.id == owner }),
+                !isInstalled(model, in: folder),
+                (try? manager.moveItem(at: file, to: resumeFile(of: model, in: folder))) != nil
+            {
+                continue
+            }
+            try? manager.removeItem(at: file)
         }
     }
 }
