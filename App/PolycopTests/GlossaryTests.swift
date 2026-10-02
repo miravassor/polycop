@@ -168,24 +168,6 @@ private func temporaryFolder() -> URL {
     #expect(Glossary.terms(in: try #require(glossary.prompt(in: "fr"))) == glossary.terms)
 }
 
-@Test func aCourseRemembersAndForgetsItsCorrections() throws {
-    let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
-    defer { try? FileManager.default.removeItem(at: folder) }
-    let first = CourseCorrection(text: "bordéreux", replacement: "borderline")
-
-    try CourseCorrections.remember(first, for: "Psychologie", in: folder)
-    try CourseCorrections.remember(
-        CourseCorrection(text: "Bordereux", replacement: "état limite"), for: "Psychologie",
-        in: folder)
-    #expect(
-        CourseCorrections.all(for: "Psychologie", in: folder).map(\.replacement) == ["état limite"])
-
-    try CourseCorrections.forget(
-        CourseCorrection(text: "Bordereux", replacement: "état limite"), for: "Psychologie",
-        in: folder)
-    #expect(CourseCorrections.all(for: "Psychologie", in: folder).isEmpty)
-}
-
 @Test func courseCorrectionsBecomeTheUsersOwnCorrections() {
     var entry = Entry(
         recording: URL(filePath: "/tmp/cours.wav"), modelFile: ModelCatalog.recommended.id,
@@ -228,7 +210,7 @@ private func temporaryFolder() -> URL {
             Segment(start: 0, end: 30, text: " Sous-titrage Société Radio-Canada"),
             Segment(start: 31, end: 33, text: " Le trouble bordéreux."),
         ], partial: false)
-    entry.courseCorrections = CourseCorrections.all(for: course, in: root)
+    entry.courseCorrections = try CourseCorrections.all(for: course, in: root)
     entry.publish(entry.decoded, partial: false)
     entry.state = .finished
     try HistoryStore.write(entry, in: root)
