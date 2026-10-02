@@ -39,6 +39,13 @@ extension AppModel {
         write(id) { try Transcript.write($0, as: destination) }
     }
 
+    /// Exports in the format chosen in the save panel, which becomes the
+    /// transcript's export format from then on.
+    func export(_ id: Entry.ID, as layout: Transcript.TextLayout, to destination: URL) {
+        if entry(id)?.exportLayout != layout { setTextLayout(layout, for: id) }
+        export(id, to: destination)
+    }
+
     /// Writes over the files exported earlier. A file that something else has
     /// changed since is never replaced; the user is told, and can export it
     /// somewhere of their choosing instead.
