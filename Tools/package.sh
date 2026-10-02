@@ -33,13 +33,15 @@ ffmpeg_built || { echo "build/ffmpeg is not FFmpeg $FFMPEG_VERSION" >&2; exit 1;
 audiocpp_built || "$ROOT/Tools/build-audiocpp.sh"
 audiocpp_built || { echo "The audio.cpp framework is not $AUDIOCPP_VERSION" >&2; exit 1; }
 
-# Ad-hoc signatures have no Team ID for hardened library validation.
+# The hardened runtime stays on. Ad hoc signatures carry no Team ID, so the
+# app's entitlements lift library validation, the one check that needs one,
+# and nothing else.
 xcodebuild build \
     -project "$ROOT/App/Polycop.xcodeproj" \
     -scheme Polycop -configuration Release \
     -destination 'platform=macOS,arch=arm64' \
     -derivedDataPath "$ROOT/build/local-derived" \
-    CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual ENABLE_HARDENED_RUNTIME=NO
+    CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual
 
 APP="$ROOT/build/local-derived/Build/Products/Release/Polycop.app"
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist")"
@@ -54,6 +56,20 @@ FOLDER="$STAGE/Polycop $VERSION"
 mkdir -p "$FOLDER"
 ditto "$APP" "$FOLDER/Polycop.app"
 codesign --verify --deep --strict "$FOLDER/Polycop.app"
+# A debugging entitlement or a signature without the runtime would let other
+# processes read or inject code into an app trusted with recordings.
+# Read whole before matching: grep -q stops early, which under pipefail
+# would fail codesign with a broken pipe.
+entitlements="$(codesign -d --entitlements - --xml "$FOLDER/Polycop.app" 2>/dev/null)"
+signature="$(codesign -dv "$FOLDER/Polycop.app" 2>&1)"
+if [[ "$entitlements" == *get-task-allow* ]]; then
+    echo "The app allows debugging; it must not be packaged" >&2
+    exit 1
+fi
+if [[ "$signature" != *flags=*runtime* ]]; then
+    echo "The app is not signed with the hardened runtime" >&2
+    exit 1
+fi
 cat > "$FOLDER/READ-ME.txt" <<NOTE
 Polycop $VERSION, built from commit $COMMIT
 https://github.com/miravassor/polycop
