@@ -122,7 +122,7 @@ extension AppModel {
         // transcribed with, not whatever the page showed when they were added.
         // A retry waiting for its model keeps its own.
         let (glossary, lost) = chosenGlossary()
-        for entry in waiting where !retries.contains(entry.id) {
+        for entry in waiting {
             updateEntry(entry.id) {
                 $0.adopt(
                     modelFile: selected, glossary: glossary, language: language,
@@ -179,7 +179,6 @@ extension AppModel {
         again.title = Entry.freeName(from: entry.name, among: Set(entries.map(\.name)))
         entries.insert(again, at: 0)
         scheduled.insert(again.id)
-        retries.insert(again.id)
         store(again)
         pane = .entry(again.id)
         // Runs at once rather than waiting for Start, but downloads nothing: a
@@ -261,7 +260,10 @@ extension AppModel {
             return
         }
         running = next.id
-        updateEntry(next.id) { $0.state = .running }
+        updateEntry(next.id) {
+            $0.state = .running
+            $0.keepsSettings = nil
+        }
         stage = .decoding
         run(Transcription(id: next.id))
     }
@@ -274,7 +276,6 @@ extension AppModel {
         work = nil
         if let running {
             scheduled.remove(running)
-            retries.remove(running)
         }
         running = nil
         repairing = nil

@@ -48,6 +48,10 @@ nonisolated struct Entry: Identifiable, Equatable, Codable, Sendable {
     var exportsWord: Bool?
     /// Whether the text export leaves out hesitation sounds.
     var removesHesitations: Bool?
+    /// A retry that keeps the settings of the transcript it repeats when it
+    /// waits for Start, rather than taking those on the page; stored so that it
+    /// still does after a relaunch. Optional for older records.
+    var keepsSettings: Bool?
     /// The course corrections this transcript took when it started, applied
     /// again whenever its paragraphs are rebuilt. Empty once the user reverts.
     var courseCorrections: [CourseCorrection]?
@@ -112,7 +116,7 @@ nonisolated struct Entry: Identifiable, Equatable, Codable, Sendable {
     mutating func adopt(
         modelFile: String, glossary: Glossary?, language: String, skipsSilence: Bool
     ) {
-        guard state == .waiting else { return }
+        guard state == .waiting, keepsSettings != true else { return }
         self.modelFile = modelFile
         self.glossary = glossary?.name
         prompt = glossary?.prompt(in: language)
@@ -146,6 +150,7 @@ nonisolated struct Entry: Identifiable, Equatable, Codable, Sendable {
         again.title = nil
         again.state = .waiting
         again.clearResult()
+        again.keepsSettings = true
         return again
     }
 
