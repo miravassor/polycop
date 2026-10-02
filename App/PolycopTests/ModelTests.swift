@@ -310,3 +310,39 @@ func launchStartsOnTheRecommendedModelOrAnInstalledOne(installed: [String], expe
     model.delete(try #require(model.imported.first))
     #expect(!FileManager.default.fileExists(atPath: stray.path(percentEncoded: false)))
 }
+
+/// Keep the Mac awake and the New Transcription settings are remembered: a
+/// model made next with the same settings starts with them, and falls back to
+/// the defaults for a model or glossary that is no longer there.
+@MainActor
+@Test func settingsAreRememberedAcrossLaunches() throws {
+    let root = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let history = root.appending(path: "History")
+    let glossaries = root.appending(path: "Glossaries")
+    try GlossaryStore.save(Glossary(name: "Anthropologie", text: "Lévi-Strauss"), in: glossaries)
+    let defaults = MemoryDefaults()
+
+    let first = AppModel(history: history, glossaries: glossaries, defaults: defaults)
+    #expect(first.keepAwake)
+    #expect(first.language == "fr")
+    first.keepAwake = false
+    first.language = "en"
+    first.skipsSilence = true
+    first.glossaryName = "Anthropologie"
+    first.player.speed = 1.5
+    // Not installed in this test's world, so not taken back.
+    first.selected = "ggml-not-installed.bin"
+
+    let next = AppModel(history: history, glossaries: glossaries, defaults: defaults)
+    #expect(!next.keepAwake)
+    #expect(next.language == "en")
+    #expect(next.skipsSilence)
+    #expect(next.glossaryName == "Anthropologie")
+    #expect(next.player.speed == 1.5)
+    #expect(next.selected != "ggml-not-installed.bin")
+
+    try GlossaryStore.delete(named: "Anthropologie", in: glossaries)
+    #expect(
+        AppModel(history: history, glossaries: glossaries, defaults: defaults).glossaryName == nil)
+}

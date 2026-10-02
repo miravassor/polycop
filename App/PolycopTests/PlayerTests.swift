@@ -12,12 +12,7 @@ private let clip = URL(filePath: #filePath)
 
 /// Settings kept in memory for one test: a set value would leave a preferences
 /// file behind, and a registered one is shared by every test running at once.
-private nonisolated final class Settings: UserDefaults, @unchecked Sendable {
-    // Written by the test and read by the player, both on the main actor.
-    var values: [String: Any] = [:]
-
-    override func object(forKey key: String) -> Any? { values[key] }
-}
+private typealias Settings = MemoryDefaults
 
 /// Opens the synthetic clip and waits until its duration is known.
 @MainActor

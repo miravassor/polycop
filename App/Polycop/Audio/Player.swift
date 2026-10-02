@@ -35,6 +35,7 @@ final class Player {
     /// correct well beyond the quarter to four times range the app offers.
     var speed: Float = 1 {
         didSet {
+            defaults.set(Double(speed), forKey: Self.speedKey)
             guard isPlaying else { return }
             player?.rate = speed
             publishNowPlaying()
@@ -92,6 +93,8 @@ final class Player {
     static let pausesWhileTypingKey = "pausesWhileTyping"
     static let resumeAfterTypingKey = "resumeAfterTyping"
     static let cursorFollowsPlaybackKey = "cursorFollowsPlayback"
+    /// Remembered across launches, as a reader keeps the speed they listen at.
+    static let speedKey = "playbackSpeed"
     /// How far back playback resumes after a pause, so the sentence is heard again.
     static let defaultResumeRewind: TimeInterval = 1.5
     /// How long typing must stop before playback it paused resumes, in seconds.
@@ -100,9 +103,14 @@ final class Player {
     /// Where decoded copies go.
     @ObservationIgnored private let copiesFolder: URL
 
-    init(defaults: UserDefaults = .standard, copies: URL = Player.copies) {
+    init(defaults: UserDefaults = MemoryDefaults.forThisRun, copies: URL = Player.copies) {
         self.defaults = defaults
         copiesFolder = copies
+        if let remembered = defaults.object(forKey: Self.speedKey) as? Double,
+            Self.speeds.contains(Float(remembered))
+        {
+            speed = Float(remembered)
+        }
     }
 
     private var resumeRewind: TimeInterval {
