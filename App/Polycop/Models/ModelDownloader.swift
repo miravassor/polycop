@@ -33,22 +33,34 @@ nonisolated enum DownloadError: LocalizedError {
 /// asynchronous convenience methods deliver only the callbacks their own
 /// handler does not cover, so a delegate passed to them never sees progress.
 nonisolated enum ModelDownloader {
-    /// `url`, `folder`, `configuration` and `availableCapacity` are for tests,
-    /// which serve the file themselves and cannot fill a disk; the app
-    /// downloads the pinned address into the store. `availableCapacity` comes
-    /// last so that a closure written after the call is still `onProgress`.
+    /// `url`, `folder`, `configuration`, `availableCapacity` and `digest` are
+    /// for tests, which serve the file themselves, cannot fill a disk and
+    /// time the check; the app downloads the pinned address into the store.
+    /// They come after `onProgress` so that a closure written after the call
+    /// is still `onProgress`.
     static func download(
         _ model: Model,
         from url: URL? = nil,
         in folder: URL = ModelStore.directory,
         configuration: URLSessionConfiguration = configuration,
         onProgress: @escaping @Sendable (Double) -> Void = { _ in },
-        availableCapacity: @Sendable (URL) -> Int64? = ModelStore.availableCapacity(of:)
+        availableCapacity: @Sendable (URL) -> Int64? = ModelStore.availableCapacity(of:),
+        digest: @escaping @Sendable (URL) async throws -> String = ModelStore.sha256(of:)
     ) async throws -> URL {
         if ModelStore.isInstalled(model, in: folder) {
             return ModelStore.location(of: model, in: folder)
         }
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        // A transfer that arrived whole and was stopped while being checked
+        // needs only the check.
+        let received = ModelStore.receivedFile(of: model, in: folder)
+        if FileManager.default.fileExists(atPath: received.path(percentEncoded: false)) {
+            do {
+                return try await install(received, as: model, in: folder, digest: digest)
+            } catch DownloadError.checksumMismatch {
+                Log.models.notice("a kept download did not match, downloading again")
+            }
+        }
         // Refused before the request, not after gigabytes. A resumed download
         // is counted in full too: what it already holds is not simply known.
         if let short = ModelStore.shortfall(
@@ -58,7 +70,7 @@ nonisolated enum ModelDownloader {
         }
         let place = Place(
             url: url ?? model.url, folder: folder, configuration: configuration,
-            onProgress: onProgress)
+            onProgress: onProgress, digest: digest)
 
         let resumeFile = ModelStore.resumeFile(of: model, in: folder)
         if let resumeData = try? Data(contentsOf: resumeFile) {
@@ -84,6 +96,7 @@ nonisolated enum ModelDownloader {
         let folder: URL
         let configuration: URLSessionConfiguration
         let onProgress: @Sendable (Double) -> Void
+        let digest: @Sendable (URL) async throws -> String
     }
 
     private static func fetch(
@@ -113,28 +126,49 @@ nonisolated enum ModelDownloader {
         }
         try? FileManager.default.removeItem(at: resumeFile)
 
-        // What arrived is removed on every path but a successful install.
-        var installed = false
-        defer {
-            if !installed { try? FileManager.default.removeItem(at: received) }
-        }
-
-        // The transfer may already be finished when the stop arrives.
-        try Task.checkCancellation()
         if let code = transfer.statusCode, !(200..<300).contains(code) {
+            try? FileManager.default.removeItem(at: received)
             throw DownloadError.httpFailure(code)
         }
-
-        // The hash is the only proof that these are the pinned weights.
-        guard try await ModelStore.sha256(of: received) == model.sha256 else {
-            throw DownloadError.checksumMismatch(model)
+        // Kept under the model's hash until it is checked, so that a stop
+        // during the check leaves it for the next attempt.
+        let kept = ModelStore.receivedFile(of: model, in: place.folder)
+        do {
+            try? FileManager.default.removeItem(at: kept)
+            try FileManager.default.moveItem(at: received, to: kept)
+        } catch {
+            try? FileManager.default.removeItem(at: received)
+            throw error
         }
-        // A stop can arrive after hashing and before publication.
-        try Task.checkCancellation()
+        return try await install(kept, as: model, in: place.folder, digest: place.digest)
+    }
 
-        let destination = ModelStore.location(of: model, in: place.folder)
-        try ModelStore.publish(received, as: destination)
-        installed = true
+    /// Publishes a whole transfer once its hash, the only proof that these are
+    /// the pinned weights, matches. A stop leaves the file for the next
+    /// attempt; a file that does not match is removed.
+    private static func install(
+        _ received: URL, as model: Model, in folder: URL,
+        digest: @Sendable (URL) async throws -> String
+    ) async throws -> URL {
+        do {
+            // The transfer may already be finished when the stop arrives.
+            try Task.checkCancellation()
+            guard try await digest(received) == model.sha256 else {
+                throw DownloadError.checksumMismatch(model)
+            }
+            // A stop can arrive after hashing and before publication.
+            try Task.checkCancellation()
+        } catch {
+            if !isStop(error) { try? FileManager.default.removeItem(at: received) }
+            throw error
+        }
+        let destination = ModelStore.location(of: model, in: folder)
+        do {
+            try ModelStore.publish(received, as: destination)
+        } catch {
+            try? FileManager.default.removeItem(at: received)
+            throw error
+        }
         return destination
     }
 

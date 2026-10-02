@@ -10,7 +10,7 @@ import os
 
 /// Serves one file over HTTP on the loopback interface, with ranges and a
 /// validator as Hugging Face's CDN does, so downloads run without a network.
-private nonisolated final class LoopbackServer: Sendable {
+nonisolated final class LoopbackServer: Sendable {
     /// What to do with a request, chosen by the test.
     enum Answer: Sendable {
         /// The file, or the part a range asks for.
@@ -142,9 +142,9 @@ private nonisolated final class LoopbackServer: Sendable {
 }
 
 /// Bytes that are not all alike, so a part in the wrong place changes the hash.
-private let body = Data((0..<262_144).map { UInt8(truncatingIfNeeded: $0 &* 31 &+ $0 >> 8) })
+let servedBody = Data((0..<262_144).map { UInt8(truncatingIfNeeded: $0 &* 31 &+ $0 >> 8) })
 
-private func model(of data: Data, bytes: Int? = nil) -> Model {
+func servedModel(of data: Data, bytes: Int? = nil) -> Model {
     let hash = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     return Model(
         id: "test-model.bin", name: "Test", detail: "", bytes: Int64(bytes ?? data.count),
@@ -152,12 +152,12 @@ private func model(of data: Data, bytes: Int? = nil) -> Model {
         commit: String(repeating: "0", count: 40), file: "model.bin")
 }
 
-private func temporaryFolder() -> URL {
+func downloadFolder() -> URL {
     URL.temporaryDirectory.appending(path: UUID().uuidString)
 }
 
 /// What the folder holds, apart from an installed model.
-private func leftovers(in folder: URL) -> [String] {
+func downloadLeftovers(in folder: URL) -> [String] {
     ((try? FileManager.default.contentsOfDirectory(atPath: folder.path(percentEncoded: false)))
         ?? []).filter { $0 != "test-model.bin" }
 }
@@ -176,74 +176,76 @@ private func fails(_ operation: () async throws -> URL, with expected: (Download
 }
 
 @Test func downloadsIntoTheFolderGivenWithFixedHeaders() async throws {
-    let server = try LoopbackServer(body: body) { _ in .file }
+    let server = try LoopbackServer(body: servedBody) { _ in .file }
     defer { server.stop() }
     let url = try await server.start()
-    let folder = temporaryFolder()
+    let folder = downloadFolder()
     defer { try? FileManager.default.removeItem(at: folder) }
 
-    let file = try await ModelDownloader.download(model(of: body), from: url, in: folder)
+    let file = try await ModelDownloader.download(
+        servedModel(of: servedBody), from: url, in: folder)
 
-    #expect(try Data(contentsOf: file) == body)
-    #expect(leftovers(in: folder).isEmpty)
+    #expect(try Data(contentsOf: file) == servedBody)
+    #expect(downloadLeftovers(in: folder).isEmpty)
     #expect(server.requests.first?.headers["user-agent"] == "Polycop")
     #expect(server.requests.first?.headers["accept-language"] == "en")
     #expect(server.requests.first?.headers["cookie"] == nil)
 }
 
 @Test func aRefusedOrWrongDownloadLeavesNothing() async throws {
-    let refusing = try LoopbackServer(body: body) { _ in .status(403) }
+    let refusing = try LoopbackServer(body: servedBody) { _ in .status(403) }
     defer { refusing.stop() }
     let refused = try await refusing.start()
-    let serving = try LoopbackServer(body: body) { _ in .file }
+    let serving = try LoopbackServer(body: servedBody) { _ in .file }
     defer { serving.stop() }
     let served = try await serving.start()
-    let folder = temporaryFolder()
+    let folder = downloadFolder()
     defer { try? FileManager.default.removeItem(at: folder) }
 
     #expect(
         await fails({
-            try await ModelDownloader.download(model(of: body), from: refused, in: folder)
+            try await ModelDownloader.download(
+                servedModel(of: servedBody), from: refused, in: folder)
         }) {
             if case .httpFailure(403) = $0 { true } else { false }
         })
     #expect(
         await fails({
             try await ModelDownloader.download(
-                model(of: Data("other".utf8) + body), from: served, in: folder)
+                servedModel(of: Data("other".utf8) + servedBody), from: served, in: folder)
         }) {
             if case .checksumMismatch = $0 { true } else { false }
         })
     #expect(
         await fails({
             try await ModelDownloader.download(
-                model(of: body, bytes: 1000), from: served, in: folder)
+                servedModel(of: servedBody, bytes: 1000), from: served, in: folder)
         }) {
             if case .tooLarge = $0 { true } else { false }
         })
-    #expect(leftovers(in: folder).isEmpty)
+    #expect(downloadLeftovers(in: folder).isEmpty)
 }
 
 /// A volume that is too full is told up front, before a request is made or
 /// a byte is written, instead of after gigabytes.
 @Test func aDownloadIsRefusedWhenTheVolumeLacksRoom() async throws {
-    let server = try LoopbackServer(body: body) { _ in .file }
+    let server = try LoopbackServer(body: servedBody) { _ in .file }
     defer { server.stop() }
     let url = try await server.start()
-    let folder = temporaryFolder()
+    let folder = downloadFolder()
     defer { try? FileManager.default.removeItem(at: folder) }
-    let free = Int64(body.count) + ModelStore.spaceMargin - 1
+    let free = Int64(servedBody.count) + ModelStore.spaceMargin - 1
 
     do {
         _ = try await ModelDownloader.download(
-            model(of: body), from: url, in: folder, availableCapacity: { _ in free })
+            servedModel(of: servedBody), from: url, in: folder, availableCapacity: { _ in free })
         Issue.record("the download should have been refused")
     } catch let error as DownloadError {
         guard case .notEnoughSpace(let needed, let available) = error else {
             Issue.record("unexpected error \(error)")
             return
         }
-        #expect(needed == Int64(body.count) + ModelStore.spaceMargin)
+        #expect(needed == Int64(servedBody.count) + ModelStore.spaceMargin)
         #expect(available == free)
         // The message names both amounts, in the style the model list uses for sizes.
         let message = try #require(error.errorDescription)
@@ -253,135 +255,30 @@ private func fails(_ operation: () async throws -> URL, with expected: (Download
         }
     }
     #expect(server.requests.isEmpty)
-    #expect(leftovers(in: folder).isEmpty)
+    #expect(downloadLeftovers(in: folder).isEmpty)
 }
 
 @Test(arguments: [Int64?.some(0), nil])
 func aDownloadRunsWhenThereIsRoomOrTheCapacityIsUnknown(shortBy: Int64?) async throws {
-    let server = try LoopbackServer(body: body) { _ in .file }
+    let server = try LoopbackServer(body: servedBody) { _ in .file }
     defer { server.stop() }
     let url = try await server.start()
-    let folder = temporaryFolder()
+    let folder = downloadFolder()
     defer { try? FileManager.default.removeItem(at: folder) }
     // Exactly enough is enough; an unreadable value never blocks.
-    let free = shortBy.map { Int64(body.count) + ModelStore.spaceMargin - $0 }
+    let free = shortBy.map { Int64(servedBody.count) + ModelStore.spaceMargin - $0 }
 
     let file = try await ModelDownloader.download(
-        model(of: body), from: url, in: folder, availableCapacity: { _ in free })
+        servedModel(of: servedBody), from: url, in: folder, availableCapacity: { _ in free })
 
-    #expect(try Data(contentsOf: file) == body)
-    #expect(leftovers(in: folder).isEmpty)
+    #expect(try Data(contentsOf: file) == servedBody)
+    #expect(downloadLeftovers(in: folder).isEmpty)
 }
 
 @Test func theRealCapacityOfAFolderCanBeRead() throws {
-    let folder = temporaryFolder()
+    let folder = downloadFolder()
     try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: folder) }
 
     #expect(try #require(ModelStore.availableCapacity(of: folder)) > 0)
-}
-
-/// Cancel and Quit stop the download with the bytes kept, and the next
-/// attempt asks only for the rest.
-@Test(.timeLimit(.minutes(1)))
-func aStoppedDownloadContinuesWhereItStopped() async throws {
-    let isFirst = OSAllocatedUnfairLock(initialState: true)
-    let server = try LoopbackServer(body: body) { _ in
-        isFirst.withLock { first in
-            defer { first = false }
-            return first ? .stall(after: body.count / 2) : .file
-        }
-    }
-    defer { server.stop() }
-    let url = try await server.start()
-    let folder = temporaryFolder()
-    defer { try? FileManager.default.removeItem(at: folder) }
-    let model = model(of: body)
-
-    try await stopDownloading(model, from: url, in: folder)
-    #expect(
-        FileManager.default.fileExists(
-            atPath: ModelStore.resumeFile(of: model, in: folder).path(percentEncoded: false)))
-
-    let file = try await ModelDownloader.download(model, from: url, in: folder)
-
-    #expect(try Data(contentsOf: file) == body)
-    #expect(server.requests.last?.headers["range"]?.hasPrefix("bytes=") == true)
-    #expect(leftovers(in: folder).isEmpty)
-}
-
-/// Resume data replays a request the server may no longer accept, such as an
-/// expired signed redirect. The download then starts over from the address.
-@Test(.timeLimit(.minutes(1)))
-func aRefusedResumeStartsOver() async throws {
-    let isFirst = OSAllocatedUnfairLock(initialState: true)
-    let server = try LoopbackServer(body: body) { request in
-        let first = isFirst.withLock { first in
-            defer { first = false }
-            return first
-        }
-        if first { return .stall(after: body.count / 2) }
-        return request.headers["range"] == nil ? .file : .status(403)
-    }
-    defer { server.stop() }
-    let url = try await server.start()
-    let folder = temporaryFolder()
-    defer { try? FileManager.default.removeItem(at: folder) }
-    let model = model(of: body)
-
-    try await stopDownloading(model, from: url, in: folder)
-    let file = try await ModelDownloader.download(model, from: url, in: folder)
-
-    #expect(try Data(contentsOf: file) == body)
-    #expect(server.requests.last?.headers["range"] == nil)
-    #expect(leftovers(in: folder).isEmpty)
-}
-
-/// macOS deletes temporary files left untouched for days, the partial file
-/// resume data points to among them. The download then starts over once.
-@Test(.timeLimit(.minutes(1)))
-func aResumeWhosePartialFileIsGoneStartsOver() async throws {
-    let isFirst = OSAllocatedUnfairLock(initialState: true)
-    let server = try LoopbackServer(body: body) { _ in
-        isFirst.withLock { first in
-            defer { first = false }
-            return first ? .stall(after: body.count / 2) : .file
-        }
-    }
-    defer { server.stop() }
-    let url = try await server.start()
-    let folder = temporaryFolder()
-    defer { try? FileManager.default.removeItem(at: folder) }
-    let model = model(of: body)
-
-    try await stopDownloading(model, from: url, in: folder)
-    let resumeData = try Data(contentsOf: ModelStore.resumeFile(of: model, in: folder))
-    let info = try #require(
-        PropertyListSerialization.propertyList(from: resumeData, format: nil) as? [String: Any])
-    // A keyed archive: the partial file's name is one of its strings.
-    let strings = (info["$objects"] as? [Any] ?? []).compactMap { $0 as? String }
-    let partial = try #require(strings.first { $0.contains("CFNetworkDownload_") })
-    let place =
-        partial.hasPrefix("/")
-        ? URL(filePath: partial) : FileManager.default.temporaryDirectory.appending(path: partial)
-    try FileManager.default.removeItem(at: place)
-
-    let file = try await ModelDownloader.download(model, from: url, in: folder)
-
-    #expect(try Data(contentsOf: file) == body)
-    #expect(server.requests.last?.headers["range"] == nil)
-    #expect(leftovers(in: folder).isEmpty)
-}
-
-/// Starts a download, waits for its first bytes, then stops it as Cancel does.
-private func stopDownloading(_ model: Model, from url: URL, in folder: URL) async throws {
-    let progressed = AsyncStream<Void>.makeStream()
-    let download = Task {
-        try await ModelDownloader.download(model, from: url, in: folder) { _ in
-            progressed.continuation.yield()
-        }
-    }
-    for await _ in progressed.stream { break }
-    download.cancel()
-    await #expect(throws: (any Error).self) { try await download.value }
 }

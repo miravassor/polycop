@@ -228,10 +228,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if model.running != nil || model.stage.isBusy {
             let alert = NSAlert()
             alert.messageText = String(localized: "Stop the work in progress?")
-            alert.informativeText = String(
-                localized:
-                    "Quitting stops the recording being transcribed, which stays in the list to transcribe again. Recordings waiting stay in the queue for the next Start."
-            )
+            alert.informativeText =
+                model.downloadingModel != nil
+                ? String(
+                    localized:
+                        "Quitting stops the model download, which continues where it stopped at the next Download. Recordings waiting stay in the queue for the next Start."
+                )
+                : String(
+                    localized:
+                        "Quitting stops the recording being transcribed, which stays in the list to transcribe again. Recordings waiting stay in the queue for the next Start."
+                )
             alert.addButton(withTitle: String(localized: "Cancel"))
             alert.addButton(withTitle: String(localized: "Quit Anyway"))
             guard alert.runModal() == .alertSecondButtonReturn else { return .terminateCancel }
