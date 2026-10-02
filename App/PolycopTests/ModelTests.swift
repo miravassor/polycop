@@ -342,7 +342,8 @@ func launchStartsOnTheRecommendedModelOrAnInstalledOne(installed: [String], expe
     #expect(next.player.speed == 1.5)
     #expect(next.selected != "ggml-not-installed.bin")
 
-    try GlossaryStore.delete(named: "Anthropologie", in: glossaries)
+    // Removed outright: GlossaryStore.delete would put it in the real Trash.
+    try FileManager.default.removeItem(at: glossaries.appending(path: "Anthropologie.txt"))
     #expect(
         AppModel(history: history, glossaries: glossaries, defaults: defaults).glossaryName == nil)
 }
