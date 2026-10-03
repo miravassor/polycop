@@ -97,7 +97,9 @@ final class Opener {
                     throw TranscriptionError.failed(-2)
                 }
                 return self.engine
-            })
+            },
+            // The scripted engine hears speech everywhere, as if no detector ran.
+            speech: { samples, _ in [0...Double(samples.count) / Double(AudioDecoder.sampleRate)] })
     }
 }
 

@@ -9,6 +9,12 @@ struct Engines {
     var installed: () -> Set<String>
     /// Opens the engine for a model, with Qwen's aligner when `aligns`.
     var open: (_ model: Model, _ aligns: Bool) async throws -> any TranscriptionEngine
+    /// The stretches of speech Whisper's silence detector keeps, in seconds.
+    var speech:
+        (_ samples: [Float], _ settings: DecodingSettings) async throws -> [ClosedRange<
+            TimeInterval
+        >] =
+            WhisperEngine.speech
 
     static func live(models folder: URL) -> Engines {
         Engines(

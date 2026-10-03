@@ -82,7 +82,7 @@ extension AppModel {
                     guard firstSample < lastSample else { continue }
                     let again = try await Self.transcribe(
                         Array(samples[firstSample..<lastSample]), from: from, on: engine,
-                        settings: settings)
+                        detecting: engines.speech, settings: settings)
                     try Task.checkCancellation()
                     guard isCurrent(number) else { return }
                     guard let again else { continue }
@@ -121,6 +121,7 @@ extension AppModel {
     /// which case the stretch stays as it was.
     nonisolated private static func transcribe(
         _ slice: [Float], from: TimeInterval, on engine: any TranscriptionEngine,
+        detecting speech: ([Float], DecodingSettings) async throws -> [ClosedRange<TimeInterval>],
         settings: DecodingSettings
     ) async throws -> (segments: [Segment], kept: [ClosedRange<TimeInterval>])? {
         let again = try await engine.transcribe(
@@ -130,7 +131,7 @@ extension AppModel {
                 !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             })
         else { return nil }
-        let kept = try await WhisperEngine.speech(in: slice, settings: settings)
+        let kept = try await speech(slice, settings)
         return (
             again.map { $0.shifted(by: from) },
             kept.map { ($0.lowerBound + from)...($0.upperBound + from) }
