@@ -7,9 +7,13 @@ requests carry the app's name and no cookie, not the Mac's version or
 languages.
 
 Releases are built by the repository's workflow, which can only read the
-code, and attested by GitHub: `gh attestation verify Polycop-X.Y.Z.dmg --repo
-miravassor/polycop` names the commit and the run that built a file. Published
-releases cannot be changed. The app keeps macOS's hardened runtime; only
+code, and attested by GitHub:
+
+    gh attestation verify Polycop-X.Y.Z.dmg --repo miravassor/polycop \
+        --signer-workflow miravassor/polycop/.github/workflows/release.yml
+
+names the commit and the run that built a file. Releases published from 0.4.0
+on cannot be changed. The app keeps macOS's hardened runtime; only
 library validation is lifted, because ad hoc signed code carries no team
 identifier.
 

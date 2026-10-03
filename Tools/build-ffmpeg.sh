@@ -3,7 +3,8 @@
 #
 # Builds the ffmpeg executable shipped inside the app: FFmpeg under the LGPL,
 # arm64 only, without network access, with only what audio decoding needs.
-# The source tarball is verified against the FFmpeg release signing key.
+# The source tarball is checked against its pinned SHA256 and the FFmpeg
+# release signing key.
 #
 # Usage: Tools/build-ffmpeg.sh
 # Result: build/ffmpeg/bin/ffmpeg
@@ -51,12 +52,19 @@ done
 GNUPGHOME="$(mktemp -d)"
 export GNUPGHOME
 trap 'rm -rf "$GNUPGHOME"' EXIT
+if [ "$(shasum -a 256 "$TARBALL" | cut -d ' ' -f 1)" != "$FFMPEG_SHA256" ]; then
+    echo "$TARBALL does not match the pinned SHA256" >&2
+    exit 1
+fi
 gpg --quiet --import ffmpeg-devel.asc
-if ! gpg --status-fd 1 --verify "$TARBALL.asc" "$TARBALL" 2>/dev/null | grep -q "VALIDSIG .*$KEY_FINGERPRINT"; then
+# Only the VALIDSIG line counts, and only its last field, the primary key's
+# fingerprint: a key's user ID appears in other status lines and can say anything.
+if ! status="$(gpg --status-fd 1 --verify "$TARBALL.asc" "$TARBALL" 2>/dev/null)" ||
+    ! awk -v key="$KEY_FINGERPRINT" '$1 == "[GNUPG:]" && $2 == "VALIDSIG" && $NF == key { found = 1 } END { exit !found }' <<<"$status"; then
     echo "Signature check failed for $TARBALL" >&2
     exit 1
 fi
-echo "Signature verified, SHA256 $(shasum -a 256 "$TARBALL" | cut -d ' ' -f 1)"
+echo "Signature verified, SHA256 $FFMPEG_SHA256"
 
 rm -rf "ffmpeg-$VERSION"
 tar -xf "$TARBALL"
