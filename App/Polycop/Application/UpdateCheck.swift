@@ -8,10 +8,12 @@ import os
 /// Check for Updates, or once a day if they allowed it. The request names
 /// the app and nothing else: not the Mac, its languages or the library.
 nonisolated enum UpdateCheck {
-    // A literal, so the URL is always valid.
+    // The repository's number rather than its name, which a rename or a
+    // transfer would change and someone else could then claim. A literal, so
+    // the URL is always valid.
     // swift-format-ignore: NeverForceUnwrap
     static let latestRelease = URL(
-        string: "https://api.github.com/repos/miravassor/polycop/releases/latest")!
+        string: "https://api.github.com/repositories/1374799774/releases/latest")!
 
     struct Release: Decodable, Equatable {
         let tag: String
@@ -65,11 +67,13 @@ nonisolated enum UpdateCheck {
         return request
     }
 
-    /// Only a page of Polycop's releases is ever opened from the answer.
+    /// Only a release page on GitHub is ever opened from the answer, under
+    /// whatever name the repository has by then.
     static func release(from data: Data) throws -> Release {
         let release = try JSONDecoder().decode(Release.self, from: data)
+        let parts = release.page.path().split(separator: "/")
         guard release.page.scheme == "https", release.page.host() == "github.com",
-            release.page.path().hasPrefix("/miravassor/polycop/releases/")
+            parts.count == 5, parts[2] == "releases", parts[3] == "tag"
         else {
             throw Failure.unexpectedPage
         }
@@ -77,20 +81,21 @@ nonisolated enum UpdateCheck {
     }
 
     /// Compares dotted version numbers, so "0.10.0" comes after "0.9.1". A
-    /// missing component counts as zero, and a suffix such as "-beta" is ignored.
+    /// missing component counts as zero, and a version with a suffix such as
+    /// "-beta" comes before the same version without one.
     static func isNewer(_ candidate: String, than current: String) -> Bool {
         func components(_ version: String) -> [Int] {
             let core = version.split(separator: "-").first ?? ""
             return core.split(separator: ".").map { Int($0) ?? 0 }
         }
-        let candidate = components(candidate)
-        let current = components(current)
-        for index in 0..<max(candidate.count, current.count) {
-            let new = index < candidate.count ? candidate[index] : 0
-            let old = index < current.count ? current[index] : 0
-            if new != old { return new > old }
+        let new = components(candidate)
+        let old = components(current)
+        for index in 0..<max(new.count, old.count) {
+            let a = index < new.count ? new[index] : 0
+            let b = index < old.count ? old[index] : 0
+            if a != b { return a > b }
         }
-        return false
+        return current.contains("-") && !candidate.contains("-")
     }
 }
 
@@ -104,6 +109,13 @@ nonisolated enum UpdateSchedule {
     }
 
     static let interval: TimeInterval = 24 * 60 * 60
+
+    /// GitHub refuses unauthenticated requests beyond 60 an hour from one
+    /// address, which a campus network can reach: a refused check is tried
+    /// again an hour later rather than the next day.
+    static func lastCheck(afterRefusalAt now: Date) -> Date {
+        now.addingTimeInterval(60 * 60 - interval)
+    }
 
     static func decision(allowed: Bool?, launches: Int, lastCheck: Date?, now: Date) -> Decision {
         guard let allowed else { return launches >= 2 ? .ask : .wait }
@@ -209,6 +221,10 @@ enum UpdatePrompt {
                 if offer(release, current: current, allowsSkipping: true) == .skip {
                     defaults.set(release.version, forKey: skippedKey)
                 }
+            } catch UpdateCheck.Failure.unavailable(let code) where code == 403 || code == 429 {
+                Log.updates.info(
+                    "the automatic update check was refused (\(code, privacy: .public))")
+                defaults.set(UpdateSchedule.lastCheck(afterRefusalAt: .now), forKey: lastCheckKey)
             } catch {
                 Log.updates.info("the automatic update check failed: \(error, privacy: .private)")
             }
@@ -222,7 +238,9 @@ enum UpdatePrompt {
             localized:
                 "Polycop can ask GitHub once a day whether a newer version is out. The request names only the app, and GitHub sees the network address it comes from, as any website does. You can change this in Settings."
         )
-        alert.addButton(withTitle: String(localized: "Check Automatically"))
+        // Neither button answers Return: the question appears by itself,
+        // possibly while the user is typing.
+        alert.addButton(withTitle: String(localized: "Check Automatically")).keyEquivalent = ""
         alert.addButton(withTitle: String(localized: "Don't Check"))
         return alert.runModal() == .alertFirstButtonReturn
     }
