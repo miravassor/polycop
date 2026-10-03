@@ -80,8 +80,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 * Subtitles and timestamped text saved in Windows Latin, as older subtitle tools do, are imported instead of being refused as an unsupported format.
 * Playback you pause just after it starts, as typing does, stays paused: the player no longer takes a late report from the audio system as a request to play again.
 * A transcript whose recording is on a disk that is not connected no longer mounts that disk while the page draws, which could wait on the network or ask for a password while you type. The recording shows as unavailable until you connect the disk.
-* The update check accepts only a page of Polycop's own releases from the answer.
-* The automatic update check keeps to once a day: a check that fails waits a day like one that works, instead of asking GitHub again at every launch, and a copy left open for days checks when it comes forward.
+* The automatic update check keeps to once a day: a check that fails waits a day like one that works, instead of asking GitHub again at every launch, and a copy left open for days checks when it comes forward. Only a release page on GitHub is ever opened from the answer.
 * An export never replaces a file the save panel did not ask about: naming it "cours.text" no longer writes over a "cours.txt" already in that folder.
 * While the list of folders cannot be read, transcripts stay in their folders: moving them is refused until the list is repaired, rather than taking them out of folders the app can no longer name.
 

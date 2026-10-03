@@ -118,7 +118,9 @@ run and a second copy of the app get temporary ones, models excepted, which
 they only read.
 
 There is no index: the directory listing is the library, read on every core
-at launch. A file that fails to decode is left in place and reported, never
+at launch. A removed entry keeps its file, with the date it was removed, in
+Recently Deleted (`AppModel.recentlyDeleted`), and is deleted at the first
+launch 30 days later. A file that fails to decode is left in place and reported, never
 overwritten. Records are encoded and written off the main actor, one after
 another on `HistoryWriter`'s queue, so the last write of an entry is the one on
 disk and a delete follows the writes asked before it. A write that fails is
@@ -139,7 +141,8 @@ before losing one that failed. Stored property names never change (see
 `App/PolycopTests/` has one suite per subject. Pure code in `Output/`,
 `Glossary/` and `History/` is tested directly on values. `AppModel` is
 tested with temporary folders; the player with settings in memory. Its queue is
-also tested with a scripted engine given through `Engines`, so pause, resume,
+also tested with a scripted engine and silence detector given through
+`Engines`, so pause, resume,
 stop, quit and failures run in CI; engine tests run only when their model is
 installed. Audio timing is never asserted: CI
 runs on shared machines.

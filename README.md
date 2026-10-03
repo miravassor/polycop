@@ -40,17 +40,18 @@ unless they agree to more.
 * **Import** of a transcript made elsewhere (TXT or Word document with
   timestamps, SRT, VTT, Whisper or audio.cpp JSON) with its recording, to correct
   it the same way.
-* **Library** of transcripts, sorted in folders. Your recordings stay where they
-  are.
+* **Library** of transcripts, sorted in folders, each one renamed as you like.
+  A removed transcript waits 30 days in Recently Deleted. Your recordings stay
+  where they are.
 * **Your own model files**: a model downloaded elsewhere can be imported, once
   checked against the catalogue.
 * **Silence skipping** for Whisper, which leaves out the stretches without
   speech, and says how much was left out.
 * **Safeguards**: a passage where a model repeats itself is shortened and can be
   transcribed again, subtitle credits Whisper invents over silence are set aside
-  with a button to put them back, stretches that need a second listen are
-  marked, and the Mac stays awake during a long
-  job.
+  with a button to put them back, stretches of a minute or more without text are
+  pointed out with their times, stretches that need a second listen are marked,
+  and the Mac stays awake during a long job.
 
 ### Editing
 
