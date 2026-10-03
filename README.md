@@ -117,11 +117,14 @@ speaker, so trying two models on your own recordings is worth it.
    shows the file arrived intact, but the checksum comes from the same page, so
    it cannot show who built it. For that, with the
    [GitHub command line tool](https://cli.github.com), run
-   `gh attestation verify Polycop-X.Y.Z.dmg --repo miravassor/polycop`: it
+   `gh attestation verify Polycop-X.Y.Z.dmg --repo miravassor/polycop
+   --signer-workflow miravassor/polycop/.github/workflows/release.yml`: it
    checks the file was built by this repository's release workflow and names
    the commit. Releases after 0.3.2 are attested.
 3. Open it and drag Polycop to Applications. Replacing an older version keeps
-   your library in `~/Library/Application Support/Polycop/`.
+   your library in `~/Library/Application Support/Polycop/`. Without a
+   developer signature, macOS sees each version as a new app, so it may ask
+   again for access to the folders that hold your recordings.
 4. Open the app. Polycop is not yet signed with an Apple Developer ID, so macOS
    refuses to open it the first time. See below.
 

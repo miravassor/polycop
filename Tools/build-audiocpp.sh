@@ -42,6 +42,8 @@ fi
 
 # OpenMP is off because Apple's compiler ships no runtime for it. The model
 # specifications are compiled in, so the library needs no files at run time.
+# Options that would add network code or fetch unpinned sources are off by
+# name, so a new upstream default cannot turn them on.
 cmake -S "$SOURCE" -B "$BUILD" \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_OSX_ARCHITECTURES=arm64 \
@@ -52,7 +54,12 @@ cmake -S "$SOURCE" -B "$BUILD" \
     -DAUDIOCPP_MODELS="qwen3_asr;moss_transcribe_diarize;voxtral_realtime" \
     -DENGINE_ENABLE_METAL=ON \
     -DENGINE_ENABLE_NATIVE_CPU=OFF \
-    -DENGINE_ENABLE_OPENMP=OFF
+    -DENGINE_ENABLE_OPENMP=OFF \
+    -DAUDIOCPP_BUILD_NATIVE_MODEL_MANAGER=OFF \
+    -DAUDIOCPP_STATIC_ESPEAK=OFF \
+    -DGGML_CPU_KLEIDIAI=OFF \
+    -DSPM_ABSL_PROVIDER=internal \
+    -DFETCHCONTENT_FULLY_DISCONNECTED=ON
 cmake --build "$BUILD" --target audiocpp audiocpp_cli -j "$(sysctl -n hw.perflevel0.logicalcpu)"
 
 # A framework rather than a bare library: Xcode embeds and signs it like the

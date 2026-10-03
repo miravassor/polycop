@@ -57,19 +57,24 @@ mkdir -p "$FOLDER"
 ditto "$APP" "$FOLDER/Polycop.app"
 codesign --verify --deep --strict "$FOLDER/Polycop.app"
 # A debugging entitlement or a signature without the runtime would let other
-# processes read or inject code into an app trusted with recordings.
+# processes read or inject code into an app trusted with recordings. Every
+# executable counts: the helper parses shared files, the frameworks run models.
 # Read whole before matching: grep -q stops early, which under pipefail
 # would fail codesign with a broken pipe.
-entitlements="$(codesign -d --entitlements - --xml "$FOLDER/Polycop.app" 2>/dev/null)"
-signature="$(codesign -dv "$FOLDER/Polycop.app" 2>&1)"
-if [[ "$entitlements" == *get-task-allow* ]]; then
-    echo "The app allows debugging; it must not be packaged" >&2
-    exit 1
-fi
-if [[ "$signature" != *flags=*runtime* ]]; then
-    echo "The app is not signed with the hardened runtime" >&2
-    exit 1
-fi
+while IFS= read -r -d '' file; do
+    [[ "$(file -b "$file")" == Mach-O* ]] || continue
+    name="${file#"$FOLDER/"}"
+    entitlements="$(codesign -d --entitlements - --xml "$file" 2>/dev/null)"
+    signature="$(codesign -dv "$file" 2>&1)"
+    if [[ "$entitlements" == *get-task-allow* || "$entitlements" == *allow-dyld-environment-variables* ]]; then
+        echo "$name allows debugging or injection; it must not be packaged" >&2
+        exit 1
+    fi
+    if [[ "$signature" != *flags=*runtime* ]]; then
+        echo "$name is not signed with the hardened runtime" >&2
+        exit 1
+    fi
+done < <(find "$FOLDER/Polycop.app/Contents" -type f -print0)
 cat > "$FOLDER/READ-ME.txt" <<NOTE
 Polycop $VERSION, built from commit $COMMIT
 https://github.com/miravassor/polycop
@@ -81,7 +86,8 @@ INSTALL
 Check the download against the SHA-256 checksum published with it: a match
 shows the file arrived intact. To check that it was built by the project's
 release workflow from the commit above, with the GitHub command line tool:
-    gh attestation verify Polycop-$VERSION.dmg --repo miravassor/polycop
+    gh attestation verify Polycop-$VERSION.dmg --repo miravassor/polycop \
+        --signer-workflow miravassor/polycop/.github/workflows/release.yml
 Quit any older version, then move Polycop.app to Applications. Replacing an
 older version keeps your library in ~/Library/Application Support/Polycop/.
 Nothing is installed or deleted automatically.
