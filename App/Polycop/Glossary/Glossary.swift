@@ -25,6 +25,12 @@ nonisolated struct Glossary: Identifiable, Equatable, Sendable {
     /// count taken when a job starts decides whether a glossary fits.
     static let charactersPerToken = 2.8
 
+    /// A longer line is pasted text rather than a term, and whisper.cpp's
+    /// tokenizer takes time growing with the cube of an unbroken run's length
+    /// (`tokenize`, v1.9.4): a few thousand characters would hold the engine for
+    /// minutes. Such lines are left out of the prompt.
+    static let longestTerm = 100
+
     static func estimatedTokens(of prompt: String) -> Int {
         Int((Double(prompt.count) / charactersPerToken).rounded(.up))
     }
@@ -36,7 +42,7 @@ nonisolated struct Glossary: Identifiable, Equatable, Sendable {
     /// for word. The course name is left out, since a free-form name can
     /// break the French sentence.
     func prompt(in language: String = "fr") -> String? {
-        let terms = terms
+        let terms = terms.filter { $0.count <= Glossary.longestTerm }
         guard !terms.isEmpty else { return nil }
         let list = terms.joined(separator: ", ")
         return language == "en" ? "This lecture is about \(list)." : "Ce cours porte sur \(list)."

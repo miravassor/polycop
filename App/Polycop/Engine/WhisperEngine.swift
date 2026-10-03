@@ -14,6 +14,15 @@ nonisolated final class WhisperEngine: TranscriptionEngine, @unchecked Sendable 
     private let queue = DispatchQueue(
         label: "io.github.miravassor.Polycop.engine", qos: .userInitiated)
 
+    /// whisper.cpp code for a decoder cache it could not allocate. It then
+    /// frees the context's state but keeps pointing at it (`whisper_full_with_state`,
+    /// v1.9.4), so the context must never be used or freed again.
+    static let cacheAllocationFailed: Int32 = -7
+    private let isBroken = OSAllocatedUnfairLock(initialState: false)
+
+    /// Whether the context can still run. An engine that cannot is replaced.
+    var isUsable: Bool { !isBroken.withLock { $0 } }
+
     /// Loading reads gigabytes of weights and prepares Metal. It runs off the
     /// calling actor, so the window keeps responding while a model opens.
     /// Catalogue entries provide the measured peak for the memory check, and
@@ -56,7 +65,8 @@ nonisolated final class WhisperEngine: TranscriptionEngine, @unchecked Sendable 
     /// whisper_full runs. Waiting on the queue here would crash instead,
     /// since the last reference can drop as a call ends, on that same queue.
     deinit {
-        whisper_free(context)
+        // A broken context is leaked: freeing it would free its state twice.
+        if isUsable { whisper_free(context) }
     }
 
     /// How many tokens this model reads for the text, counted by its own
@@ -103,6 +113,9 @@ nonisolated final class WhisperEngine: TranscriptionEngine, @unchecked Sendable 
                 // pass, seconds into a long recording, so a stop that came
                 // while this call waited ends it here.
                 if cancelled.withLock({ $0 }) { throw CancellationError() }
+                guard self.isUsable else {
+                    throw TranscriptionError.failed(Self.cacheAllocationFailed)
+                }
                 let segments = try self.decode(
                     samples[first...], settings, cancelled, onProgress,
                     { onSegment($0.shifted(by: shift)) })
@@ -259,6 +272,7 @@ nonisolated final class WhisperEngine: TranscriptionEngine, @unchecked Sendable 
             throw CancellationError()
         }
         guard code == 0 else {
+            if code == Self.cacheAllocationFailed { isBroken.withLock { $0 = true } }
             throw TranscriptionError.failed(code)
         }
 

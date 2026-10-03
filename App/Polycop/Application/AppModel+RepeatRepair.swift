@@ -33,7 +33,8 @@ extension AppModel {
 
     /// One call per looped stretch, over that stretch only. Uses silence
     /// removal, which is what breaks the loop; whisper.cpp maps the reported
-    /// times back onto the recording.
+    /// times back onto the recording. What the detector left out of a
+    /// replaced stretch is recorded, so the transcript says how much it was.
     private func repair(_ id: Entry.ID) {
         let number = beginJob()
         guard let entry = entry(id) else {
@@ -67,6 +68,9 @@ extension AppModel {
                 try Task.checkCancellation()
                 guard isCurrent(number) else { return }
                 var repaired = segments
+                var speech = entry.speech
+                let duration =
+                    entry.duration ?? Double(samples.count) / Double(AudioDecoder.sampleRate)
                 stage = .repairing(0)
                 // From the end, so the ranges still ahead keep their indices.
                 for (done, range) in ranges.reversed().enumerated() {
@@ -76,21 +80,23 @@ extension AppModel {
                     let firstSample = max(0, min(samples.count, Int(from * rate)))
                     let lastSample = min(samples.count, Int(to * rate))
                     guard firstSample < lastSample else { continue }
-                    let again = try await engine.transcribe(
-                        samples: Array(samples[firstSample..<lastSample]), settings: settings,
-                        from: 0, onProgress: { _ in }, onSegment: { _ in })
+                    let again = try await Self.transcribe(
+                        Array(samples[firstSample..<lastSample]), from: from, on: engine,
+                        settings: settings)
                     try Task.checkCancellation()
                     guard isCurrent(number) else { return }
-                    guard
-                        again.contains(where: {
-                            !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                        })
-                    else { continue }
-                    repaired.replaceSubrange(range, with: again.map { $0.shifted(by: from) })
+                    guard let again else { continue }
+                    repaired.replaceSubrange(range, with: again.segments)
+                    speech = Entry.speech(
+                        speech, duration: duration, replacing: from...to, with: again.kept)
                     stage = .repairing(Double(done + 1) / Double(ranges.count))
                 }
                 undoSteps[id] = nil
-                updateEntry(id) { $0.publish(repaired, partial: entry.isPartial) }
+                updateEntry(id) {
+                    $0.publish(repaired, partial: entry.isPartial)
+                    $0.speech = speech
+                    $0.duration = $0.duration ?? duration
+                }
                 finish()
             } catch is CancellationError {
                 guard isCurrent(number) else { return }
@@ -108,5 +114,26 @@ extension AppModel {
                 finish()
             }
         }
+    }
+
+    /// A looped stretch transcribed again, and the stretches its silence
+    /// detector kept, both in recording time. Nil when no text came out, in
+    /// which case the stretch stays as it was.
+    nonisolated private static func transcribe(
+        _ slice: [Float], from: TimeInterval, on engine: any TranscriptionEngine,
+        settings: DecodingSettings
+    ) async throws -> (segments: [Segment], kept: [ClosedRange<TimeInterval>])? {
+        let again = try await engine.transcribe(
+            samples: slice, settings: settings, from: 0, onProgress: { _ in }, onSegment: { _ in })
+        guard
+            again.contains(where: {
+                !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            })
+        else { return nil }
+        let kept = try await WhisperEngine.speech(in: slice, settings: settings)
+        return (
+            again.map { $0.shifted(by: from) },
+            kept.map { ($0.lowerBound + from)...($0.upperBound + from) }
+        )
     }
 }
