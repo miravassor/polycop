@@ -429,7 +429,7 @@ private func finished(_ recording: URL, in history: URL, model: String, language
     model.removeEntries([first.id, third.id])
 
     #expect(model.entries.map(\.id) == [second.id])
-    #expect(HistoryStore.all(in: history).entries.map(\.id) == [second.id])
+    #expect(AppModel(history: history).entries.map(\.id) == [second.id])
     #expect(model.failure == nil)
 }
 

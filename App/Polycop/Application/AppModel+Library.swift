@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import Foundation
+import os
 
 // MARK: Library and folders
 
@@ -10,13 +11,23 @@ extension AppModel {
         folderRequest = UUID()
     }
 
-    /// Takes an entry out of the list and deletes its record. Saved transcript
-    /// files stay where they are. The entry under way is refused: stopping it
-    /// is a decision of its own.
+    /// How long a removed transcript stays in Recently Deleted.
+    static let keepsDeleted: TimeInterval = 30 * 24 * 60 * 60
+
+    /// Takes an entry out of the list into Recently Deleted. One with no text
+    /// yet, such as a recording still waiting, has nothing to recover and is
+    /// deleted. Saved transcript files stay where they are. The entry under
+    /// way is refused: stopping it is a decision of its own.
     func removeEntry(_ id: Entry.ID) {
-        guard id != busyEntry, !isShuttingDown else { return }
+        guard id != busyEntry, !isShuttingDown, var entry = entry(id) else { return }
+        entry.removed = .now
         do {
-            try historyWriter.delete(id)
+            if entry.paragraphs.isEmpty {
+                try historyWriter.delete(id)
+            } else {
+                try historyWriter.write(entry)
+                recentlyDeleted.insert(entry, at: 0)
+            }
             entries.removeAll { $0.id == id }
             unsavedHistory.remove(id)
             scheduled.remove(id)
@@ -26,6 +37,49 @@ extension AppModel {
             if pane == .entry(id) { pane = .new }
         } catch {
             failure = error.localizedDescription
+        }
+    }
+
+    /// Puts a transcript from Recently Deleted back in the library, in the
+    /// folder it was in.
+    func recoverEntry(_ id: Entry.ID) {
+        guard !isShuttingDown, var entry = recentlyDeleted.first(where: { $0.id == id }) else {
+            return
+        }
+        entry.removed = nil
+        do {
+            try historyWriter.write(entry)
+            recentlyDeleted.removeAll { $0.id == id }
+            entries.insert(
+                entry, at: entries.firstIndex { $0.added < entry.added } ?? entries.endIndex)
+        } catch {
+            failure = error.localizedDescription
+        }
+    }
+
+    /// Deletes the record of a transcript in Recently Deleted, for good.
+    func deleteEntry(_ id: Entry.ID) {
+        guard !isShuttingDown else { return }
+        do {
+            try historyWriter.delete(id)
+            recentlyDeleted.removeAll { $0.id == id }
+        } catch {
+            failure = error.localizedDescription
+        }
+    }
+
+    /// Deletes what has been in Recently Deleted for longer than it keeps
+    /// transcripts. One that cannot be deleted now is tried again next launch.
+    func deleteExpired(now: Date = .now) {
+        for entry in recentlyDeleted
+        where now.timeIntervalSince(entry.removed ?? now) > Self.keepsDeleted {
+            do {
+                try historyWriter.delete(entry.id)
+                recentlyDeleted.removeAll { $0.id == entry.id }
+            } catch {
+                Log.persistence.error(
+                    "an expired transcript could not be deleted: \(error, privacy: .private)")
+            }
         }
     }
 

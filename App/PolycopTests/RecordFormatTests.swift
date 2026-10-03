@@ -47,6 +47,7 @@ func aTranscriptWrittenByAnEarlierReleaseStillLoads(release: String) throws {
     #expect((entry.readingParagraph != nil) == ["0.3.2", "0.4.0"].contains(release))
     #expect((entry.exportsWord == true) == (release == "0.4.0"))
     #expect((entry.keepsSettings == true) == (release == "0.4.0"))
+    #expect((entry.removed != nil) == (release == "0.4.0"))
     switch release {
     case "0.2.0": #expect(entry.state == .stopped)
     case "0.3.0": #expect(entry.state == .failed("The model could not be read."))

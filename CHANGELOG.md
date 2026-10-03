@@ -6,6 +6,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ### Added
 
+* Recently Deleted: a transcript removed from the library waits at the bottom of the sidebar for 30 days, with its corrections, as in Notes and Voice Memos. Recover puts it back in its folder; Delete Immediately removes it for good. A recording still waiting, with no text yet, is simply removed.
 * Export to Word: a fourth text layout in Export options writes a .docx with the title as a heading and each paragraph after its time in bold, ready to open in Word, Pages or Google Docs. A transcript exported this way still opens in earlier versions of Polycop.
 * Export As… once a transcript has been exported, beside Update Export, and a Format menu in the save panel, so an unchanged transcript can be exported again as another copy or in another format. The latest export is the one Update Export writes to.
 * Each release also carries its debugging symbols (`Polycop-X.Y.Z.dSYM.zip`), so a crash report sent by a user can be read back to the line of code. Published releases can no longer be changed afterwards.
