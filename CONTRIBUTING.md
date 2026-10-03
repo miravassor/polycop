@@ -25,7 +25,8 @@ of its own. Tests that need a model are skipped unless it is installed.
 
 ## Releasing
 
-1. On a branch `release/X.Y.Z`, set the new version in `MARKETING_VERSION` and
+1. On a branch `release/X.Y.Z`, set the new version, three plain numbers with
+   no suffix, in `MARKETING_VERSION` and
    raise `CURRENT_PROJECT_VERSION` for both targets, Polycop and PolycopTests,
    in Debug and Release: four lines in `App/Polycop.xcodeproj/project.pbxproj`.
    `grep MARKETING_VERSION App/Polycop.xcodeproj/project.pbxproj | sort -u` must
