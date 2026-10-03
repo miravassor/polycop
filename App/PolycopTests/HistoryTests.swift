@@ -556,3 +556,24 @@ private func entry(_ name: String, in folder: URL, added: Date = .now) -> Entry 
     model.pane = .new
     #expect(model.entry(entry.id)?.readingParagraph == 1)
 }
+
+/// A repair transcribes a looped stretch with silence removal. What its
+/// detector drops there is left out, on a transcript that had none before as
+/// on one that skipped silences already.
+@Test func aRepairRecordsWhatSilenceRemovalLeftOut() {
+    let repaired = Entry.speech(
+        nil, duration: 100, replacing: 40...60, with: [42...45, 50...55, 58...70])
+    #expect(repaired == [0...40, 42...45, 50...55, 58...60, 60...100])
+
+    let skipped = Entry.speech(
+        [0...30, 35...50, 55...100], duration: 100, replacing: 40...60, with: [])
+    #expect(skipped == [0...30, 35...40, 60...100])
+}
+
+/// whisper.cpp frees the context's state when it cannot allocate the
+/// decoder's cache; the user is told to free memory rather than given a code.
+@Test func runningOutOfDecoderMemorySaysWhatToDo() throws {
+    let message = try #require(
+        TranscriptionError.failed(WhisperEngine.cacheAllocationFailed).errorDescription)
+    #expect(message.contains("memory"))
+}

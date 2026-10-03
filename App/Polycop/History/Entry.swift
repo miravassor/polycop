@@ -301,25 +301,6 @@ nonisolated struct Entry: Identifiable, Equatable, Codable, Sendable {
         Set((resumedAt ?? []).map { time in paragraphs.lastIndex { $0.seconds <= time } ?? 0 })
     }
 
-    /// Recording time outside the stretches the detector kept: total duration
-    /// minus kept time, overlaps counted once and clipped to the recording
-    /// length. Not exactly speech lost, since the kept stretches include some
-    /// silence too.
-    var leftOut: TimeInterval? {
-        guard let speech, let duration else { return nil }
-        var kept = 0.0
-        var reached = 0.0
-        for stretch in speech.sorted(by: { $0.lowerBound < $1.lowerBound }) {
-            let start = max(stretch.lowerBound, reached)
-            let end = min(stretch.upperBound, duration)
-            if end > start {
-                kept += end - start
-                reached = end
-            }
-        }
-        return max(0, duration - kept)
-    }
-
     /// Takes what the engine wrote, finished or stopped by a pause, and lays it
     /// out afresh. Corrections belong to an earlier layout, so none are kept.
     ///

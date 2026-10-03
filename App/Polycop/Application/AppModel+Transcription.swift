@@ -435,7 +435,9 @@ extension AppModel {
         let aligns =
             model.engine == .qwen && ModelStore.isInstalled(aligner, in: modelFolder)
             && Memory.areLikelyToFit(model, aligner)
-        if engineFile != model.id || engineSkipsSilence != skipsSilence || engineAligns != aligns {
+        if engineFile != model.id || engineSkipsSilence != skipsSilence || engineAligns != aligns
+            || (engine as? WhisperEngine)?.isUsable == false
+        {
             releaseEngine()
         }
         if let engine { return engine }

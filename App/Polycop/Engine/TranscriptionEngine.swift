@@ -121,6 +121,11 @@ nonisolated enum TranscriptionError: LocalizedError {
         case .invalidStart:
             return String(localized: "The transcription start time is invalid.")
 
+        case .failed(WhisperEngine.cacheAllocationFailed):
+            return String(
+                localized:
+                    "There was not enough memory to continue with this model. Quit and reopen Polycop, or choose a smaller model."
+            )
         case .failed(let code):
             return String(localized: "Transcription failed (code \(code)).")
         }

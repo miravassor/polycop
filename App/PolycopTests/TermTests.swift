@@ -194,3 +194,11 @@ private func write(_ pages: [String], to file: URL) throws {
     #expect(!terms.isEmpty)
     #expect(Glossary.estimatedTokens(of: prompt) <= 200)
 }
+
+/// A pasted paragraph or a line of symbols would hold whisper.cpp's tokenizer
+/// for minutes, so it stays out of the prompt.
+@Test func aLineTooLongForATermStaysOutOfThePrompt() {
+    let pasted = String(repeating: "─", count: 5_000)
+    let glossary = Glossary(name: "", text: "Descartes\n\(pasted)\nPascal")
+    #expect(glossary.prompt() == "Ce cours porte sur Descartes, Pascal.")
+}

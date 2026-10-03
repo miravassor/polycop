@@ -19,6 +19,9 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ### Changed
 
+* Repairing the repeats of a transcript made without Skip silences now says how much of the recording its silence removal left out, as Skip silences does, since some of it may have been speech.
+* A Whisper transcription that runs out of memory part way says so and suggests quitting and reopening Polycop or choosing a smaller model, rather than a code; the model is opened afresh for the next one instead of being reused in a broken state.
+* A glossary line longer than 100 characters, such as a pasted paragraph or a row of symbols, is left out of the prompt: it is not a term, and it could hold the model for minutes before a transcription starts.
 * The update check asks GitHub for the repository by number, so it keeps working if the project is renamed or moves, and a name given up can never be used to offer a fake update. A check GitHub refuses, as can happen on a busy campus network, is tried again an hour later. A version with a suffix such as "-rc1" counts as older than the same version without one. The question about checking automatically no longer answers to Return, which could be pressed while typing.
 * Quitting saves what was just typed before stopping a transcription, and the start-up cleanup of the model folder removes only files Polycop wrote there.
 * Whisper large-v3-turbo and its Q8_0 version are listed under the MIT licence, as on their model card.

@@ -118,7 +118,9 @@ struct EntryNotices: View {
         }
         if let leftOut = entry.leftOut, let duration = entry.duration {
             Label(
-                "Skip silences left \(formattedDuration(leftOut)) of this \(formattedDuration(duration)) recording out of the transcript. Some of it may have been speech.",
+                entry.skipsSilence
+                    ? "Skip silences left \(formattedDuration(leftOut)) of this \(formattedDuration(duration)) recording out of the transcript. Some of it may have been speech."
+                    : "Repairing the repeats left \(formattedDuration(leftOut)) of this \(formattedDuration(duration)) recording out of the transcript. Some of it may have been speech.",
                 systemImage: "waveform"
             )
             .font(.callout)
