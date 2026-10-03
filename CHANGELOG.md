@@ -2,7 +2,13 @@
 
 All notable changes are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
-## Unreleased
+## 0.4.0 (2026-10-03)
+
+This release makes the library safer to keep and the text easier to finish:
+Word export, Export As…, renaming, Recently Deleted, a cursor that can follow
+playback, pauses on sleep and departed headphones, and many fixes for
+downloads, Voxtral, MOSS and course corrections. Your library from 0.3.2 opens
+as it is, and 0.3.2 can still open what this version writes.
 
 ### Added
 
