@@ -147,9 +147,15 @@ nonisolated final class WhisperEngine: TranscriptionEngine, @unchecked Sendable 
     private static func detectSpeech(_ samples: [Float], _ settings: DecodingSettings)
         throws -> [ClosedRange<TimeInterval>]
     {
+        // One thread: the detector reads the audio in small steps, each
+        // waiting on the last, so more threads mostly spin while they wait,
+        // which costs most when other work holds the cores. The stretches
+        // found are the same.
+        var context = whisper_vad_default_context_params()
+        context.n_threads = 1
         guard let model = settings.voiceActivityModel,
             let detector = whisper_vad_init_from_file_with_params(
-                model.path(percentEncoded: false), whisper_vad_default_context_params())
+                model.path(percentEncoded: false), context)
         else {
             Log.transcription.error("the silence detector could not be opened")
             throw TranscriptionError.detectorUnavailable
