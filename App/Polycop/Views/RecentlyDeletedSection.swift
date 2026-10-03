@@ -24,26 +24,30 @@ struct RecentlyDeletedSection: View {
                         }
                 }
             } header: {
+                // On the header, which is one view: modifiers on a section of
+                // a list reach each of its rows, so the question was asked
+                // once per transcript.
                 Text("Recently Deleted")
+                    .confirmationDialog(
+                        "Delete this transcript immediately?",
+                        isPresented: Binding(
+                            get: { deleting != nil }, set: { if !$0 { deleting = nil } })
+                    ) {
+                        Button("Delete", role: .destructive) {
+                            if let deleting { model.deleteEntry(deleting.id) }
+                            deleting = nil
+                        }
+                    } message: {
+                        Text(
+                            "The transcript and its corrections will be deleted. You can't undo this action."
+                        )
+                    }
             } footer: {
                 Text(
                     "Transcripts are deleted for good after 30 days. Audio files and exports are kept."
                 )
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            }
-            .confirmationDialog(
-                "Delete this transcript immediately?",
-                isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })
-            ) {
-                Button("Delete", role: .destructive) {
-                    if let deleting { model.deleteEntry(deleting.id) }
-                    deleting = nil
-                }
-            } message: {
-                Text(
-                    "The transcript and its corrections will be deleted. You can't undo this action."
-                )
             }
         }
     }
