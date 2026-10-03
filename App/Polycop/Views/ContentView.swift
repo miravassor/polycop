@@ -36,6 +36,7 @@ struct ContentView: View {
                     .tag(AppModel.Pane.new)
                 unfiledSection
                 foldersSection
+                RecentlyDeletedSection(model: model)
             }
             .listStyle(.sidebar)
             .contextMenu { newFolder }
@@ -124,8 +125,8 @@ struct ContentView: View {
         } message: {
             Text(
                 removing.count > 1
-                    ? "The transcripts and their corrections will be removed. Audio files and exports are kept."
-                    : "The transcript and its corrections will be removed. Audio files and exports are kept."
+                    ? "They move to Recently Deleted, with their corrections, for 30 days. Audio files and exports are kept."
+                    : "It moves to Recently Deleted, with its corrections, for 30 days. Audio files and exports are kept."
             )
         }
         .confirmationDialog(

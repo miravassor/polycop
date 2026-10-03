@@ -351,7 +351,7 @@ extension LoadingAModel {
     #expect(model.pendingSaves.contains(entry.id))
     model.removeEntry(entry.id)
     #expect(model.pendingSaves.isEmpty)
-    #expect(HistoryStore.all(in: history).entries.isEmpty)
+    #expect(AppModel(history: history).entries.isEmpty)
 }
 
 extension LoadingAModel {

@@ -88,6 +88,9 @@ nonisolated struct Entry: Identifiable, Equatable, Codable, Sendable {
     var savedDigests: [String] = []
     var isSaved = false
     var folderID: UUID?
+    /// When the transcript went to Recently Deleted. It is deleted for good
+    /// once `AppModel.keepsDeleted` has passed.
+    var removed: Date?
     /// Where the reader left the transcript: the paragraph at the top of the
     /// page, and where playback stood, to take them back there.
     var readingParagraph: Int?

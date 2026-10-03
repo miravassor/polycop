@@ -58,6 +58,7 @@
   "isPartial": false,
   "isSaved": true,
   "keepsSettings": true,
+  "removed": 781100000,
   "language": "fr",
   "modelFile": "ggml-large-v3-turbo.bin",
   "originalParagraphs": [

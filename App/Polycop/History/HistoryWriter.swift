@@ -27,6 +27,12 @@ nonisolated final class HistoryWriter: Sendable {
         }
     }
 
+    /// Writes `entry` once the writes asked before it are done, and waits:
+    /// moving a transcript in or out of Recently Deleted must be known to work.
+    func write(_ entry: Entry) throws {
+        try queue.sync { [folder] in try HistoryStore.write(entry, in: folder) }
+    }
+
     /// Deletes a record once the writes asked before it are done, so none of
     /// them puts it back. Waits, as removing is rare and must be known to work.
     func delete(_ id: Entry.ID) throws {

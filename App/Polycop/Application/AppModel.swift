@@ -50,6 +50,9 @@ final class AppModel {
     }
     /// Every recording given to the app, newest first.
     var entries: [Entry] = []
+    /// Transcripts removed from the library in the last `keepsDeleted`, most
+    /// recent first, as Notes and Voice Memos keep them.
+    var recentlyDeleted: [Entry] = []
     var folders: [TranscriptFolder] = []
     /// The entry being transcribed, or paused part way through.
     var running: Entry.ID?
@@ -265,7 +268,10 @@ final class AppModel {
             glossaryName = remembered
         }
         let library = HistoryStore.all(in: history)
-        entries = library.entries
+        entries = library.entries.filter { $0.removed == nil }
+        recentlyDeleted = library.entries.filter { $0.removed != nil }
+            .sorted { ($0.removed ?? .distantPast) > ($1.removed ?? .distantPast) }
+        deleteExpired()
         var damaged = library.damaged.count
         do {
             folders = try HistoryStore.folders(in: history)

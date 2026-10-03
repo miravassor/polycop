@@ -106,7 +106,7 @@ struct EntryView: View {
             Button("Remove Transcript", role: .destructive) { model.removeEntry(entry.id) }
         } message: {
             Text(
-                "The transcript and its corrections will be removed. Audio files and exports are kept."
+                "It moves to Recently Deleted, with its corrections, for 30 days. Audio files and exports are kept."
             )
         }
     }
