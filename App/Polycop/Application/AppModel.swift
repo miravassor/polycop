@@ -333,6 +333,9 @@ final class AppModel {
     /// framework's static teardown from aborting.
     func shutDown() async {
         isShuttingDown = true
+        // Typing first: the engine can take a while to stop, and the user may
+        // force quit meanwhile.
+        savePending()
         scheduled.removeAll()
         downloadingModel = nil
         stage = .stopping
@@ -358,7 +361,8 @@ final class AppModel {
         await engine?.drain()
         releaseEngine()
         stage = .waiting
-        // Writes asked so far, typing included, reach the disk before quitting.
+        // Writes asked so far, including those of the stopped job, reach the
+        // disk before quitting.
         savePending()
         await finishWrites()
     }

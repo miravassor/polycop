@@ -174,7 +174,8 @@ nonisolated enum ModelCatalog {
     )
 
     // OpenAI publishes the weights under MIT in its repository while the Hugging
-    // Face card says Apache 2.0. Both are recorded rather than resolved.
+    // Face card of large-v3 says Apache 2.0. Both are recorded rather than
+    // resolved. Turbo's card says MIT, as the repository does.
     private static let openAILicense = "MIT per OpenAI, Apache 2.0 on Hugging Face"
     private static let whisperCpp = "ggerganov/whisper.cpp"
     private static let whisperCppCommit = "5359861c739e955e79d9a303bcbc70fb988958b1"
@@ -235,7 +236,7 @@ nonisolated enum ModelCatalog {
         bytes: 1_624_555_275,
         peakBytes: 2_810_000_000,
         sha256: "1fc70f774d38eb169993ac391eea357ef47c88757ef72ee5943879b7e8e2bc69",
-        license: openAILicense,
+        license: "MIT",
         repository: whisperCpp,
         commit: whisperCppCommit,
         file: "ggml-large-v3-turbo.bin"
@@ -261,7 +262,7 @@ nonisolated enum ModelCatalog {
         bytes: 874_188_075,
         peakBytes: 2_040_000_000,
         sha256: "317eb69c11673c9de1e1f0d459b253999804ec71ac4c23c17ecf5fbe24e259a1",
-        license: openAILicense,
+        license: "MIT",
         repository: whisperCpp,
         commit: whisperCppCommit,
         file: "ggml-large-v3-turbo-q8_0.bin"

@@ -14,6 +14,8 @@ import Testing
     ("0.2", "0.2.0", false),
     ("0.1.9", "0.2.0", false),
     ("0.3.0-beta", "0.2.0", true),
+    ("1.0.0", "1.0.0-rc1", true),
+    ("1.0.0-rc1", "1.0.0", false),
 ])
 func versionsCompareNumerically(candidate: String, current: String, isNewer: Bool) {
     #expect(UpdateCheck.isNewer(candidate, than: current) == isNewer)
@@ -31,11 +33,22 @@ func versionsCompareNumerically(candidate: String, current: String, isNewer: Boo
     #expect(release.page.absoluteString.hasSuffix("/releases/tag/v0.3.0"))
 }
 
+/// The check asks for the repository by number, so a renamed or moved
+/// repository still answers, under its new name.
+@Test func aRenamedRepositoryStillAnswers() throws {
+    #expect(UpdateCheck.latestRelease.path().hasPrefix("/repositories/"))
+    let answer = Data(
+        #"{"tag_name": "v0.4.0", "html_url": "https://github.com/polycop/app/releases/tag/v0.4.0"}"#
+            .utf8)
+    #expect(try UpdateCheck.release(from: answer).version == "0.4.0")
+}
+
 @Test(arguments: [
     "https://example.com/polycop.zip",
-    "https://github.com/someone/else/releases/tag/v9.0.0",
+    "http://github.com/miravassor/polycop/releases/tag/v9.0.0",
+    "https://github.com/miravassor/polycop/archive/v9.0.0.zip",
 ])
-func onlyAPageOfPolycopsReleasesIsAccepted(page: String) {
+func onlyAReleasePageOnGitHubIsAccepted(page: String) {
     let answer = Data(#"{"tag_name": "v9.0.0", "html_url": "\#(page)"}"#.utf8)
     #expect(throws: UpdateCheck.Failure.self) { try UpdateCheck.release(from: answer) }
 }
@@ -62,6 +75,21 @@ func onlyAPageOfPolycopsReleasesIsAccepted(page: String) {
         UpdateSchedule.decision(allowed: true, launches: 5, lastCheck: hourAgo, now: now) == .wait)
     #expect(
         UpdateSchedule.decision(allowed: true, launches: 5, lastCheck: dayAgo, now: now) == .check)
+}
+
+/// GitHub limits unauthenticated requests per address, which a campus
+/// network can use up.
+@Test func aCheckGitHubRefusedRunsAgainAnHourLater() {
+    let refused = Date.now
+    let last = UpdateSchedule.lastCheck(afterRefusalAt: refused)
+    #expect(
+        UpdateSchedule.decision(
+            allowed: true, launches: 5, lastCheck: last, now: refused.addingTimeInterval(3500))
+            == .wait)
+    #expect(
+        UpdateSchedule.decision(
+            allowed: true, launches: 5, lastCheck: last, now: refused.addingTimeInterval(3700))
+            == .check)
 }
 
 @Test func aRefusedCheckNeverRuns() {

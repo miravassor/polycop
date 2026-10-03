@@ -19,6 +19,9 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ### Changed
 
+* The update check asks GitHub for the repository by number, so it keeps working if the project is renamed or moves, and a name given up can never be used to offer a fake update. A check GitHub refuses, as can happen on a busy campus network, is tried again an hour later. A version with a suffix such as "-rc1" counts as older than the same version without one. The question about checking automatically no longer answers to Return, which could be pressed while typing.
+* Quitting saves what was just typed before stopping a transcription, and the start-up cleanup of the model folder removes only files Polycop wrote there.
+* Whisper large-v3-turbo and its Q8_0 version are listed under the MIT licence, as on their model card.
 * Polycop opens a large library about three times faster: transcripts are read on every core at once. 200 three-hour lectures timed word by word took 10.5 seconds to read, now 3.1.
 * Corrections are saved without holding up the window: each transcript is written in the background, in order. On a three-hour lecture timed word by word, every correction used to stop the window for about 50 milliseconds.
 * Model downloads and the update check send only the app's name, rather than your macOS version and languages, and downloads keep no cookie between them. The download progress redraws once per percent instead of at every network packet, and a download interrupted while it was being checked no longer leaves gigabytes in the system's temporary folder.

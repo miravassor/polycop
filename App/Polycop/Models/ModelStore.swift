@@ -275,6 +275,10 @@ nonisolated enum ModelStore {
         for name in entries where name.hasSuffix(".resume") || name.hasSuffix(".part") {
             let file = folder.appending(path: name)
             let owner = (name as NSString).deletingPathExtension
+            // Only what Polycop writes goes: the folder may be a link to one
+            // that other programs use too.
+            let isFile = (try? file.resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile
+            guard isFile == true else { continue }
             if let model = catalogue.first(where: { $0.sha256 == owner }) {
                 if isInstalled(model, in: folder) { try? manager.removeItem(at: file) }
                 continue
@@ -288,6 +292,11 @@ nonisolated enum ModelStore {
             {
                 continue
             }
+            let isDigest = owner.count == 64 && owner.allSatisfy(\.isHexDigit)
+            guard
+                isDigest || UUID(uuidString: owner) != nil
+                    || catalogue.contains(where: { $0.id == owner })
+            else { continue }
             try? manager.removeItem(at: file)
         }
     }

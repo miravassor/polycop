@@ -423,7 +423,14 @@ func aCreditLineIsRemoved(_ line: String) {
     // A download received but not yet hashed when the app stopped.
     let received = folder.appending(path: UUID().uuidString + ".part")
 
-    for file in [finished, ofFinished, ofPending, ofRetired, byName, byLegacyName, received] {
+    // Files and folders of other programs, if the folder is shared with them.
+    let unrelated = folder.appending(path: "lecture-download.part")
+    let unrelatedFolder = folder.appending(path: "notes.part")
+    try FileManager.default.createDirectory(at: unrelatedFolder, withIntermediateDirectories: true)
+
+    for file in [
+        finished, ofFinished, ofPending, ofRetired, byName, byLegacyName, received, unrelated,
+    ] {
         try Data("x".utf8).write(to: file)
     }
     ModelStore.sweep(in: folder, catalogue: catalogue)
@@ -437,6 +444,8 @@ func aCreditLineIsRemoved(_ line: String) {
     // This transfer can still be continued, so it stays.
     #expect(manager.fileExists(atPath: ofPending.path(percentEncoded: false)))
     #expect(manager.fileExists(atPath: finished.path(percentEncoded: false)))
+    #expect(manager.fileExists(atPath: unrelated.path(percentEncoded: false)))
+    #expect(manager.fileExists(atPath: unrelatedFolder.path(percentEncoded: false)))
     #expect(!manager.fileExists(atPath: byLegacyName.path(percentEncoded: false)))
     #expect(
         manager.fileExists(
