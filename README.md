@@ -54,6 +54,8 @@ unless they agree to more.
 
 ### Editing
 
+![A transcript in Polycop, with the audio player and the export](.github/screenshot-editing.png)
+
 * **Correction while listening.** Click a timestamp to hear the passage. In a
   transcript timed word by word (Whisper, and Qwen3-ASR with its aligner),
   Option-click a word or press Option Command P to play from the text cursor,
