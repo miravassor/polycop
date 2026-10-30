@@ -4,6 +4,11 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ## Unreleased
 
+### Added
+
+* Video: the picture of a class recorded as a video, such as a Zoom or Teams recording in MP4 or MOV, plays with the transcript, driven by the same player: speed, seeking, Space and every shortcut. A click on it plays or pauses, and the button beside Video keeps the sound only. A video AVFoundation cannot play, such as WebM or MKV, still plays its sound.
+* In a wide window, as in full screen, the transcript keeps a readable width on the left, and the recording and the export sit in a column beside it.
+
 ### Changed
 
 * Follow, beside the player, replaces the Follow playback checkbox and the cursor setting in Settings: Off, Page, or Page and Cursor. The choice is remembered, and Page is on from the start. With Page and Cursor, clicking or typing in the text no longer stops the page from following, and a click holds the cursor only until playback reaches the next paragraph. A transcript with no word timings says so in the tooltip, and Page and Cursor cannot be chosen there.
