@@ -71,8 +71,11 @@ unless they agree to more.
 * **Changes shown as a diff** between what the model wrote and your corrected
   text.
 * **Audio player** made for proofreading: playback speed, a timeline with the
-  paragraphs, the next or previous paragraph from the keyboard, and the text
-  following playback until you scroll away. Space plays and pauses when you are
+  paragraphs, and the next or previous paragraph from the keyboard. Follow,
+  beside the player, scrolls the page with playback (Page), or also takes the
+  text cursor along with the word heard (Page and Cursor), so the next
+  correction is typed where the audio is. Scrolling away pauses it until
+  Return to playback. Space plays and pauses when you are
   not typing, and Esc leaves the text. The keyboard media keys, Control Center
   and headphone buttons control it too. It pauses when the Mac goes to sleep or
   when the headphones it plays through disconnect.
