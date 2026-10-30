@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+import AVFoundation
 import SwiftUI
 
-/// The recording under the transcript: replaying the active passage, stepping
-/// from paragraph to paragraph, following playback, and the player itself.
+/// The recording beside the transcript: its picture for a video, replaying
+/// the active passage, stepping from paragraph to paragraph, following
+/// playback, and the player itself.
 struct EntryAudio: View {
     let model: AppModel
     let entry: Entry
@@ -14,27 +16,42 @@ struct EntryAudio: View {
     @Binding var isFollowSuspended: Bool
     /// Whether any word has a time, which the highlight and the cursor need.
     let hasTimedWords: Bool
+    /// The tallest the picture may be: less under the transcript than beside it.
+    let videoHeight: CGFloat
+    @AppStorage("showsVideo") private var showsVideo = true
+    /// The size of the recording's picture, nil for sound alone.
+    @State private var picture: CGSize?
+    /// Where the recording is, found once rather than at each redraw.
+    @State private var source: URL?
+    @State private var width: CGFloat = 0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 12) {
-                Text("Audio").font(.headline)
-                if !entry.paragraphs.isEmpty {
-                    replayPassage
-                    paragraphStep(by: -1)
-                    paragraphStep(by: 1)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 12) {
+                    title
+                    stepping
+                    Spacer(minLength: 12)
+                    followControl
                 }
-                Spacer(minLength: 12)
-                if !entry.paragraphs.isEmpty {
-                    if isFollowSuspended {
-                        Button("Return to playback", systemImage: "arrow.uturn.backward") {
-                            isFollowSuspended = false
-                        }
-                        .disabled(!model.player.isOpen)
-                    } else {
-                        followPicker
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(spacing: 12) {
+                        title
+                        stepping
                     }
+                    followControl
                 }
+            }
+            if let picture, showsVideo {
+                // Sized from the width, since the transcript above takes every
+                // point of height it is offered.
+                VideoView(player: shownPlayer, toggle: togglePlayback)
+                    .frame(
+                        width: videoWidth(for: picture),
+                        height: videoWidth(for: picture) * picture.height / picture.width
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .frame(maxWidth: .infinity)
             }
             PlayerBar(
                 player: model.player,
@@ -45,6 +62,79 @@ struct EntryAudio: View {
                 play: { model.replay(entry.id, from: $0, leadIn: 0) },
                 hover: { focused = $0 },
                 jump: { jump = $0 })
+        }
+        .onGeometryChange(for: CGFloat.self) {
+            $0.size.width
+        } action: {
+            width = $0
+        }
+        .task(id: entry.recording) {
+            let recording = model.recording(of: entry)
+            source = recording
+            picture = await Player.pictureSize(of: recording)
+        }
+        .onChange(of: picture != nil && showsVideo, initial: true) { _, shows in
+            // The picture shows where the reader left off, before playing.
+            guard shows, let source else { return }
+            model.player.prepare(source, at: entry.playbackPosition ?? 0)
+        }
+    }
+
+    private var title: some View {
+        HStack(spacing: 8) {
+            Text(picture == nil ? "Audio" : "Video").font(.headline)
+            if picture != nil {
+                Button {
+                    showsVideo.toggle()
+                } label: {
+                    Image(systemName: showsVideo ? "video.slash" : "video")
+                        .frame(width: 16, height: 16)
+                }
+                .buttonStyle(.plain)
+                .iconControl()
+                .accessibilityLabel(showsVideo ? "Hide Video" : "Show Video")
+                .help(showsVideo ? "Keep the sound only" : "Show the video")
+            }
+        }
+    }
+
+    @ViewBuilder private var stepping: some View {
+        if !entry.paragraphs.isEmpty {
+            replayPassage
+            paragraphStep(by: -1)
+            paragraphStep(by: 1)
+        }
+    }
+
+    @ViewBuilder private var followControl: some View {
+        if !entry.paragraphs.isEmpty {
+            if isFollowSuspended {
+                Button("Return to playback", systemImage: "arrow.uturn.backward") {
+                    isFollowSuspended = false
+                }
+                .disabled(!model.player.isOpen)
+            } else {
+                followPicker
+            }
+        }
+    }
+
+    /// The player while it holds this recording; another one's picture, or
+    /// none, leaves the frame black.
+    private var shownPlayer: AVPlayer? {
+        source != nil && model.player.recording == source ? model.player.player : nil
+    }
+
+    /// The whole width, unless the picture would then be taller than allowed.
+    private func videoWidth(for picture: CGSize) -> CGFloat {
+        max(0, min(width, videoHeight * picture.width / picture.height))
+    }
+
+    private func togglePlayback() {
+        if shownPlayer != nil {
+            model.player.toggle()
+        } else {
+            model.replay(entry.id, from: entry.playbackPosition ?? 0, leadIn: 0)
         }
     }
 

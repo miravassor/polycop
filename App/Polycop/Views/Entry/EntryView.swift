@@ -15,6 +15,9 @@ struct EntryView: View {
     @AppStorage(Following.key) private var following = Following.page
     @State private var isFollowSuspended = false
     @State private var jump: Int?
+    /// The page's width, which decides between one column and two.
+    @State private var width: CGFloat = 0
+    private var isWide: Bool { width >= 1100 }
     @AppStorage("transcriptTextSize") private var size = 13.0
     @AppStorage("showsUncertainWords") private var showsUncertainWords = true
     /// The timed words of each paragraph, grouped when the paragraphs change
@@ -39,42 +42,25 @@ struct EntryView: View {
             EntryNotices(
                 entry: entry, findings: findings ?? entry.findings, model: model,
                 isRunning: isRunning, engine: engine)
-            if entry.paragraphs.isEmpty {
-                placeholder
-                Spacer(minLength: 0)
+            // A wide window gives the text a readable measure and puts the
+            // recording beside it, rather than lines across the whole screen.
+            if isWide {
+                HStack(alignment: .top, spacing: 24) {
+                    VStack(alignment: .leading, spacing: 16) { transcript }
+                    VStack(alignment: .leading, spacing: 16) { recordingAndExport }
+                        .frame(width: min(max(width * 0.34, 400), 480))
+                }
             } else {
-                editingTools
-                TranscriptView(
-                    paragraphs: entry.paragraphs, resumed: entry.resumedParagraphs,
-                    player: model.player, isEditable: !isRunning,
-                    play: { model.replay(entry.id, from: $0) },
-                    edit: { model.edit(entry.id, paragraphAt: $0, text: $1) },
-                    typing: { model.player.pauseForTyping() },
-                    hover: { focused = $0 },
-                    original: original, isComparing: isComparing,
-                    isFollowing: following != .off && !isFollowSuspended,
-                    suspendFollowing: suspendFollowing,
-                    suspendForEditing: {
-                        if following.stopsWhenEditing { suspendFollowing() }
-                    },
-                    jump: $jump, start: entry.readingParagraph,
-                    scrolled: { model.readingParagraph = $0 }, focused: focused, size: size,
-                    active: activeParagraph,
-                    activate: { if activeParagraph != $0 { activeParagraph = $0 } },
-                    review: entry.reviewParagraphs,
-                    toggleReview: { model.toggleReview(entry.id, paragraphAt: $0) },
-                    matches: find.matches, currentMatch: find.current,
-                    words: words,
-                    showsUncertainWords: showsUncertainWords)
+                transcript
+                recordingAndExport
             }
-            EntryAudio(
-                model: model, entry: entry, focused: $focused,
-                activeParagraph: $activeParagraph, jump: $jump, following: $following,
-                isFollowSuspended: $isFollowSuspended,
-                hasTimedWords: words.contains { !$0.isEmpty })
-            EntryExportCard(model: model, entry: entry, isRunning: isRunning, engine: engine)
         }
         .padding(28)
+        .onGeometryChange(for: CGFloat.self) {
+            $0.size.width
+        } action: {
+            width = $0
+        }
         .onChange(of: find.query) { refreshSearch() }
         .onChange(of: model.player.isOpen) { _, isOpen in
             if !isOpen { isFollowSuspended = false }
@@ -114,6 +100,46 @@ struct EntryView: View {
                 "It moves to Recently Deleted, with its corrections, for 30 days. Audio files and exports are kept."
             )
         }
+    }
+
+    @ViewBuilder private var transcript: some View {
+        if entry.paragraphs.isEmpty {
+            placeholder
+            Spacer(minLength: 0)
+        } else {
+            editingTools
+            TranscriptView(
+                paragraphs: entry.paragraphs, resumed: entry.resumedParagraphs,
+                player: model.player, isEditable: !isRunning,
+                play: { model.replay(entry.id, from: $0) },
+                edit: { model.edit(entry.id, paragraphAt: $0, text: $1) },
+                typing: { model.player.pauseForTyping() },
+                hover: { focused = $0 },
+                original: original, isComparing: isComparing,
+                isFollowing: following != .off && !isFollowSuspended,
+                suspendFollowing: suspendFollowing,
+                suspendForEditing: {
+                    if following.stopsWhenEditing { suspendFollowing() }
+                },
+                jump: $jump, start: entry.readingParagraph,
+                scrolled: { model.readingParagraph = $0 }, focused: focused, size: size,
+                active: activeParagraph,
+                activate: { if activeParagraph != $0 { activeParagraph = $0 } },
+                review: entry.reviewParagraphs,
+                toggleReview: { model.toggleReview(entry.id, paragraphAt: $0) },
+                matches: find.matches, currentMatch: find.current,
+                words: words,
+                showsUncertainWords: showsUncertainWords)
+        }
+    }
+
+    @ViewBuilder private var recordingAndExport: some View {
+        EntryAudio(
+            model: model, entry: entry, focused: $focused,
+            activeParagraph: $activeParagraph, jump: $jump, following: $following,
+            isFollowSuspended: $isFollowSuspended,
+            hasTimedWords: words.contains { !$0.isEmpty }, videoHeight: isWide ? 300 : 200)
+        EntryExportCard(model: model, entry: entry, isRunning: isRunning, engine: engine)
     }
 
     /// Shown before there is any text, at the top of the page like everything
