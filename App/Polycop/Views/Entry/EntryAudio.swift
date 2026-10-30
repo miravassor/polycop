@@ -56,6 +56,13 @@ struct EntryAudio: View {
                     )
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                     .frame(maxWidth: .infinity)
+                    // Read here, for a video alone: the card is laid out again
+                    // at each correction handed over.
+                    .onGeometryChange(for: CGFloat.self) {
+                        $0.size.width
+                    } action: {
+                        width = $0
+                    }
             }
             PlayerBar(
                 player: model.player,
@@ -66,11 +73,6 @@ struct EntryAudio: View {
                 play: { model.replay(entry.id, from: $0, leadIn: 0) },
                 hover: { focused = $0 },
                 jump: { jump = $0 })
-        }
-        .onGeometryChange(for: CGFloat.self) {
-            $0.size.width
-        } action: {
-            width = $0
         }
         .task(id: entry.recording) {
             let recording = model.recording(of: entry)
