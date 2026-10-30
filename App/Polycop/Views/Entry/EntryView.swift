@@ -138,7 +138,7 @@ struct EntryView: View {
             model: model, entry: entry, focused: $focused,
             activeParagraph: $activeParagraph, jump: $jump, following: $following,
             isFollowSuspended: $isFollowSuspended,
-            hasTimedWords: words.contains { !$0.isEmpty }, videoHeight: isWide ? 300 : 200)
+            hasTimedWords: words.contains { !$0.isEmpty }, isBeside: isWide)
         EntryExportCard(model: model, entry: entry, isRunning: isRunning, engine: engine)
     }
 

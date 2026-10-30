@@ -16,8 +16,9 @@ struct EntryAudio: View {
     @Binding var isFollowSuspended: Bool
     /// Whether any word has a time, which the highlight and the cursor need.
     let hasTimedWords: Bool
-    /// The tallest the picture may be: less under the transcript than beside it.
-    let videoHeight: CGFloat
+    /// Whether it sits in the column beside the transcript, too narrow for
+    /// its controls on one line.
+    let isBeside: Bool
     @AppStorage("showsVideo") private var showsVideo = true
     /// The size of the recording's picture, nil for sound alone.
     @State private var picture: CGSize?
@@ -27,18 +28,21 @@ struct EntryAudio: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 12) {
-                    title
-                    stepping
-                    Spacer(minLength: 12)
-                    followControl
-                }
+            // Told rather than measured: measuring both layouts at each
+            // correction handed over costs more than the page can spare.
+            if isBeside {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(spacing: 12) {
                         title
                         stepping
                     }
+                    followControl
+                }
+            } else {
+                HStack(spacing: 12) {
+                    title
+                    stepping
+                    Spacer(minLength: 12)
                     followControl
                 }
             }
@@ -125,9 +129,10 @@ struct EntryAudio: View {
         source != nil && model.player.recording == source ? model.player.player : nil
     }
 
-    /// The whole width, unless the picture would then be taller than allowed.
+    /// The whole width, unless the picture would then be taller than allowed:
+    /// less under the transcript than beside it.
     private func videoWidth(for picture: CGSize) -> CGFloat {
-        max(0, min(width, videoHeight * picture.width / picture.height))
+        max(0, min(width, (isBeside ? 300 : 200) * picture.width / picture.height))
     }
 
     private func togglePlayback() {
