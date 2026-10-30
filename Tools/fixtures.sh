@@ -61,6 +61,14 @@ ffmpeg -nostdin -v error -y \
     -c:v mpeg4 -c:a vorbis -strict -2 -ac 2 -q:a 3 \
     "$OUT/clip-video.mkv"
 
+# A class recorded as a video, as Zoom writes it: a picture AVFoundation plays,
+# so the transcript page shows it.
+ffmpeg -nostdin -v error -y \
+    -f lavfi -i "color=c=gray:s=160x120:r=5" -i "$SOURCE" \
+    -map 0:v -map 1:a -shortest \
+    -c:v mpeg4 -c:a aac -b:a 64k \
+    "$OUT/clip-video.mp4"
+
 # A video without an audio track: the app must report it rather than call the
 # file damaged.
 ffmpeg -nostdin -v error -y \
