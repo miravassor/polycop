@@ -76,4 +76,30 @@ import Testing
         #expect(TranscriptNavigation.isAtTop(row(10, 100), spacing: 20))
         #expect(TranscriptNavigation.isAtTop(row(0, 100), spacing: 20))
     }
+
+    /// The cursor setting of 0.4.0, when it was on, becomes the cursor choice,
+    /// and a choice made since is kept.
+    @Test func followingStartsFromTheEarlierCursorSetting() {
+        let earlier = MemoryDefaults()
+        earlier.set(true, forKey: Following.cursorKey)
+        Following.adoptEarlierSetting(in: earlier)
+        #expect(earlier.object(forKey: Following.key) as? String == Following.cursor.rawValue)
+
+        let chosen = MemoryDefaults()
+        chosen.set(true, forKey: Following.cursorKey)
+        chosen.set(Following.off.rawValue, forKey: Following.key)
+        Following.adoptEarlierSetting(in: chosen)
+        #expect(chosen.object(forKey: Following.key) as? String == Following.off.rawValue)
+
+        let fresh = MemoryDefaults()
+        Following.adoptEarlierSetting(in: fresh)
+        #expect(fresh.object(forKey: Following.key) == nil)
+    }
+
+    /// Following the cursor is for editing, so a click in the text no longer
+    /// stops the page; following the page alone still steps aside.
+    @Test func editingStopsThePageUnlessTheCursorFollows() {
+        #expect(Following.page.stopsWhenEditing)
+        #expect(!Following.cursor.stopsWhenEditing)
+    }
 }

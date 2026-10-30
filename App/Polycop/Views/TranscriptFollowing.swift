@@ -3,6 +3,42 @@
 import AppKit
 import SwiftUI
 
+/// How the transcript keeps up with playback: one choice, since scrolling and
+/// the cursor were two settings in two places that read as one feature.
+nonisolated enum Following: String, CaseIterable {
+    case off
+    /// Scrolls to the paragraph being played.
+    case page
+    /// Scrolls, and takes the text cursor along with the word heard.
+    case cursor
+
+    static let key = "followPlayback"
+    /// The cursor setting of 0.4.0, which Settings held on its own.
+    static let cursorKey = "cursorFollowsPlayback"
+
+    /// Starts from the cursor setting of 0.4.0 when it was on.
+    static func adoptEarlierSetting(in defaults: UserDefaults) {
+        guard defaults.object(forKey: key) == nil,
+            defaults.object(forKey: cursorKey) as? Bool == true
+        else {
+            return
+        }
+        defaults.set(Following.cursor.rawValue, forKey: key)
+    }
+
+    /// Whether a click or typing in the text stops the scrolling. With the
+    /// cursor following, editing is what following is for.
+    var stopsWhenEditing: Bool { self != .cursor }
+
+    var name: String {
+        switch self {
+        case .off: String(localized: "Off")
+        case .page: String(localized: "Page")
+        case .cursor: String(localized: "Page and Cursor")
+        }
+    }
+}
+
 /// Reads playback away from the rows so only a change of paragraph updates them.
 struct Follow: View {
     let player: Player

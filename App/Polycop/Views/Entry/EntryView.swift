@@ -12,7 +12,7 @@ struct EntryView: View {
     @State private var find = TranscriptFind()
     @FocusState private var isSearchFocused: Bool
     @State private var isComparing = false
-    @State private var isFollowing = false
+    @AppStorage(Following.key) private var following = Following.page
     @State private var isFollowSuspended = false
     @State private var jump: Int?
     @AppStorage("transcriptTextSize") private var size = 13.0
@@ -51,8 +51,12 @@ struct EntryView: View {
                     edit: { model.edit(entry.id, paragraphAt: $0, text: $1) },
                     typing: { model.player.pauseForTyping() },
                     hover: { focused = $0 },
-                    original: original, isComparing: isComparing, isFollowing: isFollowing,
+                    original: original, isComparing: isComparing,
+                    isFollowing: following != .off && !isFollowSuspended,
                     suspendFollowing: suspendFollowing,
+                    suspendForEditing: {
+                        if following.stopsWhenEditing { suspendFollowing() }
+                    },
                     jump: $jump, start: entry.readingParagraph,
                     scrolled: { model.readingParagraph = $0 }, focused: focused, size: size,
                     active: activeParagraph,
@@ -65,8 +69,9 @@ struct EntryView: View {
             }
             EntryAudio(
                 model: model, entry: entry, focused: $focused,
-                activeParagraph: $activeParagraph, jump: $jump, isFollowing: $isFollowing,
-                isFollowSuspended: $isFollowSuspended)
+                activeParagraph: $activeParagraph, jump: $jump, following: $following,
+                isFollowSuspended: $isFollowSuspended,
+                hasTimedWords: words.contains { !$0.isEmpty })
             EntryExportCard(model: model, entry: entry, isRunning: isRunning, engine: engine)
         }
         .padding(28)
@@ -271,8 +276,7 @@ struct EntryView: View {
 
     /// Stops following while the reader looks elsewhere, and offers the way back.
     private func suspendFollowing() {
-        guard isFollowing else { return }
-        isFollowing = false
+        guard following != .off, !isFollowSuspended else { return }
         isFollowSuspended = true
     }
 

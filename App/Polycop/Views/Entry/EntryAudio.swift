@@ -10,8 +10,10 @@ struct EntryAudio: View {
     @Binding var focused: Int?
     @Binding var activeParagraph: Int?
     @Binding var jump: Int?
-    @Binding var isFollowing: Bool
+    @Binding var following: Following
     @Binding var isFollowSuspended: Bool
+    /// Whether any word has a time, which the highlight and the cursor need.
+    let hasTimedWords: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -26,15 +28,11 @@ struct EntryAudio: View {
                 if !entry.paragraphs.isEmpty {
                     if isFollowSuspended {
                         Button("Return to playback", systemImage: "arrow.uturn.backward") {
-                            isFollowing = true
                             isFollowSuspended = false
                         }
                         .disabled(!model.player.isOpen)
                     } else {
-                        Toggle("Follow playback", isOn: $isFollowing)
-                            .toggleStyle(.checkbox)
-                            .font(.callout)
-                            .help("Scroll to the paragraph being played")
+                        followPicker
                     }
                 }
             }
@@ -48,6 +46,24 @@ struct EntryAudio: View {
                 hover: { focused = $0 },
                 jump: { jump = $0 })
         }
+    }
+
+    private var followPicker: some View {
+        Picker("Follow", selection: $following) {
+            ForEach(Following.allCases, id: \.self) { choice in
+                Text(choice.name)
+                    .tag(choice)
+                    .selectionDisabled(choice == .cursor && !hasTimedWords)
+            }
+        }
+        .pickerStyle(.menu)
+        .fixedSize()
+        .font(.callout)
+        .help(
+            hasTimedWords
+                ? "Page scrolls to the paragraph being played. Page and Cursor also takes the text cursor along with the word heard."
+                : "Page scrolls to the paragraph being played. This transcript has no word timings, so the word heard is not highlighted and the cursor cannot follow it."
+        )
     }
 
     private var replayPassage: some View {

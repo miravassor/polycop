@@ -26,7 +26,10 @@ struct TranscriptView: View {
     let isComparing: Bool
     /// Scrolls to the paragraph being played.
     let isFollowing: Bool
+    /// Called when the reader scrolls away.
     let suspendFollowing: () -> Void
+    /// Called when the reader clicks or types in the text.
+    let suspendForEditing: () -> Void
     /// A paragraph to show at once, chosen on the timeline below.
     @Binding var jump: Int?
     /// The paragraph to open on, where the reader left the transcript.
@@ -88,12 +91,21 @@ struct TranscriptView: View {
                     .overlay(alignment: .top) {
                         Follow(
                             player: player, starts: paragraphs.map(\.seconds),
-                            isEnabled: isFollowing, update: { playing = $0 }
+                            isEnabled: isFollowing,
+                            update: {
+                                playing = $0
+                                // A click holds the cursor in its paragraph,
+                                // not for the rest of the recording.
+                                WordTextView.holdsCursor = false
+                            }
                         ) { paragraph in
                             scroll(to: paragraph, in: view, height: viewport.size.height)
                         }
                     }
                     .onAppear {
+                        // A cursor lost on another transcript's page is not
+                        // one to take back into this one.
+                        WordTextView.lostCursor = false
                         if let start, paragraphs.indices.contains(start) {
                             view.scrollTo(start, anchor: .top)
                         }
@@ -148,7 +160,7 @@ struct TranscriptView: View {
             words: index < words.count ? words[index] : [],
             showsUncertainWords: showsUncertainWords, timeColumnWidth: timeColumnWidth,
             play: play, edit: edit, typing: typing, hover: hover, activate: activate,
-            suspendFollowing: suspendFollowing, toggleReview: toggleReview)
+            suspendForEditing: suspendForEditing, toggleReview: toggleReview)
     }
 
     private func written(at index: Int) -> String {
