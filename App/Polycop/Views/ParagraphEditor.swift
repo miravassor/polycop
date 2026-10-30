@@ -348,15 +348,35 @@ final class WordTextView: NSTextView {
         super.mouseDown(with: event)
     }
 
+    /// Whether the paragraph being edited was hidden with the cursor in it, as
+    /// rows far from playback are after a jump. The reader is still editing.
+    static var lostCursor = false
+
+    override func resignFirstResponder() -> Bool {
+        let resigned = super.resignFirstResponder()
+        if resigned, isHiddenOrHasHiddenAncestor { Self.lostCursor = true }
+        return resigned
+    }
+
+    override func becomeFirstResponder() -> Bool {
+        Self.lostCursor = false
+        return super.becomeFirstResponder()
+    }
+
     /// Takes the cursor to the end of `word`, the one being heard, while the
     /// reader is editing the transcript with nothing selected, into this
     /// paragraph if the word is here.
     func follow(_ word: NSRange) {
         guard word.length > 0, !Self.holdsCursor, let window,
-            let editing = window.firstResponder as? WordTextView,
-            editing.selectedRange().length == 0, NSMaxRange(word) <= (string as NSString).length
+            NSMaxRange(word) <= (string as NSString).length
         else { return }
-        if editing !== self { window.makeFirstResponder(self) }
+        if let editing = window.firstResponder as? WordTextView {
+            guard editing.selectedRange().length == 0 else { return }
+            if editing !== self { window.makeFirstResponder(self) }
+        } else {
+            guard Self.lostCursor, window.firstResponder === window else { return }
+            window.makeFirstResponder(self)
+        }
         setSelectedRange(NSRange(location: NSMaxRange(word), length: 0))
     }
 

@@ -121,6 +121,33 @@ private final class FocusableControl: NSControl {
     #expect(window.firstResponder === window)
 }
 
+/// After a jump, the row being edited is hidden with the cursor in it; the
+/// paragraph heard then takes the cursor, which a reader who left the text
+/// with Escape does not see happen.
+@MainActor
+@Test func theCursorFollowsPastTheRowItLeft() {
+    let window = NSWindow(
+        contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled],
+        backing: .buffered, defer: false)
+    let first = WordTextView(frame: NSRect(x: 0, y: 0, width: 300, height: 100))
+    let far = WordTextView(frame: NSRect(x: 0, y: 150, width: 300, height: 100))
+    first.string = "Bonjour à tous."
+    far.string = "Le cours commence."
+    for view in [first, far] { window.contentView?.addSubview(view) }
+    WordTextView.holdsCursor = false
+    defer { WordTextView.lostCursor = false }
+
+    window.makeFirstResponder(first)
+    first.isHidden = true
+    far.follow(NSRange(location: 3, length: 5))
+    #expect(window.firstResponder === far)
+    #expect(far.selectedRange() == NSRange(location: 8, length: 0))
+
+    window.makeFirstResponder(nil)
+    far.follow(NSRange(location: 9, length: 8))
+    #expect(window.firstResponder === window)
+}
+
 /// What is typed stays as typed, whatever the system's text input settings:
 /// a curly apostrophe would hide a word from Find and course corrections.
 @MainActor
