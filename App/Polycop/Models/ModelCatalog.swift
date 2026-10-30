@@ -64,26 +64,26 @@ nonisolated enum Engine: CaseIterable, Sendable {
         }
     }
 
-    /// Word following needs a time for each word, which Whisper reports and
+    /// Word timings need a time for each word, which Whisper reports and
     /// Qwen's aligner adds; MOSS and Voxtral time only whole passages.
     var features: String {
         switch self {
-        case .qwen: "30-second timestamps · No glossary, subtitles or word following"
-        case .whisper: "Glossaries · Sentence timestamps · Subtitles · Word following"
-        case .moss: "Glossaries · Sentence timestamps · Subtitles · Speakers · No word following"
-        case .voxtral: "30-second timestamps · No glossary, subtitles or word following"
+        case .qwen: "30-second timestamps · No glossary, subtitles or word timings"
+        case .whisper: "Glossaries · Sentence timestamps · Subtitles · Word timings"
+        case .moss: "Glossaries · Sentence timestamps · Subtitles · Speakers · No word timings"
+        case .voxtral: "30-second timestamps · No glossary, subtitles or word timings"
         }
     }
 
     /// What Qwen can do once its aligner times each word.
     func features(aligned: Bool) -> String {
         aligned && self == .qwen
-            ? "Sentence timestamps · Subtitles · Word following · No glossary" : features
+            ? "Sentence timestamps · Subtitles · Word timings · No glossary" : features
     }
 
-    /// What word following means, beside the features that name it.
-    static let wordFollowing =
-        "Word following: the word being heard is highlighted, a word can be played from with Option-click or Play From Cursor, and the text cursor can follow playback."
+    /// What word timings allow, beside the features that name them.
+    static let wordTimings =
+        "Word timings: the word being heard is highlighted, Option-click or Play From Cursor plays from a word, and Follow Page and Cursor takes the text cursor along."
 
     /// Everything but Whisper runs through audio.cpp.
     var audioCpp: AudioCppProfile? {

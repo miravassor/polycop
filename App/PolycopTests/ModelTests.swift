@@ -275,19 +275,19 @@ func launchStartsOnTheRecommendedModelOrAnInstalledOne(installed: [String], expe
     #expect(ModelCatalog.recommended == ModelCatalog.turbo)
 }
 
-/// The engines that time each word say they follow words; the others say
-/// they do not, so the choice is made knowing it.
-@Test func eachEngineSaysWhetherItFollowsWords() {
-    let following = [
+/// The engines that time each word say so; the others say they do not, so
+/// the choice is made knowing it.
+@Test func eachEngineSaysWhetherItTimesWords() {
+    let timed = [
         Engine.whisper.features(aligned: false), Engine.qwen.features(aligned: true),
     ]
-    let notFollowing = [
+    let untimed = [
         Engine.qwen.features(aligned: false), Engine.moss.features(aligned: true),
         Engine.voxtral.features(aligned: true),
     ]
 
-    #expect(following.allSatisfy { $0.contains("Word following") })
-    #expect(notFollowing.allSatisfy { $0.contains("word following") && !$0.contains("Word") })
+    #expect(timed.allSatisfy { $0.contains("Word timings") })
+    #expect(untimed.allSatisfy { $0.contains("word timings") && !$0.contains("Word") })
 }
 
 /// The models a window lists and deletes are those of the folder it was
