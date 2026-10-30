@@ -49,8 +49,9 @@ final class Player {
     /// Decoded copies, emptied at launch in case a run did not quit normally.
     nonisolated static let copies = URL.temporaryDirectory.appending(path: "Polycop Replay")
 
-    private var player: AVPlayer?
-    private var recording: URL?
+    /// Read by the video view, which draws the picture of what plays.
+    private(set) var player: AVPlayer?
+    private(set) var recording: URL?
     /// The last decoded copy, so that playing the same recording again, as
     /// after leaving its transcript, does not decode it again. One at a
     /// time, to bound the disk it takes.
