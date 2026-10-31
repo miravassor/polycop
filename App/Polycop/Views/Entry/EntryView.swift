@@ -142,7 +142,9 @@ struct EntryView: View {
             resume: entry.playbackPosition ?? 0,
             play: { model.replay(entry.id, from: $0, leadIn: 0) },
             hover: { focused = $0 },
-            jump: { jump = $0 })
+            jump: { jump = $0 }
+        )
+        .equatable()
     }
 
     /// Resizable as the library is: from the narrowest that keeps every label
