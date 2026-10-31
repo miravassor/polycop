@@ -23,7 +23,7 @@ struct EntryActionsMenu: View {
                 Button("Duplicate Transcript") { model.duplicate(entry.id) }
                     .disabled(isRunning)
                 Divider()
-                Button("Export Text As…", action: exportAs)
+                Button("Export Text…", action: exportAs)
                     .disabled(isRunning)
                 let exports = entry.saved.filter {
                     FileManager.default.fileExists(atPath: $0.path(percentEncoded: false))

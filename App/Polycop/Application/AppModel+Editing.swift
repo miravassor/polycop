@@ -150,15 +150,23 @@ extension AppModel {
         if restored { undoSteps[id] = nil }
     }
 
-    func setTextLayout(_ layout: Transcript.TextLayout, for id: Entry.ID) {
+    /// The export's format and whether it times its paragraphs. Plain text
+    /// also keeps the times in its layout, and Word stays apart from it, as
+    /// earlier versions read them.
+    func setExport(_ format: Transcript.Format, times: Bool, for id: Entry.ID) {
         guard !isShuttingDown else { return }
         updateEntry(id) {
-            if layout == .word {
-                $0.exportsWord = true
-            } else {
+            switch format {
+            case .plainText:
                 $0.exportsWord = nil
-                $0.textLayout = layout
+                $0.textLayout = times ? .timestamped : .plain
+            case .markdown:
+                $0.exportsWord = nil
+                $0.textLayout = .markdown
+            case .word:
+                $0.exportsWord = true
             }
+            $0.includesTimes = times
             $0.isSaved = false
         }
     }

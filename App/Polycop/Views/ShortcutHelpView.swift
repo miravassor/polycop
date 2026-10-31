@@ -43,10 +43,9 @@ struct ShortcutHelpView: View {
                 shortcut("Manage glossaries", "⌥⌘G")
             }
             Section("Export") {
-                shortcut("Update the export, or make the first one", "⌘S")
-                shortcut("Export the text somewhere else", "⇧⌘S")
+                shortcut("Export the text to a new file", "⌘S")
                 Text(
-                    "Corrections are saved in the library automatically. These shortcuts write a separate export file when the corresponding action is available."
+                    "Corrections are saved in the library automatically. An export is a separate file to share or keep, made anew each time."
                 )
                 .font(.caption).foregroundStyle(.secondary)
             }

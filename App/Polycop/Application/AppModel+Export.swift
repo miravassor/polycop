@@ -6,31 +6,13 @@ import os
 // MARK: Export
 
 extension AppModel {
-    /// What the export of a transcript is now, rather than what it was when it
-    /// was written. The user may have moved, deleted or edited the file, or
-    /// changed their mind about subtitles, since.
-    enum Export: Equatable {
-        /// Never exported.
-        case none
-        /// Exported, and nothing has changed since.
-        case current
-        /// The text, or the formats asked for, have changed since.
-        case outOfDate
-        /// What was written is no longer there.
-        case missing
-    }
-
-    func exportState(of entry: Entry) -> Export {
-        guard !entry.saved.isEmpty else { return .none }
-        guard
-            entry.saved.allSatisfy({
-                FileManager.default.fileExists(atPath: $0.path(percentEncoded: false))
-            })
-        else { return .missing }
-        // A subtitle or a layout changed since means other files, so there is
-        // nothing to update: the export starts again from the save panel.
-        guard entry.saved.map(\.pathExtension) == suffixes(of: entry) else { return .none }
-        return entry.isSaved ? .current : .outOfDate
+    /// The file the last export wrote, while it is still there. An export is
+    /// a copy to share or keep, made anew each time and never updated: the
+    /// corrections live in the library.
+    func lastExport(of entry: Entry) -> URL? {
+        entry.saved.first.flatMap {
+            FileManager.default.fileExists(atPath: $0.path(percentEncoded: false)) ? $0 : nil
+        }
     }
 
     /// Writes the transcript where the user chose. The save panel is what
@@ -39,45 +21,20 @@ extension AppModel {
         write(id) { try Transcript.write($0, as: destination) }
     }
 
-    /// Exports in the format chosen in the save panel, which becomes the
-    /// transcript's export format from then on.
-    func export(_ id: Entry.ID, as layout: Transcript.TextLayout, to destination: URL) {
-        if entry(id)?.exportLayout != layout { setTextLayout(layout, for: id) }
+    /// Exports as chosen in the save panel, which becomes the transcript's
+    /// export from then on.
+    func export(
+        _ id: Entry.ID, as format: Transcript.Format, times: Bool, to destination: URL
+    ) {
+        if let entry = entry(id), entry.exportFormat != format || entry.exportsTimes != times {
+            setExport(format, times: times, for: id)
+        }
         export(id, to: destination)
-    }
-
-    /// Writes over the files exported earlier. A file that something else has
-    /// changed since is never replaced; the user is told, and can export it
-    /// somewhere of their choosing instead.
-    func updateExport(_ id: Entry.ID) {
-        write(id) { formats in
-            guard let entry = self.entry(id),
-                let written = try Transcript.update(
-                    entry.saved, holding: entry.savedDigests, with: formats)
-            else { throw ExportError.changedElsewhere }
-            return written
-        }
-    }
-
-    enum ExportError: LocalizedError {
-        case changedElsewhere
-
-        var errorDescription: String? {
-            String(
-                localized:
-                    "The exported file was changed outside Polycop and was left as it is. Export the transcript again to choose where to put it."
-            )
-        }
-    }
-
-    /// The files an export writes, without building their text.
-    private func suffixes(of entry: Entry) -> [String] {
-        [entry.exportLayout.suffix]
-            + (entry.subtitles && entry.timesSentences ? ["srt"] : [])
     }
 
     private func formats(of entry: Entry) throws -> [(suffix: String, contents: Data)] {
         let layout = entry.exportLayout
+        let times = entry.exportsTimes
         var paragraphs = entry.paragraphs
         if entry.removesHesitations == true {
             for index in paragraphs.indices {
@@ -90,8 +47,8 @@ extension AppModel {
             for: entry.name, of: entry.recording, partial: entry.isPartial)
         let text =
             layout == .word
-            ? try WordDocument.data(paragraphs, title: title)
-            : Data(Transcript.text(paragraphs, layout: layout, title: title).utf8)
+            ? try WordDocument.data(paragraphs, title: title, times: times)
+            : Data(Transcript.text(paragraphs, layout: layout, title: title, times: times).utf8)
         var formats = [(suffix: layout.suffix, contents: text)]
         if entry.subtitles, entry.timesSentences {
             formats.append((suffix: "srt", contents: Data(Transcript.subRip(entry.shown).utf8)))
@@ -113,6 +70,7 @@ extension AppModel {
             entryFailure = EntryFailure(id: id, message: error.localizedDescription)
             return
         }
+        // Earlier versions update an export they find unchanged, by digest.
         let digests = formats.map { Transcript.digest($0.contents) }
         do {
             let files = try writing(formats)

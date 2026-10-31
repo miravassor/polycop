@@ -16,17 +16,9 @@ extension Transcript {
     ) throws -> [URL] {
         try write(formats.map { ($0.suffix, Data($0.contents.utf8)) }, as: destination)
     }
-
-    fileprivate static func update(
-        _ files: [URL], holding digests: [String],
-        with formats: [(suffix: String, contents: String)]
-    ) throws -> [URL]? {
-        try update(
-            files, holding: digests, with: formats.map { ($0.suffix, Data($0.contents.utf8)) })
-    }
 }
 
-@Test func updatingSeveralExportsReportsTheSuccessfulPrefixOnFailure() throws {
+@Test func writingSeveralExportsReportsTheSuccessfulPrefixOnFailure() throws {
     let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
     let locked = folder.appending(path: "Locked")
     defer {
@@ -41,10 +33,9 @@ extension Transcript {
     try "old captions".write(to: captions, atomically: true, encoding: .utf8)
     try FileManager.default.setAttributes([.posixPermissions: 0o500], ofItemAtPath: locked.path)
     do {
-        _ = try Transcript.update(
-            [text, captions],
-            holding: [Transcript.digest("old text"), Transcript.digest("old captions")],
-            with: [("txt", "new text"), ("srt", "new captions")])
+        _ = try Transcript.write(
+            [("txt", Data("new text".utf8)), ("srt", Data("new captions".utf8))],
+            to: [text, captions])
         Issue.record("The unwritable second export should fail")
     } catch let partial as Transcript.PartialSave {
         #expect(partial.written == [text])
@@ -212,33 +203,6 @@ private func segments(fromSubRip text: String) throws -> [Segment] {
     #expect(
         Transcript.suggestedName(for: "notes.txt", of: URL(filePath: "/tmp/notes"), partial: false)
             == "notes.txt")
-}
-
-/// A second save of the same result updates its files, but only while they
-/// hold what was written; a file changed elsewhere is never replaced.
-@Test func onlyUnchangedFilesAreUpdated() throws {
-    let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
-    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-    defer { try? FileManager.default.removeItem(at: folder) }
-    let files = try Transcript.write(
-        [("txt", "un"), ("srt", "1")], as: folder.appending(path: "cours.txt"))
-    let first = ["un", "1"].map(Transcript.digest)
-
-    let updated = try Transcript.update(
-        files, holding: first, with: [("txt", "deux"), ("srt", "2")])
-    #expect(updated == files)
-    #expect(try String(contentsOf: files[0], encoding: .utf8) == "deux")
-
-    try "changé à la main".write(to: files[0], atomically: true, encoding: .utf8)
-    let second = ["deux", "2"].map(Transcript.digest)
-    #expect(
-        try Transcript.update(files, holding: second, with: [("txt", "trois"), ("srt", "3")]) == nil
-    )
-    #expect(try String(contentsOf: files[0], encoding: .utf8) == "changé à la main")
-
-    // Subtitles are now off, so the files no longer match the formats.
-    let changed = ["changé à la main", "2"].map(Transcript.digest)
-    #expect(try Transcript.update(files, holding: changed, with: [("txt", "quatre")]) == nil)
 }
 
 /// The save panel is what asks before replacing a file, so a destination the

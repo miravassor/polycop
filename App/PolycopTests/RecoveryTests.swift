@@ -271,10 +271,9 @@ private func finished(_ recording: URL, in history: URL, model: String, language
 
 // MARK: Exports the application does not own
 
-/// Turning subtitles on changes which files an export is, so the update has no
-/// target of its own and the user is asked where to put them.
+/// Turning subtitles on adds their file to the next export, beside the text.
 @MainActor
-@Test func changingTheFormatsAsksWhereToExportAgain() throws {
+@Test func subtitlesTurnedOnJoinTheNextExport() throws {
     let (folder, recording) = try library()
     defer { try? FileManager.default.removeItem(at: folder) }
     let history = folder.appending(path: "History")
@@ -282,15 +281,15 @@ private func finished(_ recording: URL, in history: URL, model: String, language
     let model = AppModel(history: history)
 
     model.export(entry.id, to: folder.appending(path: "cours.txt"))
-    #expect(model.exportState(of: try #require(model.entry(entry.id))) == .current)
+    #expect(model.entry(entry.id)?.saved.map(\.lastPathComponent) == ["cours.txt"])
 
     model.setSubtitles(true, for: entry.id)
-
-    #expect(model.exportState(of: try #require(model.entry(entry.id))) == .none)
     model.export(entry.id, to: folder.appending(path: "cours.txt"))
     #expect(
         model.entry(entry.id)?.saved.map(\.lastPathComponent) == ["cours.txt", "cours.srt"])
-    #expect(model.exportState(of: try #require(model.entry(entry.id))) == .current)
+    #expect(
+        model.lastExport(of: try #require(model.entry(entry.id)))
+            == folder.appending(path: "cours.txt"))
 }
 
 /// A glossary deleted in the Finder is gone from the choice as well. The

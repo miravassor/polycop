@@ -6,7 +6,9 @@ import AppKit
 /// title as a heading, then each paragraph after its time in bold. macOS
 /// writes the file, the same way the transcript import reads one.
 enum WordDocument {
-    static func data(_ paragraphs: [Transcript.Paragraph], title: String) throws -> Data {
+    static func data(
+        _ paragraphs: [Transcript.Paragraph], title: String, times: Bool = true
+    ) throws -> Data {
         // Fonts every word processor knows, rather than the system font,
         // which Word would replace with whatever it finds.
         let body = NSFont(name: "Helvetica", size: 12) ?? .systemFont(ofSize: 12)
@@ -18,10 +20,12 @@ enum WordDocument {
         let document = NSMutableAttributedString(
             string: title + "\n", attributes: [.font: heading, .paragraphStyle: spaced])
         for paragraph in paragraphs {
-            document.append(
-                NSAttributedString(
-                    string: paragraph.time + "  ",
-                    attributes: [.font: bold, .paragraphStyle: spaced]))
+            if times {
+                document.append(
+                    NSAttributedString(
+                        string: paragraph.time + "  ",
+                        attributes: [.font: bold, .paragraphStyle: spaced]))
+            }
             document.append(
                 NSAttributedString(
                     string: paragraph.text + "\n",

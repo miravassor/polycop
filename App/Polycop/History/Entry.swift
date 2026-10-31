@@ -46,6 +46,10 @@ nonisolated struct Entry: Identifiable, Equatable, Codable, Sendable {
     /// Whether the export is a Word document. Kept apart from `textLayout`, so
     /// a version that knows no Word export still reads the record.
     var exportsWord: Bool?
+    /// Whether the export writes each paragraph's time. Nil in records written
+    /// before the choice, whose exports all did. Plain text also keeps it in
+    /// `textLayout`, which earlier versions read.
+    var includesTimes: Bool?
     /// Whether the text export leaves out hesitation sounds.
     var removesHesitations: Bool?
     /// A retry that keeps the settings of the transcript it repeats when it
@@ -386,12 +390,5 @@ nonisolated struct Entry: Identifiable, Equatable, Codable, Sendable {
         isSaved = false
         apply(courseCorrections ?? [])
         return true
-    }
-}
-
-extension Entry {
-    /// The layout the export uses.
-    var exportLayout: Transcript.TextLayout {
-        exportsWord == true ? .word : (textLayout ?? .timestamped)
     }
 }
