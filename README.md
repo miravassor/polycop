@@ -89,7 +89,7 @@ unless they agree to more.
   menu, copies a slide to paste into notes.
 * **Review marks** on passages to check later.
 * **Export** to plain text, Markdown or a Word document, with or without
-  timecodes and with hesitations such as "euh" left out if you want, and to SRT
+  timecodes and with hesitations such as "euh" left out if you want, or to SRT
   subtitles when the model times its sentences. Each export is a new file;
   corrections stay in the library.
 
