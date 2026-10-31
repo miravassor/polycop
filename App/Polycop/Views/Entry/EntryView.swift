@@ -336,6 +336,17 @@ extension EntryView {
             hasTimedWords: words.contains { !$0.isEmpty }, isRunning: isRunning, engine: engine
         )
         .inspectorColumnWidth(Self.inspectorWidth)
+        // Above the inspector at the trailing edge, the mirror of the
+        // sidebar's button at the leading one.
+        .toolbar {
+            Spacer()
+            Button {
+                showsInspector.toggle()
+            } label: {
+                Label("Inspector", systemImage: "sidebar.trailing")
+            }
+            .help(showsInspector ? "Hide the inspector" : "Show the inspector")
+        }
     }
 
     private var steps: ParagraphSteps {

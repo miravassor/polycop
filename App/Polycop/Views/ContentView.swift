@@ -77,16 +77,6 @@ struct ContentView: View {
                 } else if case .entry(let id) = model.pane, let entry = model.entry(id) {
                     EntryView(model: model, entry: entry, showsInspector: $showsInspector)
                         .id(id)
-                        .toolbar {
-                            ToolbarItem(placement: .primaryAction) {
-                                Button {
-                                    showsInspector.toggle()
-                                } label: {
-                                    Label("Inspector", systemImage: "sidebar.trailing")
-                                }
-                                .help(showsInspector ? "Hide the inspector" : "Show the inspector")
-                            }
-                        }
                 } else {
                     NewTranscriptionView(model: model)
                 }
