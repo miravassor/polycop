@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import AVFoundation
 import SwiftUI
 
 /// The recording beside the transcript: its picture for a video, replaying
@@ -19,12 +18,10 @@ struct EntryAudio: View {
     /// Whether it sits in the column beside the transcript, too narrow for
     /// its controls on one line.
     let isBeside: Bool
-    @AppStorage("showsVideo") private var showsVideo = true
     /// The size of the recording's picture, nil for sound alone.
     @State private var picture: CGSize?
     /// Where the recording is, found once rather than at each redraw.
     @State private var source: URL?
-    @State private var width: CGFloat = 0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -46,23 +43,10 @@ struct EntryAudio: View {
                     followControl
                 }
             }
-            if let picture, showsVideo {
-                // Sized from the width, since the transcript above takes every
-                // point of height it is offered.
-                VideoView(player: shownPlayer, toggle: togglePlayback)
-                    .frame(
-                        width: videoWidth(for: picture),
-                        height: videoWidth(for: picture) * picture.height / picture.width
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-                    .frame(maxWidth: .infinity)
-                    // Read here, for a video alone: the card is laid out again
-                    // at each correction handed over.
-                    .onGeometryChange(for: CGFloat.self) {
-                        $0.size.width
-                    } action: {
-                        width = $0
-                    }
+            if let picture, let source {
+                EntryVideo(
+                    model: model, id: entry.id, source: source, picture: picture,
+                    resume: entry.playbackPosition ?? 0, maxHeight: isBeside ? 300 : 200)
             }
             PlayerBar(
                 player: model.player,
@@ -78,28 +62,18 @@ struct EntryAudio: View {
             let recording = model.recording(of: entry)
             source = recording
             picture = await Player.pictureSize(of: recording)
-        }
-        .onChange(of: picture != nil && showsVideo, initial: true) { _, shows in
             // The picture shows where the reader left off, before playing.
-            guard shows, let source else { return }
-            model.player.prepare(source, at: entry.playbackPosition ?? 0)
+            if picture != nil { model.player.prepare(recording, at: entry.playbackPosition ?? 0) }
         }
     }
 
     private var title: some View {
         HStack(spacing: 8) {
-            Text(picture == nil ? "Audio" : "Video").font(.headline)
-            if picture != nil {
-                Button {
-                    showsVideo.toggle()
-                } label: {
-                    Image(systemName: showsVideo ? "video.slash" : "video")
-                        .frame(width: 16, height: 16)
-                }
-                .buttonStyle(.plain)
-                .iconControl()
-                .accessibilityLabel(showsVideo ? "Hide Video" : "Show Video")
-                .help(showsVideo ? "Keep the sound only" : "Show the video")
+            if picture == nil {
+                Text("Audio").font(.headline)
+            } else {
+                Text("Video").font(.headline)
+                VideoToggle()
             }
         }
     }
@@ -122,26 +96,6 @@ struct EntryAudio: View {
             } else {
                 followPicker
             }
-        }
-    }
-
-    /// The player while it holds this recording; another one's picture, or
-    /// none, leaves the frame black.
-    private var shownPlayer: AVPlayer? {
-        source != nil && model.player.recording == source ? model.player.player : nil
-    }
-
-    /// The whole width, unless the picture would then be taller than allowed:
-    /// less under the transcript than beside it.
-    private func videoWidth(for picture: CGSize) -> CGFloat {
-        max(0, min(width, (isBeside ? 300 : 200) * picture.width / picture.height))
-    }
-
-    private func togglePlayback() {
-        if shownPlayer != nil {
-            model.player.toggle()
-        } else {
-            model.replay(entry.id, from: entry.playbackPosition ?? 0, leadIn: 0)
         }
     }
 
