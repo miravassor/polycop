@@ -6,6 +6,18 @@ import SwiftUI
 // padding, the controls and rows inside them corners of 6.
 
 extension View {
+    /// Controls floating over the foot of a scrolling view: on macOS 26 the
+    /// content scrolls under them with the system's soft edge, as Music's list
+    /// under its player; before, under them as they are.
+    @ViewBuilder func floatingBar(@ViewBuilder _ bar: () -> some View) -> some View {
+        let bar = bar()
+        if #available(macOS 26, *) {
+            safeAreaBar(edge: .bottom) { bar }
+        } else {
+            safeAreaInset(edge: .bottom, spacing: 0) { bar }
+        }
+    }
+
     /// A card: a section of a page, or the player. A tint colours its fill
     /// alone, as each engine's card does in the model list.
     func panel(isHighlighted: Bool = false, tint: Color? = nil)

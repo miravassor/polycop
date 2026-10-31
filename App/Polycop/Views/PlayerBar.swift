@@ -3,7 +3,7 @@
 import AppKit
 import SwiftUI
 
-/// The player at the top of a transcript, whether or not a file is open.
+/// The player at the foot of a transcript, whether or not a file is open.
 ///
 /// The length is known from the transcription, so the timeline exists before
 /// anything plays and a point chosen on it opens the recording there. Each
@@ -380,17 +380,16 @@ struct SpaceToPlay: NSViewRepresentable {
     }
 }
 
-/// The player's surface: clear glass on macOS 26, lighter than a dark page as
-/// the toolbar's controls are, where regular glass in the page darkens it.
-/// Nothing scrolls under the player, so only the page shows through. The
-/// system's material before. A capsule on one line, a rounded rectangle on two.
+/// The player's surface: glass on macOS 26, as Music's player, blurring the
+/// text that scrolls under it; the system's material before. A capsule on one
+/// line, a rounded rectangle on two.
 private struct PlayerSurface: ViewModifier {
     let isOneLine: Bool
 
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: isOneLine ? 26 : 18)
         if #available(macOS 26, *) {
-            content.glassEffect(.clear, in: shape)
+            content.glassEffect(.regular, in: shape)
         } else {
             content.background(.regularMaterial, in: shape)
         }

@@ -100,9 +100,10 @@ Every page speaks the same visual language. The shared pieces live in
 `Views/Styles.swift`; use them rather than a new variant.
 
 * Cards: `panel()`, corners of 10, 16 points of padding, one fill and border. The
-  player is no card either: a capsule opening the transcript page, as the Music
-  player, its controls, timeline and times centred on one line, clear glass on
-  macOS 26 and the system's material before, with Find under it.
+  player is no card either: a capsule floating at the foot of the text, which
+  scrolls under it, as the Music player, its controls, timeline and times centred
+  on one line, glass on macOS 26 and the system's material before. Find opens at
+  the top, away from it.
   Controls and rows inside a card have corners of 6.
 * A page's actions are window toolbar items, drawn by the system, each also a menu
   command. Controls are the system's, never drawn by hand.
@@ -111,9 +112,8 @@ Every page speaks the same visual language. The shared pieces live in
   stays in the label colours, since orange, red or green text is too faint to read
   on a light window; emphasis inside text is a line (underline, strikethrough).
 * Spacing: 28 points around a page, 16 between blocks, 12 between a card's label and
-  its buttons. The transcript page has 16 above and below, so its player sits as
-  far under the toolbar as the next block sits under it. Sheets have 24 points of
-  padding, popovers 20.
+  its buttons. The transcript page has 16 under the toolbar, and its player floats
+  16 above the window's foot. Sheets have 24 points of padding, popovers 20.
 * Type: a page's title is the window's (`navigationTitle`); a sheet title in `.title2`
   semibold, a section heading in `.title3` semibold
   with a `.callout` line under it, a card title in `.headline` with a `.callout`

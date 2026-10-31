@@ -37,10 +37,7 @@ struct EntryView: View {
     private var engine: Engine? { ModelCatalog.model(entry.modelFile)?.engine }
 
     var body: some View {
-        // The player opens the page, as far under the toolbar as the next
-        // block is under it; the text scrolls below them all, never under.
         VStack(alignment: .leading, spacing: 16) {
-            playerBar
             EntryProgress(model: model, entry: entry, isRunning: isRunning)
             EntryNotices(
                 entry: entry, findings: findings ?? entry.findings, model: model,
@@ -53,7 +50,7 @@ struct EntryView: View {
         .frame(maxWidth: readingWidth)
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 28)
-        .padding(.vertical, 16)
+        .padding(.top, 16)
         .navigationTitle(entry.name)
         .toolbar { pageTools }
         .inspector(isPresented: $showsInspector) { inspector }
@@ -105,6 +102,7 @@ struct EntryView: View {
         if entry.paragraphs.isEmpty {
             placeholder
             Spacer(minLength: 0)
+            playerBar.padding(.bottom, 16)
         } else {
             TranscriptView(
                 paragraphs: entry.paragraphs, resumed: entry.resumedParagraphs,
@@ -129,6 +127,9 @@ struct EntryView: View {
                 words: words,
                 showsUncertainWords: showsUncertainWords
             )
+            // As in Music, the player floats at the foot of the text, which
+            // scrolls under it; Find stays at the top, away from it.
+            .floatingBar { playerBar.padding(.bottom, 16) }
         }
     }
 
