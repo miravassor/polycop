@@ -95,7 +95,6 @@ final class Player {
     static let resumeRewindKey = "resumeRewind"
     static let pausesWhileTypingKey = "pausesWhileTyping"
     static let resumeAfterTypingKey = "resumeAfterTyping"
-    static let cursorFollowsPlaybackKey = "cursorFollowsPlayback"
     /// Remembered across launches, as a reader keeps the speed they listen at.
     static let speedKey = "playbackSpeed"
     /// How far back playback resumes after a pause, so the sentence is heard again.

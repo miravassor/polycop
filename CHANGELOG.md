@@ -2,6 +2,13 @@
 
 All notable changes are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
+## Unreleased
+
+### Changed
+
+* Follow, beside the player, replaces the Follow playback checkbox and the cursor setting in Settings: Off, Page, or Page and Cursor. The choice is remembered, and Page is on from the start. With Page and Cursor, clicking or typing in the text no longer stops the page from following, and a click holds the cursor only until playback reaches the next paragraph. A transcript with no word timings says so in the tooltip, and Page and Cursor cannot be chosen there.
+* "Word following" in the model features is now "Word timings", the name of what the engine provides.
+
 ## 0.4.0 (2026-10-03)
 
 This release makes the library safer to keep and the text easier to finish:

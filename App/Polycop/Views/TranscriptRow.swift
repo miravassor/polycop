@@ -30,7 +30,8 @@ struct TranscriptRow: View, Equatable {
     let typing: () -> Void
     let hover: (Int?) -> Void
     let activate: (Int) -> Void
-    let suspendFollowing: () -> Void
+    /// Called when the reader clicks or types in the text.
+    let suspendForEditing: () -> Void
     let toggleReview: (Int) -> Void
 
     static func == (lhs: TranscriptRow, rhs: TranscriptRow) -> Bool {
@@ -103,7 +104,7 @@ struct TranscriptRow: View, Equatable {
                     matches: matches,
                     currentMatch: currentMatch,
                     activate: {
-                        suspendFollowing()
+                        suspendForEditing()
                         activate(index)
                     },
                     timedStart: words.isEmpty ? nil : paragraph.seconds,
@@ -149,13 +150,13 @@ private struct ParagraphText: View {
     let isCurrent: Bool
     let words: [WordLayout.Placed]
     let editor: ParagraphEditor
-    @AppStorage(Player.cursorFollowsPlaybackKey) private var movesCursor = false
+    @AppStorage(Following.key) private var following = Following.page
 
     var body: some View {
         var editor = editor
         editor.words = words
         editor.playingWord = isCurrent ? WordLayout.playing(words, at: player.position) : nil
-        editor.movesCursor = isCurrent && player.isPlaying && movesCursor
+        editor.movesCursor = isCurrent && player.isPlaying && following == .cursor
         return editor
     }
 }

@@ -339,7 +339,7 @@ struct NewTranscriptionView: View {
                 .font(.caption)
                 Text(LocalizedStringKey(selected.engine.features(aligned: model.canAlignQwen)))
                     .font(.caption).foregroundStyle(.secondary)
-                    .help(LocalizedStringKey(Engine.wordFollowing))
+                    .help(LocalizedStringKey(Engine.wordTimings))
             }
             if !isReady { setup }
             if isReady && model.downloadingModel != nil { ModelTransferStatus(model: model) }
