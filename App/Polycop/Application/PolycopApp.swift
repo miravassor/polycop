@@ -148,6 +148,8 @@ struct PolycopApp: App {
                 }
                 .keyboardShortcut("p", modifiers: [.command, .option])
             }
+            // Show and hide the inspector, with Control-Command-I.
+            InspectorCommands()
             CommandGroup(after: .help) {
                 Button("Keyboard Shortcuts…") { openWindow(id: "shortcuts") }
                     .keyboardShortcut("/", modifiers: [.command, .option])

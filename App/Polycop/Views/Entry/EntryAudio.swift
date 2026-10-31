@@ -2,27 +2,18 @@
 
 import SwiftUI
 
-/// The recording beside the transcript: its picture for a video, replaying
-/// the active passage, stepping from paragraph to paragraph, following
-/// playback, and the player itself.
+/// The recording in the inspector: its picture for a video, replaying the
+/// active passage, stepping from paragraph to paragraph and following
+/// playback. The player itself stays under the text, inspector or not.
 struct EntryAudio: View {
     let model: AppModel
     let entry: Entry
-    @Binding var focused: Int?
     @Binding var activeParagraph: Int?
     @Binding var jump: Int?
     @Binding var following: Following
     @Binding var isFollowSuspended: Bool
     /// Whether any word has a time, which the highlight and the cursor need.
     let hasTimedWords: Bool
-    /// Whether it sits in the column beside the transcript, too narrow for
-    /// its controls on one line.
-    let isBeside: Bool
-    /// The width the card has, which the thumbnail shares with the player.
-    let width: CGFloat
-    /// The tallest the picture may be. With less than a picture can use, it
-    /// shrinks to a thumbnail beside the player bar, so the text keeps its room.
-    let pictureRoom: CGFloat
     /// The size of the recording's picture, nil for sound alone.
     @State private var picture: CGSize?
     /// Where the recording is, found once rather than at each redraw.
@@ -30,40 +21,32 @@ struct EntryAudio: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            // Told rather than measured: measuring both layouts at each
-            // correction handed over costs more than the page can spare.
-            if isBeside {
+            if let picture, let source {
                 VStack(alignment: .leading, spacing: 12) {
-                    HStack(spacing: 12) {
-                        title
-                        stepping
+                    HStack(spacing: 8) {
+                        Text("Video").font(.headline)
+                        Spacer(minLength: 8)
+                        VideoControls(model: model)
                     }
-                    followControl
-                }
-            } else {
-                HStack(spacing: 12) {
-                    title
-                    stepping
-                    Spacer(minLength: 12)
-                    followControl
+                    EntryVideo(
+                        model: model, id: entry.id, source: source, picture: picture,
+                        resume: entry.playbackPosition ?? 0)
                 }
             }
-            if let picture, let source {
-                if pictureRoom < EntryVideo.smallest {
-                    // What the player leaves, or nothing when too little.
-                    let beside = width - PlayerBar.narrowest - 12
+            if !entry.paragraphs.isEmpty {
+                if picture != nil { Divider() }
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Playback").font(.headline)
                     HStack(spacing: 12) {
-                        if beside >= EntryVideo.narrowestThumbnail {
-                            video(source, picture, isThumbnail: true, maxWidth: beside)
+                        replayPassage
+                        ControlGroup {
+                            paragraphStep(by: -1)
+                            paragraphStep(by: 1)
                         }
-                        playerBar
+                        .fixedSize()
                     }
-                } else {
-                    video(source, picture, isThumbnail: false, maxWidth: .infinity)
-                    playerBar
+                    followControl
                 }
-            } else {
-                playerBar
             }
         }
         .task(id: entry.recording) {
@@ -75,57 +58,14 @@ struct EntryAudio: View {
         }
     }
 
-    private func video(
-        _ source: URL, _ picture: CGSize, isThumbnail: Bool, maxWidth: CGFloat
-    ) -> some View {
-        EntryVideo(
-            model: model, id: entry.id, source: source, picture: picture,
-            resume: entry.playbackPosition ?? 0, maxWidth: maxWidth,
-            maxHeight: isThumbnail ? EntryVideo.thumbnailHeight : pictureRoom,
-            isThumbnail: isThumbnail)
-    }
-
-    private var playerBar: some View {
-        PlayerBar(
-            player: model.player,
-            marks: entry.paragraphs.map(\.seconds),
-            highlighted: focused,
-            length: entry.duration ?? 0,
-            resume: entry.playbackPosition ?? 0,
-            play: { model.replay(entry.id, from: $0, leadIn: 0) },
-            hover: { focused = $0 },
-            jump: { jump = $0 })
-    }
-
-    private var title: some View {
-        HStack(spacing: 8) {
-            if picture == nil {
-                Text("Audio").font(.headline)
-            } else {
-                Text("Video").font(.headline)
-                VideoToggle(video: model.video)
-            }
-        }
-    }
-
-    @ViewBuilder private var stepping: some View {
-        if !entry.paragraphs.isEmpty {
-            replayPassage
-            paragraphStep(by: -1)
-            paragraphStep(by: 1)
-        }
-    }
-
     @ViewBuilder private var followControl: some View {
-        if !entry.paragraphs.isEmpty {
-            if isFollowSuspended {
-                Button("Return to playback", systemImage: "arrow.uturn.backward") {
-                    isFollowSuspended = false
-                }
-                .disabled(!model.player.isOpen)
-            } else {
-                followPicker
+        if isFollowSuspended {
+            Button("Return to playback", systemImage: "arrow.uturn.backward") {
+                isFollowSuspended = false
             }
+            .disabled(!model.player.isOpen)
+        } else {
+            followPicker
         }
     }
 
@@ -178,7 +118,11 @@ struct EntryAudio: View {
             jump = next
             model.replay(entry.id, from: starts[next])
         } label: {
-            Image(systemName: offset < 0 ? "chevron.up" : "chevron.down")
+            Label(
+                offset < 0 ? "Previous" : "Next",
+                systemImage: offset < 0 ? "chevron.up" : "chevron.down"
+            )
+            .labelStyle(.titleAndIcon)
         }
         .keyboardShortcut(offset < 0 ? .upArrow : .downArrow, modifiers: [.command, .option])
         .disabled(!entry.hasRecording)

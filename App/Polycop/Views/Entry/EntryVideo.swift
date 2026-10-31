@@ -16,51 +16,26 @@ struct EntryVideo: View {
     let picture: CGSize
     /// Where the reader left off, played from when nothing is open yet.
     let resume: TimeInterval
-    /// The tallest the picture may be.
-    let maxWidth: CGFloat
-    let maxHeight: CGFloat
-    /// Small beside the player bar, when the window leaves the text too
-    /// little room for the picture above it.
-    let isThumbnail: Bool
     @AppStorage(EntryVideo.shownKey) private var isShown = true
     @State private var width: CGFloat = 0
-    @State private var isHovered = false
 
     static let shownKey = "showsVideo"
-    /// Below this, the picture above the player bar becomes a thumbnail.
-    static let smallest: CGFloat = 100
-    /// As tall as the player card beside it.
-    static let thumbnailHeight: CGFloat = 102
-    /// Narrower than this, a thumbnail shows too little to be worth its room.
-    static let narrowestThumbnail: CGFloat = 64
+    /// Tall enough for an upright phone video to leave the inspector room.
+    static let tallest: CGFloat = 480
 
     var body: some View {
-        // Floating, the picture leaves the page to the text.
+        // Floating, the picture leaves the inspector to the controls.
         if isShown, !model.video.isInPictureInPicture {
-            if isThumbnail {
-                shown
-                    .frame(
-                        width: thumbnailWidth,
-                        height: thumbnailWidth * picture.height / picture.width
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-            } else {
-                // Sized from the width, since the transcript takes every
-                // point of height it is offered.
-                shown
-                    .frame(width: shownWidth, height: shownWidth * picture.height / picture.width)
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
-                    .overlay(alignment: .bottomTrailing) {
-                        if isHovered { controls }
-                    }
-                    .onHover { isHovered = $0 }
-                    .frame(maxWidth: .infinity)
-                    .onGeometryChange(for: CGFloat.self) {
-                        $0.size.width
-                    } action: {
-                        width = $0
-                    }
-            }
+            // Sized from the inspector's width.
+            shown
+                .frame(width: shownWidth, height: shownWidth * picture.height / picture.width)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .frame(maxWidth: .infinity)
+                .onGeometryChange(for: CGFloat.self) {
+                    $0.size.width
+                } action: {
+                    width = $0
+                }
         }
     }
 
@@ -76,40 +51,9 @@ struct EntryVideo: View {
             .accessibilityAction(named: "Enter Full Screen", fillScreen)
     }
 
-    /// Over the picture while the pointer is on it, as other players do.
-    private var controls: some View {
-        HStack(spacing: 0) {
-            control("pip.enter", "Picture in Picture", action: floatPicture)
-            control("arrow.up.left.and.arrow.down.right", "Enter Full Screen", action: fillScreen)
-        }
-        .padding(2)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6))
-        .environment(\.colorScheme, .dark)
-        .padding(8)
-    }
-
-    private func control(
-        _ symbol: String, _ label: LocalizedStringKey, action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            Image(systemName: symbol)
-                .frame(width: 28, height: 24)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(.white)
-        .help(label)
-        .accessibilityLabel(label)
-    }
-
     /// The whole width, unless the picture would then be taller than allowed.
     private var shownWidth: CGFloat {
-        max(0, min(width, maxWidth, maxHeight * picture.width / picture.height))
-    }
-
-    /// As tall as allowed, unless that is wider than the room beside the player.
-    private var thumbnailWidth: CGFloat {
-        min(maxWidth, maxHeight * picture.width / picture.height)
+        max(0, min(width, Self.tallest * picture.width / picture.height))
     }
 
     /// The player while it holds this recording; another one's picture, or
@@ -149,37 +93,54 @@ struct EntryVideo: View {
     }
 }
 
-/// Shows or hides the picture, beside the player card's title, or brings it
-/// back from Picture in Picture.
-struct VideoToggle: View {
-    let video: VideoPresentation
+/// The video's buttons, always in sight in its section's heading: Picture in
+/// Picture or its return, full screen, and the sound alone.
+struct VideoControls: View {
+    let model: AppModel
     @AppStorage(EntryVideo.shownKey) private var isShown = true
 
     var body: some View {
-        if video.isInPictureInPicture {
-            Button(action: video.stopPictureInPicture) {
-                Image(systemName: "pip.exit").frame(width: 16, height: 16)
+        HStack(spacing: 8) {
+            if model.video.isInPictureInPicture {
+                control(
+                    "pip.exit", "Return Video from Picture in Picture",
+                    help: "Show the video beside the transcript again"
+                ) {
+                    model.video.stopPictureInPicture()
+                }
+            } else {
+                control(
+                    "pip.enter", "Picture in Picture", help: "Float the video above other windows"
+                ) {
+                    Task { await model.video.startPictureInPicture() }
+                }
             }
-            .buttonStyle(.plain)
-            .iconControl()
-            .accessibilityLabel("Return Video to the Page")
-            .help("Show the video beside the transcript again")
-        } else {
-            toggle
+            control(
+                "arrow.up.left.and.arrow.down.right", "Enter Full Screen",
+                help: "Fill the screen with the video (double-click it)"
+            ) {
+                model.video.fillScreen { FullScreenVideo.window(for: model) }
+            }
+            control(
+                isShown ? "video.slash" : "video", isShown ? "Hide Video" : "Show Video",
+                help: isShown ? "Keep the sound only" : "Show the video"
+            ) {
+                isShown.toggle()
+            }
         }
     }
 
-    private var toggle: some View {
-        Button {
-            isShown.toggle()
-        } label: {
-            Image(systemName: isShown ? "video.slash" : "video")
-                .frame(width: 16, height: 16)
+    private func control(
+        _ symbol: String, _ label: LocalizedStringKey, help: LocalizedStringKey,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol).frame(width: 16, height: 16)
         }
         .buttonStyle(.plain)
         .iconControl()
-        .accessibilityLabel(isShown ? "Hide Video" : "Show Video")
-        .help(isShown ? "Keep the sound only" : "Show the video")
+        .accessibilityLabel(label)
+        .help(help)
     }
 }
 

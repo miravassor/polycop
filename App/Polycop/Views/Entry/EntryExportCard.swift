@@ -16,13 +16,9 @@ struct EntryExportCard: View {
 
     var body: some View {
         if !isRunning && !entry.paragraphs.isEmpty {
-            // A card like those of the New transcription page, the last step of
-            // the page.
-            HStack(spacing: 12) {
-                Image(systemName: "square.and.arrow.up")
-                    .font(.title2)
-                    .foregroundStyle(.tint)
-                    .accessibilityHidden(true)
+            // A section of the inspector: what it does, then its buttons.
+            Divider()
+            VStack(alignment: .leading, spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(
                         entry.subtitles && entry.timesSentences
@@ -31,28 +27,33 @@ struct EntryExportCard: View {
                     .font(.headline)
                     exported
                 }
-                Spacer(minLength: 8)
-                Button {
-                    showingExportOptions = true
-                } label: {
-                    Image(systemName: "slider.horizontal.3").frame(width: 16, height: 16)
+                HStack(spacing: 12) {
+                    options
+                    Spacer(minLength: 8)
+                    export
                 }
-                .buttonStyle(.plain)
-                .iconControl()
-                .accessibilityLabel("Export options")
-                .help("Export options")
-                .popover(isPresented: $showingExportOptions) {
-                    EntryExportOptions(
-                        entry: entry, isRunning: isRunning, engine: engine,
-                        setSubtitles: { model.setSubtitles($0, for: entry.id) },
-                        setTextLayout: { model.setTextLayout($0, for: entry.id) },
-                        setRemovesHesitations: {
-                            model.setRemovesHesitations($0, for: entry.id)
-                        })
-                }
-                export
             }
-            .panel()
+        }
+    }
+
+    private var options: some View {
+        Button {
+            showingExportOptions = true
+        } label: {
+            Image(systemName: "slider.horizontal.3").frame(width: 16, height: 16)
+        }
+        .buttonStyle(.plain)
+        .iconControl()
+        .accessibilityLabel("Export options")
+        .help("Export options")
+        .popover(isPresented: $showingExportOptions) {
+            EntryExportOptions(
+                entry: entry, isRunning: isRunning, engine: engine,
+                setSubtitles: { model.setSubtitles($0, for: entry.id) },
+                setTextLayout: { model.setTextLayout($0, for: entry.id) },
+                setRemovesHesitations: {
+                    model.setRemovesHesitations($0, for: entry.id)
+                })
         }
     }
 

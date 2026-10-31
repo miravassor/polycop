@@ -10,6 +10,7 @@ struct ShortcutHelpView: View {
                 shortcut("Play or pause, anywhere", "⇧⌘Space")
                 shortcut("Play or pause, on the video", "Click")
                 shortcut("Fill the screen with the video, or leave it", "Double-click")
+                shortcut("Show or hide the inspector", "⌃⌘I")
                 shortcut("Leave the text", "Esc")
                 shortcut("Replay active paragraph", "⌥⌘R")
                 shortcut("Play next paragraph", "⌥⌘↓")

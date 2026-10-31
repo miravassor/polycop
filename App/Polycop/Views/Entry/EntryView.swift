@@ -7,6 +7,8 @@ import SwiftUI
 struct EntryView: View {
     let model: AppModel
     let entry: Entry
+    /// Whether the inspector beside the text shows, kept by the window.
+    @Binding var showsInspector: Bool
     @State private var focused: Int?
     @State private var activeParagraph: Int?
     @State private var find = TranscriptFind()
@@ -15,12 +17,6 @@ struct EntryView: View {
     @AppStorage(Following.key) private var following = Following.page
     @State private var isFollowSuspended = false
     @State private var jump: Int?
-    /// The page's width, which decides between one column and two. A video
-    /// goes beside the text sooner: under it, the picture is too small to read.
-    @State private var width: CGFloat = 0
-    private var isWide: Bool { width >= (entry.isVideo ? 900 : 1100) }
-    /// The page's height, which bounds a video's picture.
-    @State private var height: CGFloat = 0
     @AppStorage("transcriptTextSize") private var size = 13.0
     @AppStorage("showsUncertainWords") private var showsUncertainWords = true
     /// The timed words of each paragraph, grouped when the paragraphs change
@@ -45,26 +41,12 @@ struct EntryView: View {
             EntryNotices(
                 entry: entry, findings: findings ?? entry.findings, model: model,
                 isRunning: isRunning, engine: engine)
-            // A wide window gives the text a readable measure and puts the
-            // recording beside it, rather than lines across the whole screen.
-            if isWide {
-                HStack(alignment: .top, spacing: 24) {
-                    VStack(alignment: .leading, spacing: 16) { transcript }
-                    VStack(alignment: .leading, spacing: 16) { recordingAndExport }
-                        .frame(width: sideWidth)
-                }
-            } else {
-                transcript
-                recordingAndExport
-            }
+            transcript
+            // Under the text whatever the window's size, inspector or not.
+            playerBar
         }
         .padding(28)
-        .onGeometryChange(for: CGSize.self) {
-            $0.size
-        } action: {
-            width = $0.width
-            height = $0.height
-        }
+        .inspector(isPresented: $showsInspector) { inspector }
         .onChange(of: find.query) { refreshSearch() }
         .onChange(of: model.player.isOpen) { _, isOpen in
             if !isOpen { isFollowSuspended = false }
@@ -137,24 +119,36 @@ struct EntryView: View {
         }
     }
 
-    @ViewBuilder private var recordingAndExport: some View {
-        EntryAudio(
-            model: model, entry: entry, focused: $focused,
-            activeParagraph: $activeParagraph, jump: $jump, following: $following,
-            isFollowSuspended: $isFollowSuspended,
-            hasTimedWords: words.contains { !$0.isEmpty }, isBeside: isWide,
-            width: isWide ? sideWidth : width - 56, pictureRoom: pictureRoom)
-        EntryExportCard(model: model, entry: entry, isRunning: isRunning, engine: engine)
+    private var playerBar: some View {
+        PlayerBar(
+            player: model.player,
+            marks: entry.paragraphs.map(\.seconds),
+            highlighted: focused,
+            length: entry.duration ?? 0,
+            resume: entry.playbackPosition ?? 0,
+            play: { model.replay(entry.id, from: $0, leadIn: 0) },
+            hover: { focused = $0 },
+            jump: { jump = $0 })
     }
 
-    /// The tallest a video's picture may be. The text keeps room for a few
-    /// paragraphs first, under the player in one column; beside the text, the
-    /// column keeps room for the player and the export.
-    /// The column beside the text, never narrower than the player.
-    private var sideWidth: CGFloat { min(max(width * 0.34, PlayerBar.narrowest + 10), 480) }
+    /// Fixed, as in Keynote or Pages: wide enough for Replay passage, Previous
+    /// and Next on one line, and known to the window's minimum width.
+    static let inspectorWidth: CGFloat = 380
 
-    private var pictureRoom: CGFloat {
-        isWide ? min(300, height - 420) : min(200, height - 640)
+    /// The recording and the export, beside the text in the system's inspector,
+    /// which the reader hides or shows.
+    private var inspector: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                EntryAudio(
+                    model: model, entry: entry, activeParagraph: $activeParagraph, jump: $jump,
+                    following: $following, isFollowSuspended: $isFollowSuspended,
+                    hasTimedWords: words.contains { !$0.isEmpty })
+                EntryExportCard(model: model, entry: entry, isRunning: isRunning, engine: engine)
+            }
+            .padding(16)
+        }
+        .inspectorColumnWidth(Self.inspectorWidth)
     }
 
     /// Shown before there is any text, at the top of the page like everything
