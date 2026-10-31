@@ -99,23 +99,25 @@ Tools/                 build, fixture and packaging scripts
 Every page speaks the same visual language. The shared pieces live in
 `Views/Styles.swift`; use them rather than a new variant.
 
-* Cards: `panel()`, corners of 10, 16 points of padding (10 above and below the player,
-  whose controls sit on a line), one fill and border.
+* Cards: `panel()`, corners of 10, 16 points of padding, one fill and border. The
+  player is no card: a bar on the top edge of the text it plays (`topBar(_:)`).
   Controls and rows inside a card have corners of 6.
-* Header icon buttons and menus: `iconControl()`, 32 by 28. Another control drawn
-  by hand takes its fill from `controlFill()`.
+* A page's actions are window toolbar items, drawn by the system, each also a menu
+  command. A control drawn by hand takes its fill from `controlFill()`.
 * Text editors: `editorBorder()`, with the corners of a control.
 * Warnings and failures: a `Label` with `notice(_:)`, colour on the icon only. Text
   stays in the label colours, since orange, red or green text is too faint to read
   on a light window; emphasis inside text is a line (underline, strikethrough).
 * Spacing: 28 points around a page, 16 between blocks, 12 between a card's label and
   its buttons. Sheets have 24 points of padding, popovers 20.
-* Type: a page title in `.title2` semibold, a section heading in `.title3` semibold
+* Type: a page's title is the window's (`navigationTitle`); a sheet title in `.title2`
+  semibold, a section heading in `.title3` semibold
   with a `.callout` line under it, a card title in `.headline` with a `.callout`
   line. Text styles only, no fixed point sizes.
 * One prominent button per area, for its main action; the rest use the default style.
-* A wide window, as in full screen, uses its width through columns rather than one
-  narrow column beside empty space. Check a change in a narrow and a wide window.
+* Text keeps a reading width, about 75 characters at the reader's size, centred:
+  a wide window adds margins rather than longer lines, and the inspector can take
+  the width. Check a change from the smallest window to full screen.
 * No `.frame(minWidth:minHeight:)` around a whole page: SwiftUI asks for the minimum
   after every change, and such a frame measures the page to answer. The window and the
   detail column give theirs with `minimumSize` in `ContentView`.

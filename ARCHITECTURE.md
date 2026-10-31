@@ -98,7 +98,7 @@ memory.
 * An edit becomes an undo step in `AppModel.undoSteps`, so undo and revert
   work per transcript. Typing is saved after a one second pause; any other
   change is written at once, in the background.
-* The player bar, under the text, and `SpaceToPlay` drive `Player`; the inspector beside
+* The player bar, above the text, and `SpaceToPlay` drive `Player`; the inspector beside
   the text (`EntryInspector`, a grouped form) holds the video, the paragraph steps, Follow
   and export. The paragraph steps (`ParagraphSteps`) reach the Playback menu as a focused
   value, so their shortcuts work with the inspector hidden; `NowPlaying` connects it to

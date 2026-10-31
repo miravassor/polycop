@@ -70,7 +70,7 @@ unless they agree to more.
   transcripts.
 * **Changes shown as a diff** between what the model wrote and your corrected
   text.
-* **Audio player** made for proofreading, under the text: playback speed, a
+* **Audio player** made for proofreading, above the text: playback speed, a
   timeline with the paragraphs, and the next or previous paragraph from the
   keyboard. The inspector beside the text (Control-Command-I, resizable by its
   edge) holds the video,
