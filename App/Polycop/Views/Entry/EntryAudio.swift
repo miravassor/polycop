@@ -95,7 +95,7 @@ struct EntryAudio: View {
                 Text("Audio").font(.headline)
             } else {
                 Text("Video").font(.headline)
-                VideoToggle()
+                VideoToggle(video: model.video)
             }
         }
     }

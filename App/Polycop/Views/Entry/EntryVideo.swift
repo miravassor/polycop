@@ -22,6 +22,8 @@ struct EntryVideo: View {
     let isThumbnail: Bool
     @AppStorage(EntryVideo.shownKey) private var isShown = true
     @State private var width: CGFloat = 0
+    @State private var isHovered = false
+    @Environment(\.openWindow) private var openWindow
 
     static let shownKey = "showsVideo"
     /// Below this, the picture above the player bar becomes a thumbnail.
@@ -30,7 +32,8 @@ struct EntryVideo: View {
     static let thumbnailHeight: CGFloat = 102
 
     var body: some View {
-        if isShown {
+        // Floating or in its window, the picture leaves the page to the text.
+        if isShown, !model.video.isElsewhere {
             if isThumbnail {
                 shown
                     .frame(width: maxHeight * picture.width / picture.height, height: maxHeight)
@@ -41,6 +44,10 @@ struct EntryVideo: View {
                 shown
                     .frame(width: shownWidth, height: shownWidth * picture.height / picture.width)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .overlay(alignment: .bottomTrailing) {
+                        if isHovered { controls }
+                    }
+                    .onHover { isHovered = $0 }
                     .frame(maxWidth: .infinity)
                     .onGeometryChange(for: CGFloat.self) {
                         $0.size.width
@@ -52,10 +59,44 @@ struct EntryVideo: View {
     }
 
     private var shown: some View {
-        VideoView(player: shownPlayer, toggle: togglePlayback)
+        VideoView(player: shownPlayer, toggle: togglePlayback, fillScreen: fillScreen)
             .contextMenu {
                 Button("Copy Frame", action: copyFrame)
+                Divider()
+                Button("Picture in Picture", action: floatPicture)
+                Button("Open in Window", action: openInWindow)
+                Button("Enter Full Screen", action: fillScreen)
             }
+            .accessibilityAction(named: "Picture in Picture", floatPicture)
+            .accessibilityAction(named: "Open in Window", openInWindow)
+            .accessibilityAction(named: "Enter Full Screen", fillScreen)
+    }
+
+    /// Over the picture while the pointer is on it, as other players do.
+    private var controls: some View {
+        HStack(spacing: 0) {
+            control("pip.enter", "Picture in Picture", action: floatPicture)
+            control("macwindow", "Open in Window", action: openInWindow)
+            control("arrow.up.left.and.arrow.down.right", "Enter Full Screen", action: fillScreen)
+        }
+        .padding(2)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6))
+        .environment(\.colorScheme, .dark)
+        .padding(8)
+    }
+
+    private func control(
+        _ symbol: String, _ label: LocalizedStringKey, action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .frame(width: 28, height: 24)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.white)
+        .help(label)
+        .accessibilityLabel(label)
     }
 
     /// The whole width, unless the picture would then be taller than allowed.
@@ -77,6 +118,18 @@ struct EntryVideo: View {
         }
     }
 
+    private func floatPicture() {
+        Task { await model.video.startPictureInPicture() }
+    }
+
+    private func openInWindow() {
+        model.video.openWindow { openWindow(id: VideoWindow.id) }
+    }
+
+    private func fillScreen() {
+        model.video.fillScreen { openWindow(id: VideoWindow.id) }
+    }
+
     /// The frame on screen, to paste a slide elsewhere.
     private func copyFrame() {
         let time = shownPlayer?.currentTime().seconds ?? resume
@@ -92,11 +145,27 @@ struct EntryVideo: View {
     }
 }
 
-/// Shows or hides the picture, beside the player card's title.
+/// Shows or hides the picture, beside the player card's title, or brings it
+/// back from Picture in Picture or its window.
 struct VideoToggle: View {
+    let video: VideoPresentation
     @AppStorage(EntryVideo.shownKey) private var isShown = true
 
     var body: some View {
+        if video.isElsewhere {
+            Button(action: video.returnToPage) {
+                Image(systemName: "pip.exit").frame(width: 16, height: 16)
+            }
+            .buttonStyle(.plain)
+            .iconControl()
+            .accessibilityLabel("Return Video to the Page")
+            .help("Show the video beside the transcript again")
+        } else {
+            toggle
+        }
+    }
+
+    private var toggle: some View {
         Button {
             isShown.toggle()
         } label: {

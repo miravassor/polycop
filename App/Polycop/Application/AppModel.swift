@@ -85,6 +85,8 @@ final class AppModel {
     }
     private(set) var imported: [ModelStore.Imported] = []
     let player: Player
+    /// Where a video's picture shows besides its page.
+    let video: VideoPresentation
     /// Pauses playback for sleep and a change of output device, for as long as the model lives.
     @ObservationIgnored private let interruptions: PlaybackInterruptions
     /// The course glossaries, and each course's corrections beside them.
@@ -249,6 +251,7 @@ final class AppModel {
         modelFolder = models
         let player = Player(defaults: defaults, copies: playbackCopies)
         self.player = player
+        video = VideoPresentation(player: player)
         interruptions = PlaybackInterruptions(player: player)
         self.engines = engines ?? .live(models: models)
         refreshInstalled()
@@ -324,15 +327,6 @@ final class AppModel {
     func beginJob() -> Int {
         job += 1
         return job
-    }
-
-    /// Where the recording is, renewing the bookmark when macOS says it is
-    /// stale. Read at the start of an operation, which is where a write to the
-    /// record belongs.
-    func recording(of entry: Entry) -> URL {
-        let (url, stale) = entry.resolved()
-        if stale { updateEntry(entry.id) { $0.relink(to: url) } }
-        return url
     }
 
     /// Called before the process exits. Freeing the context is what keeps the

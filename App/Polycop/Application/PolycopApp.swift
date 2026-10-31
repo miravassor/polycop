@@ -159,6 +159,15 @@ struct PolycopApp: App {
         }
         .windowResizability(.contentSize)
 
+        // A video's picture on its own, for a second screen or full screen.
+        // Opened from the picture, so not from the Window menu.
+        Window("Video", id: VideoWindow.id) {
+            VideoWindow(model: model)
+        }
+        .defaultSize(width: 960, height: 540)
+        .windowStyle(.hiddenTitleBar)
+        .commandsRemoved()
+
         // Preferences that are not part of a recording's settings: they apply
         // at once rather than with the recordings added next.
         Settings {

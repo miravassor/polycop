@@ -40,3 +40,33 @@ import Testing
     #expect(frame.width == 160)
     #expect(frame.height == 120)
 }
+
+/// While the video window is open, its controls may start playback; a window
+/// macOS restores at launch, which no page asked for, closes at once.
+@MainActor
+@Test func theVideoWindowLetsItsControlsPlayWhileOpen() {
+    let player = Player(defaults: MemoryDefaults())
+    let video = VideoPresentation(player: player)
+    let window = NSWindow(
+        contentRect: NSRect(x: 0, y: 0, width: 160, height: 120), styleMask: [.titled],
+        backing: .buffered, defer: true)
+    window.isReleasedWhenClosed = false
+    window.orderFront(nil)
+    defer { window.close() }
+
+    video.windowAppeared(window)
+    #expect(!window.isVisible)
+    #expect(!video.isElsewhere)
+
+    var opened = 0
+    video.openWindow { opened += 1 }
+    window.orderFront(nil)
+    video.windowAppeared(window)
+    #expect(opened == 1)
+    #expect(video.isInWindow)
+    #expect(player.followsOutsideControls)
+
+    video.windowClosed()
+    #expect(!video.isElsewhere)
+    #expect(!player.followsOutsideControls)
+}
