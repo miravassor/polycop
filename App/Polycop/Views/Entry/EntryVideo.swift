@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import AVFoundation
+import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// The picture of a video recording, which the reader can hide to keep the
 /// sound alone. Only these two views read that setting, and only a video has
@@ -14,32 +16,35 @@ struct EntryVideo: View {
     let picture: CGSize
     /// Where the reader left off, played from when nothing is open yet.
     let resume: TimeInterval
-    /// The tallest the picture may be: less under the transcript than beside it.
-    let maxHeight: CGFloat
     @AppStorage(EntryVideo.shownKey) private var isShown = true
-    @State private var width: CGFloat = 0
 
     static let shownKey = "showsVideo"
+    /// Tall enough for an upright phone video to leave the inspector room.
+    static let tallest: CGFloat = 480
 
     var body: some View {
-        if isShown {
-            // Sized from the width, since the transcript above takes every
-            // point of height it is offered.
-            VideoView(player: shownPlayer, toggle: togglePlayback)
-                .frame(width: shownWidth, height: shownWidth * picture.height / picture.width)
+        // Floating, the picture leaves the inspector to the controls.
+        if isShown, !model.video.isInPictureInPicture {
+            // As wide as the inspector lets it be, never setting its width:
+            // a measured width held the inspector from narrowing again.
+            shown
+                .aspectRatio(picture.width / picture.height, contentMode: .fit)
+                .frame(maxWidth: Self.tallest * picture.width / picture.height)
                 .clipShape(RoundedRectangle(cornerRadius: 10))
                 .frame(maxWidth: .infinity)
-                .onGeometryChange(for: CGFloat.self) {
-                    $0.size.width
-                } action: {
-                    width = $0
-                }
         }
     }
 
-    /// The whole width, unless the picture would then be taller than allowed.
-    private var shownWidth: CGFloat {
-        max(0, min(width, maxHeight * picture.width / picture.height))
+    private var shown: some View {
+        VideoView(player: shownPlayer, toggle: togglePlayback, fillScreen: fillScreen)
+            .contextMenu {
+                Button("Copy Frame", action: copyFrame)
+                Divider()
+                Button("Picture in Picture", action: floatPicture)
+                Button("Enter Full Screen", action: fillScreen)
+            }
+            .accessibilityAction(named: "Picture in Picture", floatPicture)
+            .accessibilityAction(named: "Enter Full Screen", fillScreen)
     }
 
     /// The player while it holds this recording; another one's picture, or
@@ -55,22 +60,65 @@ struct EntryVideo: View {
             model.replay(id, from: resume, leadIn: 0)
         }
     }
+
+    private func floatPicture() {
+        Task { await model.video.startPictureInPicture() }
+    }
+
+    private func fillScreen() {
+        model.video.fillScreen { FullScreenVideo.window(for: model) }
+    }
+
+    /// The frame on screen, to paste a slide elsewhere.
+    private func copyFrame() {
+        let time = shownPlayer?.currentTime().seconds ?? resume
+        Task {
+            do {
+                let frame = try await Player.frame(of: source, at: time)
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.writeObjects([NSImage(cgImage: frame, size: .zero)])
+            } catch {
+                model.report(error)
+            }
+        }
+    }
 }
 
-/// Shows or hides the picture, beside the player card's title.
-struct VideoToggle: View {
+/// The video's controls, on rows under the picture: Picture in Picture,
+/// which stays pressed while the picture floats, full screen, and the sound
+/// alone.
+struct VideoControls: View {
+    let model: AppModel
     @AppStorage(EntryVideo.shownKey) private var isShown = true
 
     var body: some View {
-        Button {
-            isShown.toggle()
-        } label: {
-            Image(systemName: isShown ? "video.slash" : "video")
-                .frame(width: 16, height: 16)
+        @Bindable var video = model.video
+        HStack(spacing: 8) {
+            Toggle(isOn: $video.floatsPicture) {
+                Label("Picture in Picture", systemImage: "pip.enter").frame(maxWidth: .infinity)
+            }
+            .toggleStyle(.button)
+            .help(
+                video.floatsPicture
+                    ? "Bring the video back beside the transcript"
+                    : "Float the video above other windows")
+            Button {
+                model.video.fillScreen { FullScreenVideo.window(for: model) }
+            } label: {
+                Label("Full Screen", systemImage: "arrow.up.left.and.arrow.down.right")
+                    .frame(maxWidth: .infinity)
+            }
+            .help("Fill the screen with the video (double-click it)")
         }
-        .buttonStyle(.plain)
-        .iconControl()
-        .accessibilityLabel(isShown ? "Hide Video" : "Show Video")
-        .help(isShown ? "Keep the sound only" : "Show the video")
+        Toggle("Show Video", isOn: $isShown)
+            .help("Turn off to keep the sound only")
+    }
+}
+
+extension Entry {
+    /// Whether the recording is a video file, by its name: the page shows its
+    /// picture beside the text sooner, and the queue shows a film.
+    var isVideo: Bool {
+        UTType(filenameExtension: recording.pathExtension)?.conforms(to: .movie) == true
     }
 }

@@ -98,12 +98,20 @@ memory.
 * An edit becomes an undo step in `AppModel.undoSteps`, so undo and revert
   work per transcript. Typing is saved after a one second pause; any other
   change is written at once, in the background.
-* The player bar and `SpaceToPlay` drive `Player`; `NowPlaying` connects it to
+* The player bar, under the text, and `SpaceToPlay` drive `Player`; the inspector beside
+  the text (`EntryInspector`, a grouped form) holds the video, the paragraph steps, Follow
+  and export. The paragraph steps (`ParagraphSteps`) reach the Playback menu as a focused
+  value, so their shortcuts work with the inspector hidden; `NowPlaying` connects it to
   the media keys and Control Center; `PlaybackInterruptions` pauses it when the
   Mac sleeps or the output it plays through goes away. For a video AVFoundation
   plays, `VideoView` draws the picture of the same `AVPlayer`, with no controls
   of its own, so speed, seeking and every shortcut act on picture and sound
-  together.
+  together. `VideoPresentation`, held by `AppModel`, takes the picture
+  elsewhere: Picture in Picture floats an unseen layer the main window keeps,
+  since macOS ends it only while that layer is in a window, and full screen
+  shows `FullScreenVideo`, with the system's controls, in a window made for it
+  and closed when it leaves full screen. While either shows, `Player` follows
+  playback their controls start.
 
 ## Persistence
 

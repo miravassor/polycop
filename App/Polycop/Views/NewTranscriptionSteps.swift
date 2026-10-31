@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import SwiftUI
-import UniformTypeIdentifiers
 
 /// The numbered heading of a step of the New transcription page, so the page
 /// reads in order: recordings, settings, start.
@@ -80,7 +79,7 @@ struct RecordingsStep: View {
 
     private func row(_ entry: Entry) -> some View {
         HStack(spacing: 8) {
-            Image(systemName: Self.isVideo(entry.recording) ? "film" : "waveform")
+            Image(systemName: entry.isVideo ? "film" : "waveform")
                 .foregroundStyle(.secondary)
                 .frame(width: 16)
                 .accessibilityHidden(true)
@@ -100,10 +99,6 @@ struct RecordingsStep: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
         .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 6))
-    }
-
-    private static func isVideo(_ recording: URL) -> Bool {
-        UTType(filenameExtension: recording.pathExtension)?.conforms(to: .movie) == true
     }
 }
 

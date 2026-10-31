@@ -27,8 +27,25 @@ struct ContentView: View {
         return model.entries.filter { $0.folderID.map { !known.contains($0) } ?? true }
     }
 
+    /// Whether a transcript's inspector shows, remembered for the window.
+    @SceneStorage("showsInspector") private var showsInspector = true
+    /// How wide the inspector is, which the reader changes.
+    @State private var inspectorWidth = EntryView.idealInspectorWidth
+
+    /// Room for the library, the text with its player and a transcript's
+    /// inspector, so that nothing is cut; hiding the inspector narrows it.
+    private var minimumWidth: CGFloat {
+        guard showsInspector, case .entry = model.pane, selected.count <= 1 else { return 860 }
+        // At its widest: macOS squeezes a column below its minimum otherwise.
+        let library = columns == .detailOnly ? 0 : Self.widestLibrary
+        return max(860, library + PlayerBar.narrowest + 56 + inspectorWidth)
+    }
+    /// Whether the library shows, which the reader changes.
+    @State private var columns = NavigationSplitViewVisibility.automatic
+    private static let widestLibrary: CGFloat = 280
+
     var body: some View {
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $columns) {
             List(selection: $selection) {
                 Label("New Transcription", systemImage: "plus")
                     .fontWeight(.medium)
@@ -40,7 +57,7 @@ struct ContentView: View {
             }
             .listStyle(.sidebar)
             .contextMenu { newFolder }
-            .navigationSplitViewColumnWidth(min: 200, ideal: 240, max: 320)
+            .navigationSplitViewColumnWidth(min: 200, ideal: 240, max: Self.widestLibrary)
             .safeAreaInset(edge: .bottom) {
                 Label("Always stored on this Mac", systemImage: "lock")
                     .font(.caption)
@@ -60,15 +77,18 @@ struct ContentView: View {
                         },
                         remove: { removing = $0 })
                 } else if case .entry(let id) = model.pane, let entry = model.entry(id) {
-                    EntryView(model: model, entry: entry)
-                        .id(id)
+                    EntryView(
+                        model: model, entry: entry, showsInspector: $showsInspector,
+                        inspectorWidth: $inspectorWidth
+                    )
+                    .id(id)
                 } else {
                     NewTranscriptionView(model: model)
                 }
             }
-            // The detail column asks for a minimum of its own; this is the one
-            // its pages had.
-            .minimumSize(width: 360, height: 450)
+            // The detail column asks for a minimum of its own: the player
+            // under the text, and the page's margins.
+            .minimumSize(width: PlayerBar.narrowest + 56, height: 450)
         }
         .onChange(of: selection) { _, chosen in
             // Several rows are a selection to act on, not a page to show, so
@@ -80,6 +100,7 @@ struct ContentView: View {
             guard selection != [pane] else { return }
             selection = [pane]
         }
+        .background { PictureInPictureSource(model: model) }
         .task(id: model.folderRequest) {
             guard model.folderRequest != nil else { return }
             model.folderRequest = nil
@@ -147,7 +168,7 @@ struct ContentView: View {
                 model: model, moving: $moving, destinationFolder: $destinationFolder,
                 opened: { expandedFolders.insert($0) })
         }
-        .minimumSize(width: 860, height: 600)
+        .minimumSize(width: minimumWidth, height: 600)
         .disabled(model.isShuttingDown)
         .dropDestination(for: URL.self) { urls, _ in
             guard !model.isShuttingDown else { return false }
@@ -258,7 +279,10 @@ struct ContentView: View {
             .contextMenu { newFolder }
         }
     }
+}
 
+// The sidebar's rows, drops and folder actions.
+extension ContentView {
     private var newFolder: some View {
         Button("New Folder…", action: startNewFolder)
             .disabled(model.foldersAreDamaged)

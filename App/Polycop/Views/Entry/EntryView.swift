@@ -7,6 +7,11 @@ import SwiftUI
 struct EntryView: View {
     let model: AppModel
     let entry: Entry
+    /// Whether the inspector beside the text shows, kept by the window.
+    @Binding var showsInspector: Bool
+    /// How wide the reader made the inspector, which the window's minimum
+    /// width makes room for.
+    @Binding var inspectorWidth: CGFloat
     @State private var focused: Int?
     @State private var activeParagraph: Int?
     @State private var find = TranscriptFind()
@@ -15,9 +20,6 @@ struct EntryView: View {
     @AppStorage(Following.key) private var following = Following.page
     @State private var isFollowSuspended = false
     @State private var jump: Int?
-    /// The page's width, which decides between one column and two.
-    @State private var width: CGFloat = 0
-    private var isWide: Bool { width >= 1100 }
     @AppStorage("transcriptTextSize") private var size = 13.0
     @AppStorage("showsUncertainWords") private var showsUncertainWords = true
     /// The timed words of each paragraph, grouped when the paragraphs change
@@ -42,25 +44,14 @@ struct EntryView: View {
             EntryNotices(
                 entry: entry, findings: findings ?? entry.findings, model: model,
                 isRunning: isRunning, engine: engine)
-            // A wide window gives the text a readable measure and puts the
-            // recording beside it, rather than lines across the whole screen.
-            if isWide {
-                HStack(alignment: .top, spacing: 24) {
-                    VStack(alignment: .leading, spacing: 16) { transcript }
-                    VStack(alignment: .leading, spacing: 16) { recordingAndExport }
-                        .frame(width: min(max(width * 0.34, 400), 480))
-                }
-            } else {
-                transcript
-                recordingAndExport
-            }
+            transcript
+            // Under the text whatever the window's size, inspector or not.
+            playerBar
         }
         .padding(28)
-        .onGeometryChange(for: CGFloat.self) {
-            $0.size.width
-        } action: {
-            width = $0
-        }
+        .inspector(isPresented: $showsInspector) { inspector }
+        // The Playback menu's steps, which work with the inspector hidden.
+        .focusedSceneValue(\.paragraphSteps, steps)
         .onChange(of: find.query) { refreshSearch() }
         .onChange(of: model.player.isOpen) { _, isOpen in
             if !isOpen { isFollowSuspended = false }
@@ -133,14 +124,23 @@ struct EntryView: View {
         }
     }
 
-    @ViewBuilder private var recordingAndExport: some View {
-        EntryAudio(
-            model: model, entry: entry, focused: $focused,
-            activeParagraph: $activeParagraph, jump: $jump, following: $following,
-            isFollowSuspended: $isFollowSuspended,
-            hasTimedWords: words.contains { !$0.isEmpty }, isBeside: isWide)
-        EntryExportCard(model: model, entry: entry, isRunning: isRunning, engine: engine)
+    private var playerBar: some View {
+        PlayerBar(
+            player: model.player,
+            marks: entry.paragraphs.map(\.seconds),
+            highlighted: focused,
+            length: entry.duration ?? 0,
+            resume: entry.playbackPosition ?? 0,
+            play: { model.replay(entry.id, from: $0, leadIn: 0) },
+            hover: { focused = $0 },
+            jump: { jump = $0 })
     }
+
+    /// Resizable as the library is: from the narrowest that keeps every label
+    /// whole, Picture in Picture and Previous the longest, to room for a
+    /// larger picture.
+    static let inspectorWidths: ClosedRange<CGFloat> = 360...520
+    static let idealInspectorWidth: CGFloat = 380
 
     /// Shown before there is any text, at the top of the page like everything
     /// else rather than floating in the middle of it.
@@ -200,7 +200,7 @@ struct EntryView: View {
             EntryActionsMenu(
                 model: model, entry: entry, isRunning: isRunning,
                 confirmingRevert: $confirmingRevert, confirmingRemoval: $confirmingRemoval,
-                exportAs: { EntryExportCard.exportAs(entry, with: model) })
+                exportAs: { EntryExportSection.exportAs(entry, with: model) })
         }
     }
 
@@ -328,6 +328,34 @@ struct EntryView: View {
         suspendFollowing()
         activeParagraph = paragraph
         jump = paragraph
+    }
+}
+
+extension EntryView {
+    /// The recording and the export, beside the text in the system's inspector,
+    /// which the reader hides or shows.
+    private var inspector: some View {
+        EntryInspector(
+            model: model, entry: entry, steps: steps, following: $following,
+            isFollowSuspended: $isFollowSuspended,
+            hasTimedWords: words.contains { !$0.isEmpty }, isRunning: isRunning, engine: engine
+        )
+        .onGeometryChange(for: CGFloat.self) {
+            $0.size.width
+        } action: {
+            inspectorWidth = max($0, Self.inspectorWidths.lowerBound)
+        }
+        // Starting where the reader left it: each transcript has a page, and
+        // so an inspector, of its own.
+        .inspectorColumnWidth(
+            min: Self.inspectorWidths.lowerBound, ideal: inspectorWidth,
+            max: Self.inspectorWidths.upperBound
+        )
+        .modifier(InspectorToggle(isShown: $showsInspector))
+    }
+
+    private var steps: ParagraphSteps {
+        ParagraphSteps(model: model, entry: entry, activeParagraph: $activeParagraph, jump: $jump)
     }
 }
 

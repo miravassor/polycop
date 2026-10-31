@@ -6,6 +6,15 @@ import os
 // MARK: Library and folders
 
 extension AppModel {
+    /// Where the recording is, renewing the bookmark when macOS says it is
+    /// stale. Read at the start of an operation, which is where a write to the
+    /// record belongs.
+    func recording(of entry: Entry) -> URL {
+        let (url, stale) = entry.resolved()
+        if stale { updateEntry(entry.id) { $0.relink(to: url) } }
+        return url
+    }
+
     func addFolder() {
         guard !isShuttingDown else { return }
         folderRequest = UUID()

@@ -26,4 +26,18 @@ extension Player {
         guard shown.width > 0, shown.height > 0 else { return nil }
         return CGSize(width: abs(shown.width), height: abs(shown.height))
     }
+
+    /// The picture of a recording at a time, upright, as a slide to paste
+    /// into notes.
+    @concurrent
+    nonisolated static func frame(of recording: URL, at time: TimeInterval) async throws
+        -> CGImage
+    {
+        let generator = AVAssetImageGenerator(asset: AVURLAsset(url: recording))
+        generator.appliesPreferredTrackTransform = true
+        // The frame on screen, not the nearest one easy to decode.
+        generator.requestedTimeToleranceBefore = .zero
+        generator.requestedTimeToleranceAfter = .zero
+        return try await generator.image(at: CMTime(seconds: time, preferredTimescale: 600)).image
+    }
 }
