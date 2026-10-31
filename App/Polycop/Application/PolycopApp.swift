@@ -141,7 +141,9 @@ struct PolycopApp: App {
                     .disabled(openTranscript == nil)
             }
             PlaybackCommands()
-            // Show and hide the inspector, with Control-Command-I.
+            // Show and hide the library, with Control-Command-S, and the
+            // inspector, with Control-Command-I.
+            SidebarCommands()
             InspectorCommands()
             CommandGroup(after: .help) {
                 Button("Keyboard Shortcuts…") { openWindow(id: "shortcuts") }
