@@ -84,10 +84,10 @@ unless they agree to more.
   when the headphones it plays through disconnect.
 * **Video** of a class recorded with Zoom or Teams plays in the inspector,
   driven by the same player. A click on the picture plays or pauses, and a
-  double click fills the screen. The buttons under the picture float it in
+  double click fills the screen. The buttons on its corner float it in
   Picture in Picture, above other apps and on any screen, or fill the screen,
-  and Show Video turned off keeps the sound only. Copy Frame, in the picture's menu, copies a slide to paste into
-  notes.
+  and folding its section keeps the sound only. Copy Frame, in the picture's
+  menu, copies a slide to paste into notes.
 * **Review marks** on passages to check later.
 * **Export** to text with or without timestamps, to Markdown or to a Word
   document, with hesitations such as "euh" left out if you want, and to SRT

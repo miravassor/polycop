@@ -26,12 +26,9 @@ struct EntryInspector: View {
     var body: some View {
         Form {
             if let picture, let source {
-                Section("Video") {
-                    EntryVideo(
-                        model: model, id: entry.id, source: source, picture: picture,
-                        resume: entry.playbackPosition ?? 0)
-                    VideoControls(model: model)
-                }
+                VideoSection(
+                    model: model, id: entry.id, source: source, picture: picture,
+                    resume: entry.playbackPosition ?? 0)
             }
             if !entry.paragraphs.isEmpty {
                 Section("Playback") {

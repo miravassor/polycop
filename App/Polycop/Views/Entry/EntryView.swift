@@ -151,8 +151,7 @@ struct EntryView: View {
     }
 
     /// Resizable as the library is: from the narrowest that keeps every label
-    /// whole, Picture in Picture and Previous the longest, to room for a
-    /// larger picture.
+    /// whole, Previous the longest, to room for a larger picture.
     static let inspectorWidths: ClosedRange<CGFloat> = 360...520
     static let idealInspectorWidth: CGFloat = 380
 

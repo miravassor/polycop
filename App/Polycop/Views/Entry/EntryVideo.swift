@@ -5,34 +5,87 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// The picture of a video recording, which the reader can hide to keep the
-/// sound alone. Only these two views read that setting, and only a video has
-/// them: a view that reads a setting is drawn again at each correction handed
-/// over, which the player card of every transcript should not be.
-struct EntryVideo: View {
+/// The video's section of the inspector, which folds to keep the sound alone.
+/// Only this view reads that setting, and only a video has it: a view that
+/// reads a setting is drawn again at each correction handed over, which the
+/// inspector of every transcript should not be.
+struct VideoSection: View {
     let model: AppModel
     let id: Entry.ID
     let source: URL
     let picture: CGSize
     /// Where the reader left off, played from when nothing is open yet.
     let resume: TimeInterval
-    @AppStorage(EntryVideo.shownKey) private var isShown = true
+    @AppStorage("showsVideo") private var isShown = true
 
-    static let shownKey = "showsVideo"
+    var body: some View {
+        Section("Video", isExpanded: $isShown) {
+            EntryVideo(model: model, id: id, source: source, picture: picture, resume: resume)
+        }
+    }
+}
+
+/// The picture of a video recording, with Picture in Picture and full screen
+/// on its corner while the pointer is over it, as on a video in Safari.
+struct EntryVideo: View {
+    let model: AppModel
+    let id: Entry.ID
+    let source: URL
+    let picture: CGSize
+    let resume: TimeInterval
+    @State private var isHovering = false
+
     /// Tall enough for an upright phone video to leave the inspector room.
     static let tallest: CGFloat = 480
 
     var body: some View {
-        // Floating, the picture leaves the inspector to the controls.
-        if isShown, !model.video.isInPictureInPicture {
-            // As wide as the inspector lets it be, never setting its width:
-            // a measured width held the inspector from narrowing again.
-            shown
-                .aspectRatio(picture.width / picture.height, contentMode: .fit)
-                .frame(maxWidth: Self.tallest * picture.width / picture.height)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-                .frame(maxWidth: .infinity)
+        // As wide as the inspector lets it be, never setting its width: a
+        // measured width held the inspector from narrowing again.
+        Group {
+            if model.video.isInPictureInPicture { floating } else { shown }
         }
+        .aspectRatio(picture.width / picture.height, contentMode: .fit)
+        .frame(maxWidth: Self.tallest * picture.width / picture.height)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .overlay(alignment: .bottomTrailing) { buttons }
+        .onHover { isHovering = $0 }
+        .animation(.easeOut(duration: 0.15), value: isHovering)
+        .frame(maxWidth: .infinity)
+    }
+
+    /// Floating, the picture leaves a note in its place, and its button to
+    /// bring it back.
+    private var floating: some View {
+        Label("Playing in Picture in Picture", systemImage: "pip")
+            .font(.callout)
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(.quaternary)
+    }
+
+    private var buttons: some View {
+        let floats = model.video.isInPictureInPicture
+        return HStack(spacing: 6) {
+            Button {
+                model.video.floatsPicture = !floats
+            } label: {
+                Label(
+                    floats ? "Bring Back the Video" : "Picture in Picture",
+                    systemImage: floats ? "pip.exit" : "pip.enter")
+            }
+            .help(
+                floats
+                    ? "Bring the video back beside the transcript"
+                    : "Float the video above other windows")
+            Button(action: fillScreen) {
+                Label("Full Screen", systemImage: "arrow.up.left.and.arrow.down.right")
+            }
+            .help("Fill the screen with the video (double-click it)")
+        }
+        .labelStyle(.iconOnly)
+        .modifier(OnPicture())
+        .padding(8)
+        .opacity(isHovering || floats ? 1 : 0)
     }
 
     private var shown: some View {
@@ -84,34 +137,15 @@ struct EntryVideo: View {
     }
 }
 
-/// The video's controls, on rows under the picture: Picture in Picture,
-/// which stays pressed while the picture floats, full screen, and the sound
-/// alone.
-struct VideoControls: View {
-    let model: AppModel
-    @AppStorage(EntryVideo.shownKey) private var isShown = true
-
-    var body: some View {
-        @Bindable var video = model.video
-        HStack(spacing: 8) {
-            Toggle(isOn: $video.floatsPicture) {
-                Label("Picture in Picture", systemImage: "pip.enter").frame(maxWidth: .infinity)
-            }
-            .toggleStyle(.button)
-            .help(
-                video.floatsPicture
-                    ? "Bring the video back beside the transcript"
-                    : "Float the video above other windows")
-            Button {
-                model.video.fillScreen { FullScreenVideo.window(for: model) }
-            } label: {
-                Label("Full Screen", systemImage: "arrow.up.left.and.arrow.down.right")
-                    .frame(maxWidth: .infinity)
-            }
-            .help("Fill the screen with the video (double-click it)")
+/// The buttons on the picture: glass on macOS 26, as the player's, and the
+/// system's bordered circles before.
+private struct OnPicture: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(macOS 26, *) {
+            content.buttonStyle(.glass).buttonBorderShape(.circle)
+        } else {
+            content.buttonStyle(.bordered).buttonBorderShape(.circle)
         }
-        Toggle("Show Video", isOn: $isShown)
-            .help("Turn off to keep the sound only")
     }
 }
 
