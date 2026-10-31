@@ -38,38 +38,53 @@ struct PlayerBar: View {
     }
 
     var body: some View {
-        // One line when the text leaves room for it, two otherwise: kept low
-        // under the transcript. Its own width only changes as the window does.
+        // As the Music player: the transport, then the timeline with its times
+        // under each end, then the speed; on two lines when the column is
+        // narrow. Its own width only changes as the window does.
         Group {
             if width >= Self.oneLine {
-                HStack(spacing: 12) {
+                HStack(spacing: 14) {
                     transport
-                    timeline.frame(minWidth: 160)
-                    clock
+                    timed.frame(minWidth: 120)
                     preparing
                     speed
                 }
             } else {
-                VStack(alignment: .leading, spacing: 4) {
-                    timeline
-                    HStack(spacing: 12) {
+                VStack(spacing: 4) {
+                    HStack(spacing: 14) {
                         transport
-                        clock
                         preparing
                         Spacer()
                         speed
                     }
+                    timed
                 }
             }
         }
-        // Controls above the text, not a card.
-        .padding(.vertical, 4)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 6)
+        .modifier(PlayerSurface(isOneLine: width >= Self.oneLine))
         .onGeometryChange(for: CGFloat.self) {
             $0.size.width
         } action: {
             width = $0
         }
         .background(SpaceToPlay(isEnabled: !player.isPreparing, action: playOrPause))
+    }
+
+    /// The timeline, the time played under its start and the time left under
+    /// its end.
+    private var timed: some View {
+        VStack(spacing: 0) {
+            timeline
+            HStack {
+                Text(Self.clock(position))
+                Spacer()
+                Text("-\(Self.clock(max(0, duration - position)))")
+            }
+            .font(.caption2.monospacedDigit())
+            .foregroundStyle(.secondary)
+        }
     }
 
     /// The width from which the player fits on one line.
@@ -87,61 +102,41 @@ struct PlayerBar: View {
         )
     }
 
+    /// Five seconds back, play, five seconds forward, as plain symbols as in
+    /// the Music player. Stop is in the Playback menu, as a transport keeps to
+    /// what is pressed while listening.
     private var transport: some View {
-        HStack(spacing: 12) {
-            Button {
-                seek(max(0, position - 5))
-            } label: {
-                Image(systemName: "gobackward.5").font(.title3).frame(
-                    width: 32, height: 32)
-            }
-            .buttonStyle(.borderless)
-            .disabled(player.isPreparing || duration <= 0)
-            .help("Back five seconds")
-            .accessibilityLabel("Back five seconds")
+        HStack(spacing: 14) {
+            skip(by: -5)
             Button(action: playOrPause) {
                 Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
-                    .frame(width: 16)
+                    .font(.title)
+                    .frame(width: 28, height: 32)
+                    .contentShape(Rectangle())
             }
-            .buttonStyle(.borderedProminent)
-            .buttonBorderShape(.circle)
-            .controlSize(.large)
+            .buttonStyle(.borderless)
             .disabled(player.isPreparing)
             .keyboardShortcut(.space, modifiers: [.command, .shift])
             .help("Play or pause (Space, or Shift-Command-Space while editing text)")
             .accessibilityLabel(player.isPlaying ? "Pause" : "Play")
-
-            Button {
-                seek(min(duration, position + 5))
-            } label: {
-                Image(systemName: "goforward.5").font(.title3).frame(
-                    width: 32, height: 32)
-            }
-            .buttonStyle(.borderless)
-            .disabled(player.isPreparing || duration <= 0)
-            .help("Forward five seconds")
-            .accessibilityLabel("Forward five seconds")
-
-            Button {
-                player.stop()
-            } label: {
-                Image(systemName: "stop.fill").font(.body).frame(
-                    width: 32, height: 32)
-            }
-            .buttonStyle(.borderless)
-            .disabled(!player.isOpen && !player.isPreparing)
-            .help("Stop and close the recording")
-            .accessibilityLabel("Stop")
+            skip(by: 5)
         }
+        .foregroundStyle(.primary)
     }
 
-    private var clock: some View {
-        HStack(spacing: 4) {
-            Text(Self.clock(position)).foregroundStyle(.primary)
-            Text("/ \(Self.clock(duration))").foregroundStyle(.secondary)
+    private func skip(by seconds: TimeInterval) -> some View {
+        Button {
+            seek(min(duration, max(0, position + seconds)))
+        } label: {
+            Image(systemName: seconds < 0 ? "gobackward.5" : "goforward.5")
+                .font(.title3)
+                .frame(width: 24, height: 32)
+                .contentShape(Rectangle())
         }
-        .font(.callout.monospacedDigit())
-        .fixedSize()
+        .buttonStyle(.borderless)
+        .disabled(player.isPreparing || duration <= 0)
+        .help(seconds < 0 ? "Back five seconds" : "Forward five seconds")
+        .accessibilityLabel(seconds < 0 ? "Back five seconds" : "Forward five seconds")
     }
 
     @ViewBuilder private var preparing: some View {
@@ -185,9 +180,6 @@ struct PlayerBar: View {
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
-        .padding(.horizontal, 10)
-        .frame(height: 32)
-        .controlFill()
         .help("Playing speed")
         .accessibilityLabel("Playing speed")
         .accessibilityValue(label(player.speed))
@@ -382,6 +374,22 @@ struct SpaceToPlay: NSViewRepresentable {
             case is NSControl: return false
             default: return true
             }
+        }
+    }
+}
+
+/// The player's surface, which the toolbar's controls share on macOS 26:
+/// glass there, and the system's material before. A capsule on one line, a
+/// rounded rectangle on two.
+private struct PlayerSurface: ViewModifier {
+    let isOneLine: Bool
+
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: isOneLine ? 26 : 18)
+        if #available(macOS 26, *) {
+            content.glassEffect(.regular, in: shape)
+        } else {
+            content.background(.regularMaterial, in: shape)
         }
     }
 }

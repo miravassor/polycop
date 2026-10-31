@@ -100,11 +100,11 @@ Every page speaks the same visual language. The shared pieces live in
 `Views/Styles.swift`; use them rather than a new variant.
 
 * Cards: `panel()`, corners of 10, 16 points of padding, one fill and border. The
-  player is no card: its controls sit above the text, Find under them, then a
-  line, below which the text scrolls.
+  player is no card either: a capsule above the text, as the Music player, glass
+  on macOS 26 and the system's material before, with Find under it.
   Controls and rows inside a card have corners of 6.
 * A page's actions are window toolbar items, drawn by the system, each also a menu
-  command. A control drawn by hand takes its fill from `controlFill()`.
+  command. Controls are the system's, never drawn by hand.
 * Text editors: `editorBorder()`, with the corners of a control.
 * Warnings and failures: a `Label` with `notice(_:)`, colour on the icon only. Text
   stays in the label colours, since orange, red or green text is too faint to read

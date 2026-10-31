@@ -103,13 +103,11 @@ struct EntryView: View {
             placeholder
             Spacer(minLength: 0)
         } else {
-            // Controls above the text, a line between: the text scrolls below
-            // the line, never under the controls.
+            // Controls above the text, which scrolls below them, never under.
             VStack(alignment: .leading, spacing: 12) {
                 playerBar
                 findAndStatus
             }
-            Divider()
             TranscriptView(
                 paragraphs: entry.paragraphs, resumed: entry.resumedParagraphs,
                 player: model.player, isEditable: !isRunning,

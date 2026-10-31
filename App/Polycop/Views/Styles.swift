@@ -27,12 +27,6 @@ extension View {
             }
     }
 
-    /// The fill of a control drawn by hand: the player's speed menu, as tall
-    /// as the player's buttons.
-    func controlFill() -> some View {
-        background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 6))
-    }
-
     /// A notice: its icon carries the colour of what it says, its text keeps
     /// the label colour. Orange or red text on a light window falls below a
     /// readable contrast.
