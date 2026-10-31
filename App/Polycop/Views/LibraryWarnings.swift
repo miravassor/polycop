@@ -14,6 +14,7 @@ struct LibraryWarnings: View {
                     "Changes could not be stored", systemImage: "exclamationmark.triangle"
                 )
                 .font(.callout.weight(.semibold))
+                .notice(.orange)
                 Text(failure)
                     .font(.callout)
                     .textSelection(.enabled)
@@ -31,6 +32,7 @@ struct LibraryWarnings: View {
                     systemImage: "exclamationmark.triangle"
                 )
                 .font(.callout.weight(.semibold))
+                .notice(.orange)
                 Text(warning)
                     .font(.callout)
                     .textSelection(.enabled)

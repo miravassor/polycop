@@ -164,9 +164,10 @@ open its release page.
 ## Using it
 
 1. Download a model from inside the app. Start with Whisper Large v3 turbo.
-2. Choose a course glossary if you have one, then add your recordings. They are
-   transcribed one after another once you click Start Transcription, with no
-   conversion on your side.
+2. The New transcription page goes in three steps: add your recordings, check
+   the settings (a course glossary if you have one), then Start Transcription.
+   They are transcribed one after another, with no conversion on your side.
+   Recordings added while one runs join the queue with Add to Queue.
 3. Listen back and correct the text: click a time, or Option-click a word in a
    transcript timed word by word, to hear it, and use Find
    and Replace for a name the model keeps mishearing. Corrections are saved in
