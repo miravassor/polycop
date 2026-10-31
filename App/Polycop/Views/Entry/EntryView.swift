@@ -58,6 +58,9 @@ struct EntryView: View {
         .focusedSceneValue(\.paragraphSteps, steps)
         .focusedSceneValue(\.comparesOriginal, $isComparing)
         .onChange(of: find.query) { refreshSearch() }
+        .onChange(of: find.isShown) { _, isShown in
+            if isShown { isSearchFocused = true } else { find.close() }
+        }
         .onChange(of: model.player.isOpen) { _, isOpen in
             if !isOpen { isFollowSuspended = false }
         }
@@ -255,6 +258,11 @@ struct EntryView: View {
         Menu {
             Button("Undo Last Correction") { model.undo(entry.id) }
                 .disabled(isRunning || !model.canUndo(entry.id))
+            Button("Find") {
+                find.isShown = true
+                isSearchFocused = true
+            }
+            .keyboardShortcut("f")
             Button("Find and Replace") {
                 find.isShown = true
                 find.isReplacing = true
@@ -276,14 +284,13 @@ struct EntryView: View {
         .help("Text size and correction history")
     }
 
+    /// Pressed while the find bar shows, so a second click closes it; Command-F,
+    /// in the Text menu, only ever opens it.
     private var findButton: some View {
-        Button {
-            find.isShown = true
-            isSearchFocused = true
-        } label: {
+        Toggle(isOn: $find.isShown) {
             Label("Find", systemImage: "magnifyingglass")
         }
-        .keyboardShortcut("f")
+        .help(find.isShown ? "Close the find bar" : "Find in your text (Command-F)")
     }
 
     private func refreshSearch(navigate: Bool = true) {

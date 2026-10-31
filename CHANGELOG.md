@@ -17,7 +17,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 * Recordings added while another is transcribed no longer wait for the queue to end: Add to Queue puts them behind it, with the settings on the page then. While one runs, the page says which and offers Show Progress.
 * Follow, in the inspector, replaces the Follow playback checkbox and the cursor setting in Settings: Off, Page, or Page and Cursor. The choice is remembered, and Page is on from the start. With Page and Cursor, clicking or typing in the text no longer stops the page from following, and a click holds the cursor only until playback reaches the next paragraph. A transcript with no word timings says so in the tooltip, and Page and Cursor cannot be chosen there.
 * The export choices are rows of the inspector's Export section rather than a popover behind an icon.
-* The window is titled with the open transcript, and the page's tools are in the toolbar: Compare, which shows the original beside the text and is in the View menu too, Review, Find, text size and the transcript's actions. The transcription details are a section of the inspector.
+* The window is titled with the open transcript, and the page's tools are in the toolbar: Compare, which shows the original beside the text and is in the View menu too, Review, Find, which a second click closes, text size and the transcript's actions. The transcription details are a section of the inspector.
 * The text keeps a reading width, about 75 characters a line at the chosen size and centred, so a wide window or full screen adds margins rather than very long lines.
 * "Word following" in the model features is now "Word timings", the name of what the engine provides.
 
