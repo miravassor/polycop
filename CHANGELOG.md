@@ -6,9 +6,9 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ### Added
 
-* Video: the picture of a class recorded as a video, such as a Zoom or Teams recording in MP4 or MOV, plays with the transcript, driven by the same player: speed, seeking, Space and every shortcut. A click on it plays or pauses, and the button beside Video keeps the sound only. A video AVFoundation cannot play, such as WebM or MKV, still plays its sound.
-* An inspector beside the transcript holds the recording and the export: the video, replaying a passage, the previous and next paragraph, Follow, and export, each in a section of its own. It shows and hides with its toolbar button or Control-Command-I, and the window remembers it. The player stays under the text whatever the window's size, on one line when the text leaves room for it.
-* Picture in Picture floats a video above other apps, on any screen, and full screen shows it alone with the system's controls. Both are buttons beside Video in the inspector, and in the picture's menu. A double click fills the screen, and Esc or another double click leaves it.
+* Video: the picture of a class recorded as a video, such as a Zoom or Teams recording in MP4 or MOV, plays with the transcript, driven by the same player: speed, seeking, Space and every shortcut. A click on it plays or pauses, and Show Video turned off keeps the sound only. A video AVFoundation cannot play, such as WebM or MKV, still plays its sound.
+* An inspector beside the transcript holds the recording and the export: the video, replaying a passage, the previous and next paragraph, Follow, and export, each in a section of its own, laid out as in Settings with every control on a row. Replay Passage, Previous Paragraph and Next Paragraph are also in the Playback menu, so their shortcuts work with the inspector hidden. It shows and hides with its toolbar button or Control-Command-I, and the window remembers it. The player stays under the text whatever the window's size, on one line when the text leaves room for it.
+* Picture in Picture floats a video above other apps, on any screen, and full screen shows it alone with the system's controls. Both are buttons under the picture in the inspector, and in the picture's menu. A double click fills the screen, and Esc or another double click leaves it.
 * Copy Frame, in the video's menu, copies the picture on screen, to paste a slide into notes.
 
 ### Changed
@@ -16,6 +16,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 * The New transcription page goes in three numbered steps: Recordings, Settings, Start. The recordings waiting are listed by name, each with a button to take it out. Start says in one line what it will do (how many recordings, with which model, language and glossary, and whether the model downloads first), or why it cannot start yet. Importing a transcript made elsewhere is a line at the bottom, apart from adding recordings. In a wide window the page is centred, with the recordings and settings side by side.
 * Recordings added while another is transcribed no longer wait for the queue to end: Add to Queue puts them behind it, with the settings on the page then. While one runs, the page says which and offers Show Progress.
 * Follow, in the inspector, replaces the Follow playback checkbox and the cursor setting in Settings: Off, Page, or Page and Cursor. The choice is remembered, and Page is on from the start. With Page and Cursor, clicking or typing in the text no longer stops the page from following, and a click holds the cursor only until playback reaches the next paragraph. A transcript with no word timings says so in the tooltip, and Page and Cursor cannot be chosen there.
+* The export choices are rows of the inspector's Export section rather than a popover behind an icon.
 * "Word following" in the model features is now "Word timings", the name of what the engine provides.
 
 ## 0.4.0 (2026-10-03)
