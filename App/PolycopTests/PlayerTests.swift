@@ -324,3 +324,28 @@ func onlyAVideoAVFoundationPlaysHasAPicture(name: String, hasPicture: Bool) asyn
     #expect((size != nil) == hasPicture)
     if let size { #expect(size == CGSize(width: 160, height: 120)) }
 }
+
+/// Picture in Picture and the video window's controls start AVPlayer
+/// itself, at its default rate: followed while they show, at the reader's
+/// speed, and stopped otherwise as playback nobody asked for.
+@MainActor
+@Test func playbackStartedOutsideIsFollowedOnlyWhileOutsideControlsShow() async throws {
+    let player = Player(defaults: Settings())
+    defer { player.stop() }
+    player.speed = 1.5
+    try await open(player)
+    player.pause()
+    let playing = try #require(player.player)
+    for _ in 0..<100 where playing.rate != 0 { try await Task.sleep(for: .milliseconds(20)) }
+    #expect(playing.defaultRate == 1.5)
+
+    playing.play()
+    for _ in 0..<100 where playing.rate != 0 { try await Task.sleep(for: .milliseconds(20)) }
+    #expect(!player.isPlaying)
+
+    player.followsOutsideControls = true
+    playing.play()
+    for _ in 0..<100 where !player.isPlaying { try await Task.sleep(for: .milliseconds(20)) }
+    #expect(player.isPlaying)
+    #expect(playing.rate == 1.5)
+}
