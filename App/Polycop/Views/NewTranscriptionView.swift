@@ -6,39 +6,40 @@ import UniformTypeIdentifiers
 struct NewTranscriptionView: View {
     @Bindable var model: AppModel
     @State private var importing = false
-    @State private var targeted = false
     @State private var importingModel = false
     @State private var optionsExpanded = false
     @State private var managingModels = false
     @State private var editingGlossaries = false
+    @State private var width: CGFloat = 0
 
     private var isReady: Bool { model.isInstalled(model.selected) }
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("New transcription")
-                        .font(.title2.weight(.semibold))
-                    Text("Add recordings, choose your settings, then start.")
-                        .foregroundStyle(.secondary)
-                }
-                // Two columns when the window is wide, as in full screen, rather
-                // than one narrow column beside empty space.
-                ViewThatFits(in: .horizontal) {
-                    HStack(alignment: .top, spacing: 16) {
-                        start.frame(minWidth: 460, maxWidth: 620)
-                        settings.frame(minWidth: 460, maxWidth: 560)
-                    }
-                    VStack(alignment: .leading, spacing: 16) {
-                        start
+            VStack(alignment: .leading, spacing: 24) {
+                Text("New transcription").font(.title2.weight(.semibold))
+                // Side by side when the window is wide, as in full screen,
+                // rather than one narrow column beside empty space.
+                if width >= 940 {
+                    HStack(alignment: .top, spacing: 24) {
+                        RecordingsStep(model: model, choose: chooseRecordings)
                         settings
                     }
-                    .frame(maxWidth: 680, alignment: .leading)
+                } else {
+                    RecordingsStep(model: model, choose: chooseRecordings)
+                    settings
                 }
+                StartStep(model: model)
+                importTranscript
             }
             .padding(28)
-            .frame(maxWidth: .infinity, alignment: .topLeading)
+            .frame(maxWidth: 1180)
+            .onGeometryChange(for: CGFloat.self) {
+                $0.size.width
+            } action: {
+                width = $0
+            }
+            .frame(maxWidth: .infinity)
         }
         .sheet(isPresented: $editingGlossaries) { GlossaryEditor(model: model) }
         .sheet(isPresented: $managingModels) {
@@ -47,8 +48,7 @@ struct NewTranscriptionView: View {
         .task(id: model.recordingsRequest) {
             guard model.recordingsRequest != nil else { return }
             model.recordingsRequest = nil
-            importingModel = false
-            importing = true
+            chooseRecordings()
         }
         .task(id: model.glossariesRequest) {
             guard model.glossariesRequest != nil else { return }
@@ -68,139 +68,22 @@ struct NewTranscriptionView: View {
         }
     }
 
-    /// The two ways in, and what waits to start.
-    private var start: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            sectionHeader(
-                "Recordings",
-                detail: "Transcribe new recordings, or correct a transcript made elsewhere.")
-            dropZone
-            importTranscript
-            if let failure = model.failure {
-                Label(failure, systemImage: "exclamationmark.circle")
-                    .font(.callout)
-                    .notice(.red)
-                    .textSelection(.enabled)
-            }
-            queue
-        }
+    private func chooseRecordings() {
+        importingModel = false
+        importing = true
     }
 
-    /// A transcript made elsewhere, corrected here against its recording. A
-    /// card of its own, so it does not read as another way to add recordings.
+    /// A transcript made elsewhere, corrected here against its recording: a
+    /// line apart, so it does not read as another way to add recordings.
     private var importTranscript: some View {
-        HStack(spacing: 12) {
-            importLabel.frame(maxWidth: .infinity, alignment: .leading)
-            importButton
+        HStack(spacing: 6) {
+            Text("Already have a transcript made elsewhere?").foregroundStyle(.secondary)
+            Button("Import Transcript and Audio…") { model.chooseTranscriptImport() }
+                .buttonStyle(.link)
+                .disabled(model.stage.isBusy)
+                .help("Listen to a transcript made elsewhere and correct it here")
         }
-        .panel()
-    }
-
-    /// The same heading above each part of the page, so the parts read apart.
-    private func sectionHeader(_ title: LocalizedStringKey, detail: LocalizedStringKey)
-        -> some View
-    {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title).font(.title3.weight(.semibold))
-            Text(detail).font(.callout).foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-
-    private var importLabel: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "doc.text")
-                .font(.title2)
-                .foregroundStyle(.tint)
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Correct an existing transcript").font(.headline)
-                Text("A TXT, Word, SRT, VTT or JSON transcript, with its recording.")
-                    .font(.callout).foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-    }
-
-    private var importButton: some View {
-        Button("Import Transcript and Audio…") { model.chooseTranscriptImport() }
-            .disabled(model.stage.isBusy)
-            .fixedSize()
-            .help("Listen to a transcript made elsewhere and correct it here")
-    }
-
-    /// What has been added and not yet started. Transcribing takes the machine
-    /// for minutes, so it begins only when the user says so.
-    @ViewBuilder
-    private var queue: some View {
-        if model.canStart {
-            VStack(alignment: .leading, spacing: 16) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(
-                        model.waiting.count == 1
-                            ? "1 recording is waiting"
-                            : "\(model.waiting.count) recordings are waiting"
-                    )
-                    .font(.headline)
-                    Text(
-                        (!isReady ? model.selectedCatalogue : nil).map {
-                            LocalizedStringKey("\($0.name) is downloaded first.")
-                        }
-                            ?? "They are transcribed one at a time, in the order you added them."
-                    )
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                }
-                HStack(spacing: 12) {
-                    Button("Clear Queue") { model.clearQueue() }
-                        .help("Takes the recordings waiting out of the library")
-                    Spacer()
-                    Button("Start Transcription") { model.start() }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.large)
-                }
-            }
-            .padding(.top, 4)
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-
-    private var dropZone: some View {
-        HStack(spacing: 12) {
-            dropLabel.frame(maxWidth: .infinity, alignment: .leading)
-            chooseRecordings
-        }
-        .panel(isHighlighted: targeted)
-        .dropDestination(for: URL.self) { urls, _ in
-            model.transcribe(urls)
-            return !urls.isEmpty
-        } isTargeted: {
-            targeted = $0
-        }
-    }
-
-    private var dropLabel: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "waveform")
-                .font(.title2)
-                .foregroundStyle(.tint)
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Add recordings").font(.headline)
-                Text("Drop audio or video files here.")
-                    .font(.callout).foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-    }
-
-    private var chooseRecordings: some View {
-        Button("Choose Recordings…") {
-            importingModel = false
-            importing = true
-        }
-        .controlSize(.regular)
-        .fixedSize()
+        .font(.callout)
     }
 
     private var setup: some View {
@@ -217,20 +100,18 @@ struct NewTranscriptionView: View {
                     model.download(model.selectedCatalogue ?? ModelCatalog.recommended)
                 }
                 .disabled(model.stage.isBusy)
-                Text("Start Transcription also downloads it if needed.")
-                    .font(.caption).foregroundStyle(.secondary)
             }
         }
     }
 
     /// Defaults for recordings that have not started.
     private var settings: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            sectionHeader(
-                "Settings",
-                detail: "For recordings not started yet. Those already started keep theirs.")
+        VStack(alignment: .leading, spacing: 12) {
+            StepHeading(number: 2, title: "Settings")
+                .help("For recordings not started yet. Those already started keep theirs.")
             settingRows.panel()
         }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
         .pickerStyle(.menu)
         .controlSize(.regular)
     }
@@ -299,17 +180,16 @@ struct NewTranscriptionView: View {
                 .fixedSize()
                 .disabled(!model.glossaryApplies)
                 .accessibilityHint("Used for recordings that have not started.")
+                .help("Optional: helps recognize names, authors and specialist terms")
                 Button("Manage…") { editingGlossaries = true }
                     .accessibilityLabel("Manage glossaries")
                     .help("Create, import and edit course glossaries")
             }
-            Text(
-                model.glossaryApplies
-                    ? "Optional. Help recognize names, authors and specialist terms."
-                    : "Available with Whisper and MOSS. Not used by this model."
-            )
-            .font(.caption).foregroundStyle(.secondary)
-            .fixedSize(horizontal: false, vertical: true)
+            if !model.glossaryApplies {
+                Text("Available with Whisper and MOSS. Not used by this model.")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 
