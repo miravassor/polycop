@@ -9,7 +9,7 @@ import SwiftUI
 /// anything plays and a point chosen on it opens the recording there. Each
 /// paragraph is a mark, stronger under the pointer, so a passage can be found
 /// by eye before it is heard.
-struct PlayerBar: View {
+struct PlayerBar: View, @MainActor Equatable {
     /// The card's width at its narrowest, with its controls on one line.
     static let narrowest: CGFloat = 410
 
@@ -31,6 +31,16 @@ struct PlayerBar: View {
 
     @State private var scrubbed: TimeInterval?
     @State private var width: CGFloat = 0
+
+    /// Compared without its actions, which stay the same for a page: a
+    /// correction handed over gives the page a new transcript, not the player
+    /// anything new to draw, so its timeline is not laid out again. What it
+    /// observes of the player still redraws it.
+    static func == (lhs: PlayerBar, rhs: PlayerBar) -> Bool {
+        lhs.player === rhs.player && lhs.marks == rhs.marks
+            && lhs.highlighted == rhs.highlighted && lhs.length == rhs.length
+            && lhs.resume == rhs.resume
+    }
 
     private var duration: TimeInterval { player.duration > 0 ? player.duration : length }
     private var position: TimeInterval {
