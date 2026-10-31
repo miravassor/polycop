@@ -137,3 +137,30 @@ private func readBack(_ data: Data) throws -> NSAttributedString {
     #expect(model.entry(entry.id)?.exportsTimes == true)
     await model.finishWrites()
 }
+
+/// The export chosen last is where the next transcript starts.
+@MainActor
+@Test func aNewTranscriptStartsWithTheExportChosenLast() async throws {
+    let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let history = folder.appending(path: "History")
+    var entry = Entry(
+        recording: folder.appending(path: "cours.wav"), modelFile: ModelCatalog.recommended.id,
+        glossary: nil, skipsSilence: false, subtitles: false)
+    entry.publish([Segment(start: 0, end: 2, text: "Bonjour.")], partial: false)
+    entry.state = .finished
+    try HistoryStore.write(entry, in: history)
+    let model = AppModel(history: history, defaults: MemoryDefaults())
+
+    model.setExport(.markdown, times: false, for: entry.id)
+    model.setRemovesHesitations(true, for: entry.id)
+    let next = model.adoptingLastExport(
+        Entry(
+            recording: folder.appending(path: "cours 2.wav"),
+            modelFile: ModelCatalog.recommended.id, glossary: nil, skipsSilence: false,
+            subtitles: false))
+    #expect(next.exportFormat == .markdown)
+    #expect(!next.exportsTimes)
+    #expect(next.removesHesitations == true)
+    await model.finishWrites()
+}

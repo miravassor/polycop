@@ -134,7 +134,7 @@ struct PolycopApp: App {
                     .keyboardShortcut("g", modifiers: [.command, .option])
                 Divider()
                 // Typing not yet handed to the model is flushed first.
-                Button("Export Text…") { exportOpenTranscript() }
+                Button("Export…") { exportOpenTranscript() }
                     .keyboardShortcut("s")
                     .disabled(openTranscript == nil)
             }

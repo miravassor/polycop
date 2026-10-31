@@ -50,6 +50,9 @@ nonisolated struct Entry: Identifiable, Equatable, Codable, Sendable {
     /// before the choice, whose exports all did. Plain text also keeps it in
     /// `textLayout`, which earlier versions read.
     var includesTimes: Bool?
+    /// Whether the export is the subtitles alone. `subtitles`, which earlier
+    /// versions read as subtitles beside the text, is kept in step.
+    var exportsSubtitles: Bool?
     /// Whether the text export leaves out hesitation sounds.
     var removesHesitations: Bool?
     /// A retry that keeps the settings of the transcript it repeats when it

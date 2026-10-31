@@ -105,10 +105,12 @@ nonisolated enum Transcript {
 
     /// What an export is written as. Whether it times its paragraphs is a
     /// choice of its own.
-    nonisolated enum Format: CaseIterable, Sendable {
+    nonisolated enum Format: String, CaseIterable, Sendable {
         case plainText
         case markdown
         case word
+        /// The model's sentences and timings, for a model that times them.
+        case subtitles
     }
 
     /// Plain text times its paragraphs by its layout; Markdown by `times`.

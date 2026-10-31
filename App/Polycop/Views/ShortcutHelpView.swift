@@ -43,7 +43,7 @@ struct ShortcutHelpView: View {
                 shortcut("Manage glossaries", "⌥⌘G")
             }
             Section("Export") {
-                shortcut("Export the text to a new file", "⌘S")
+                shortcut("Export to a new file", "⌘S")
                 Text(
                     "Corrections are saved in the library automatically. An export is a separate file to share or keep, made anew each time."
                 )

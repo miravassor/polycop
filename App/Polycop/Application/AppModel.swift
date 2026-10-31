@@ -129,8 +129,12 @@ final class AppModel {
     static let skipsSilenceKey = "skipsSilence"
     static let languageKey = "language"
     static let glossaryKey = "glossaryName"
+    /// The export chosen last, which a new transcript starts with.
+    static let exportFormatKey = "exportFormat"
+    static let exportTimecodesKey = "exportTimecodes"
+    static let removesHesitationsKey = "removesHesitations"
     /// Where the preferences are kept; tests give settings of their own.
-    @ObservationIgnored private let defaults: UserDefaults
+    @ObservationIgnored let defaults: UserDefaults
     var failure: String?
     /// A failure that belongs to one transcript rather than to the library, so
     /// that it cannot appear under another one after the list moves on.

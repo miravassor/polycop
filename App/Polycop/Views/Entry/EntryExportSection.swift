@@ -21,48 +21,42 @@ struct EntryExportSection: View {
                         get: { entry.exportFormat },
                         set: { model.setExport($0, times: entry.exportsTimes, for: entry.id) })
                 ) {
-                    ForEach(Transcript.Format.allCases, id: \.self) {
+                    ForEach(Self.formats(for: entry), id: \.self) {
                         Text(Self.title(of: $0)).tag($0)
                     }
                 }
-                Toggle(
-                    "Timecodes",
-                    isOn: Binding(
-                        get: { entry.exportsTimes },
-                        set: { model.setExport(entry.exportFormat, times: $0, for: entry.id) })
-                )
-                .help("Write each paragraph's time before it")
-                Toggle(
-                    "Leave out hesitations",
-                    isOn: Binding(
-                        get: { entry.removesHesitations ?? false },
-                        set: { model.setRemovesHesitations($0, for: entry.id) })
-                )
-                .help("Leave out euh, hum and the like")
-                if entry.timesSentences {
+                // Subtitles keep the model's words and timings, as they are.
+                if entry.exportFormat != .subtitles {
                     Toggle(
-                        "Subtitles (SRT)",
+                        "Timecodes",
                         isOn: Binding(
-                            get: { entry.subtitles }, set: { model.setSubtitles($0, for: entry.id) }
-                        )
+                            get: { entry.exportsTimes },
+                            set: { model.setExport(entry.exportFormat, times: $0, for: entry.id) })
                     )
-                    .help(
-                        "Written beside the text, under the same name. Corrections appear in the text; subtitles keep the original words and timings."
+                    .help("Write each paragraph's time before it")
+                    Toggle(
+                        "Leave out hesitations",
+                        isOn: Binding(
+                            get: { entry.removesHesitations ?? false },
+                            set: { model.setRemovesHesitations($0, for: entry.id) })
                     )
+                    .help("Leave out euh, hum and the like")
                 }
                 lastExport
                 Button {
                     Self.exportAs(entry, with: model)
                 } label: {
-                    Text("Export Text…").frame(maxWidth: .infinity)
+                    Text("Export…").frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
-                .help("Make a new file of the text (Command-S)")
+                .help("Make a new file (Command-S)")
             } header: {
                 Text("Export")
             } footer: {
                 Text(
-                    "Corrections are saved in the library. An export is a separate file to share or keep."
+                    entry.exportFormat == .subtitles
+                        ? "Subtitles keep the model's words and timings; corrections go into the text formats."
+                        : "Corrections are saved in the library. An export is a separate file to share or keep."
                 )
             }
         }
@@ -90,7 +84,13 @@ struct EntryExportSection: View {
         case .plainText: String(localized: "Plain Text")
         case .markdown: String(localized: "Markdown")
         case .word: String(localized: "Word Document")
+        case .subtitles: String(localized: "Subtitles (SRT)")
         }
+    }
+
+    /// The subtitles only for a model that times its sentences.
+    static func formats(for entry: Entry) -> [Transcript.Format] {
+        Transcript.Format.allCases.filter { $0 != .subtitles || entry.timesSentences }
     }
 
     /// The save panel every Mac application uses, so the user chooses the name
@@ -102,32 +102,32 @@ struct EntryExportSection: View {
         panel.nameFieldStringValue = Transcript.suggestedName(
             for: entry.name, of: entry.recording, partial: entry.isPartial)
         let choice = FormatChoice(
-            panel: panel, format: entry.exportFormat, times: entry.exportsTimes)
+            panel: panel, formats: formats(for: entry), format: entry.exportFormat,
+            times: entry.exportsTimes)
         panel.accessoryView = choice.view
         panel.directoryURL = entry.location.deletingLastPathComponent()
         panel.canCreateDirectories = true
-        if entry.subtitles && entry.timesSentences {
-            panel.message = String(
-                localized: "The subtitles are written beside the text, under the same name.")
-        }
         guard panel.runModal() == .OK, let destination = panel.url else { return }
         model.export(entry.id, as: choice.format, times: choice.times, to: destination)
     }
 }
 
 /// The Format menu and Timecodes box of the save panel. The menu keeps the
-/// file's extension in step with the format.
+/// file's extension in step with the format; subtitles have no Timecodes box,
+/// as they are timed already.
 private final class FormatChoice: NSObject {
     private(set) var format: Transcript.Format
     var times: Bool { timecodes.state == .on }
     let view: NSView
     private let panel: NSSavePanel
+    private let formats: [Transcript.Format]
     private let menu = NSPopUpButton()
     private let timecodes = NSButton(
         checkboxWithTitle: String(localized: "Timecodes"), target: nil, action: nil)
 
-    init(panel: NSSavePanel, format: Transcript.Format, times: Bool) {
+    init(panel: NSSavePanel, formats: [Transcript.Format], format: Transcript.Format, times: Bool) {
         self.panel = panel
+        self.formats = formats
         self.format = format
         let label = NSTextField(labelWithString: String(localized: "Format:"))
         let row = NSStackView(views: [label, menu, timecodes])
@@ -135,26 +135,28 @@ private final class FormatChoice: NSObject {
         row.edgeInsets = NSEdgeInsets(top: 8, left: 16, bottom: 8, right: 16)
         view = row
         super.init()
-        for choice in Transcript.Format.allCases {
+        for choice in formats {
             menu.addItem(withTitle: EntryExportSection.title(of: choice))
         }
-        menu.selectItem(at: Transcript.Format.allCases.firstIndex(of: format) ?? 0)
+        menu.selectItem(at: formats.firstIndex(of: format) ?? 0)
         menu.target = self
         menu.action = #selector(chose(_:))
         timecodes.state = times ? .on : .off
-        allowTypes()
+        follow()
     }
 
     @objc private func chose(_ sender: NSPopUpButton) {
-        format = Transcript.Format.allCases[sender.indexOfSelectedItem]
-        allowTypes()
+        format = formats[sender.indexOfSelectedItem]
+        follow()
     }
 
-    private func allowTypes() {
+    private func follow() {
+        timecodes.isHidden = format == .subtitles
         panel.allowedContentTypes =
             switch format {
             case .markdown: [UTType(filenameExtension: "md") ?? .plainText]
             case .word: [UTType(filenameExtension: "docx") ?? .data]
+            case .subtitles: [UTType(filenameExtension: "srt") ?? .plainText]
             case .plainText: [.plainText]
             }
     }

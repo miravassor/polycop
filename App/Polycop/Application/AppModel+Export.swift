@@ -33,6 +33,10 @@ extension AppModel {
     }
 
     private func formats(of entry: Entry) throws -> [(suffix: String, contents: Data)] {
+        // The model's own words and timings, which corrections do not change.
+        if entry.exportFormat == .subtitles {
+            return [(suffix: "srt", contents: Data(Transcript.subRip(entry.shown).utf8))]
+        }
         let layout = entry.exportLayout
         let times = entry.exportsTimes
         var paragraphs = entry.paragraphs
@@ -49,11 +53,7 @@ extension AppModel {
             layout == .word
             ? try WordDocument.data(paragraphs, title: title, times: times)
             : Data(Transcript.text(paragraphs, layout: layout, title: title, times: times).utf8)
-        var formats = [(suffix: layout.suffix, contents: text)]
-        if entry.subtitles, entry.timesSentences {
-            formats.append((suffix: "srt", contents: Data(Transcript.subRip(entry.shown).utf8)))
-        }
-        return formats
+        return [(suffix: layout.suffix, contents: text)]
     }
 
     private func write(
