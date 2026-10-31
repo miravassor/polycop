@@ -17,7 +17,6 @@ struct EntryVideo: View {
     /// Where the reader left off, played from when nothing is open yet.
     let resume: TimeInterval
     @AppStorage(EntryVideo.shownKey) private var isShown = true
-    @State private var width: CGFloat = 0
 
     static let shownKey = "showsVideo"
     /// Tall enough for an upright phone video to leave the inspector room.
@@ -26,16 +25,13 @@ struct EntryVideo: View {
     var body: some View {
         // Floating, the picture leaves the inspector to the controls.
         if isShown, !model.video.isInPictureInPicture {
-            // Sized from the inspector's width.
+            // As wide as the inspector lets it be, never setting its width:
+            // a measured width held the inspector from narrowing again.
             shown
-                .frame(width: shownWidth, height: shownWidth * picture.height / picture.width)
+                .aspectRatio(picture.width / picture.height, contentMode: .fit)
+                .frame(maxWidth: Self.tallest * picture.width / picture.height)
                 .clipShape(RoundedRectangle(cornerRadius: 10))
                 .frame(maxWidth: .infinity)
-                .onGeometryChange(for: CGFloat.self) {
-                    $0.size.width
-                } action: {
-                    width = $0
-                }
         }
     }
 
@@ -49,11 +45,6 @@ struct EntryVideo: View {
             }
             .accessibilityAction(named: "Picture in Picture", floatPicture)
             .accessibilityAction(named: "Enter Full Screen", fillScreen)
-    }
-
-    /// The whole width, unless the picture would then be taller than allowed.
-    private var shownWidth: CGFloat {
-        max(0, min(width, Self.tallest * picture.width / picture.height))
     }
 
     /// The player while it holds this recording; another one's picture, or
