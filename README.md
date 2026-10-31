@@ -81,7 +81,11 @@ unless they agree to more.
   when the headphones it plays through disconnect.
 * **Video** of a class recorded with Zoom or Teams plays beside the
   transcript in a wide window, and under it in a narrow one, driven by the same
-  player. The button beside Video keeps the sound only.
+  player. A click on the picture plays or pauses, and a double click fills the
+  screen. Picture in Picture floats it above other apps, on any screen. Copy
+  Frame copies a slide to paste into notes. In a short window the picture
+  becomes a thumbnail beside the player, so the text keeps its room. The button
+  beside Video keeps the sound only.
 * **Review marks** on passages to check later.
 * **Export** to text with or without timestamps, to Markdown or to a Word
   document, with hesitations such as "euh" left out if you want, and to SRT

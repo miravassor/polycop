@@ -103,7 +103,12 @@ memory.
   Mac sleeps or the output it plays through goes away. For a video AVFoundation
   plays, `VideoView` draws the picture of the same `AVPlayer`, with no controls
   of its own, so speed, seeking and every shortcut act on picture and sound
-  together.
+  together. `VideoPresentation`, held by `AppModel`, takes the picture
+  elsewhere: Picture in Picture floats an unseen layer the main window keeps,
+  since macOS ends it only while that layer is in a window, and full screen
+  shows `FullScreenVideo`, with the system's controls, in a window made for it
+  and closed when it leaves full screen. While either shows, `Player` follows
+  playback their controls start.
 
 ## Persistence
 
