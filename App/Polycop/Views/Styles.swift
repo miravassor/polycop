@@ -8,8 +8,11 @@ import SwiftUI
 extension View {
     /// A card: a section of a page, or the player. A tint colours its fill
     /// alone, as each engine's card does in the model list.
-    func panel(isHighlighted: Bool = false, tint: Color? = nil) -> some View {
-        padding(16)
+    func panel(isHighlighted: Bool = false, tint: Color? = nil, verticalPadding: CGFloat = 16)
+        -> some View
+    {
+        padding(.horizontal, 16)
+            .padding(.vertical, verticalPadding)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 isHighlighted

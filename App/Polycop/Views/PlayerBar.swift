@@ -30,6 +30,7 @@ struct PlayerBar: View {
     let jump: (Int) -> Void
 
     @State private var scrubbed: TimeInterval?
+    @State private var width: CGFloat = 0
 
     private var duration: TimeInterval { player.duration > 0 ? player.duration : length }
     private var position: TimeInterval {
@@ -37,78 +38,117 @@ struct PlayerBar: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Timeline(
-                duration: duration, position: position, marks: marks, highlighted: highlighted,
-                current: player.isOpen
-                    ? TranscriptNavigation.paragraph(playingAt: player.position, starts: marks)
-                    : nil,
-                hover: hover, jump: jump,
-                scrub: { scrubbed = $0 },
-                reach: seek
-            )
-            HStack(spacing: 12) {
-                Button {
-                    seek(max(0, position - 5))
-                } label: {
-                    Image(systemName: "gobackward.5").font(.title3).frame(
-                        width: 32, height: 32)
+        // One line when the text leaves room for it, two otherwise: kept low
+        // under the transcript. Its own width only changes as the window does.
+        Group {
+            if width >= Self.oneLine {
+                HStack(spacing: 12) {
+                    transport
+                    timeline.frame(minWidth: 160)
+                    clock
+                    preparing
+                    speed
                 }
-                .buttonStyle(.borderless)
-                .disabled(player.isPreparing || duration <= 0)
-                .help("Back five seconds")
-                .accessibilityLabel("Back five seconds")
-                Button(action: playOrPause) {
-                    Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
-                        .frame(width: 16)
+            } else {
+                VStack(alignment: .leading, spacing: 4) {
+                    timeline
+                    HStack(spacing: 12) {
+                        transport
+                        clock
+                        preparing
+                        Spacer()
+                        speed
+                    }
                 }
-                .buttonStyle(.borderedProminent)
-                .buttonBorderShape(.circle)
-                .controlSize(.large)
-                .disabled(player.isPreparing)
-                .keyboardShortcut(.space, modifiers: [.command, .shift])
-                .help("Play or pause (Space, or Shift-Command-Space while editing text)")
-                .accessibilityLabel(player.isPlaying ? "Pause" : "Play")
-
-                Button {
-                    seek(min(duration, position + 5))
-                } label: {
-                    Image(systemName: "goforward.5").font(.title3).frame(
-                        width: 32, height: 32)
-                }
-                .buttonStyle(.borderless)
-                .disabled(player.isPreparing || duration <= 0)
-                .help("Forward five seconds")
-                .accessibilityLabel("Forward five seconds")
-
-                Button {
-                    player.stop()
-                } label: {
-                    Image(systemName: "stop.fill").font(.body).frame(
-                        width: 32, height: 32)
-                }
-                .buttonStyle(.borderless)
-                .disabled(!player.isOpen && !player.isPreparing)
-                .help("Stop and close the recording")
-                .accessibilityLabel("Stop")
-
-                HStack(spacing: 4) {
-                    Text(Self.clock(position)).foregroundStyle(.primary)
-                    Text("/ \(Self.clock(duration))").foregroundStyle(.secondary)
-                }
-                .font(.callout.monospacedDigit())
-                .fixedSize()
-
-                if player.isPreparing {
-                    ProgressView().controlSize(.small)
-                    Text("Preparing playback").font(.caption).foregroundStyle(.secondary)
-                }
-                Spacer()
-                speed
             }
         }
-        .panel()
+        // Lower than a card of text, as controls on a line need less margin.
+        .panel(verticalPadding: 10)
+        .onGeometryChange(for: CGFloat.self) {
+            $0.size.width
+        } action: {
+            width = $0
+        }
         .background(SpaceToPlay(isEnabled: !player.isPreparing, action: playOrPause))
+    }
+
+    /// The width from which the player fits on one line.
+    private static let oneLine: CGFloat = 640
+
+    private var timeline: some View {
+        Timeline(
+            duration: duration, position: position, marks: marks, highlighted: highlighted,
+            current: player.isOpen
+                ? TranscriptNavigation.paragraph(playingAt: player.position, starts: marks)
+                : nil,
+            hover: hover, jump: jump,
+            scrub: { scrubbed = $0 },
+            reach: seek
+        )
+    }
+
+    private var transport: some View {
+        HStack(spacing: 12) {
+            Button {
+                seek(max(0, position - 5))
+            } label: {
+                Image(systemName: "gobackward.5").font(.title3).frame(
+                    width: 32, height: 32)
+            }
+            .buttonStyle(.borderless)
+            .disabled(player.isPreparing || duration <= 0)
+            .help("Back five seconds")
+            .accessibilityLabel("Back five seconds")
+            Button(action: playOrPause) {
+                Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
+                    .frame(width: 16)
+            }
+            .buttonStyle(.borderedProminent)
+            .buttonBorderShape(.circle)
+            .controlSize(.large)
+            .disabled(player.isPreparing)
+            .keyboardShortcut(.space, modifiers: [.command, .shift])
+            .help("Play or pause (Space, or Shift-Command-Space while editing text)")
+            .accessibilityLabel(player.isPlaying ? "Pause" : "Play")
+
+            Button {
+                seek(min(duration, position + 5))
+            } label: {
+                Image(systemName: "goforward.5").font(.title3).frame(
+                    width: 32, height: 32)
+            }
+            .buttonStyle(.borderless)
+            .disabled(player.isPreparing || duration <= 0)
+            .help("Forward five seconds")
+            .accessibilityLabel("Forward five seconds")
+
+            Button {
+                player.stop()
+            } label: {
+                Image(systemName: "stop.fill").font(.body).frame(
+                    width: 32, height: 32)
+            }
+            .buttonStyle(.borderless)
+            .disabled(!player.isOpen && !player.isPreparing)
+            .help("Stop and close the recording")
+            .accessibilityLabel("Stop")
+        }
+    }
+
+    private var clock: some View {
+        HStack(spacing: 4) {
+            Text(Self.clock(position)).foregroundStyle(.primary)
+            Text("/ \(Self.clock(duration))").foregroundStyle(.secondary)
+        }
+        .font(.callout.monospacedDigit())
+        .fixedSize()
+    }
+
+    @ViewBuilder private var preparing: some View {
+        if player.isPreparing {
+            ProgressView().controlSize(.small)
+            Text("Preparing playback").font(.caption).foregroundStyle(.secondary)
+        }
     }
 
     private func playOrPause() {
