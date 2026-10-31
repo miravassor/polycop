@@ -15,9 +15,10 @@ struct EntryView: View {
     @AppStorage(Following.key) private var following = Following.page
     @State private var isFollowSuspended = false
     @State private var jump: Int?
-    /// The page's width, which decides between one column and two.
+    /// The page's width, which decides between one column and two. A video
+    /// goes beside the text sooner: under it, the picture is too small to read.
     @State private var width: CGFloat = 0
-    private var isWide: Bool { width >= 1100 }
+    private var isWide: Bool { width >= (entry.isVideo ? 900 : 1100) }
     /// The page's height, which bounds a video's picture.
     @State private var height: CGFloat = 0
     @AppStorage("transcriptTextSize") private var size = 13.0
@@ -50,7 +51,7 @@ struct EntryView: View {
                 HStack(alignment: .top, spacing: 24) {
                     VStack(alignment: .leading, spacing: 16) { transcript }
                     VStack(alignment: .leading, spacing: 16) { recordingAndExport }
-                        .frame(width: min(max(width * 0.34, 400), 480))
+                        .frame(width: min(max(width * 0.34, 420), 480))
                 }
             } else {
                 transcript
