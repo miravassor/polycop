@@ -108,3 +108,35 @@ struct EntryInspector: View {
         .accessibilityLabel(offset < 0 ? "Play the previous paragraph" : "Play the next paragraph")
     }
 }
+
+/// The inspector's button, at the trailing edge of the toolbar above it, the
+/// mirror of the library's button at the leading edge. On macOS 26 a toolbar
+/// item sits on glass, while the library's button, on the library's own glass,
+/// has none, so this one leaves its glass out to match. Branched here rather
+/// than inside the toolbar, where an availability check needs macOS 14.5.
+struct InspectorToggle: ViewModifier {
+    @Binding var isShown: Bool
+
+    func body(content: Content) -> some View {
+        if #available(macOS 26, *) {
+            content.toolbar {
+                ToolbarSpacer(.flexible)
+                ToolbarItem { button }.sharedBackgroundVisibility(.hidden)
+            }
+        } else {
+            content.toolbar {
+                Spacer()
+                button
+            }
+        }
+    }
+
+    private var button: some View {
+        Button {
+            isShown.toggle()
+        } label: {
+            Label("Inspector", systemImage: "sidebar.trailing")
+        }
+        .help(isShown ? "Hide the inspector" : "Show the inspector")
+    }
+}

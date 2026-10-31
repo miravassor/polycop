@@ -351,17 +351,7 @@ extension EntryView {
             min: Self.inspectorWidths.lowerBound, ideal: inspectorWidth,
             max: Self.inspectorWidths.upperBound
         )
-        // Above the inspector at the trailing edge, the mirror of the
-        // sidebar's button at the leading one.
-        .toolbar {
-            Spacer()
-            Button {
-                showsInspector.toggle()
-            } label: {
-                Label("Inspector", systemImage: "sidebar.trailing")
-            }
-            .help(showsInspector ? "Hide the inspector" : "Show the inspector")
-        }
+        .modifier(InspectorToggle(isShown: $showsInspector))
     }
 
     private var steps: ParagraphSteps {
