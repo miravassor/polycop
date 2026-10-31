@@ -100,7 +100,10 @@ memory.
   change is written at once, in the background.
 * The player bar and `SpaceToPlay` drive `Player`; `NowPlaying` connects it to
   the media keys and Control Center; `PlaybackInterruptions` pauses it when the
-  Mac sleeps or the output it plays through goes away.
+  Mac sleeps or the output it plays through goes away. For a video AVFoundation
+  plays, `VideoView` draws the picture of the same `AVPlayer`, with no controls
+  of its own, so speed, seeking and every shortcut act on picture and sound
+  together.
 
 ## Persistence
 

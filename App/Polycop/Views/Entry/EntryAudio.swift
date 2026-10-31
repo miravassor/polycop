@@ -2,8 +2,9 @@
 
 import SwiftUI
 
-/// The recording under the transcript: replaying the active passage, stepping
-/// from paragraph to paragraph, following playback, and the player itself.
+/// The recording beside the transcript: its picture for a video, replaying
+/// the active passage, stepping from paragraph to paragraph, following
+/// playback, and the player itself.
 struct EntryAudio: View {
     let model: AppModel
     let entry: Entry
@@ -14,27 +15,38 @@ struct EntryAudio: View {
     @Binding var isFollowSuspended: Bool
     /// Whether any word has a time, which the highlight and the cursor need.
     let hasTimedWords: Bool
+    /// Whether it sits in the column beside the transcript, too narrow for
+    /// its controls on one line.
+    let isBeside: Bool
+    /// The size of the recording's picture, nil for sound alone.
+    @State private var picture: CGSize?
+    /// Where the recording is, found once rather than at each redraw.
+    @State private var source: URL?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 12) {
-                Text("Audio").font(.headline)
-                if !entry.paragraphs.isEmpty {
-                    replayPassage
-                    paragraphStep(by: -1)
-                    paragraphStep(by: 1)
-                }
-                Spacer(minLength: 12)
-                if !entry.paragraphs.isEmpty {
-                    if isFollowSuspended {
-                        Button("Return to playback", systemImage: "arrow.uturn.backward") {
-                            isFollowSuspended = false
-                        }
-                        .disabled(!model.player.isOpen)
-                    } else {
-                        followPicker
+            // Told rather than measured: measuring both layouts at each
+            // correction handed over costs more than the page can spare.
+            if isBeside {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(spacing: 12) {
+                        title
+                        stepping
                     }
+                    followControl
                 }
+            } else {
+                HStack(spacing: 12) {
+                    title
+                    stepping
+                    Spacer(minLength: 12)
+                    followControl
+                }
+            }
+            if let picture, let source {
+                EntryVideo(
+                    model: model, id: entry.id, source: source, picture: picture,
+                    resume: entry.playbackPosition ?? 0, maxHeight: isBeside ? 300 : 200)
             }
             PlayerBar(
                 player: model.player,
@@ -45,6 +57,45 @@ struct EntryAudio: View {
                 play: { model.replay(entry.id, from: $0, leadIn: 0) },
                 hover: { focused = $0 },
                 jump: { jump = $0 })
+        }
+        .task(id: entry.recording) {
+            let recording = model.recording(of: entry)
+            source = recording
+            picture = await Player.pictureSize(of: recording)
+            // The picture shows where the reader left off, before playing.
+            if picture != nil { model.player.prepare(recording, at: entry.playbackPosition ?? 0) }
+        }
+    }
+
+    private var title: some View {
+        HStack(spacing: 8) {
+            if picture == nil {
+                Text("Audio").font(.headline)
+            } else {
+                Text("Video").font(.headline)
+                VideoToggle()
+            }
+        }
+    }
+
+    @ViewBuilder private var stepping: some View {
+        if !entry.paragraphs.isEmpty {
+            replayPassage
+            paragraphStep(by: -1)
+            paragraphStep(by: 1)
+        }
+    }
+
+    @ViewBuilder private var followControl: some View {
+        if !entry.paragraphs.isEmpty {
+            if isFollowSuspended {
+                Button("Return to playback", systemImage: "arrow.uturn.backward") {
+                    isFollowSuspended = false
+                }
+                .disabled(!model.player.isOpen)
+            } else {
+                followPicker
+            }
         }
     }
 

@@ -286,3 +286,41 @@ struct InterruptionTests {
         #expect(!PlaybackInterruptions.wentAway(nil, devices: [1]))
     }
 }
+
+/// A video's page opens its recording paused where the reader left it, so its
+/// picture shows; playing the same recording then goes on from the player
+/// already open, and preparing again changes nothing.
+@MainActor
+@Test func aVideoOpensPausedWhereTheReaderLeftIt() async throws {
+    let video = URL(filePath: #filePath)
+        .deletingLastPathComponent()
+        .appending(path: "Fixtures/formats/clip-video.mp4")
+    let player = Player(defaults: Settings())
+    defer { player.stop() }
+
+    player.prepare(video, at: 1)
+    for _ in 0..<100 where !(player.isOpen && player.duration > 0) {
+        try await Task.sleep(for: .milliseconds(50))
+    }
+    try #require(player.isOpen)
+    #expect(!player.isPlaying)
+    #expect(player.position == 1)
+
+    player.prepare(video, at: 0)
+    #expect(player.position == 1)
+}
+
+/// Only a picture AVFoundation draws counts: sound alone has none, and a
+/// Matroska video plays from a copy with the sound only.
+@Test(arguments: [
+    ("clip-video.mp4", true), ("clip-silent.mp4", true), ("clip.mp4", false),
+    ("clip-video.mkv", false),
+])
+func onlyAVideoAVFoundationPlaysHasAPicture(name: String, hasPicture: Bool) async {
+    let file = URL(filePath: #filePath)
+        .deletingLastPathComponent()
+        .appending(path: "Fixtures/formats/\(name)")
+    let size = await Player.pictureSize(of: file)
+    #expect((size != nil) == hasPicture)
+    if let size { #expect(size == CGSize(width: 160, height: 120)) }
+}

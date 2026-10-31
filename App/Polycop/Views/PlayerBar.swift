@@ -89,11 +89,12 @@ struct PlayerBar: View {
                 .help("Stop and close the recording")
                 .accessibilityLabel("Stop")
 
-                HStack(spacing: 12) {
+                HStack(spacing: 4) {
                     Text(Self.clock(position)).foregroundStyle(.primary)
                     Text("/ \(Self.clock(duration))").foregroundStyle(.secondary)
                 }
                 .font(.callout.monospacedDigit())
+                .fixedSize()
 
                 if player.isPreparing {
                     ProgressView().controlSize(.small)

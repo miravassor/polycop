@@ -79,6 +79,9 @@ unless they agree to more.
   not typing, and Esc leaves the text. The keyboard media keys, Control Center
   and headphone buttons control it too. It pauses when the Mac goes to sleep or
   when the headphones it plays through disconnect.
+* **Video** of a class recorded with Zoom or Teams plays beside the
+  transcript in a wide window, and under it in a narrow one, driven by the same
+  player. The button beside Video keeps the sound only.
 * **Review marks** on passages to check later.
 * **Export** to text with or without timestamps, to Markdown or to a Word
   document, with hesitations such as "euh" left out if you want, and to SRT
