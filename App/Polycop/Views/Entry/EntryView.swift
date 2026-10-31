@@ -145,13 +145,16 @@ struct EntryView: View {
             resume: entry.playbackPosition ?? 0,
             play: { model.replay(entry.id, from: $0, leadIn: 0) },
             hover: { focused = $0 },
-            jump: { jump = $0 }
+            jump: { jump = $0 },
+            // Steps read the paragraph starts, which the player compares, so
+            // one kept from an earlier draw steps through the same paragraphs.
+            step: { steps.step(by: $0) }
         )
         .equatable()
     }
 
     /// Resizable as the library is: from the narrowest that keeps every label
-    /// whole, Previous the longest, to room for a larger picture.
+    /// whole to room for a larger picture.
     static let inspectorWidths: ClosedRange<CGFloat> = 360...520
     static let idealInspectorWidth: CGFloat = 380
 
@@ -337,7 +340,7 @@ extension EntryView {
     /// which the reader hides or shows.
     private var inspector: some View {
         EntryInspector(
-            model: model, entry: entry, steps: steps, following: $following,
+            model: model, entry: entry, following: $following,
             isFollowSuspended: $isFollowSuspended,
             hasTimedWords: words.contains { !$0.isEmpty }, isRunning: isRunning, engine: engine
         )

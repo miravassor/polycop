@@ -28,6 +28,8 @@ struct PlayerBar: View, @MainActor Equatable {
     let hover: (Int?) -> Void
     /// A paragraph chosen on the timeline, to be shown in the text above.
     let jump: (Int) -> Void
+    /// Plays the paragraph before or after, as the Playback menu does.
+    let step: (Int) -> Void
 
     @State private var scrubbed: TimeInterval?
     @State private var width: CGFloat = 0
@@ -100,7 +102,7 @@ struct PlayerBar: View, @MainActor Equatable {
     }
 
     /// The width from which the player fits on one line.
-    private static let oneLine: CGFloat = 500
+    private static let oneLine: CGFloat = 580
 
     private var timeline: some View {
         Timeline(
@@ -115,10 +117,12 @@ struct PlayerBar: View, @MainActor Equatable {
     }
 
     /// Five seconds back, play, five seconds forward, as plain symbols as in
-    /// the Music player. Stop is in the Playback menu, as a transport keeps to
-    /// what is pressed while listening.
+    /// the Music player, between the previous and the next paragraph, where
+    /// Music has the previous and next song. Stop is in the Playback menu, as
+    /// a transport keeps to what is pressed while listening.
     private var transport: some View {
         HStack(spacing: 14) {
+            paragraph(by: -1)
             skip(by: -5)
             Button(action: playOrPause) {
                 Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
@@ -132,8 +136,28 @@ struct PlayerBar: View, @MainActor Equatable {
             .help("Play or pause (Space, or Shift-Command-Space while editing text)")
             .accessibilityLabel(player.isPlaying ? "Pause" : "Play")
             skip(by: 5)
+            paragraph(by: 1)
         }
         .foregroundStyle(.primary)
+    }
+
+    private func paragraph(by offset: Int) -> some View {
+        Button {
+            step(offset)
+        } label: {
+            Image(systemName: offset < 0 ? "backward.end.fill" : "forward.end.fill")
+                .font(.body)
+                .frame(width: 24, height: 32)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.borderless)
+        .disabled(player.isPreparing || marks.isEmpty)
+        .help(
+            offset < 0
+                ? "Previous paragraph (Option-Command-Up Arrow)"
+                : "Next paragraph (Option-Command-Down Arrow)"
+        )
+        .accessibilityLabel(offset < 0 ? "Previous paragraph" : "Next paragraph")
     }
 
     private func skip(by seconds: TimeInterval) -> some View {
