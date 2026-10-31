@@ -101,8 +101,9 @@ Every page speaks the same visual language. The shared pieces live in
 
 * Cards: `panel()`, corners of 10, 16 points of padding, one fill and border. The
   player is no card either: a capsule floating at the foot of the text, which
-  scrolls under it, as the Music player, its controls, timeline and times centred
-  on one line, glass on macOS 26 and the system's material before. Find opens at
+  scrolls under it, as the Music player: the previous and next paragraph either
+  side of 5 seconds back, play and 5 seconds on, then the timeline and times,
+  centred on one line, glass on macOS 26 and the system's material before. Find opens at
   the top, away from it.
   Controls and rows inside a card have corners of 6.
 * A page's actions are window toolbar items, drawn by the system, each also a menu
