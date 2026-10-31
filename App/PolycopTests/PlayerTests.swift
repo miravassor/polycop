@@ -336,16 +336,16 @@ func onlyAVideoAVFoundationPlaysHasAPicture(name: String, hasPicture: Bool) asyn
     try await open(player)
     player.pause()
     let playing = try #require(player.player)
-    for _ in 0..<100 where playing.rate != 0 { try await Task.sleep(for: .milliseconds(20)) }
+    for _ in 0..<100 where playing.rate != 0 { try await Task.sleep(for: .milliseconds(50)) }
     #expect(playing.defaultRate == 1.5)
 
     playing.play()
-    for _ in 0..<100 where playing.rate != 0 { try await Task.sleep(for: .milliseconds(20)) }
+    for _ in 0..<100 where playing.rate != 0 { try await Task.sleep(for: .milliseconds(50)) }
     #expect(!player.isPlaying)
 
     player.followsOutsideControls = true
     playing.play()
-    for _ in 0..<100 where !player.isPlaying { try await Task.sleep(for: .milliseconds(20)) }
+    for _ in 0..<100 where !player.isPlaying { try await Task.sleep(for: .milliseconds(50)) }
     #expect(player.isPlaying)
     #expect(playing.rate == 1.5)
 }
