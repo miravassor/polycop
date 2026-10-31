@@ -51,7 +51,7 @@ struct EntryView: View {
                 HStack(alignment: .top, spacing: 24) {
                     VStack(alignment: .leading, spacing: 16) { transcript }
                     VStack(alignment: .leading, spacing: 16) { recordingAndExport }
-                        .frame(width: min(max(width * 0.34, 420), 480))
+                        .frame(width: sideWidth)
                 }
             } else {
                 transcript
@@ -143,13 +143,16 @@ struct EntryView: View {
             activeParagraph: $activeParagraph, jump: $jump, following: $following,
             isFollowSuspended: $isFollowSuspended,
             hasTimedWords: words.contains { !$0.isEmpty }, isBeside: isWide,
-            pictureRoom: pictureRoom)
+            width: isWide ? sideWidth : width - 56, pictureRoom: pictureRoom)
         EntryExportCard(model: model, entry: entry, isRunning: isRunning, engine: engine)
     }
 
     /// The tallest a video's picture may be. The text keeps room for a few
     /// paragraphs first, under the player in one column; beside the text, the
     /// column keeps room for the player and the export.
+    /// The column beside the text, never narrower than the player.
+    private var sideWidth: CGFloat { min(max(width * 0.34, PlayerBar.narrowest + 10), 480) }
+
     private var pictureRoom: CGFloat {
         isWide ? min(300, height - 420) : min(200, height - 640)
     }

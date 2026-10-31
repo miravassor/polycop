@@ -10,6 +10,9 @@ import SwiftUI
 /// paragraph is a mark, stronger under the pointer, so a passage can be found
 /// by eye before it is heard.
 struct PlayerBar: View {
+    /// The card's width at its narrowest, with its controls on one line.
+    static let narrowest: CGFloat = 410
+
     @Bindable var player: Player
     /// The opening second of each paragraph.
     let marks: [TimeInterval]

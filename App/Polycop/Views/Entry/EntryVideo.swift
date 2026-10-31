@@ -17,6 +17,7 @@ struct EntryVideo: View {
     /// Where the reader left off, played from when nothing is open yet.
     let resume: TimeInterval
     /// The tallest the picture may be.
+    let maxWidth: CGFloat
     let maxHeight: CGFloat
     /// Small beside the player bar, when the window leaves the text too
     /// little room for the picture above it.
@@ -30,13 +31,18 @@ struct EntryVideo: View {
     static let smallest: CGFloat = 100
     /// As tall as the player card beside it.
     static let thumbnailHeight: CGFloat = 102
+    /// Narrower than this, a thumbnail shows too little to be worth its room.
+    static let narrowestThumbnail: CGFloat = 64
 
     var body: some View {
         // Floating, the picture leaves the page to the text.
         if isShown, !model.video.isInPictureInPicture {
             if isThumbnail {
                 shown
-                    .frame(width: maxHeight * picture.width / picture.height, height: maxHeight)
+                    .frame(
+                        width: thumbnailWidth,
+                        height: thumbnailWidth * picture.height / picture.width
+                    )
                     .clipShape(RoundedRectangle(cornerRadius: 6))
             } else {
                 // Sized from the width, since the transcript takes every
@@ -98,7 +104,12 @@ struct EntryVideo: View {
 
     /// The whole width, unless the picture would then be taller than allowed.
     private var shownWidth: CGFloat {
-        max(0, min(width, maxHeight * picture.width / picture.height))
+        max(0, min(width, maxWidth, maxHeight * picture.width / picture.height))
+    }
+
+    /// As tall as allowed, unless that is wider than the room beside the player.
+    private var thumbnailWidth: CGFloat {
+        min(maxWidth, maxHeight * picture.width / picture.height)
     }
 
     /// The player while it holds this recording; another one's picture, or

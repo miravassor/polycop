@@ -18,6 +18,8 @@ struct EntryAudio: View {
     /// Whether it sits in the column beside the transcript, too narrow for
     /// its controls on one line.
     let isBeside: Bool
+    /// The width the card has, which the thumbnail shares with the player.
+    let width: CGFloat
     /// The tallest the picture may be. With less than a picture can use, it
     /// shrinks to a thumbnail beside the player bar, so the text keeps its room.
     let pictureRoom: CGFloat
@@ -48,12 +50,16 @@ struct EntryAudio: View {
             }
             if let picture, let source {
                 if pictureRoom < EntryVideo.smallest {
+                    // What the player leaves, or nothing when too little.
+                    let beside = width - PlayerBar.narrowest - 12
                     HStack(spacing: 12) {
-                        video(source, picture, isThumbnail: true)
+                        if beside >= EntryVideo.narrowestThumbnail {
+                            video(source, picture, isThumbnail: true, maxWidth: beside)
+                        }
                         playerBar
                     }
                 } else {
-                    video(source, picture, isThumbnail: false)
+                    video(source, picture, isThumbnail: false, maxWidth: .infinity)
                     playerBar
                 }
             } else {
@@ -69,10 +75,12 @@ struct EntryAudio: View {
         }
     }
 
-    private func video(_ source: URL, _ picture: CGSize, isThumbnail: Bool) -> some View {
+    private func video(
+        _ source: URL, _ picture: CGSize, isThumbnail: Bool, maxWidth: CGFloat
+    ) -> some View {
         EntryVideo(
             model: model, id: entry.id, source: source, picture: picture,
-            resume: entry.playbackPosition ?? 0,
+            resume: entry.playbackPosition ?? 0, maxWidth: maxWidth,
             maxHeight: isThumbnail ? EntryVideo.thumbnailHeight : pictureRoom,
             isThumbnail: isThumbnail)
     }
