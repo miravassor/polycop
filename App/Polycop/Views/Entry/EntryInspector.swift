@@ -3,7 +3,8 @@
 import SwiftUI
 
 /// Beside the text, in the system's inspector: the picture of a video, moving
-/// through the paragraphs while listening, and the export. A grouped form as
+/// through the paragraphs while listening, the export, and the settings the
+/// transcript was made with. A grouped form as
 /// in Settings, so every control sits on a row of its own section, label at
 /// the leading edge and control at the trailing one. The player itself stays
 /// under the text, inspector or not.
@@ -43,6 +44,7 @@ struct EntryInspector: View {
                 }
             }
             EntryExportSection(model: model, entry: entry, isRunning: isRunning, engine: engine)
+            EntryDetails(entry: entry, engine: engine)
         }
         .formStyle(.grouped)
         .task(id: entry.recording) {

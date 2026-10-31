@@ -99,7 +99,14 @@ struct PolycopApp: App {
             ContentView(model: model)
                 .onAppear { delegate.model = model }
         }
-        .defaultSize(width: 980, height: 660)
+        // The library, the text at its reading width with its margins, and the
+        // inspector, side by side on first launch; macOS keeps the size after.
+        .defaultSize(
+            width: ContentView.idealLibraryWidth
+                + EntryView.readingWidth(textSize: EntryView.defaultTextSize) + 56
+                + EntryView.idealInspectorWidth,
+            height: 880
+        )
         .commands {
             CommandGroup(after: .appInfo) {
                 Button("Check for Updates…") { UpdatePrompt.checkForUpdates() }
@@ -145,6 +152,7 @@ struct PolycopApp: App {
             // inspector, with Control-Command-I.
             SidebarCommands()
             InspectorCommands()
+            CompareCommand()
             CommandGroup(after: .help) {
                 Button("Keyboard Shortcuts…") { openWindow(id: "shortcuts") }
                     .keyboardShortcut("/", modifiers: [.command, .option])

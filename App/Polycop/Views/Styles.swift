@@ -8,11 +8,11 @@ import SwiftUI
 extension View {
     /// A card: a section of a page, or the player. A tint colours its fill
     /// alone, as each engine's card does in the model list.
-    func panel(isHighlighted: Bool = false, tint: Color? = nil, verticalPadding: CGFloat = 16)
+    func panel(isHighlighted: Bool = false, tint: Color? = nil)
         -> some View
     {
         padding(.horizontal, 16)
-            .padding(.vertical, verticalPadding)
+            .padding(.vertical, 16)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 isHighlighted
@@ -27,13 +27,20 @@ extension View {
             }
     }
 
-    /// An icon button or menu of a page header, all of one size.
-    func iconControl() -> some View {
-        frame(width: 32, height: 28).controlFill()
+    /// Controls on the top edge of the text below them: on macOS 26 the text
+    /// scrolls under them softly, as under the toolbar; before, the bar has
+    /// the system's bar background.
+    @ViewBuilder func topBar(@ViewBuilder _ bar: () -> some View) -> some View {
+        let bar = bar()
+        if #available(macOS 26, *) {
+            safeAreaBar(edge: .top) { bar }
+        } else {
+            safeAreaInset(edge: .top, spacing: 0) { bar.background(.bar) }
+        }
     }
 
-    /// The fill of a control drawn by hand. The header's icon controls have
-    /// it, and the player's speed menu, as tall as the player's buttons.
+    /// The fill of a control drawn by hand: the player's speed menu, as tall
+    /// as the player's buttons.
     func controlFill() -> some View {
         background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 6))
     }

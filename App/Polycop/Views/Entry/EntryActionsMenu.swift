@@ -4,7 +4,7 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// The overflow menu for one transcript: corrections, export and removal.
+/// The More menu of a transcript's toolbar: corrections, export and removal.
 struct EntryActionsMenu: View {
     let model: AppModel
     let entry: Entry
@@ -42,12 +42,9 @@ struct EntryActionsMenu: View {
             Button("Remove from Library…", role: .destructive) { confirmingRemoval = true }
                 .disabled(isRunning)
         } label: {
-            Image(systemName: "ellipsis").frame(width: 16, height: 16)
+            Label("Transcript Actions", systemImage: "ellipsis.circle")
         }
-        .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
-        .iconControl()
-        .accessibilityLabel("Transcript actions")
         .help("Transcript actions")
     }
 }

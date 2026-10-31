@@ -18,8 +18,6 @@ struct SelectionView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("\(selected.count) transcripts selected")
-                .font(.title2.weight(.semibold))
             Text(
                 "Shift or command click to change the selection. Drag them onto a folder to file them."
             )
@@ -44,5 +42,6 @@ struct SelectionView: View {
         }
         .padding(28)
         .frame(maxWidth: .infinity, alignment: .topLeading)
+        .navigationTitle("\(selected.count) Transcripts Selected")
     }
 }

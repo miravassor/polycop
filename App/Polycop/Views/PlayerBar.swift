@@ -10,7 +10,7 @@ import SwiftUI
 /// paragraph is a mark, stronger under the pointer, so a passage can be found
 /// by eye before it is heard.
 struct PlayerBar: View {
-    /// The card's width at its narrowest, with its controls on one line.
+    /// The bar's width at its narrowest, with its controls on one line.
     static let narrowest: CGFloat = 410
 
     @Bindable var player: Player
@@ -62,8 +62,9 @@ struct PlayerBar: View {
                 }
             }
         }
-        // Lower than a card of text, as controls on a line need less margin.
-        .panel(verticalPadding: 10)
+        // Controls on the text's top edge, not a card: the page attaches them
+        // as a bar.
+        .padding(.vertical, 8)
         .onGeometryChange(for: CGFloat.self) {
             $0.size.width
         } action: {
