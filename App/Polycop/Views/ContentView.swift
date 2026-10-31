@@ -29,6 +29,8 @@ struct ContentView: View {
 
     /// Whether a transcript's inspector shows, remembered for the window.
     @SceneStorage("showsInspector") private var showsInspector = true
+    /// How wide the inspector is, which the reader changes.
+    @State private var inspectorWidth = EntryView.idealInspectorWidth
 
     /// Room for the library, the text with its player and a transcript's
     /// inspector, so that nothing is cut; hiding the inspector narrows it.
@@ -36,7 +38,7 @@ struct ContentView: View {
         guard showsInspector, case .entry = model.pane, selected.count <= 1 else { return 860 }
         // At its widest: macOS squeezes a column below its minimum otherwise.
         let library = columns == .detailOnly ? 0 : Self.widestLibrary
-        return max(860, library + PlayerBar.narrowest + 56 + EntryView.inspectorWidth)
+        return max(860, library + PlayerBar.narrowest + 56 + inspectorWidth)
     }
     /// Whether the library shows, which the reader changes.
     @State private var columns = NavigationSplitViewVisibility.automatic
@@ -75,8 +77,11 @@ struct ContentView: View {
                         },
                         remove: { removing = $0 })
                 } else if case .entry(let id) = model.pane, let entry = model.entry(id) {
-                    EntryView(model: model, entry: entry, showsInspector: $showsInspector)
-                        .id(id)
+                    EntryView(
+                        model: model, entry: entry, showsInspector: $showsInspector,
+                        inspectorWidth: $inspectorWidth
+                    )
+                    .id(id)
                 } else {
                     NewTranscriptionView(model: model)
                 }

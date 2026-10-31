@@ -9,6 +9,9 @@ struct EntryView: View {
     let entry: Entry
     /// Whether the inspector beside the text shows, kept by the window.
     @Binding var showsInspector: Bool
+    /// How wide the reader made the inspector, which the window's minimum
+    /// width makes room for.
+    @Binding var inspectorWidth: CGFloat
     @State private var focused: Int?
     @State private var activeParagraph: Int?
     @State private var find = TranscriptFind()
@@ -133,9 +136,11 @@ struct EntryView: View {
             jump: { jump = $0 })
     }
 
-    /// Fixed, as in Keynote or Pages: wide enough for Replay passage, Previous
-    /// and Next on one line, and known to the window's minimum width.
-    static let inspectorWidth: CGFloat = 380
+    /// Resizable as the library is: from the narrowest that keeps every label
+    /// whole, Picture in Picture and Previous the longest, to room for a
+    /// larger picture.
+    static let inspectorWidths: ClosedRange<CGFloat> = 360...520
+    static let idealInspectorWidth: CGFloat = 380
 
     /// Shown before there is any text, at the top of the page like everything
     /// else rather than floating in the middle of it.
@@ -335,7 +340,17 @@ extension EntryView {
             isFollowSuspended: $isFollowSuspended,
             hasTimedWords: words.contains { !$0.isEmpty }, isRunning: isRunning, engine: engine
         )
-        .inspectorColumnWidth(Self.inspectorWidth)
+        .onGeometryChange(for: CGFloat.self) {
+            $0.size.width
+        } action: {
+            inspectorWidth = max($0, Self.inspectorWidths.lowerBound)
+        }
+        // Starting where the reader left it: each transcript has a page, and
+        // so an inspector, of its own.
+        .inspectorColumnWidth(
+            min: Self.inspectorWidths.lowerBound, ideal: inspectorWidth,
+            max: Self.inspectorWidths.upperBound
+        )
         // Above the inspector at the trailing edge, the mirror of the
         // sidebar's button at the leading one.
         .toolbar {
