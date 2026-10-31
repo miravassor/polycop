@@ -30,3 +30,13 @@ import Testing
     view.mouseDown(with: click)
     #expect(toggles == 1)
 }
+
+/// Copy Frame takes the picture at the time asked, at its own size.
+@Test func aFrameIsTakenAtItsOwnSize() async throws {
+    let video = URL(filePath: #filePath)
+        .deletingLastPathComponent()
+        .appending(path: "Fixtures/formats/clip-video.mp4")
+    let frame = try await Player.frame(of: video, at: 0.5)
+    #expect(frame.width == 160)
+    #expect(frame.height == 120)
+}

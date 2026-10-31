@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import AVFoundation
+import AppKit
 import SwiftUI
 
 /// The picture of a video recording, which the reader can hide to keep the
@@ -28,6 +29,9 @@ struct EntryVideo: View {
             VideoView(player: shownPlayer, toggle: togglePlayback)
                 .frame(width: shownWidth, height: shownWidth * picture.height / picture.width)
                 .clipShape(RoundedRectangle(cornerRadius: 10))
+                .contextMenu {
+                    Button("Copy Frame", action: copyFrame)
+                }
                 .frame(maxWidth: .infinity)
                 .onGeometryChange(for: CGFloat.self) {
                     $0.size.width
@@ -53,6 +57,20 @@ struct EntryVideo: View {
             model.player.toggle()
         } else {
             model.replay(id, from: resume, leadIn: 0)
+        }
+    }
+
+    /// The frame on screen, to paste a slide elsewhere.
+    private func copyFrame() {
+        let time = shownPlayer?.currentTime().seconds ?? resume
+        Task {
+            do {
+                let frame = try await Player.frame(of: source, at: time)
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.writeObjects([NSImage(cgImage: frame, size: .zero)])
+            } catch {
+                model.report(error)
+            }
         }
     }
 }
