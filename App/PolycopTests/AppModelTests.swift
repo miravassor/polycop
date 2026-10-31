@@ -661,3 +661,34 @@ extension LoadingAModel {
         #expect(model.canStart)
     }
 }
+
+/// Until asked, then: Add to Queue puts them behind the one running, with the
+/// settings on the page, and they run on the same engine.
+@MainActor
+@Test func recordingsAddedDuringABatchJoinItWhenAsked() async throws {
+    let folder = try recordings("first.wav", "later.wav")
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let opener = Opener(ScriptedEngine(holdsAt: 1))
+    try await withModel(history: folder.appending(path: "History"), engines: opener.engines) {
+        model in
+        #expect(model.startAction == .nothing)
+        model.transcribe([folder.appending(path: "first.wav")])
+        #expect(model.startAction == .start(count: 1))
+        model.start()
+        for _ in 0..<2000 where !opener.engine.isHolding {
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        model.transcribe([folder.appending(path: "later.wav")])
+        let later = try #require(model.entries.first { $0.name == "later.wav" })
+        #expect(model.startAction == .addToQueue(count: 1))
+        #expect(!model.isScheduled(later.id))
+
+        model.addToQueue()
+        #expect(model.isScheduled(later.id))
+        #expect(model.startAction == .showProgress(name: "first.wav", waiting: 1))
+        opener.engine.release()
+        try await settle(model)
+        #expect(model.entries.allSatisfy { $0.state == .finished })
+        #expect(opener.opened == 1)
+    }
+}
