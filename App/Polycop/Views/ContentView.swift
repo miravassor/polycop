@@ -80,6 +80,7 @@ struct ContentView: View {
             guard selection != [pane] else { return }
             selection = [pane]
         }
+        .background { PictureInPictureSource(model: model) }
         .task(id: model.folderRequest) {
             guard model.folderRequest != nil else { return }
             model.folderRequest = nil

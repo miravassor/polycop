@@ -40,3 +40,33 @@ import Testing
     #expect(frame.width == 160)
     #expect(frame.height == 120)
 }
+
+/// While the picture fills the screen, the system's controls may start
+/// playback; one window at a time, and closing it ends full screen.
+@MainActor
+@Test func fullScreenLetsItsControlsPlayWhileItLasts() async {
+    let player = Player(defaults: MemoryDefaults())
+    let video = VideoPresentation(player: player)
+    let window = NSWindow(
+        contentRect: NSRect(x: 0, y: 0, width: 160, height: 120), styleMask: [.titled],
+        backing: .buffered, defer: true)
+    window.isReleasedWhenClosed = false
+    // Kept from filling the screen under tests.
+    window.collectionBehavior.insert(.fullScreenNone)
+    var made = 0
+    let make = {
+        made += 1
+        return window
+    }
+
+    video.fillScreen(with: make)
+    video.fillScreen(with: make)
+    #expect(made == 1)
+    #expect(video.isFullScreen)
+    #expect(player.followsOutsideControls)
+
+    window.close()
+    for _ in 0..<50 where video.isFullScreen { try? await Task.sleep(for: .milliseconds(20)) }
+    #expect(!video.isFullScreen)
+    #expect(!player.followsOutsideControls)
+}
