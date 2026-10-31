@@ -29,6 +29,19 @@ final class VideoPresentation: NSObject {
         self.player = player
     }
 
+    /// Picture in Picture as a switch, for the inspector's button. The system
+    /// floats the picture a moment after it is turned on.
+    var floatsPicture: Bool {
+        get { isInPictureInPicture }
+        set {
+            if newValue {
+                Task { await startPictureInPicture() }
+            } else {
+                stopPictureInPicture()
+            }
+        }
+    }
+
     /// Floats the picture above every window, on any screen.
     func startPictureInPicture() async {
         guard let pictureLayer, let playing = player.player, pictureInPicture == nil else { return }

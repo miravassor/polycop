@@ -93,54 +93,34 @@ struct EntryVideo: View {
     }
 }
 
-/// The video's buttons, always in sight in its section's heading: Picture in
-/// Picture or its return, full screen, and the sound alone.
+/// The video's controls, on rows under the picture: Picture in Picture,
+/// which stays pressed while the picture floats, full screen, and the sound
+/// alone.
 struct VideoControls: View {
     let model: AppModel
     @AppStorage(EntryVideo.shownKey) private var isShown = true
 
     var body: some View {
+        @Bindable var video = model.video
         HStack(spacing: 8) {
-            if model.video.isInPictureInPicture {
-                control(
-                    "pip.exit", "Return Video from Picture in Picture",
-                    help: "Show the video beside the transcript again"
-                ) {
-                    model.video.stopPictureInPicture()
-                }
-            } else {
-                control(
-                    "pip.enter", "Picture in Picture", help: "Float the video above other windows"
-                ) {
-                    Task { await model.video.startPictureInPicture() }
-                }
+            Toggle(isOn: $video.floatsPicture) {
+                Label("Picture in Picture", systemImage: "pip.enter").frame(maxWidth: .infinity)
             }
-            control(
-                "arrow.up.left.and.arrow.down.right", "Enter Full Screen",
-                help: "Fill the screen with the video (double-click it)"
-            ) {
+            .toggleStyle(.button)
+            .help(
+                video.floatsPicture
+                    ? "Bring the video back beside the transcript"
+                    : "Float the video above other windows")
+            Button {
                 model.video.fillScreen { FullScreenVideo.window(for: model) }
+            } label: {
+                Label("Full Screen", systemImage: "arrow.up.left.and.arrow.down.right")
+                    .frame(maxWidth: .infinity)
             }
-            control(
-                isShown ? "video.slash" : "video", isShown ? "Hide Video" : "Show Video",
-                help: isShown ? "Keep the sound only" : "Show the video"
-            ) {
-                isShown.toggle()
-            }
+            .help("Fill the screen with the video (double-click it)")
         }
-    }
-
-    private func control(
-        _ symbol: String, _ label: LocalizedStringKey, help: LocalizedStringKey,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            Image(systemName: symbol).frame(width: 16, height: 16)
-        }
-        .buttonStyle(.plain)
-        .iconControl()
-        .accessibilityLabel(label)
-        .help(help)
+        Toggle("Show Video", isOn: $isShown)
+            .help("Turn off to keep the sound only")
     }
 }
 

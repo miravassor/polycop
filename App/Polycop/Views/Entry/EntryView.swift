@@ -47,6 +47,8 @@ struct EntryView: View {
         }
         .padding(28)
         .inspector(isPresented: $showsInspector) { inspector }
+        // The Playback menu's steps, which work with the inspector hidden.
+        .focusedSceneValue(\.paragraphSteps, steps)
         .onChange(of: find.query) { refreshSearch() }
         .onChange(of: model.player.isOpen) { _, isOpen in
             if !isOpen { isFollowSuspended = false }
@@ -135,22 +137,6 @@ struct EntryView: View {
     /// and Next on one line, and known to the window's minimum width.
     static let inspectorWidth: CGFloat = 380
 
-    /// The recording and the export, beside the text in the system's inspector,
-    /// which the reader hides or shows.
-    private var inspector: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                EntryAudio(
-                    model: model, entry: entry, activeParagraph: $activeParagraph, jump: $jump,
-                    following: $following, isFollowSuspended: $isFollowSuspended,
-                    hasTimedWords: words.contains { !$0.isEmpty })
-                EntryExportCard(model: model, entry: entry, isRunning: isRunning, engine: engine)
-            }
-            .padding(16)
-        }
-        .inspectorColumnWidth(Self.inspectorWidth)
-    }
-
     /// Shown before there is any text, at the top of the page like everything
     /// else rather than floating in the middle of it.
     private var placeholder: some View {
@@ -209,7 +195,7 @@ struct EntryView: View {
             EntryActionsMenu(
                 model: model, entry: entry, isRunning: isRunning,
                 confirmingRevert: $confirmingRevert, confirmingRemoval: $confirmingRemoval,
-                exportAs: { EntryExportCard.exportAs(entry, with: model) })
+                exportAs: { EntryExportSection.exportAs(entry, with: model) })
         }
     }
 
@@ -337,6 +323,23 @@ struct EntryView: View {
         suspendFollowing()
         activeParagraph = paragraph
         jump = paragraph
+    }
+}
+
+extension EntryView {
+    /// The recording and the export, beside the text in the system's inspector,
+    /// which the reader hides or shows.
+    private var inspector: some View {
+        EntryInspector(
+            model: model, entry: entry, steps: steps, following: $following,
+            isFollowSuspended: $isFollowSuspended,
+            hasTimedWords: words.contains { !$0.isEmpty }, isRunning: isRunning, engine: engine
+        )
+        .inspectorColumnWidth(Self.inspectorWidth)
+    }
+
+    private var steps: ParagraphSteps {
+        ParagraphSteps(model: model, entry: entry, activeParagraph: $activeParagraph, jump: $jump)
     }
 }
 
