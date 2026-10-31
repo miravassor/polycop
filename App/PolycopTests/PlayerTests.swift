@@ -339,11 +339,15 @@ func onlyAVideoAVFoundationPlaysHasAPicture(name: String, hasPicture: Bool) asyn
     for _ in 0..<100 where playing.rate != 0 { try await Task.sleep(for: .milliseconds(50)) }
     #expect(playing.defaultRate == 1.5)
 
+    // Each play starts from the top: on a busy machine the short clip, at
+    // 1.5 times its speed, could otherwise reach its end, where play stops.
+    _ = await playing.seek(to: .zero)
     playing.play()
     for _ in 0..<100 where playing.rate != 0 { try await Task.sleep(for: .milliseconds(50)) }
     #expect(!player.isPlaying)
 
     player.followsOutsideControls = true
+    _ = await playing.seek(to: .zero)
     playing.play()
     for _ in 0..<100 where !player.isPlaying { try await Task.sleep(for: .milliseconds(50)) }
     #expect(player.isPlaying)
