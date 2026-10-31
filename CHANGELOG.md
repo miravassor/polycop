@@ -8,6 +8,9 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 * Video: the picture of a class recorded as a video, such as a Zoom or Teams recording in MP4 or MOV, plays with the transcript, driven by the same player: speed, seeking, Space and every shortcut. A click on it plays or pauses, and the button beside Video keeps the sound only. A video AVFoundation cannot play, such as WebM or MKV, still plays its sound.
 * In a wide window, as in full screen, the transcript keeps a readable width on the left, and the recording and the export sit in a column beside it.
+* Picture in Picture floats a video above other apps, on any screen, and Open in Window gives it a window of its own, for a second screen or full screen with the system's controls. Both are on the picture when the pointer is over it, and in its menu. A double click fills the screen, and Esc leaves it.
+* Copy Frame, in the video's menu, copies the picture on screen, to paste a slide into notes.
+* In a short window, the picture of a video becomes a thumbnail beside the player, so the transcript keeps room for a few paragraphs.
 
 ### Changed
 
