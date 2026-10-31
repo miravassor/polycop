@@ -100,7 +100,8 @@ Every page speaks the same visual language. The shared pieces live in
 `Views/Styles.swift`; use them rather than a new variant.
 
 * Cards: `panel()`, corners of 10, 16 points of padding, one fill and border. The
-  player is no card: a bar on the top edge of the text it plays (`topBar(_:)`).
+  player is no card: its controls sit above the text, Find under them, then a
+  line, below which the text scrolls.
   Controls and rows inside a card have corners of 6.
 * A page's actions are window toolbar items, drawn by the system, each also a menu
   command. A control drawn by hand takes its fill from `controlFill()`.

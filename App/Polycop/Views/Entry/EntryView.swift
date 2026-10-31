@@ -103,6 +103,13 @@ struct EntryView: View {
             placeholder
             Spacer(minLength: 0)
         } else {
+            // Controls above the text, a line between: the text scrolls below
+            // the line, never under the controls.
+            VStack(alignment: .leading, spacing: 12) {
+                playerBar
+                findAndStatus
+            }
+            Divider()
             TranscriptView(
                 paragraphs: entry.paragraphs, resumed: entry.resumedParagraphs,
                 player: model.player, isEditable: !isRunning,
@@ -126,15 +133,6 @@ struct EntryView: View {
                 words: words,
                 showsUncertainWords: showsUncertainWords
             )
-            // The player, then Find, on the top edge of the text they act on,
-            // under the toolbar as in Music and Podcasts.
-            .topBar {
-                VStack(alignment: .leading, spacing: 12) {
-                    playerBar
-                    findAndStatus
-                }
-                .padding(.bottom, 8)
-            }
         }
     }
 

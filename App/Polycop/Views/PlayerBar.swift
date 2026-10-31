@@ -62,9 +62,8 @@ struct PlayerBar: View {
                 }
             }
         }
-        // Controls on the text's top edge, not a card: the page attaches them
-        // as a bar.
-        .padding(.vertical, 8)
+        // Controls above the text, not a card.
+        .padding(.vertical, 4)
         .onGeometryChange(for: CGFloat.self) {
             $0.size.width
         } action: {

@@ -27,18 +27,6 @@ extension View {
             }
     }
 
-    /// Controls on the top edge of the text below them: on macOS 26 the text
-    /// scrolls under them softly, as under the toolbar; before, the bar has
-    /// the system's bar background.
-    @ViewBuilder func topBar(@ViewBuilder _ bar: () -> some View) -> some View {
-        let bar = bar()
-        if #available(macOS 26, *) {
-            safeAreaBar(edge: .top) { bar }
-        } else {
-            safeAreaInset(edge: .top, spacing: 0) { bar.background(.bar) }
-        }
-    }
-
     /// The fill of a control drawn by hand: the player's speed menu, as tall
     /// as the player's buttons.
     func controlFill() -> some View {
