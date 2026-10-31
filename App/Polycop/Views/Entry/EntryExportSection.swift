@@ -34,13 +34,16 @@ struct EntryExportSection: View {
                             set: { model.setExport(entry.exportFormat, times: $0, for: entry.id) })
                     )
                     .help("Write each paragraph's time before it")
+                    // Said under its name, as in Settings: what it removes
+                    // is not obvious.
                     Toggle(
-                        "Leave out hesitations",
                         isOn: Binding(
                             get: { entry.removesHesitations ?? false },
                             set: { model.setRemovesHesitations($0, for: entry.id) })
-                    )
-                    .help("Leave out euh, hum and the like")
+                    ) {
+                        Text("Remove filler words")
+                        Text("Euh, hum and the like.")
+                    }
                 }
                 lastExport
                 Button {
@@ -53,11 +56,13 @@ struct EntryExportSection: View {
             } header: {
                 Text("Export")
             } footer: {
-                Text(
-                    entry.exportFormat == .subtitles
-                        ? "Subtitles keep the model's words and timings; corrections go into the text formats."
-                        : "Corrections are saved in the library. An export is a separate file to share or keep."
-                )
+                // Only what a student could not guess: that subtitles leave
+                // the corrections out.
+                if entry.exportFormat == .subtitles {
+                    Text(
+                        "Subtitles keep the model's words and timings; corrections go into the text formats."
+                    )
+                }
             }
         }
     }
