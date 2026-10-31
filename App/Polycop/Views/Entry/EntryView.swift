@@ -18,6 +18,8 @@ struct EntryView: View {
     /// The page's width, which decides between one column and two.
     @State private var width: CGFloat = 0
     private var isWide: Bool { width >= 1100 }
+    /// The page's height, which bounds a video's picture.
+    @State private var height: CGFloat = 0
     @AppStorage("transcriptTextSize") private var size = 13.0
     @AppStorage("showsUncertainWords") private var showsUncertainWords = true
     /// The timed words of each paragraph, grouped when the paragraphs change
@@ -56,10 +58,11 @@ struct EntryView: View {
             }
         }
         .padding(28)
-        .onGeometryChange(for: CGFloat.self) {
-            $0.size.width
+        .onGeometryChange(for: CGSize.self) {
+            $0.size
         } action: {
-            width = $0
+            width = $0.width
+            height = $0.height
         }
         .onChange(of: find.query) { refreshSearch() }
         .onChange(of: model.player.isOpen) { _, isOpen in
@@ -138,8 +141,16 @@ struct EntryView: View {
             model: model, entry: entry, focused: $focused,
             activeParagraph: $activeParagraph, jump: $jump, following: $following,
             isFollowSuspended: $isFollowSuspended,
-            hasTimedWords: words.contains { !$0.isEmpty }, isBeside: isWide)
+            hasTimedWords: words.contains { !$0.isEmpty }, isBeside: isWide,
+            pictureRoom: pictureRoom)
         EntryExportCard(model: model, entry: entry, isRunning: isRunning, engine: engine)
+    }
+
+    /// The tallest a video's picture may be. The text keeps room for a few
+    /// paragraphs first, under the player in one column; beside the text, the
+    /// column keeps room for the player and the export.
+    private var pictureRoom: CGFloat {
+        isWide ? min(300, height - 420) : min(200, height - 640)
     }
 
     /// Shown before there is any text, at the top of the page like everything

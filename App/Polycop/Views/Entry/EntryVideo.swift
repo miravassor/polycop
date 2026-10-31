@@ -15,30 +15,47 @@ struct EntryVideo: View {
     let picture: CGSize
     /// Where the reader left off, played from when nothing is open yet.
     let resume: TimeInterval
-    /// The tallest the picture may be: less under the transcript than beside it.
+    /// The tallest the picture may be.
     let maxHeight: CGFloat
+    /// Small beside the player bar, when the window leaves the text too
+    /// little room for the picture above it.
+    let isThumbnail: Bool
     @AppStorage(EntryVideo.shownKey) private var isShown = true
     @State private var width: CGFloat = 0
 
     static let shownKey = "showsVideo"
+    /// Below this, the picture above the player bar becomes a thumbnail.
+    static let smallest: CGFloat = 100
+    /// As tall as the player card beside it.
+    static let thumbnailHeight: CGFloat = 102
 
     var body: some View {
         if isShown {
-            // Sized from the width, since the transcript above takes every
-            // point of height it is offered.
-            VideoView(player: shownPlayer, toggle: togglePlayback)
-                .frame(width: shownWidth, height: shownWidth * picture.height / picture.width)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-                .contextMenu {
-                    Button("Copy Frame", action: copyFrame)
-                }
-                .frame(maxWidth: .infinity)
-                .onGeometryChange(for: CGFloat.self) {
-                    $0.size.width
-                } action: {
-                    width = $0
-                }
+            if isThumbnail {
+                shown
+                    .frame(width: maxHeight * picture.width / picture.height, height: maxHeight)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+            } else {
+                // Sized from the width, since the transcript takes every
+                // point of height it is offered.
+                shown
+                    .frame(width: shownWidth, height: shownWidth * picture.height / picture.width)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .frame(maxWidth: .infinity)
+                    .onGeometryChange(for: CGFloat.self) {
+                        $0.size.width
+                    } action: {
+                        width = $0
+                    }
+            }
         }
+    }
+
+    private var shown: some View {
+        VideoView(player: shownPlayer, toggle: togglePlayback)
+            .contextMenu {
+                Button("Copy Frame", action: copyFrame)
+            }
     }
 
     /// The whole width, unless the picture would then be taller than allowed.

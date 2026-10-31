@@ -18,6 +18,9 @@ struct EntryAudio: View {
     /// Whether it sits in the column beside the transcript, too narrow for
     /// its controls on one line.
     let isBeside: Bool
+    /// The tallest the picture may be. With less than a picture can use, it
+    /// shrinks to a thumbnail beside the player bar, so the text keeps its room.
+    let pictureRoom: CGFloat
     /// The size of the recording's picture, nil for sound alone.
     @State private var picture: CGSize?
     /// Where the recording is, found once rather than at each redraw.
@@ -44,19 +47,18 @@ struct EntryAudio: View {
                 }
             }
             if let picture, let source {
-                EntryVideo(
-                    model: model, id: entry.id, source: source, picture: picture,
-                    resume: entry.playbackPosition ?? 0, maxHeight: isBeside ? 300 : 200)
+                if pictureRoom < EntryVideo.smallest {
+                    HStack(spacing: 12) {
+                        video(source, picture, isThumbnail: true)
+                        playerBar
+                    }
+                } else {
+                    video(source, picture, isThumbnail: false)
+                    playerBar
+                }
+            } else {
+                playerBar
             }
-            PlayerBar(
-                player: model.player,
-                marks: entry.paragraphs.map(\.seconds),
-                highlighted: focused,
-                length: entry.duration ?? 0,
-                resume: entry.playbackPosition ?? 0,
-                play: { model.replay(entry.id, from: $0, leadIn: 0) },
-                hover: { focused = $0 },
-                jump: { jump = $0 })
         }
         .task(id: entry.recording) {
             let recording = model.recording(of: entry)
@@ -65,6 +67,26 @@ struct EntryAudio: View {
             // The picture shows where the reader left off, before playing.
             if picture != nil { model.player.prepare(recording, at: entry.playbackPosition ?? 0) }
         }
+    }
+
+    private func video(_ source: URL, _ picture: CGSize, isThumbnail: Bool) -> some View {
+        EntryVideo(
+            model: model, id: entry.id, source: source, picture: picture,
+            resume: entry.playbackPosition ?? 0,
+            maxHeight: isThumbnail ? EntryVideo.thumbnailHeight : pictureRoom,
+            isThumbnail: isThumbnail)
+    }
+
+    private var playerBar: some View {
+        PlayerBar(
+            player: model.player,
+            marks: entry.paragraphs.map(\.seconds),
+            highlighted: focused,
+            length: entry.duration ?? 0,
+            resume: entry.playbackPosition ?? 0,
+            play: { model.replay(entry.id, from: $0, leadIn: 0) },
+            hover: { focused = $0 },
+            jump: { jump = $0 })
     }
 
     private var title: some View {
