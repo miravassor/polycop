@@ -241,7 +241,7 @@ private struct Timeline: View {
                             index == current
                                 ? AnyShapeStyle(.tint)
                                 : index == highlighted
-                                    ? AnyShapeStyle(.secondary) : AnyShapeStyle(.tertiary)
+                                    ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary)
                         )
                         .frame(width: strong ? 2 : 1, height: strong ? 18 : 12)
                         .position(x: scale.offset(for: marks[index]), y: 14)
