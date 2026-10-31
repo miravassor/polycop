@@ -72,7 +72,8 @@ unless they agree to more.
   text.
 * **Audio player** made for proofreading, under the text: playback speed, a
   timeline with the paragraphs, and the next or previous paragraph from the
-  keyboard. The inspector beside the text (Control-Command-I) holds the video,
+  keyboard. The inspector beside the text (Control-Command-I, resizable by its
+  edge) holds the video,
   replaying a passage, stepping between paragraphs, Follow and export. Follow
   scrolls the page with playback (Page), or also takes the
   text cursor along with the word heard (Page and Cursor), so the next
