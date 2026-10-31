@@ -8,6 +8,7 @@ struct ShortcutHelpView: View {
             Section("Playback and correction") {
                 shortcut("Play or pause, outside the text", "Space")
                 shortcut("Play or pause, anywhere", "⇧⌘Space")
+                shortcut("Play or pause, on the video", "Click")
                 shortcut("Leave the text", "Esc")
                 shortcut("Replay active paragraph", "⌥⌘R")
                 shortcut("Play next paragraph", "⌥⌘↓")
