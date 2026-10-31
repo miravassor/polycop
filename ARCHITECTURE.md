@@ -98,7 +98,8 @@ memory.
 * An edit becomes an undo step in `AppModel.undoSteps`, so undo and revert
   work per transcript. Typing is saved after a one second pause; any other
   change is written at once, in the background.
-* The player bar and `SpaceToPlay` drive `Player`; `NowPlaying` connects it to
+* The player bar, under the text, and `SpaceToPlay` drive `Player`; the inspector beside
+  the text holds the video, the paragraph steps, Follow and export; `NowPlaying` connects it to
   the media keys and Control Center; `PlaybackInterruptions` pauses it when the
   Mac sleeps or the output it plays through goes away. For a video AVFoundation
   plays, `VideoView` draws the picture of the same `AVPlayer`, with no controls

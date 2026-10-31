@@ -99,7 +99,8 @@ Tools/                 build, fixture and packaging scripts
 Every page speaks the same visual language. The shared pieces live in
 `Views/Styles.swift`; use them rather than a new variant.
 
-* Cards: `panel()`, corners of 10, 16 points of padding, one fill and border.
+* Cards: `panel()`, corners of 10, 16 points of padding (10 above and below the player,
+  whose controls sit on a line), one fill and border.
   Controls and rows inside a card have corners of 6.
 * Header icon buttons and menus: `iconControl()`, 32 by 28. Another control drawn
   by hand takes its fill from `controlFill()`.
