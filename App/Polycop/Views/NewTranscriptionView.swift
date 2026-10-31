@@ -76,12 +76,15 @@ struct NewTranscriptionView: View {
     /// A transcript made elsewhere, corrected here against its recording: a
     /// line apart, so it does not read as another way to add recordings.
     private var importTranscript: some View {
-        HStack(spacing: 6) {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
             Text("Already have a transcript made elsewhere?").foregroundStyle(.secondary)
-            Button("Import Transcript and Audio…") { model.chooseTranscriptImport() }
-                .buttonStyle(.link)
-                .disabled(model.stage.isBusy)
-                .help("Listen to a transcript made elsewhere and correct it here")
+            Button {
+                model.chooseTranscriptImport()
+            } label: {
+                Label("Import Transcript and Audio…", systemImage: "square.and.arrow.down")
+            }
+            .disabled(model.stage.isBusy)
+            .help("Listen to a transcript made elsewhere and correct it here")
         }
         .font(.callout)
     }
