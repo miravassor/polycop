@@ -3,7 +3,7 @@
 import AppKit
 import SwiftUI
 
-/// The player at the foot of a transcript, whether or not a file is open.
+/// The player at the top of a transcript, whether or not a file is open.
 ///
 /// The length is known from the transcription, so the timeline exists before
 /// anything plays and a point chosen on it opens the recording there. Each
@@ -38,19 +38,20 @@ struct PlayerBar: View {
     }
 
     var body: some View {
-        // As the Music player: the transport, then the timeline with its times
-        // under each end, then the speed; on two lines when the column is
-        // narrow. Its own width only changes as the window does.
+        // As the Music player: the transport, the timeline between the time
+        // played and the time left, then the speed, all centred on one line;
+        // the timeline takes a line of its own when the column is narrow.
+        // Its own width only changes as the window does.
         Group {
             if width >= Self.oneLine {
                 HStack(spacing: 14) {
                     transport
-                    timed.frame(minWidth: 120)
+                    timed
                     preparing
                     speed
                 }
             } else {
-                VStack(spacing: 4) {
+                VStack(spacing: 2) {
                     HStack(spacing: 14) {
                         transport
                         preparing
@@ -72,23 +73,24 @@ struct PlayerBar: View {
         .background(SpaceToPlay(isEnabled: !player.isPreparing, action: playOrPause))
     }
 
-    /// The timeline, the time played under its start and the time left under
-    /// its end.
+    /// The timeline between the time played and the time left, on its line.
     private var timed: some View {
-        VStack(spacing: 0) {
+        HStack(spacing: 10) {
+            time(Self.clock(position))
             timeline
-            HStack {
-                Text(Self.clock(position))
-                Spacer()
-                Text("-\(Self.clock(max(0, duration - position)))")
-            }
-            .font(.caption2.monospacedDigit())
-            .foregroundStyle(.secondary)
+            time("-\(Self.clock(max(0, duration - position)))")
         }
     }
 
+    private func time(_ text: String) -> some View {
+        Text(text)
+            .font(.caption.monospacedDigit())
+            .foregroundStyle(.secondary)
+            .fixedSize()
+    }
+
     /// The width from which the player fits on one line.
-    private static let oneLine: CGFloat = 640
+    private static let oneLine: CGFloat = 500
 
     private var timeline: some View {
         Timeline(
@@ -229,9 +231,9 @@ private struct Timeline: View {
                             index == current
                                 ? AnyShapeStyle(.tint)
                                 : index == highlighted
-                                    ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary)
+                                    ? AnyShapeStyle(.secondary) : AnyShapeStyle(.tertiary)
                         )
-                        .frame(width: strong ? 2 : 1.5, height: strong ? 18 : 12)
+                        .frame(width: strong ? 2 : 1, height: strong ? 18 : 12)
                         .position(x: scale.offset(for: marks[index]), y: 14)
                 }
                 Circle()
@@ -378,16 +380,17 @@ struct SpaceToPlay: NSViewRepresentable {
     }
 }
 
-/// The player's surface, which the toolbar's controls share on macOS 26:
-/// glass there, and the system's material before. A capsule on one line, a
-/// rounded rectangle on two.
+/// The player's surface: clear glass on macOS 26, lighter than a dark page as
+/// the toolbar's controls are, where regular glass in the page darkens it.
+/// Nothing scrolls under the player, so only the page shows through. The
+/// system's material before. A capsule on one line, a rounded rectangle on two.
 private struct PlayerSurface: ViewModifier {
     let isOneLine: Bool
 
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: isOneLine ? 26 : 18)
         if #available(macOS 26, *) {
-            content.glassEffect(.regular, in: shape)
+            content.glassEffect(.clear, in: shape)
         } else {
             content.background(.regularMaterial, in: shape)
         }

@@ -37,20 +37,23 @@ struct EntryView: View {
     private var engine: Engine? { ModelCatalog.model(entry.modelFile)?.engine }
 
     var body: some View {
+        // The player opens the page, as far under the toolbar as the next
+        // block is under it; the text scrolls below them all, never under.
         VStack(alignment: .leading, spacing: 16) {
-            // With no text to sit on, the player opens the page.
-            if entry.paragraphs.isEmpty { playerBar }
+            playerBar
             EntryProgress(model: model, entry: entry, isRunning: isRunning)
             EntryNotices(
                 entry: entry, findings: findings ?? entry.findings, model: model,
                 isRunning: isRunning, engine: engine)
             unsaved
+            if !entry.paragraphs.isEmpty { findAndStatus }
             transcript
         }
         // A reading column: a wide window adds margins, not longer lines.
         .frame(maxWidth: readingWidth)
         .frame(maxWidth: .infinity)
-        .padding(28)
+        .padding(.horizontal, 28)
+        .padding(.vertical, 16)
         .navigationTitle(entry.name)
         .toolbar { pageTools }
         .inspector(isPresented: $showsInspector) { inspector }
@@ -103,11 +106,6 @@ struct EntryView: View {
             placeholder
             Spacer(minLength: 0)
         } else {
-            // Controls above the text, which scrolls below them, never under.
-            VStack(alignment: .leading, spacing: 12) {
-                playerBar
-                findAndStatus
-            }
             TranscriptView(
                 paragraphs: entry.paragraphs, resumed: entry.resumedParagraphs,
                 player: model.player, isEditable: !isRunning,
