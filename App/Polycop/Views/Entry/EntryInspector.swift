@@ -73,6 +73,27 @@ struct EntryInspector: View {
     }
 }
 
+/// An inspector's width and button, the same on every page: it starts where
+/// the reader left it, since each page has an inspector of its own.
+struct InspectorColumn: ViewModifier {
+    @Binding var isShown: Bool
+    @Binding var width: Double
+
+    func body(content: Content) -> some View {
+        content
+            .onGeometryChange(for: CGFloat.self) {
+                $0.size.width
+            } action: {
+                width = max($0, EntryView.inspectorWidths.lowerBound)
+            }
+            .inspectorColumnWidth(
+                min: EntryView.inspectorWidths.lowerBound, ideal: width,
+                max: EntryView.inspectorWidths.upperBound
+            )
+            .modifier(InspectorToggle(isShown: $isShown))
+    }
+}
+
 /// The inspector's button, at the trailing edge of the toolbar above it, the
 /// mirror of the library's button at the leading edge. On macOS 26 a toolbar
 /// item sits on glass, while the library's button, on the library's own glass,

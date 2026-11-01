@@ -37,7 +37,7 @@ struct ShortcutHelpView: View {
             Section("Library") {
                 shortcut("New transcription", "⌘N")
                 shortcut("Add recordings", "⌘O")
-                shortcut("Import transcript and audio", "⇧⌘O")
+                shortcut("Import transcript and recording", "⇧⌘O")
                 shortcut("Start transcription", "⌘R")
                 shortcut("New folder", "⇧⌘N")
                 shortcut("Manage glossaries", "⌥⌘G")

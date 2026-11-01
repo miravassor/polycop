@@ -36,10 +36,10 @@ struct ContentView: View {
     /// Whether the library shows, which the reader changes.
     @SceneStorage("showsLibrary") private var showsLibrary = true
 
-    /// Room for the library, the text with its player and a transcript's
-    /// inspector, so that nothing is cut; hiding the inspector narrows it.
+    /// Room for the library, the page with its player and the inspector, so
+    /// that nothing is cut; hiding the inspector narrows it.
     private var minimumWidth: CGFloat {
-        guard showsInspector, case .entry = model.pane, selected.count <= 1 else { return 860 }
+        guard showsInspector, selected.count <= 1 else { return 860 }
         // At its widest: macOS squeezes a column below its minimum otherwise.
         let library = showsLibrary ? Self.libraryWidths.upperBound : 0
         return max(860, library + PlayerBar.narrowest + 56 + inspectorWidth)
@@ -102,7 +102,9 @@ struct ContentView: View {
                     )
                     .id(id)
                 } else {
-                    NewTranscriptionView(model: model)
+                    NewTranscriptionView(
+                        model: model, showsInspector: $showsInspector,
+                        inspectorWidth: $inspectorWidth)
                 }
             }
             // The detail column asks for a minimum of its own: the player
