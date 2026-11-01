@@ -126,6 +126,12 @@ struct PolycopApp: App {
                 }
                 .keyboardShortcut("r")
                 .disabled(!model.canStart)
+                Button(model.stage.isPaused ? "Resume Transcription" : "Pause Transcription") {
+                    if model.stage.isPaused { model.resume() } else { model.pause() }
+                }
+                .disabled(!model.stage.isPaused && !model.stage.isTranscribing)
+                Button("Stop Transcription") { model.cancel() }
+                    .disabled(model.busyEntry == nil || model.stage == .stopping)
                 Divider()
                 Button("New Folder…") { model.addFolder() }
                     .keyboardShortcut("n", modifiers: [.command, .shift])

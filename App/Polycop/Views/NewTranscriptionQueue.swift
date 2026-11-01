@@ -90,7 +90,7 @@ struct StartBar: View {
     private var status: LocalizedStringKey? {
         switch model.startAction {
         case .nothing: nil
-        case .start: showsSettings ? settings : nil
+        case .start: showsSettings ? "\(Self.summary(of: model))" : nil
         case .addToQueue:
             model.running == nil
                 ? "Transcribed once the model has downloaded."
@@ -106,7 +106,7 @@ struct StartBar: View {
     }
 
     /// The settings the recordings will be transcribed with, in one line.
-    private var settings: LocalizedStringKey {
+    static func summary(of model: AppModel) -> String {
         let chosen = model.selectedCatalogue ?? ModelCatalog.recommended
         let language =
             chosen.engine.audioCpp?.setsLanguage == false
@@ -120,7 +120,7 @@ struct StartBar: View {
         if !model.isInstalled(chosen.id) {
             parts.append(String(localized: "Downloads \(formattedFileSize(chosen.bytes)) first"))
         }
-        return "\(parts.joined(separator: " · "))"
+        return parts.joined(separator: " · ")
     }
 
     @ViewBuilder private var button: some View {

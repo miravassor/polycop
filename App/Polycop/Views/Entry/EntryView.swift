@@ -43,7 +43,7 @@ struct EntryView: View {
                 entry: entry, findings: findings ?? entry.findings, model: model,
                 isRunning: isRunning, engine: engine)
             unsaved
-            if !entry.paragraphs.isEmpty { findAndStatus }
+            if !entry.paragraphs.isEmpty { findBar }
             transcript
         }
         // A reading column: a wide window adds margins, not longer lines.
@@ -103,8 +103,8 @@ struct EntryView: View {
 
     @ViewBuilder private var transcript: some View {
         if entry.paragraphs.isEmpty {
-            placeholder
-            Spacer(minLength: 0)
+            EntryEmptyState(model: model, entry: entry, isRunning: isRunning)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             playerBar.padding(.bottom, 16)
         } else {
             TranscriptView(
@@ -158,27 +158,6 @@ struct EntryView: View {
     static let inspectorWidths: ClosedRange<CGFloat> = 360...520
     static let idealInspectorWidth: CGFloat = 380
 
-    /// Shown before there is any text, at the top of the page like everything
-    /// else rather than floating in the middle of it.
-    private var placeholder: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(
-                entry.state == .finished
-                    ? "No text was detected" : "Your transcript will appear here"
-            )
-            .font(.headline)
-            Text(
-                entry.state == .finished
-                    ? "Listen to the recording to check that it contains audible speech."
-                    : "Text is kept in your library when transcription finishes or pauses."
-            )
-            .font(.callout)
-            .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, alignment: .topLeading)
-        .padding(.top, 4)
-    }
-
     /// Saving is the rule and goes unsaid; a library that could not be
     /// written says so.
     @ViewBuilder private var unsaved: some View {
@@ -222,15 +201,11 @@ struct EntryView: View {
         }
     }
 
-    @ViewBuilder private var findAndStatus: some View {
+    @ViewBuilder private var findBar: some View {
         if find.isShown {
             EntryFindBar(
                 model: model, entry: entry, isRunning: isRunning, find: $find,
                 isFocused: $isSearchFocused, navigate: { navigateMatch(forward: $0) })
-        }
-        if isRunning {
-            Text("Transcription in progress. Editing is available when it stops.")
-                .font(.caption).foregroundStyle(.secondary)
         }
     }
 
