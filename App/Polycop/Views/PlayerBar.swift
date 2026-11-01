@@ -52,11 +52,12 @@ struct PlayerBar: View, @MainActor Equatable {
     var body: some View {
         // As the Music player: the transport, the timeline between the time
         // played and the time left, then the speed, all centred on one line;
-        // the timeline takes a line of its own when the column is narrow.
-        // Its own width only changes as the window does.
+        // the timeline takes a line of its own when the column is narrow,
+        // under the transport centred. Its own width only changes as the
+        // window does.
         Group {
             if width >= Self.oneLine {
-                HStack(spacing: 14) {
+                HStack(spacing: 10) {
                     transport
                     timed
                     preparing
@@ -64,11 +65,10 @@ struct PlayerBar: View, @MainActor Equatable {
                 }
             } else {
                 VStack(spacing: 2) {
-                    HStack(spacing: 14) {
+                    HStack(spacing: 10) {
+                        HStack { preparing }.frame(maxWidth: .infinity, alignment: .leading)
                         transport
-                        preparing
-                        Spacer()
-                        speed
+                        speed.frame(maxWidth: .infinity, alignment: .trailing)
                     }
                     timed
                 }
@@ -87,7 +87,7 @@ struct PlayerBar: View, @MainActor Equatable {
 
     /// The timeline between the time played and the time left, on its line.
     private var timed: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 6) {
             time(Self.clock(position))
             timeline
             time("-\(Self.clock(max(0, duration - position)))")
@@ -122,7 +122,7 @@ struct PlayerBar: View, @MainActor Equatable {
     /// Music has the previous and next song. Stop is in the Playback menu, as
     /// a transport keeps to what is pressed while listening.
     private var transport: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 4) {
             paragraph(by: -1)
             skip(by: -5)
             Button(action: playOrPause) {
@@ -179,7 +179,7 @@ struct PlayerBar: View, @MainActor Equatable {
     @ViewBuilder private var preparing: some View {
         if player.isPreparing {
             ProgressView().controlSize(.small)
-            Text("Preparing playback").font(.caption).foregroundStyle(.secondary)
+            Text("Preparing playback").font(.caption).foregroundStyle(.secondary).lineLimit(1)
         }
     }
 
