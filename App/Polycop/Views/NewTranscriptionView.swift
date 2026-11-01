@@ -107,7 +107,7 @@ struct NewTranscriptionView: View {
             Label {
                 Text("Drop Recordings Here")
             } icon: {
-                Image(systemName: "waveform").foregroundStyle(.tint)
+                Image(systemName: "waveform.circle").foregroundStyle(.tint)
             }
         } description: {
             Text("Audio or video, one file or several.")
