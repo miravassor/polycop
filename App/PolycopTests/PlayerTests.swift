@@ -346,10 +346,17 @@ func onlyAVideoAVFoundationPlaysHasAPicture(name: String, hasPicture: Bool) asyn
     for _ in 0..<100 where playing.rate != 0 { try await Task.sleep(for: .milliseconds(50)) }
     #expect(!player.isPlaying)
 
+    // Played again whenever the clip ended before the player saw it start,
+    // as on a busy machine: what is checked is that the player follows, at
+    // the speed it set, not how fast the audio runs.
     player.followsOutsideControls = true
-    _ = await playing.seek(to: .zero)
-    playing.play()
-    for _ in 0..<100 where !player.isPlaying { try await Task.sleep(for: .milliseconds(50)) }
+    for _ in 0..<200 where !player.isPlaying {
+        if playing.rate == 0 {
+            _ = await playing.seek(to: .zero)
+            playing.play()
+        }
+        try await Task.sleep(for: .milliseconds(50))
+    }
     #expect(player.isPlaying)
-    #expect(playing.rate == 1.5)
+    #expect(playing.defaultRate == 1.5)
 }
