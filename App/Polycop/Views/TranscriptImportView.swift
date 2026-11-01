@@ -16,7 +16,7 @@ struct TranscriptImportView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-            Text("Import transcript and audio").font(.title2.weight(.semibold))
+            Text("Import transcript and recording").font(.title2.weight(.semibold))
             Text(
                 "Correct an existing transcript while listening to its recording. The source files stay unchanged."
             )
@@ -39,7 +39,7 @@ struct TranscriptImportView: View {
             HStack(spacing: 12) {
                 if importing {
                     ProgressView().controlSize(.small)
-                    Text(closing ? "Stopping…" : "Checking transcript and audio…")
+                    Text(closing ? "Stopping…" : "Checking transcript and recording…")
                         .font(.callout).foregroundStyle(.secondary)
                 }
                 Spacer()

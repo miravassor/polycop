@@ -114,7 +114,7 @@ struct PolycopApp: App {
                     .keyboardShortcut("n")
                 Button("Add Recordings…") { model.chooseRecordings() }
                     .keyboardShortcut("o")
-                Button("Import Transcript and Audio…") { model.chooseTranscriptImport() }
+                Button("Import Transcript and Recording…") { model.chooseTranscriptImport() }
                     .keyboardShortcut("o", modifiers: [.command, .shift])
                     .disabled(model.stage.isBusy)
                 Button("Start Transcription") {
