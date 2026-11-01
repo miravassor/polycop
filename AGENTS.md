@@ -99,27 +99,38 @@ Tools/                 build, fixture and packaging scripts
 Every page speaks the same visual language. The shared pieces live in
 `Views/Styles.swift`; use them rather than a new variant.
 
-* Cards: `panel()`, corners of 10, 16 points of padding, one fill and border. The
-  player is no card either: a capsule floating at the foot of the text, which
-  scrolls under it, as the Music player: the previous and next paragraph either
-  side of 5 seconds back, play and 5 seconds on, then the timeline and times,
-  centred on one line, glass on macOS 26 and the system's material before. Find opens at
+* Settings and choices are the system's grouped form (`Form` with `.formStyle(.grouped)`),
+  one setting a row, as in System Settings: a page's in the system inspector
+  (`InspectorColumn` gives every page the same width and button), a sheet's in the
+  sheet. No tinted cards or hand drawn boxes.
+* An empty page is the system's empty state (`ContentUnavailableView`), with the way
+  to fill it.
+* A page's main action is one `ActionButton`: a large capsule with an SF Symbol, glass
+  in the accent colour on macOS 26, centred right under what it acts on. The player
+  is a capsule too, floating at the foot of the text, which scrolls under it, as the
+  Music player: the previous and next paragraph either side of 5 seconds back, play
+  and 5 seconds on, then the timeline and times, centred on one line, on
+  `FloatingSurface` (glass on macOS 26, the system's material before). Find opens at
   the top, away from it.
-  Controls and rows inside a card have corners of 6.
-* A page's actions are window toolbar items, drawn by the system, each also a menu
+* A list's Add and Clear sit on its title line at the trailing edge, aligned with the
+  rows, removal last. A list of things kept, such as courses, has the Mac's + and −
+  inside the foot of its edge. Managing a choice ("Manage Models…") is the last item
+  of that choice's menu, as Xcode's scheme menu ends with Manage Schemes….
+* A page's tools are window toolbar items, drawn by the system, each also a menu
   command. Controls are the system's, never drawn by hand.
 * Text editors: `editorBorder()`, with the corners of a control.
 * Warnings and failures: a `Label` with `notice(_:)`, colour on the icon only. Text
   stays in the label colours, since orange, red or green text is too faint to read
   on a light window; emphasis inside text is a line (underline, strikethrough).
-* Spacing: 28 points around a page, 16 between blocks, 12 between a card's label and
-  its buttons. The transcript page has 16 under the toolbar, and its player floats
-  16 above the window's foot. Sheets have 24 points of padding, popovers 20.
+* Spacing: 28 points around a page, 16 between blocks. The transcript page has 16
+  under the toolbar, and its player floats 16 above the window's foot. Sheets have
+  24 points of padding, popovers 20.
 * Type: a page's title is the window's (`navigationTitle`); a sheet title in `.title2`
-  semibold, a section heading in `.title3` semibold
-  with a `.callout` line under it, a card title in `.headline` with a `.callout`
-  line. Text styles only, no fixed point sizes.
+  semibold. A row says what it is in a few words; a line under it only for what a
+  student could not guess. Text styles only, no fixed point sizes.
 * One prominent button per area, for its main action; the rest use the default style.
+  Names say what happens, in the app's own words: a recording is audio or video, an
+  action that finds terms is Find Terms.
 * Text keeps a reading width, about 75 characters at the reader's size, centred:
   a wide window adds margins rather than longer lines, and the inspector can take
   the width. Check a change from the smallest window to full screen.
