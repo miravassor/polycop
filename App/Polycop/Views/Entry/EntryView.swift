@@ -105,7 +105,7 @@ struct EntryView: View {
         if entry.paragraphs.isEmpty {
             EntryEmptyState(model: model, entry: entry, isRunning: isRunning)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-            playerBar.padding(.bottom, 16)
+            playerBar.padding(.bottom, PlayerBar.foot)
         } else {
             TranscriptView(
                 paragraphs: entry.paragraphs, resumed: entry.resumedParagraphs,
@@ -132,7 +132,7 @@ struct EntryView: View {
             )
             // As in Music, the player floats at the foot of the text, which
             // scrolls under it; Find stays at the top, away from it.
-            .floatingBar { playerBar.padding(.bottom, 16) }
+            .floatingBar { playerBar.padding(.bottom, PlayerBar.foot) }
         }
     }
 

@@ -18,7 +18,6 @@ struct PlayerTimeline: View {
     @State private var pointer: CGFloat = 0
     @State private var isHovering = false
     @State private var isDragging = false
-    @Environment(\.appearsActive) private var appearsActive
 
     var body: some View {
         GeometryReader { geometry in
@@ -158,14 +157,10 @@ struct PlayerTimeline: View {
         }
     }
 
-    /// The mark of the paragraph playing carries the accent, grey on macOS 26
-    /// while the window is in the background, as the glass turns; the one
-    /// under the pointer stands out.
+    /// The mark of the paragraph playing carries the accent, as the played
+    /// part does; the one under the pointer stands out.
     private func style(ofMark index: Int) -> AnyShapeStyle {
-        if index == current {
-            if #available(macOS 26, *), !appearsActive { return AnyShapeStyle(.primary) }
-            return AnyShapeStyle(.tint)
-        }
+        if index == current { return AnyShapeStyle(.tint) }
         return index == highlighted ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary)
     }
 
