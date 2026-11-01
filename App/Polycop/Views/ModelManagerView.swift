@@ -7,36 +7,40 @@ import UniformTypeIdentifiers
 struct ModelManagerView: View {
     let model: AppModel
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.colorScheme) private var colorScheme
     @Binding var importingModel: Bool
     @State private var removingModel: Model?
     @State private var removingImported: ModelStore.Imported?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 0) {
             Text("Models").font(.title2.weight(.semibold))
-            Text(
-                "Choose a model for the next batch. Recordings already started keep their settings."
-            )
-            .foregroundStyle(.secondary)
-            ScrollView { models }
-            Divider()
-            HStack {
-                Button("Import Downloaded Model…") { importingModel = true }
-                    .disabled(model.stage.isBusy)
-                Spacer()
-                Button("Done") { dismiss() }
-                    .keyboardShortcut(.cancelAction)
+                .padding([.horizontal, .top], 24)
+            // Grouped rows as the inspector beside the page, one section an
+            // engine, without a colour of its own.
+            Form {
+                ForEach(Engine.allCases, id: \.self) { engine($0) }
+                imported
             }
-            if model.downloadingModel != nil { ModelTransferStatus(model: model) }
+            .formStyle(.grouped)
             if let failure = model.failure {
                 Label(failure, systemImage: "xmark.octagon")
                     .notice(.red)
                     .textSelection(.enabled)
+                    .padding(.horizontal, 24)
             }
+            HStack {
+                Button("Import Downloaded Model…") { importingModel = true }
+                    .disabled(model.stage.isBusy)
+                    .help(
+                        "Only unchanged catalogue models are accepted; their SHA-256 is verified before use."
+                    )
+                Spacer()
+                Button("Done") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+            }
+            .padding(24)
         }
-        .padding(24)
-        .frame(width: 620, height: 570)
+        .frame(width: 620, height: 600)
         .confirmationDialog(
             "Delete this model?",
             isPresented: Binding(
@@ -67,135 +71,96 @@ struct ModelManagerView: View {
         }
     }
 
-    private func familyColor(_ engine: Engine) -> Color {
-        switch (engine, colorScheme) {
-        case (.qwen, .dark): Color(red: 0.70, green: 0.63, blue: 0.94)
-        case (.qwen, _): Color(red: 0.40, green: 0.30, blue: 0.72)
-        case (.whisper, .dark): Color(red: 0.46, green: 0.77, blue: 0.65)
-        case (.whisper, _): Color(red: 0.13, green: 0.43, blue: 0.34)
-        case (.moss, .dark): Color(red: 0.49, green: 0.70, blue: 0.90)
-        case (.moss, _): Color(red: 0.16, green: 0.38, blue: 0.62)
-        case (.voxtral, .dark): Color(red: 0.93, green: 0.64, blue: 0.42)
-        case (.voxtral, _): Color(red: 0.66, green: 0.36, blue: 0.13)
+    /// An engine's models, with who made it on the title line and what it
+    /// can do under them.
+    private func engine(_ engine: Engine) -> some View {
+        Section {
+            ForEach(ModelCatalog.all.filter { $0.engine == engine }) { row($0) }
+            if engine == .qwen { aligner }
+        } header: {
+            HStack {
+                Text(engine.name)
+                Spacer()
+                Text(engine.developer).foregroundStyle(.secondary).fontWeight(.regular)
+            }
+        } footer: {
+            Text(LocalizedStringKey(engine.features(aligned: model.canAlignQwen)))
+                .help(LocalizedStringKey(Engine.wordTimings))
         }
     }
 
-    /// Installed and available models, grouped by engine.
-    private var models: some View {
-        VStack(alignment: .leading, spacing: 24) {
-            ForEach(Engine.allCases, id: \.self) { family in
-                if family != Engine.allCases.first {
-                    Divider().padding(.vertical, 4)
-                }
-                VStack(alignment: .leading, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack {
-                            Text(family.name).font(.headline)
-                                .foregroundStyle(familyColor(family))
-                            Spacer()
-                            Text(family.developer).font(.callout).foregroundStyle(.secondary)
-                        }
-                        Text(LocalizedStringKey(family.features(aligned: model.canAlignQwen)))
-                            .font(.caption).foregroundStyle(.secondary)
-                            .help(LocalizedStringKey(Engine.wordTimings))
+    /// A model: its name, what it is good at, its size and licence, and what
+    /// can be done with it at the trailing edge.
+    @ViewBuilder private func row(_ item: Model) -> some View {
+        LabeledContent {
+            HStack(spacing: 8) {
+                if model.installed.contains(item.id) {
+                    if model.selected == item.id {
+                        Label("In Use", systemImage: "checkmark.circle.fill")
+                            .foregroundStyle(.tint)
+                    } else {
+                        Button("Use") { model.selected = item.id }
                     }
-                    .panel(tint: familyColor(family))
-                    ForEach(ModelCatalog.all.filter { $0.engine == family }) { item in
-                        Divider()
-                        HStack(alignment: .top, spacing: 16) {
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text(item.name).fontWeight(.medium)
-                                Text(LocalizedStringKey(item.detail))
-                                    .font(.callout).foregroundStyle(.secondary)
-                                Text(formattedFileSize(item.bytes)).font(.caption)
-                                    .foregroundStyle(.secondary)
-                                modelLicense(item)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            HStack(spacing: 12) {
-                                if model.installed.contains(item.id) {
-                                    if model.selected == item.id {
-                                        Label("Selected", systemImage: "checkmark")
-                                            .font(.callout).foregroundStyle(.tint)
-                                    } else {
-                                        Button("Use Model") { model.selected = item.id }
-                                    }
-                                    Menu {
-                                        Button("Delete…", role: .destructive) {
-                                            removingModel = item
-                                        }
-                                        .disabled(model.stage.isBusy || model.isNeeded(item.id))
-                                    } label: {
-                                        Image(systemName: "ellipsis")
-                                            .frame(width: 16, height: 16)
-                                    }
-                                    .menuIndicator(.hidden)
-                                    .fixedSize()
-                                    .accessibilityLabel("Actions for \(item.name)")
-                                } else {
-                                    Button("Download and Use") {
-                                        model.selected = item.id
-                                        model.download(item)
-                                    }
-                                    .disabled(model.stage.isBusy)
-                                }
-                            }
-                            .fixedSize()
-                        }
-                        .padding(.vertical, 4)
+                    Menu {
+                        Button("Delete…", role: .destructive) { removingModel = item }
+                            .disabled(model.stage.isBusy || model.isNeeded(item.id))
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
                     }
-                    if family == .qwen { aligner }
+                    .menuStyle(.borderlessButton)
+                    .menuIndicator(.hidden)
+                    .fixedSize()
+                    .accessibilityLabel("Actions for \(item.name)")
+                } else if model.downloadingModel?.id != item.id {
+                    Button("Download and Use") {
+                        model.selected = item.id
+                        model.download(item)
+                    }
+                    .disabled(model.stage.isBusy)
                 }
             }
-            Text(
-                "Only unchanged catalogue models are accepted. Their SHA-256 is verified before use."
-            )
-            .font(.caption).foregroundStyle(.secondary)
-            ForEach(model.imported) { item in
-                Divider()
-                HStack {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(item.name).fontWeight(.medium)
-                        Text("Unverified model · \(formattedFileSize(item.bytes))").font(.caption)
-                            .foregroundStyle(.secondary)
+        } label: {
+            Text(item.name)
+            Text(LocalizedStringKey(item.detail))
+            Text("\(formattedFileSize(item.bytes)) · \(item.license) license")
+        }
+        if model.downloadingModel?.id == item.id { ModelTransferStatus(model: model) }
+    }
+
+    /// Models imported by hand, which the catalogue does not vouch for.
+    @ViewBuilder private var imported: some View {
+        if !model.imported.isEmpty {
+            Section("Imported") {
+                ForEach(model.imported) { item in
+                    LabeledContent {
+                        Button("Delete…", role: .destructive) { removingImported = item }
+                            .disabled(model.stage.isBusy)
+                    } label: {
+                        Text(item.name)
+                        Text("Unverified · \(formattedFileSize(item.bytes))")
                     }
-                    Spacer()
-                    Button("Delete…", role: .destructive) { removingImported = item }
-                        .disabled(model.stage.isBusy)
                 }
             }
         }
-        .padding(.vertical, 8)
     }
 
     /// Qwen's optional aligner: not a model to transcribe with, so it has a
     /// download and a delete, and no Use.
-    private var aligner: some View {
+    @ViewBuilder private var aligner: some View {
         let item = ModelCatalog.qwenAligner
-        return VStack(alignment: .leading, spacing: 0) {
-            Divider()
-            HStack(alignment: .top, spacing: 16) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(item.name).fontWeight(.medium)
-                    Text(LocalizedStringKey(item.detail))
-                        .font(.callout).foregroundStyle(.secondary)
-                    Text(
-                        "Optional. Used by Qwen3-ASR when installed and within this Mac's memory budget."
-                    )
-                    .font(.caption).foregroundStyle(.secondary)
-                    Text(formattedFileSize(item.bytes)).font(.caption).foregroundStyle(.secondary)
-                    modelLicense(item)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                if model.alignerInstalled {
-                    Button("Delete…", role: .destructive) { removingModel = item }
-                        .disabled(model.stage.isBusy)
-                } else {
-                    Button("Download") { model.download(item) }
-                        .disabled(model.stage.isBusy)
-                }
+        LabeledContent {
+            if model.alignerInstalled {
+                Button("Delete…", role: .destructive) { removingModel = item }
+                    .disabled(model.stage.isBusy)
+            } else if model.downloadingModel?.id != item.id {
+                Button("Download") { model.download(item) }
+                    .disabled(model.stage.isBusy)
             }
-            .padding(.vertical, 8)
+        } label: {
+            Text(item.name)
+            Text("Optional. \(item.detail).")
+            Text("\(formattedFileSize(item.bytes)) · \(item.license) license")
         }
+        if model.downloadingModel?.id == item.id { ModelTransferStatus(model: model) }
     }
 }
