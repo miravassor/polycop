@@ -124,9 +124,12 @@ Every page speaks the same visual language. The shared pieces live in
   inside the foot of its edge. Managing a choice ("Manage Models…") is the last item
   of that choice's menu, as Xcode's scheme menu ends with Manage Schemes….
 * A page's tools are window toolbar items, drawn by the system, each also a menu
-  command, centred above the text. The toolbar is the compact one, without a
-  title, so they fit above the text of a split screen window with the
-  inspector open. Controls are the system's, never drawn by hand.
+  command, centred above the text, in one capsule (menus show no arrow). The
+  toolbar has no title, so they fit above the text of a split screen window
+  with the inspector open, and every item, the library's and the inspector's
+  buttons too, is a size smaller than macOS 26 draws it (`ToolbarItemSize`),
+  in the regular toolbar, which keeps the library floating up to the window's
+  top. Controls are the system's, never drawn by hand.
 * Text editors: `editorBorder()`, with the corners of a control.
 * Warnings and failures: a `Label` with `notice(_:)`, colour on the icon only. Text
   stays in the label colours, since orange, red or green text is too faint to read
