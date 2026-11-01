@@ -41,8 +41,12 @@ struct PlayedGlass: View {
             GlassEffectContainer(spacing: 14) {
                 ZStack {
                     // One outline for the line and the knob, so no joint shows
-                    // between them.
+                    // between them. Glass loses its tint in a background
+                    // window, so the accent shows there underneath the light.
                     flow(across: geometry.size.width)
+                        .background {
+                            if !appearsActive { Rectangle().fill(.tint) }
+                        }
                         .clipShape(shape)
                         .glassEffect(.regular.tint(.accentColor), in: shape)
                     if Self.showsDrop(
