@@ -50,9 +50,10 @@ extension AppModel.Stage {
 
 extension AppModel {
     /// Whether a recording waits for the model being downloaded, which it
-    /// needs before it can start.
+    /// needs before it can start. The stage is read last: each library row
+    /// asks, and a row that reads it is drawn again at every step of progress.
     func isWaitingForDownload(_ entry: Entry) -> Bool {
-        stage.isDownloading && entry.state == .waiting && downloadingModel?.id == entry.modelFile
+        entry.state == .waiting && downloadingModel?.id == entry.modelFile && stage.isDownloading
     }
 
     func waitingStep(for entry: Entry) -> WaitingStep? {
