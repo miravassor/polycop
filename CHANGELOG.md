@@ -23,6 +23,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 * The window is titled with the open transcript, and the page's tools are in the toolbar: Compare, which shows the original beside the text and is in the View menu too, Review, Find, which a second click closes, text size and the transcript's actions. The transcription details are a section of the inspector.
 * The text keeps a reading width, about 75 characters a line at the chosen size and centred, so a wide window or full screen adds margins rather than very long lines.
 * "Word following" in the model features is now "Word timings", the name of what the engine provides.
+* On macOS 26, the player's timeline is liquid glass: the part played is a line of glass in the accent colour that melts into a knob of the same glass, which swells while dragged, and a small drop follows the pointer and melts into the knob as it comes near. While playing, light flows gently along the glass at the playing speed and comes to rest on pause; it stays still with Reduce Motion, in Low Power Mode and in a window in the background.
 
 ## 0.4.0 (2026-10-03)
 
