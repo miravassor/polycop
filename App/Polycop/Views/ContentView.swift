@@ -37,12 +37,15 @@ struct ContentView: View {
     private var minimumWidth: CGFloat {
         guard showsInspector, case .entry = model.pane, selected.count <= 1 else { return 860 }
         // At its widest: macOS squeezes a column below its minimum otherwise.
-        let library = columns == .detailOnly ? 0 : Self.widestLibrary
+        let library = columns == .detailOnly ? 0 : Self.libraryWidths.upperBound
         return max(860, library + PlayerBar.narrowest + 56 + inspectorWidth)
     }
     /// Whether the library shows, which the reader changes.
     @State private var columns = NavigationSplitViewVisibility.automatic
-    private static let widestLibrary: CGFloat = 280
+    /// The library's widths: by default about as wide as the inspector, so
+    /// the text sits between two balanced columns.
+    static let libraryWidths: ClosedRange<CGFloat> = 220...340
+    static let idealLibraryWidth: CGFloat = 300
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columns) {
@@ -57,7 +60,10 @@ struct ContentView: View {
             }
             .listStyle(.sidebar)
             .contextMenu { newFolder }
-            .navigationSplitViewColumnWidth(min: 200, ideal: 240, max: Self.widestLibrary)
+            .navigationSplitViewColumnWidth(
+                min: Self.libraryWidths.lowerBound, ideal: Self.idealLibraryWidth,
+                max: Self.libraryWidths.upperBound
+            )
             .safeAreaInset(edge: .bottom) {
                 Label("Always stored on this Mac", systemImage: "lock")
                     .font(.caption)

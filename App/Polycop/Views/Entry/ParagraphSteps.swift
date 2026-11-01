@@ -12,6 +12,10 @@ struct ParagraphSteps {
     @Binding var jump: Int?
 
     var canReplay: Bool { activeParagraph != nil && entry.hasRecording }
+    var canStop: Bool { model.player.isOpen || model.player.isPreparing }
+
+    /// Stops and closes the recording.
+    func stop() { model.player.stop() }
     var canStep: Bool { entry.hasRecording && !entry.paragraphs.isEmpty }
 
     /// Replays the active paragraph with two seconds of context.
@@ -46,7 +50,7 @@ extension FocusedValues {
 }
 
 /// The Playback menu: playing from the text cursor, replaying the active
-/// paragraph and playing the one before or after.
+/// paragraph, playing the one before or after, and stopping.
 struct PlaybackCommands: Commands {
     @FocusedValue(\.paragraphSteps) private var steps
 
@@ -68,6 +72,9 @@ struct PlaybackCommands: Commands {
             Button("Next Paragraph") { steps?.step(by: 1) }
                 .keyboardShortcut(.downArrow, modifiers: [.command, .option])
                 .disabled(steps?.canStep != true)
+            Divider()
+            Button("Stop") { steps?.stop() }
+                .disabled(steps?.canStop != true)
         }
     }
 }

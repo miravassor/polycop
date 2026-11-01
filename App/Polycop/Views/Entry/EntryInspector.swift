@@ -2,15 +2,15 @@
 
 import SwiftUI
 
-/// Beside the text, in the system's inspector: the picture of a video, moving
-/// through the paragraphs while listening, and the export. A grouped form as
-/// in Settings, so every control sits on a row of its own section, label at
-/// the leading edge and control at the trailing one. The player itself stays
-/// under the text, inspector or not.
+/// Beside the text, in the system's inspector: the picture of a video, how the
+/// page follows playback, the export, and the settings the transcript was made
+/// with. A grouped form as in Settings, so every control sits on a row of its
+/// own section, label at the leading edge and control at the trailing one. The
+/// player itself, with its paragraph steps, stays under the text, inspector or
+/// not.
 struct EntryInspector: View {
     let model: AppModel
     let entry: Entry
-    let steps: ParagraphSteps
     @Binding var following: Following
     @Binding var isFollowSuspended: Bool
     /// Whether any word has a time, which the highlight and the cursor need.
@@ -25,24 +25,15 @@ struct EntryInspector: View {
     var body: some View {
         Form {
             if let picture, let source {
-                Section("Video") {
-                    EntryVideo(
-                        model: model, id: entry.id, source: source, picture: picture,
-                        resume: entry.playbackPosition ?? 0)
-                    VideoControls(model: model)
-                }
+                VideoSection(
+                    model: model, id: entry.id, source: source, picture: picture,
+                    resume: entry.playbackPosition ?? 0)
             }
             if !entry.paragraphs.isEmpty {
-                Section("Playback") {
-                    follow
-                    HStack(spacing: 8) {
-                        step("Previous", systemImage: "chevron.up", by: -1)
-                        replayPassage
-                        step("Next", systemImage: "chevron.down", by: 1)
-                    }
-                }
+                Section("Playback") { follow }
             }
             EntryExportSection(model: model, entry: entry, isRunning: isRunning, engine: engine)
+            EntryDetails(entry: entry, engine: engine)
         }
         .formStyle(.grouped)
         .task(id: entry.recording) {
@@ -79,33 +70,6 @@ struct EntryInspector: View {
                     : "Page scrolls to the paragraph being played. This transcript has no word timings, so the word heard is not highlighted and the cursor cannot follow it."
             )
         }
-    }
-
-    /// The shortcuts are the Playback menu's, which work with the inspector
-    /// hidden.
-    private var replayPassage: some View {
-        Button(action: steps.replay) {
-            Label("Replay", systemImage: "gobackward").frame(maxWidth: .infinity)
-        }
-        .disabled(!steps.canReplay)
-        .help("Replay the active paragraph with two seconds of context (Option-Command-R)")
-    }
-
-    private func step(_ title: LocalizedStringKey, systemImage: String, by offset: Int)
-        -> some View
-    {
-        Button {
-            steps.step(by: offset)
-        } label: {
-            Label(title, systemImage: systemImage).frame(maxWidth: .infinity)
-        }
-        .disabled(!steps.canStep)
-        .help(
-            offset < 0
-                ? "Play the previous paragraph (Option-Command-Up Arrow)"
-                : "Play the next paragraph (Option-Command-Down Arrow)"
-        )
-        .accessibilityLabel(offset < 0 ? "Play the previous paragraph" : "Play the next paragraph")
     }
 }
 

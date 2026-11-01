@@ -17,7 +17,6 @@ struct NewTranscriptionView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                Text("New transcription").font(.title2.weight(.semibold))
                 // Side by side when the window is wide, as in full screen,
                 // rather than one narrow column beside empty space.
                 if width >= 940 {
@@ -41,6 +40,7 @@ struct NewTranscriptionView: View {
             }
             .frame(maxWidth: .infinity)
         }
+        .navigationTitle("New Transcription")
         .sheet(isPresented: $editingGlossaries) { GlossaryEditor(model: model) }
         .sheet(isPresented: $managingModels) {
             ModelManagerView(model: model, importingModel: $importingModel)

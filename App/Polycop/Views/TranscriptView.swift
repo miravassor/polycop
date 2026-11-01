@@ -99,7 +99,7 @@ struct TranscriptView: View {
                                 WordTextView.holdsCursor = false
                             }
                         ) { paragraph in
-                            scroll(to: paragraph, in: view, height: viewport.size.height)
+                            scroll(to: paragraph, in: view, height: visibleHeight(viewport))
                         }
                     }
                     .onAppear {
@@ -112,12 +112,17 @@ struct TranscriptView: View {
                     }
                     .onChange(of: jump) { _, paragraph in
                         guard let paragraph else { return }
-                        scroll(to: paragraph, in: view, height: viewport.size.height)
+                        scroll(to: paragraph, in: view, height: visibleHeight(viewport))
                         jump = nil
                     }
                 }
             }
         }
+    }
+
+    /// The height the text shows in, above the player floating over its foot.
+    private func visibleHeight(_ viewport: GeometryProxy) -> CGFloat {
+        viewport.size.height - viewport.safeAreaInsets.bottom
     }
 
     private func scroll(to paragraph: Int, in view: ScrollViewProxy, height: CGFloat) {

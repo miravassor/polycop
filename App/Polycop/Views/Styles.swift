@@ -6,13 +6,25 @@ import SwiftUI
 // padding, the controls and rows inside them corners of 6.
 
 extension View {
+    /// Controls floating over the foot of a scrolling view: on macOS 26 the
+    /// content scrolls under them with the system's soft edge, as Music's list
+    /// under its player; before, under them as they are.
+    @ViewBuilder func floatingBar(@ViewBuilder _ bar: () -> some View) -> some View {
+        let bar = bar()
+        if #available(macOS 26, *) {
+            safeAreaBar(edge: .bottom) { bar }
+        } else {
+            safeAreaInset(edge: .bottom, spacing: 0) { bar }
+        }
+    }
+
     /// A card: a section of a page, or the player. A tint colours its fill
     /// alone, as each engine's card does in the model list.
-    func panel(isHighlighted: Bool = false, tint: Color? = nil, verticalPadding: CGFloat = 16)
+    func panel(isHighlighted: Bool = false, tint: Color? = nil)
         -> some View
     {
         padding(.horizontal, 16)
-            .padding(.vertical, verticalPadding)
+            .padding(.vertical, 16)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 isHighlighted
@@ -25,17 +37,6 @@ extension View {
                     .strokeBorder(isHighlighted ? Color.accentColor : Color.primary.opacity(0.1))
                     .allowsHitTesting(false)
             }
-    }
-
-    /// An icon button or menu of a page header, all of one size.
-    func iconControl() -> some View {
-        frame(width: 32, height: 28).controlFill()
-    }
-
-    /// The fill of a control drawn by hand. The header's icon controls have
-    /// it, and the player's speed menu, as tall as the player's buttons.
-    func controlFill() -> some View {
-        background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 6))
     }
 
     /// A notice: its icon carries the colour of what it says, its text keeps

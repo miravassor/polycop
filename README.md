@@ -70,12 +70,11 @@ unless they agree to more.
   transcripts.
 * **Changes shown as a diff** between what the model wrote and your corrected
   text.
-* **Audio player** made for proofreading, under the text: playback speed, a
-  timeline with the paragraphs, and the next or previous paragraph from the
-  keyboard. The inspector beside the text (Control-Command-I, resizable by its
-  edge) holds the video,
-  replaying a passage, stepping between paragraphs, Follow and export. Follow
-  scrolls the page with playback (Page), or also takes the
+* **Audio player** made for proofreading, floating at the foot of the text:
+  the previous and next paragraph either side of 5 seconds back and on, a
+  timeline with the paragraphs, and playback speed. The inspector beside the
+  text (Control-Command-I, resizable by its edge) holds the video, Follow and
+  export. Follow scrolls the page with playback (Page), or also takes the
   text cursor along with the word heard (Page and Cursor), so the next
   correction is typed where the audio is. Scrolling away pauses it until
   Return to playback. Space plays and pauses when you are
@@ -84,10 +83,10 @@ unless they agree to more.
   when the headphones it plays through disconnect.
 * **Video** of a class recorded with Zoom or Teams plays in the inspector,
   driven by the same player. A click on the picture plays or pauses, and a
-  double click fills the screen. The buttons under the picture float it in
+  double click fills the screen. The buttons on its corner float it in
   Picture in Picture, above other apps and on any screen, or fill the screen,
-  and Show Video turned off keeps the sound only. Copy Frame, in the picture's menu, copies a slide to paste into
-  notes.
+  and folding its section keeps the sound only. Copy Frame, in the picture's
+  menu, copies a slide to paste into notes.
 * **Review marks** on passages to check later.
 * **Export** to text with or without timestamps, to Markdown or to a Word
   document, with hesitations such as "euh" left out if you want, and to SRT
