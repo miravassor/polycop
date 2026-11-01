@@ -115,8 +115,8 @@ struct NewTranscriptionView: View {
             // The way to add recordings first, in the accent colour as Start;
             // a transcript made elsewhere as a quieter line under it.
             VStack(spacing: 16) {
-                Button("Choose Recordings…", systemImage: "plus", action: chooseRecordings)
-                    .modifier(ActionCapsule(isProminent: true))
+                ActionButton(
+                    title: "Choose Recordings…", systemImage: "plus", action: chooseRecordings)
                 Button(
                     "Import Transcript and Recording…", systemImage: "square.and.arrow.down"
                 ) {
