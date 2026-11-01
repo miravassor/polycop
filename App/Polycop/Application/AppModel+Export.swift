@@ -21,8 +21,7 @@ extension AppModel {
         write(id) { try Transcript.write($0, as: destination) }
     }
 
-    /// Exports as chosen in the save panel, which becomes the transcript's
-    /// export from then on.
+    /// Makes this format the transcript's export, then writes it.
     func export(
         _ id: Entry.ID, as format: Transcript.Format, times: Bool, to destination: URL
     ) {
