@@ -76,7 +76,7 @@ struct PlayerBar: View, @MainActor Equatable {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 6)
-        .modifier(PlayerSurface(isOneLine: width >= Self.oneLine))
+        .modifier(FloatingSurface(cornerRadius: width >= Self.oneLine ? 26 : 18))
         .onGeometryChange(for: CGFloat.self) {
             $0.size.width
         } action: {
@@ -353,21 +353,5 @@ nonisolated struct TimelineScale {
     func time(at x: CGFloat) -> TimeInterval {
         guard trackWidth > 0, duration.isFinite, duration > 0, x.isFinite else { return 0 }
         return min(1, max(0, (x - inset) / trackWidth)) * duration
-    }
-}
-
-/// The player's surface: glass on macOS 26, as Music's player, blurring the
-/// text that scrolls under it; the system's material before. A capsule on one
-/// line, a rounded rectangle on two.
-private struct PlayerSurface: ViewModifier {
-    let isOneLine: Bool
-
-    func body(content: Content) -> some View {
-        let shape = RoundedRectangle(cornerRadius: isOneLine ? 26 : 18)
-        if #available(macOS 26, *) {
-            content.glassEffect(.regular, in: shape)
-        } else {
-            content.background(.regularMaterial, in: shape)
-        }
     }
 }

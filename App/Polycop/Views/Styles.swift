@@ -57,6 +57,22 @@ extension View {
     }
 }
 
+/// The surface of what floats at the foot of a page, the player or Start:
+/// glass on macOS 26, as Music's player, blurring what scrolls under it; the
+/// system's material before. A capsule on one line, rounder corners on two.
+struct FloatingSurface: ViewModifier {
+    let cornerRadius: CGFloat
+
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius)
+        if #available(macOS 26, *) {
+            content.glassEffect(.regular, in: shape)
+        } else {
+            content.background(.regularMaterial, in: shape)
+        }
+    }
+}
+
 struct NoticeLabelStyle: LabelStyle {
     let tint: Color
 

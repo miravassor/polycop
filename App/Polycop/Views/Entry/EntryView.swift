@@ -344,18 +344,7 @@ extension EntryView {
             isFollowSuspended: $isFollowSuspended,
             hasTimedWords: words.contains { !$0.isEmpty }, isRunning: isRunning, engine: engine
         )
-        .onGeometryChange(for: CGFloat.self) {
-            $0.size.width
-        } action: {
-            inspectorWidth = max($0, Self.inspectorWidths.lowerBound)
-        }
-        // Starting where the reader left it: each transcript has a page, and
-        // so an inspector, of its own.
-        .inspectorColumnWidth(
-            min: Self.inspectorWidths.lowerBound, ideal: inspectorWidth,
-            max: Self.inspectorWidths.upperBound
-        )
-        .modifier(InspectorToggle(isShown: $showsInspector))
+        .modifier(InspectorColumn(isShown: $showsInspector, width: $inspectorWidth))
     }
 
     private var steps: ParagraphSteps {
