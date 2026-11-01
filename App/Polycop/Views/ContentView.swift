@@ -67,6 +67,7 @@ struct ContentView: View {
                 RecentlyDeletedSection(model: model)
             }
             .listStyle(.sidebar)
+            .modifier(LibraryToggle(isShown: $showsLibrary))
             .contextMenu { newFolder }
             .onGeometryChange(for: CGFloat.self) {
                 $0.size.width
@@ -285,11 +286,14 @@ struct ContentView: View {
                 Text("Folders")
                 Spacer(minLength: 8)
                 Button(action: startNewFolder) {
+                    // The library's button's size, and centred under it, which
+                    // sits 2.5 points further out than the header's edge.
                     Image(systemName: "folder.badge.plus")
-                        .font(.caption)
+                        .font(.body)
                         .foregroundStyle(.secondary)
-                        .padding(.horizontal, 4)
+                        .frame(width: ToolbarItemSize.square)
                         .contentShape(Rectangle())
+                        .offset(x: 2.5)
                 }
                 .buttonStyle(.plain)
                 .help("New folder")

@@ -56,6 +56,26 @@ struct FloatingSurface: ViewModifier {
     }
 }
 
+/// A toolbar item a size smaller than macOS 26 draws it, as its compact
+/// toolbar would, in the regular toolbar, which keeps the library floating up
+/// to the window's top. Every item takes it, the library's and the
+/// inspector's buttons too, so that all are one size. An item alone keeps
+/// the square the bar gives it, as tall as the bar's glass, or its glass
+/// would narrow into an oval around the smaller symbol; items sharing a
+/// capsule are laid out by the system, which leaves the width aside.
+struct ToolbarItemSize: ViewModifier {
+    /// The height of the regular bar's glass on macOS 26, measured.
+    static let square: CGFloat = 36
+
+    func body(content: Content) -> some View {
+        if #available(macOS 26, *) {
+            content.controlSize(.regular).frame(width: Self.square)
+        } else {
+            content
+        }
+    }
+}
+
 struct NoticeLabelStyle: LabelStyle {
     let tint: Color
 
