@@ -59,11 +59,13 @@ struct FloatingSurface: ViewModifier {
 /// A toolbar item a size smaller than macOS 26 draws it, as its compact
 /// toolbar would, in the regular toolbar, which keeps the library floating up
 /// to the window's top. Every item takes it, the library's and the
-/// inspector's buttons too, so that all are one size.
+/// inspector's buttons too, so that all are one size. The smaller size
+/// narrows the room around each symbol too, which the padding gives back:
+/// a capsule of them keeps the margins it has at the larger size.
 struct ToolbarItemSize: ViewModifier {
     func body(content: Content) -> some View {
         if #available(macOS 26, *) {
-            content.controlSize(.regular)
+            content.controlSize(.regular).padding(.horizontal, 2)
         } else {
             content
         }

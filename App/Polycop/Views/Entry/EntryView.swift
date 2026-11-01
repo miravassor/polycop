@@ -186,23 +186,19 @@ struct EntryView: View {
         // Above the text they act on, the inspector's button alone at the
         // trailing edge. One capsule of evenly spaced symbols: the menus show
         // no arrow, which would set one apart in a capsule of its own.
-        if !entry.paragraphs.isEmpty {
-            ToolbarItemGroup(placement: .principal) {
-                Group {
+        ToolbarItemGroup(placement: .principal) {
+            Group {
+                if !entry.paragraphs.isEmpty {
                     compareToggle
                     reviewMenu
                     findButton
                     textMenu
                 }
-                .modifier(ToolbarItemSize())
+                EntryActionsMenu(
+                    model: model, entry: entry, isRunning: isRunning,
+                    confirmingRevert: $confirmingRevert, confirmingRemoval: $confirmingRemoval,
+                    exportAs: { EntryExportSection.exportAs(entry, with: model) })
             }
-        }
-        ToolbarItem(placement: .principal) {
-            EntryActionsMenu(
-                model: model, entry: entry, isRunning: isRunning,
-                confirmingRevert: $confirmingRevert, confirmingRemoval: $confirmingRemoval,
-                exportAs: { EntryExportSection.exportAs(entry, with: model) }
-            )
             .modifier(ToolbarItemSize())
         }
     }
