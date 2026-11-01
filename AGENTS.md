@@ -124,7 +124,9 @@ Every page speaks the same visual language. The shared pieces live in
   inside the foot of its edge. Managing a choice ("Manage Models…") is the last item
   of that choice's menu, as Xcode's scheme menu ends with Manage Schemes….
 * A page's tools are window toolbar items, drawn by the system, each also a menu
-  command. Controls are the system's, never drawn by hand.
+  command, centred above the text. The toolbar is the compact one, without a
+  title, so they fit above the text of a split screen window with the
+  inspector open. Controls are the system's, never drawn by hand.
 * Text editors: `editorBorder()`, with the corners of a control.
 * Warnings and failures: a `Label` with `notice(_:)`, colour on the icon only. Text
   stays in the label colours, since orange, red or green text is too faint to read
@@ -132,8 +134,8 @@ Every page speaks the same visual language. The shared pieces live in
 * Spacing: 28 points around a page, 16 between blocks. The transcript page has 16
   under the toolbar, and its player floats 8 above the window's foot, level with
   the foot of the library beside it. Sheets have 24 points of padding, popovers 20.
-* Type: a page's title is the window's (`navigationTitle`); a sheet title in `.title2`
-  semibold. A row says what it is in a few words; a line under it only for what a
+* Type: a page's title is the window's (`navigationTitle`), named in the Window
+  menu, not shown in the toolbar; a sheet title in `.title2` semibold. A row says what it is in a few words; a line under it only for what a
   student could not guess. Text styles only, no fixed point sizes.
 * One prominent button per area, for its main action; the rest use the default style.
   Names say what happens, in the app's own words: a recording is audio or video, an
