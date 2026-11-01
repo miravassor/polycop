@@ -317,7 +317,8 @@ extension ContentView {
 
     private func row(_ entry: Entry) -> some View {
         let targets = targets(of: entry)
-        return EntryRow(entry: entry, stage: entry.id == model.busyEntry ? model.stage : nil)
+        let isWorking = entry.id == model.busyEntry || model.isWaitingForDownload(entry)
+        return EntryRow(entry: entry, stage: isWorking ? model.stage : nil)
             .tag(AppModel.Pane.entry(entry.id))
             .draggable(targets.map(\.uuidString).joined(separator: "\n"))
             .contextMenu {

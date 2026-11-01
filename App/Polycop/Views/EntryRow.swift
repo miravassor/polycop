@@ -24,27 +24,38 @@ struct EntryRow: View {
     private var status: some View {
         switch entry.state {
         case .waiting:
-            Text("Waiting")
+            Text(stage.map(\.line) ?? String(localized: "Waiting"))
         case .running:
-            switch stage {
-            case .transcribing(let progress): Text("Transcribing · \(percent(progress))")
-            case .repairing(let progress): Text("Repeats · \(percent(progress))")
-            case .paused(let progress): Text("Paused · \(percent(progress))")
-            case .stopping: Text("Stopping")
-            default: Text("Preparing")
-            }
+            Text(stage.map(\.line) ?? AppModel.Stage.decoding.title)
         case .finished:
             // Busy while finished only when its repeats are transcribed again.
-            switch stage {
-            case .repairing(let progress): Text("Repeats · \(percent(progress))")
-            case nil: Text("Ready to review")
-            default: Text("Preparing")
-            }
+            Text(stage.map(\.line) ?? String(localized: "Ready to review"))
         case .stopped:
             Text("Stopped before the end")
         case .failed:
             Label("Failed", systemImage: "exclamationmark.circle")
         }
+    }
+}
+
+/// The words for the work under way, the same in the library and on the
+/// transcript's page, so a state never has two names.
+extension AppModel.Stage {
+    var title: String {
+        switch self {
+        case .downloading: String(localized: "Downloading the model")
+        case .transcribing: String(localized: "Transcribing")
+        case .repairing: String(localized: "Transcribing the repeats")
+        case .paused: String(localized: "Paused")
+        case .stopping: String(localized: "Stopping")
+        case .waiting, .loading, .decoding: String(localized: "Preparing")
+        }
+    }
+
+    /// The title with how far it is, for a line of its own.
+    var line: String {
+        guard let fraction else { return title }
+        return "\(title) · \(percent(fraction))"
     }
 }
 

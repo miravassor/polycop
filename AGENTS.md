@@ -111,7 +111,8 @@ Every page speaks the same visual language. The shared pieces live in
   Music player: the previous and next paragraph either side of 5 seconds back, play
   and 5 seconds on, then the timeline and times, centred on one line, on
   `FloatingSurface` (glass on macOS 26, the system's material before). Find opens at
-  the top, away from it.
+  the top, away from it. Work under way on a transcript is one capsule on the same
+  surface, centred above the text, in the words of its row in the library.
 * A list's Add and Clear sit on its title line at the trailing edge, aligned with the
   rows, removal last. A list of things kept, such as courses, has the Mac's + and −
   inside the foot of its edge. Managing a choice ("Manage Models…") is the last item
