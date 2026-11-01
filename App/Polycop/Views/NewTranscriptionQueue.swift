@@ -142,17 +142,25 @@ struct StartBar: View {
 }
 
 /// A capsule as tall as the player, in the accent colour when it is the page's
-/// main action, as the inspector's Export button.
+/// main action: glass on macOS 26 as the player, the system's material before.
 struct ActionCapsule: ViewModifier {
     let isProminent: Bool
 
     func body(content: Content) -> some View {
-        if isProminent {
-            content.buttonStyle(.borderedProminent).controlSize(.extraLarge)
-                .buttonBorderShape(.capsule)
+        if #available(macOS 26, *) {
+            if isProminent {
+                content.buttonStyle(.glassProminent).controlSize(.extraLarge)
+            } else {
+                content.buttonStyle(.glass).controlSize(.extraLarge)
+            }
         } else {
-            content.buttonStyle(.bordered).controlSize(.extraLarge)
-                .buttonBorderShape(.capsule)
+            if isProminent {
+                content.buttonStyle(.borderedProminent).controlSize(.extraLarge)
+                    .buttonBorderShape(.capsule)
+            } else {
+                content.buttonStyle(.bordered).controlSize(.extraLarge)
+                    .buttonBorderShape(.capsule)
+            }
         }
     }
 }

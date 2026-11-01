@@ -14,7 +14,7 @@ struct NewTranscriptionSettings: View {
 
     var body: some View {
         Form {
-            Section("Transcription") {
+            Section("Transcription Settings") {
                 LabeledContent("Model") {
                     // Managing at the foot of the choices, as Xcode's scheme
                     // menu ends with Manage Schemes….
