@@ -79,7 +79,7 @@ struct ActionButton: View {
         Group {
             if #available(macOS 26, *) {
                 if isProminent {
-                    Button(action: action) { GlassLabel(title: title, systemImage: systemImage) }
+                    Button(title, systemImage: systemImage, action: action)
                         .buttonStyle(.glassProminent)
                 } else {
                     Button(title, systemImage: systemImage, action: action)
@@ -97,22 +97,5 @@ struct ActionButton: View {
         }
         .buttonBorderShape(.capsule)
         .controlSize(.extraLarge)
-    }
-}
-
-/// The glass blends its label with the accent colour, too pale to read, so the
-/// label is drawn white, as on a solid prominent button. Only while the window
-/// is active and the button enabled: otherwise the glass turns pale, and the
-/// system's label reads on it.
-@available(macOS 26, *)
-private struct GlassLabel: View {
-    let title: LocalizedStringKey
-    let systemImage: String
-    @Environment(\.appearsActive) private var appearsActive
-    @Environment(\.isEnabled) private var isEnabled
-
-    var body: some View {
-        Label(title, systemImage: systemImage)
-            .foregroundColor(appearsActive && isEnabled ? .white : nil)
     }
 }
