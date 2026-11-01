@@ -67,6 +67,7 @@ struct ContentView: View {
                 RecentlyDeletedSection(model: model)
             }
             .listStyle(.sidebar)
+            .modifier(LibraryToggle(isShown: $showsLibrary))
             .contextMenu { newFolder }
             .onGeometryChange(for: CGFloat.self) {
                 $0.size.width

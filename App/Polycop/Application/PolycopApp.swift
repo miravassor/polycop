@@ -103,11 +103,13 @@ struct PolycopApp: App {
                 + EntryView.idealInspectorWidth,
             height: 880
         )
-        // Smaller items, and no title beside them: a recording's name is long,
-        // and the page's tools must fit above the text in a split screen
-        // window. The name stays the window's, in the Window menu, and the
-        // library shows which transcript is open, as Notes does.
-        .windowToolbarStyle(.unifiedCompact(showsTitle: false))
+        // No title beside the page's tools: a recording's name is long, and
+        // the tools must fit above the text of a split screen window. The
+        // name stays the window's, in the Window menu, and the library shows
+        // which transcript is open, as Notes does. Not the compact style,
+        // which would put the library under the bar rather than floating up
+        // to the window's top; the items take its size (`ToolbarItemSize`).
+        .windowToolbarStyle(.unified(showsTitle: false))
         .commands {
             CommandGroup(after: .appInfo) {
                 Button("Check for Updates…") { UpdatePrompt.checkForUpdates() }

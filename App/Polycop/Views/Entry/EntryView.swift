@@ -184,20 +184,26 @@ struct EntryView: View {
     /// shortcut; the actions on the whole transcript in its More menu.
     @ToolbarContentBuilder private var pageTools: some ToolbarContent {
         // Above the text they act on, the inspector's button alone at the
-        // trailing edge.
+        // trailing edge. One capsule of evenly spaced symbols: the menus show
+        // no arrow, which would set one apart in a capsule of its own.
         if !entry.paragraphs.isEmpty {
             ToolbarItemGroup(placement: .principal) {
-                compareToggle
-                reviewMenu
-                findButton
-                textMenu
+                Group {
+                    compareToggle
+                    reviewMenu
+                    findButton
+                    textMenu
+                }
+                .modifier(ToolbarItemSize())
             }
         }
         ToolbarItem(placement: .principal) {
             EntryActionsMenu(
                 model: model, entry: entry, isRunning: isRunning,
                 confirmingRevert: $confirmingRevert, confirmingRemoval: $confirmingRemoval,
-                exportAs: { EntryExportSection.exportAs(entry, with: model) })
+                exportAs: { EntryExportSection.exportAs(entry, with: model) }
+            )
+            .modifier(ToolbarItemSize())
         }
     }
 
@@ -228,6 +234,7 @@ struct EntryView: View {
         } label: {
             Label("Review (\(entry.reviewParagraphs.count))", systemImage: "flag")
         }
+        .menuIndicator(.hidden)
         .help("Flagged passages: \(entry.reviewParagraphs.count)")
     }
 
