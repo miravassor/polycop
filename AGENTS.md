@@ -19,7 +19,7 @@ xcodebuild test -project App/Polycop.xcodeproj -scheme Polycop -destination 'pla
 Tools/package.sh           # locally signed app and zip with its sources, in build/releases/
 ```
 
-* The test suite takes about 6 minutes. Run it once per change set, not after each edit.
+* The test suite takes about 3 minutes once built. Run it once per change set, not after each edit.
 * Tests can run while Polycop is open. The app they run in opens an empty library of
   its own and clears no leftover files, so it leaves the user's copy alone.
 * Tests that need a model skip themselves when that model is not installed.
