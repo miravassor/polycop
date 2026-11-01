@@ -32,7 +32,7 @@ struct EntryInspector: View {
             if !entry.paragraphs.isEmpty {
                 Section("Playback") { follow }
             }
-            EntryExportSection(model: model, entry: entry, isRunning: isRunning, engine: engine)
+            EntryExportSection(model: model, entry: entry, isRunning: isRunning)
             EntryDetails(entry: entry, engine: engine)
         }
         .formStyle(.grouped)

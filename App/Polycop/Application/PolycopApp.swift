@@ -36,16 +36,12 @@ struct PolycopApp: App {
         return entry
     }
 
-    /// Updates the export as Save would a document, or asks where to put one
-    /// when there is none to update.
-    private func exportOpenTranscript(choosingPlace: Bool) {
+    /// A new copy each time, where the user chooses: corrections are saved in
+    /// the library, so an export is never updated in place.
+    private func exportOpenTranscript() {
         TypingBuffer.flush()
         guard let entry = openTranscript else { return }
-        switch model.exportState(of: entry) {
-        case .outOfDate where !choosingPlace: model.updateExport(entry.id)
-        case .current where !choosingPlace: break
-        default: EntryExportSection.exportAs(entry, with: model)
-        }
+        EntryExportSection.exportAs(entry, with: model)
     }
 
     static var isHostingTests: Bool { TestHost.isRunning }
@@ -137,14 +133,9 @@ struct PolycopApp: App {
                 Button("Manage Glossaries…") { model.manageGlossaries() }
                     .keyboardShortcut("g", modifiers: [.command, .option])
                 Divider()
-                // Enabled whatever the export's state, which typing not yet
-                // handed to the model can have changed by the time the key
-                // arrives: the action reads it once the typing is in.
-                Button("Export Text") { exportOpenTranscript(choosingPlace: false) }
+                // Typing not yet handed to the model is flushed first.
+                Button("Export…") { exportOpenTranscript() }
                     .keyboardShortcut("s")
-                    .disabled(openTranscript == nil)
-                Button("Export Text As…") { exportOpenTranscript(choosingPlace: true) }
-                    .keyboardShortcut("s", modifiers: [.command, .shift])
                     .disabled(openTranscript == nil)
             }
             PlaybackCommands()

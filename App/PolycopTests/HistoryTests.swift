@@ -424,8 +424,8 @@ private func entry(_ name: String, in folder: URL, added: Date = .now) -> Entry 
     #expect(!model.canUndo(entry.id))
 }
 
-/// The export writes the layout chosen for this transcript, and a new layout
-/// makes the earlier export out of date.
+/// The export writes the format chosen for this transcript. Another choice
+/// marks the last export as no longer matching, which earlier versions read.
 @MainActor
 @Test func theExportFollowsTheTranscriptsLayout() throws {
     let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
@@ -444,7 +444,7 @@ private func entry(_ name: String, in folder: URL, added: Date = .now) -> Entry 
     try HistoryStore.write(entry, in: history)
     let model = AppModel(history: history)
 
-    model.setTextLayout(.markdown, for: entry.id)
+    model.setExport(.markdown, times: true, for: entry.id)
     model.setRemovesHesitations(true, for: entry.id)
     model.export(entry.id, to: folder.appending(path: "Cours.txt"))
 
@@ -454,12 +454,11 @@ private func entry(_ name: String, in folder: URL, added: Date = .now) -> Entry 
     // A paragraph that was only a hesitation leaves no bare time behind.
     #expect(!written.contains("00:00:10"))
     let exported = try #require(model.entry(entry.id))
-    #expect(model.exportState(of: exported) == .current)
+    #expect(model.lastExport(of: exported) == folder.appending(path: "Cours.md"))
+    #expect(exported.isSaved)
 
-    model.setTextLayout(.plain, for: entry.id)
-    #expect(model.exportState(of: try #require(model.entry(entry.id))) == .none)
-    model.setTextLayout(.markdown, for: entry.id)
-    #expect(model.exportState(of: try #require(model.entry(entry.id))) == .outOfDate)
+    model.setExport(.plainText, times: false, for: entry.id)
+    #expect(model.entry(entry.id)?.isSaved == false)
 }
 
 /// Typing is written after a pause rather than at each key, and what is left

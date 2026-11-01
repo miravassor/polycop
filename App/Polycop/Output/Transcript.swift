@@ -103,13 +103,31 @@ nonisolated enum Transcript {
         }
     }
 
-    static func text(_ paragraphs: [Paragraph], layout: TextLayout, title: String) -> String {
+    /// What an export is written as. Whether it times its paragraphs is a
+    /// choice of its own.
+    nonisolated enum Format: String, CaseIterable, Sendable {
+        case plainText
+        case markdown
+        case word
+        /// The model's sentences and timings, for a model that times them.
+        case subtitles
+    }
+
+    /// Plain text times its paragraphs by its layout; Markdown by `times`.
+    static func text(
+        _ paragraphs: [Paragraph], layout: TextLayout, title: String, times: Bool = true
+    ) -> String {
         switch layout {
         case .timestamped, .word: text(paragraphs)
         case .plain: paragraphs.map { "\($0.text)\n\n" }.joined()
         case .markdown:
             "# \(markdownEscaped(title))\n\n"
-                + paragraphs.map { "**\($0.time)** \(markdownEscaped($0.text))\n\n" }.joined()
+                + paragraphs.map {
+                    times
+                        ? "**\($0.time)** \(markdownEscaped($0.text))\n\n"
+                        : "\(markdownEscaped($0.text))\n\n"
+                }
+                .joined()
         }
     }
 
@@ -196,22 +214,7 @@ nonisolated enum Transcript {
         return partial ? String(localized: "\(name) (partial)") : name
     }
 
-    /// Overwrites files saved earlier for the same result, but only when each
-    /// still holds exactly what was written (checked by digest) and they
-    /// match the formats one for one. Returns nil otherwise, so a file
-    /// changed elsewhere is never overwritten.
-    static func update(
-        _ files: [URL], holding digests: [String],
-        with formats: [(suffix: String, contents: Data)]
-    ) throws -> [URL]? {
-        guard !files.isEmpty, files.count == formats.count, digests.count == files.count,
-            zip(files, formats).allSatisfy({ $0.pathExtension == $1.suffix }),
-            zip(files, digests).allSatisfy({ digest(ofFileAt: $0) == $1 })
-        else { return nil }
-        return try write(formats, to: files)
-    }
-
-    private static func write(
+    static func write(
         _ formats: [(suffix: String, contents: Data)], to files: [URL]
     ) throws -> [URL] {
         var written: [URL] = []
@@ -234,13 +237,6 @@ nonisolated enum Transcript {
 
     static func digest(_ text: String) -> String {
         digest(Data(text.utf8))
-    }
-
-    /// Digest of a file the app does not own, read in blocks since anything
-    /// could be at that path now, possibly too large to hold in memory. Nil
-    /// if the file is no longer there.
-    static func digest(ofFileAt file: URL) -> String? {
-        try? FileDigest.sha256(of: file)
     }
 
     /// A later format failed after earlier ones were written. What was written

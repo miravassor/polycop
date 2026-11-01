@@ -32,8 +32,8 @@ extension AppModel {
                 try Task.checkCancellation()
                 guard isCurrent(number) else { return }
                 var entry = try parsed.entry(
-                    recording: audio, duration: duration,
-                    source: transcript.lastPathComponent)
+                    recording: audio, duration: duration, source: transcript.lastPathComponent)
+                entry = adoptingLastExport(entry)
                 let names = Set(entries.map(\.name))
                 if names.contains(entry.name) {
                     entry.title = Entry.freeName(
@@ -98,7 +98,7 @@ extension AppModel {
                     from: entry.name, of: entry.recording, among: taken)
             }
             taken.insert(entry.name)
-            return entry
+            return adoptingLastExport(entry)
         }
         entries.insert(contentsOf: added.reversed(), at: 0)
         added.forEach(store)

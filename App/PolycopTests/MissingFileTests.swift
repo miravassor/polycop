@@ -69,18 +69,17 @@ private func finished(_ recording: URL, in history: URL) throws -> Entry {
     model.export(entry.id, to: destination)
     let written = try #require(model.entry(entry.id)?.saved.first)
     #expect(FileManager.default.fileExists(atPath: written.path(percentEncoded: false)))
-    #expect(model.exportState(of: try #require(model.entry(entry.id))) == .current)
+    #expect(model.lastExport(of: try #require(model.entry(entry.id))) == written)
 
     try FileManager.default.removeItem(at: written)
 
-    // The window no longer claims an export that is not there, and offers to
-    // write one again rather than a button that does nothing.
-    #expect(model.exportState(of: try #require(model.entry(entry.id))) == .missing)
+    // The window no longer shows an export that is not there.
+    #expect(model.lastExport(of: try #require(model.entry(entry.id))) == nil)
     model.export(entry.id, to: destination)
     let again = try #require(model.entry(entry.id)?.saved.first)
     #expect(FileManager.default.fileExists(atPath: again.path(percentEncoded: false)))
     #expect(model.failure(for: entry.id) == nil)
-    #expect(model.exportState(of: try #require(model.entry(entry.id))) == .current)
+    #expect(model.lastExport(of: try #require(model.entry(entry.id))) == again)
 }
 
 @MainActor

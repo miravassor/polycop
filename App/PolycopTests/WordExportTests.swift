@@ -51,7 +51,7 @@ private func readBack(_ data: Data) throws -> NSAttributedString {
     try HistoryStore.write(entry, in: history)
     let model = AppModel(history: history)
 
-    model.setTextLayout(.word, for: entry.id)
+    model.setExport(.word, times: true, for: entry.id)
     let chosen = try #require(model.entry(entry.id))
     #expect(chosen.exportLayout == .word)
     #expect(chosen.textLayout != .word)
@@ -60,7 +60,7 @@ private func readBack(_ data: Data) throws -> NSAttributedString {
     model.export(entry.id, to: destination)
     let exported = try #require(model.entry(entry.id))
     #expect(exported.saved == [destination])
-    #expect(model.exportState(of: exported) == .current)
+    #expect(model.lastExport(of: exported) == destination)
     #expect(try readBack(try Data(contentsOf: destination)).string.contains("Bonjour."))
 
     await model.finishWrites()
@@ -68,15 +68,15 @@ private func readBack(_ data: Data) throws -> NSAttributedString {
         contentsOf: history.appending(path: "\(entry.id.uuidString).json"), encoding: .utf8)
     #expect(!json.contains("\"word\""))
 
-    model.setTextLayout(.plain, for: entry.id)
+    model.setExport(.plainText, times: false, for: entry.id)
     #expect(model.entry(entry.id)?.exportLayout == .plain)
     #expect(model.entry(entry.id)?.exportsWord == nil)
 }
 
-/// An exported transcript, unchanged since, can be exported again in another
-/// format, which becomes its export format.
+/// Each export is a new file: exporting again in another format leaves the
+/// first file alone, and the new format becomes the transcript's.
 @MainActor
-@Test func anUnchangedExportCanBeExportedAgainAsWord() async throws {
+@Test func exportingAgainInAnotherFormatMakesANewFile() async throws {
     let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: folder) }
     let history = folder.appending(path: "History")
@@ -88,17 +88,79 @@ private func readBack(_ data: Data) throws -> NSAttributedString {
     try HistoryStore.write(entry, in: history)
     let model = AppModel(history: history)
     let text = folder.appending(path: "cours.txt")
-    model.export(entry.id, as: .timestamped, to: text)
-    #expect(model.exportState(of: try #require(model.entry(entry.id))) == .current)
+    model.export(entry.id, as: .plainText, times: true, to: text)
+    #expect(model.lastExport(of: try #require(model.entry(entry.id))) == text)
 
     let document = folder.appending(path: "cours.docx")
-    model.export(entry.id, as: .word, to: document)
+    model.export(entry.id, as: .word, times: true, to: document)
 
     let exported = try #require(model.entry(entry.id))
     #expect(exported.saved == [document])
     #expect(exported.exportLayout == .word)
-    #expect(model.exportState(of: exported) == .current)
+    #expect(model.lastExport(of: exported) == document)
     #expect(try readBack(try Data(contentsOf: document)).string.contains("Bonjour."))
     #expect(FileManager.default.fileExists(atPath: text.path(percentEncoded: false)))
+    await model.finishWrites()
+}
+
+/// Timecodes are one choice for every format. Plain text keeps it in its
+/// layout and Word apart from it, which earlier versions read.
+@MainActor
+@Test func timecodesCanBeLeftOutOfEveryFormat() async throws {
+    let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let history = folder.appending(path: "History")
+    var entry = Entry(
+        recording: folder.appending(path: "cours.wav"), modelFile: ModelCatalog.recommended.id,
+        glossary: nil, skipsSilence: false, subtitles: false)
+    entry.publish([Segment(start: 0, end: 2, text: "Bonjour.")], partial: false)
+    entry.state = .finished
+    try HistoryStore.write(entry, in: history)
+    let model = AppModel(history: history)
+    #expect(try #require(model.entry(entry.id)).exportsTimes)
+
+    model.export(entry.id, as: .markdown, times: false, to: folder.appending(path: "cours.md"))
+    let markdown = try String(contentsOf: folder.appending(path: "cours.md"), encoding: .utf8)
+    #expect(markdown.contains("Bonjour."))
+    #expect(!markdown.contains("00:00"))
+
+    model.export(entry.id, as: .word, times: false, to: folder.appending(path: "cours.docx"))
+    let document = try readBack(try Data(contentsOf: folder.appending(path: "cours.docx")))
+    #expect(document.string.contains("Bonjour."))
+    #expect(!document.string.contains("00:00"))
+    #expect(model.entry(entry.id)?.exportsWord == true)
+
+    model.setExport(.plainText, times: false, for: entry.id)
+    #expect(model.entry(entry.id)?.textLayout == .plain)
+    model.setExport(.plainText, times: true, for: entry.id)
+    #expect(model.entry(entry.id)?.textLayout == .timestamped)
+    #expect(model.entry(entry.id)?.exportsTimes == true)
+    await model.finishWrites()
+}
+
+/// The export chosen last is where the next transcript starts.
+@MainActor
+@Test func aNewTranscriptStartsWithTheExportChosenLast() async throws {
+    let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let history = folder.appending(path: "History")
+    var entry = Entry(
+        recording: folder.appending(path: "cours.wav"), modelFile: ModelCatalog.recommended.id,
+        glossary: nil, skipsSilence: false, subtitles: false)
+    entry.publish([Segment(start: 0, end: 2, text: "Bonjour.")], partial: false)
+    entry.state = .finished
+    try HistoryStore.write(entry, in: history)
+    let model = AppModel(history: history, defaults: MemoryDefaults())
+
+    model.setExport(.markdown, times: false, for: entry.id)
+    model.setRemovesHesitations(true, for: entry.id)
+    let next = model.adoptingLastExport(
+        Entry(
+            recording: folder.appending(path: "cours 2.wav"),
+            modelFile: ModelCatalog.recommended.id, glossary: nil, skipsSilence: false,
+            subtitles: false))
+    #expect(next.exportFormat == .markdown)
+    #expect(!next.exportsTimes)
+    #expect(next.removesHesitations == true)
     await model.finishWrites()
 }

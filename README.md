@@ -88,9 +88,10 @@ unless they agree to more.
   and folding its section keeps the sound only. Copy Frame, in the picture's
   menu, copies a slide to paste into notes.
 * **Review marks** on passages to check later.
-* **Export** to text with or without timestamps, to Markdown or to a Word
-  document, with hesitations such as "euh" left out if you want, and to SRT
-  subtitles when the model times its sentences.
+* **Export** to plain text, Markdown or a Word document, with or without
+  timecodes and with filler words such as "euh" left out if you want, or to SRT
+  subtitles when the model times its sentences. Each export is a new file;
+  corrections stay in the library.
 
 ## Models
 
@@ -177,7 +178,7 @@ open its release page.
    transcript timed word by word, to hear it, and use Find
    and Replace for a name the model keeps mishearing. Corrections are saved in
    the library.
-4. Export the text in the layout you want, with subtitles if you want them.
+4. Export the text in the format you want, with subtitles if you want them.
    Subtitles keep the model's words and timings; your corrections go into the
    text file.
 

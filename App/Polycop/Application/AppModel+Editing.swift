@@ -150,17 +150,26 @@ extension AppModel {
         if restored { undoSteps[id] = nil }
     }
 
-    func setTextLayout(_ layout: Transcript.TextLayout, for id: Entry.ID) {
+    /// The export's format and whether it times its paragraphs, remembered
+    /// for the transcripts added next.
+    func setExport(_ format: Transcript.Format, times: Bool, for id: Entry.ID) {
         guard !isShuttingDown else { return }
-        updateEntry(id) {
-            if layout == .word {
-                $0.exportsWord = true
-            } else {
-                $0.exportsWord = nil
-                $0.textLayout = layout
-            }
-            $0.isSaved = false
+        updateEntry(id) { $0.chooseExport(format, times: times) }
+        defaults.set(format.rawValue, forKey: Self.exportFormatKey)
+        defaults.set(times, forKey: Self.exportTimecodesKey)
+    }
+
+    /// A new transcript starts with the export chosen last.
+    func adoptingLastExport(_ entry: Entry) -> Entry {
+        var entry = entry
+        if let name = defaults.string(forKey: Self.exportFormatKey),
+            let format = Transcript.Format(rawValue: name)
+        {
+            entry.chooseExport(
+                format, times: defaults.object(forKey: Self.exportTimecodesKey) as? Bool ?? true)
         }
+        if defaults.bool(forKey: Self.removesHesitationsKey) { entry.removesHesitations = true }
+        return entry
     }
 
     func setRemovesHesitations(_ on: Bool, for id: Entry.ID) {
@@ -169,13 +178,6 @@ extension AppModel {
             $0.removesHesitations = on
             $0.isSaved = false
         }
-    }
-
-    func setSubtitles(_ on: Bool, for id: Entry.ID) {
-        guard !isShuttingDown else { return }
-        updateEntry(id) {
-            $0.subtitles = on && $0.timesSentences
-            $0.isSaved = false
-        }
+        defaults.set(on, forKey: Self.removesHesitationsKey)
     }
 }

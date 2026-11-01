@@ -11,12 +11,12 @@ struct EntryView: View {
     @Binding var showsInspector: Bool
     /// How wide the reader made the inspector, which the window's minimum
     /// width makes room for.
-    @Binding var inspectorWidth: CGFloat
+    @Binding var inspectorWidth: Double
     @State private var focused: Int?
     @State private var activeParagraph: Int?
     @State private var find = TranscriptFind()
     @FocusState private var isSearchFocused: Bool
-    @State private var isComparing = false
+    @AppStorage("comparesOriginal") private var isComparing = false
     @AppStorage(Following.key) private var following = Following.page
     @State private var isFollowSuspended = false
     @State private var jump: Int?

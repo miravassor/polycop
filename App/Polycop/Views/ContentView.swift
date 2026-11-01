@@ -29,26 +29,34 @@ struct ContentView: View {
 
     /// Whether a transcript's inspector shows, remembered for the window.
     @SceneStorage("showsInspector") private var showsInspector = true
-    /// How wide the inspector is, which the reader changes.
-    @State private var inspectorWidth = EntryView.idealInspectorWidth
+    /// How wide the reader made the inspector and the library, remembered
+    /// across launches as the window's size is.
+    @AppStorage("inspectorWidth") private var inspectorWidth = Double(EntryView.idealInspectorWidth)
+    @AppStorage("libraryWidth") private var libraryWidth = Double(ContentView.idealLibraryWidth)
+    /// Whether the library shows, which the reader changes.
+    @SceneStorage("showsLibrary") private var showsLibrary = true
 
     /// Room for the library, the text with its player and a transcript's
     /// inspector, so that nothing is cut; hiding the inspector narrows it.
     private var minimumWidth: CGFloat {
         guard showsInspector, case .entry = model.pane, selected.count <= 1 else { return 860 }
         // At its widest: macOS squeezes a column below its minimum otherwise.
-        let library = columns == .detailOnly ? 0 : Self.libraryWidths.upperBound
+        let library = showsLibrary ? Self.libraryWidths.upperBound : 0
         return max(860, library + PlayerBar.narrowest + 56 + inspectorWidth)
     }
-    /// Whether the library shows, which the reader changes.
-    @State private var columns = NavigationSplitViewVisibility.automatic
+    /// The library shown or hidden, as the window remembers it.
+    private var columns: Binding<NavigationSplitViewVisibility> {
+        Binding(
+            get: { showsLibrary ? .automatic : .detailOnly },
+            set: { showsLibrary = $0 != .detailOnly })
+    }
     /// The library's widths: by default about as wide as the inspector, so
     /// the text sits between two balanced columns.
     static let libraryWidths: ClosedRange<CGFloat> = 220...340
     static let idealLibraryWidth: CGFloat = 300
 
     var body: some View {
-        NavigationSplitView(columnVisibility: $columns) {
+        NavigationSplitView(columnVisibility: columns) {
             List(selection: $selection) {
                 Label("New Transcription", systemImage: "plus")
                     .fontWeight(.medium)
@@ -60,8 +68,13 @@ struct ContentView: View {
             }
             .listStyle(.sidebar)
             .contextMenu { newFolder }
+            .onGeometryChange(for: CGFloat.self) {
+                $0.size.width
+            } action: {
+                if Self.libraryWidths.contains($0) { libraryWidth = $0 }
+            }
             .navigationSplitViewColumnWidth(
-                min: Self.libraryWidths.lowerBound, ideal: Self.idealLibraryWidth,
+                min: Self.libraryWidths.lowerBound, ideal: libraryWidth,
                 max: Self.libraryWidths.upperBound
             )
             .safeAreaInset(edge: .bottom) {
@@ -374,27 +387,4 @@ extension ContentView {
         model: AppModel(
             history: folder.appending(path: "History"),
             glossaries: folder.appending(path: "Glossaries")))
-}
-
-/// Asks for a transcript's new name in the library.
-private struct RenameAlert: ViewModifier {
-    @Binding var renamed: Entry.ID?
-    @Binding var name: String
-    let model: AppModel
-
-    func body(content: Content) -> some View {
-        content.alert(
-            "Rename transcript",
-            isPresented: Binding(get: { renamed != nil }, set: { if !$0 { renamed = nil } })
-        ) {
-            TextField("Transcript name", text: $name)
-            Button("Cancel", role: .cancel) {}
-            Button("Rename") {
-                if let renamed { model.rename(renamed, to: name) }
-            }
-            .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-        } message: {
-            Text("Only the name in the library changes. The recording keeps its own.")
-        }
-    }
 }

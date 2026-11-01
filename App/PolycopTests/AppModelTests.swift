@@ -484,10 +484,10 @@ extension LoadingAModel {
 // What these check is the queue and the files, not what a model writes, so
 // they run everywhere, CI included, on the engine QueueTests scripts.
 
-/// Corrections reach the disk as they are typed, a second save updates the
-/// same file, and a file changed by hand meanwhile is left alone for a new one.
+/// Corrections reach the library as they are typed. An export is a copy:
+/// a later correction leaves it as it was, and the next export is a new file.
 @MainActor
-@Test func correctionsAreKeptAndSavedToTheSameFile() async throws {
+@Test func correctionsAreKeptAndAnExportIsACopy() async throws {
     let folder = try recordings("cours.wav")
     defer { try? FileManager.default.removeItem(at: folder) }
     let history = folder.appending(path: "History")
@@ -510,20 +510,14 @@ extension LoadingAModel {
         #expect(try String(contentsOf: text, encoding: .utf8).contains("Premier essai."))
 
         model.edit(id, paragraphAt: 0, text: "Second essai.")
-        #expect(model.exportState(of: try #require(model.entry(id))) == .outOfDate)
-        model.updateExport(id)
-        #expect(try String(contentsOf: text, encoding: .utf8).contains("Second essai."))
-        #expect(!FileManager.default.fileExists(atPath: second.path(percentEncoded: false)))
-        #expect(model.exportState(of: try #require(model.entry(id))) == .current)
+        #expect(try String(contentsOf: text, encoding: .utf8).contains("Premier essai."))
+        // Earlier versions read this to offer updating the file.
+        #expect(model.entry(id)?.isSaved == false)
 
-        // Annotated outside the app: the update refuses and says so rather
-        // than replacing work the user did elsewhere.
-        try "annoté à la main".write(to: text, atomically: true, encoding: .utf8)
-        model.edit(id, paragraphAt: 0, text: "Troisième essai.")
-        model.updateExport(id)
-        #expect(try String(contentsOf: text, encoding: .utf8) == "annoté à la main")
-        #expect(model.failure(for: id) != nil)
-        #expect(!FileManager.default.fileExists(atPath: second.path(percentEncoded: false)))
+        model.export(id, to: second)
+        #expect(try String(contentsOf: second, encoding: .utf8).contains("Second essai."))
+        #expect(try String(contentsOf: text, encoding: .utf8).contains("Premier essai."))
+        #expect(model.lastExport(of: try #require(model.entry(id))) == second)
     }
 }
 

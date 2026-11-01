@@ -271,26 +271,28 @@ private func finished(_ recording: URL, in history: URL, model: String, language
 
 // MARK: Exports the application does not own
 
-/// Turning subtitles on changes which files an export is, so the update has no
-/// target of its own and the user is asked where to put them.
+/// Subtitles are an export of their own: the model's sentences and timings
+/// in an SRT file, without the text beside them.
 @MainActor
-@Test func changingTheFormatsAsksWhereToExportAgain() throws {
+@Test func subtitlesAreAnExportOfTheirOwn() throws {
     let (folder, recording) = try library()
     defer { try? FileManager.default.removeItem(at: folder) }
     let history = folder.appending(path: "History")
     let entry = try finished(recording, in: history, model: ModelCatalog.turbo.id)
     let model = AppModel(history: history)
 
-    model.export(entry.id, to: folder.appending(path: "cours.txt"))
-    #expect(model.exportState(of: try #require(model.entry(entry.id))) == .current)
-
-    model.setSubtitles(true, for: entry.id)
-
-    #expect(model.exportState(of: try #require(model.entry(entry.id))) == .none)
-    model.export(entry.id, to: folder.appending(path: "cours.txt"))
+    model.export(entry.id, as: .subtitles, times: true, to: folder.appending(path: "cours.srt"))
+    let exported = try #require(model.entry(entry.id))
+    #expect(exported.saved.map(\.lastPathComponent) == ["cours.srt"])
     #expect(
-        model.entry(entry.id)?.saved.map(\.lastPathComponent) == ["cours.txt", "cours.srt"])
-    #expect(model.exportState(of: try #require(model.entry(entry.id))) == .current)
+        try String(contentsOf: folder.appending(path: "cours.srt"), encoding: .utf8).contains("-->")
+    )
+    // Earlier versions read this flag as subtitles beside the text.
+    #expect(exported.subtitles)
+
+    model.export(entry.id, as: .plainText, times: true, to: folder.appending(path: "cours.txt"))
+    #expect(model.entry(entry.id)?.saved.map(\.lastPathComponent) == ["cours.txt"])
+    #expect(model.entry(entry.id)?.subtitles == false)
 }
 
 /// A glossary deleted in the Finder is gone from the choice as well. The
@@ -472,8 +474,9 @@ private func finished(_ recording: URL, in history: URL, model: String, language
     let model = AppModel(history: history)
     model.export(entry.id, to: folder.appending(path: "result.txt"))
     #expect(model.entry(entry.id)?.saved.map(\.pathExtension) == ["txt"])
-    model.setSubtitles(true, for: entry.id)
+    model.setExport(.subtitles, times: true, for: entry.id)
     #expect(model.entry(entry.id)?.subtitles == false)
+    #expect(model.entry(entry.id)?.exportFormat == .plainText)
 }
 
 @MainActor
