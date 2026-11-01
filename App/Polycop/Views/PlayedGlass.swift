@@ -121,7 +121,7 @@ struct PlayedGlass: View {
 /// around its round end and back. Its sizes animate with the timeline's
 /// springs.
 @available(macOS 26, *)
-private nonisolated struct PlayedShape: Shape {
+nonisolated struct PlayedShape: Shape {
     var start: CGFloat
     var end: CGFloat
     var line: CGFloat
@@ -146,7 +146,16 @@ private nonisolated struct PlayedShape: Shape {
         // The circle's direction at the join, to meet it without a corner.
         let tangent = CGVector(dx: sin(join.radians), dy: -cos(join.radians))
         let reach: CGFloat = 3
-        let flare = max(start + lineRadius, joinX - 6)
+        // How far along the line it swells, shorter near the start.
+        let swell: CGFloat = 6
+        let flare = max(start + lineRadius, joinX - swell)
+        // So near the start that the line cannot swell at all: its round end
+        // only enters the knob.
+        guard flare <= joinX else {
+            let stretch = CGRect(
+                x: start, y: middle - lineRadius, width: end - start, height: line)
+            return whole(around: centre).union(Capsule().path(in: stretch))
+        }
         var path = Path()
         path.move(to: CGPoint(x: start + lineRadius, y: middle - lineRadius))
         path.addLine(to: CGPoint(x: flare, y: middle - lineRadius))
@@ -167,7 +176,16 @@ private nonisolated struct PlayedShape: Shape {
             center: CGPoint(x: start + lineRadius, y: middle), radius: lineRadius,
             startAngle: .degrees(90), endAngle: .degrees(270), clockwise: false)
         path.closeSubpath()
-        return path
+        // A shortened swell dips into the knob's left side, which the whole
+        // knob fills back; a full one covers it.
+        return flare > joinX - swell ? path.union(whole(around: centre)) : path
+    }
+
+    /// The knob as a full circle.
+    private func whole(around centre: CGPoint) -> Path {
+        Path(
+            ellipseIn: CGRect(
+                x: centre.x - knob / 2, y: centre.y - knob / 2, width: knob, height: knob))
     }
 }
 
