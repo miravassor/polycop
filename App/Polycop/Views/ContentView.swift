@@ -287,9 +287,9 @@ struct ContentView: View {
                 Spacer(minLength: 8)
                 Button(action: startNewFolder) {
                     Image(systemName: "folder.badge.plus")
-                        .font(.caption)
+                        .font(.body)
                         .foregroundStyle(.secondary)
-                        .padding(.horizontal, 4)
+                        .frame(width: ToolbarItemSize.square)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
