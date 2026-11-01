@@ -19,7 +19,7 @@ xcodebuild test -project App/Polycop.xcodeproj -scheme Polycop -destination 'pla
 Tools/package.sh           # locally signed app and zip with its sources, in build/releases/
 ```
 
-* The test suite takes about 6 minutes. Run it once per change set, not after each edit.
+* The test suite takes about 3 minutes once built. Run it once per change set, not after each edit.
 * Tests can run while Polycop is open. The app they run in opens an empty library of
   its own and clears no leftover files, so it leaves the user's copy alone.
 * Tests that need a model skip themselves when that model is not installed.
@@ -110,9 +110,15 @@ Every page speaks the same visual language. The shared pieces live in
   is a capsule too, floating at the foot of the text, which scrolls under it, as the
   Music player: the previous and next paragraph either side of 5 seconds back, play
   and 5 seconds on, then the timeline and times, centred on one line, on
-  `FloatingSurface` (glass on macOS 26, the system's material before). Find opens at
-  the top, away from it. Work under way on a transcript is one capsule on the same
-  surface, centred above the text, in the words of its row in the library.
+  `FloatingSurface` (glass on macOS 26, the system's material before). Its played
+  part is glass too on macOS 26 (`PlayedGlass`): a line in the accent colour and a
+  knob of the same glass that melt into one, the marks under it drawn larger on
+  top, as through a lens, and light flowing along the glass at the playing speed.
+  Find opens at the top, away from it. Work under way on a transcript is one
+  capsule on the same surface, centred above the text, in the words of its row in
+  the library.
+* `FloatingSurface` keeps its glass in a `GlassEffectContainer`: glass placed in
+  plain glass turns the floating player dark in a light window.
 * A list's Add and Clear sit on its title line at the trailing edge, aligned with the
   rows, removal last. A list of things kept, such as courses, has the Mac's + and −
   inside the foot of its edge. Managing a choice ("Manage Models…") is the last item

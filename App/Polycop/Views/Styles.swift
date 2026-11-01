@@ -46,7 +46,10 @@ struct FloatingSurface: ViewModifier {
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius)
         if #available(macOS 26, *) {
-            content.glassEffect(.regular, in: shape)
+            // Glass placed in it, as the player's timeline, would turn it
+            // dark in a light window while it floats over the text; in a
+            // container the glass shapes render together.
+            GlassEffectContainer { content.glassEffect(.regular, in: shape) }
         } else {
             content.background(.regularMaterial, in: shape)
         }
