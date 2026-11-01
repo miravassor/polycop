@@ -25,11 +25,7 @@ struct GlossaryEditor: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Glossary").font(.title2.weight(.semibold))
-            Text(
-                "Optional spelling guidance for names, authors and specialist terms. Keep the words most likely to be spoken; a glossary does not guarantee they will be recognized."
-            )
-            .font(.callout).foregroundStyle(.secondary)
+            Text("Glossaries").font(.title2.weight(.semibold))
             HStack(alignment: .top, spacing: 16) {
                 courses
                 terms
@@ -42,8 +38,6 @@ struct GlossaryEditor: View {
             }
             Divider()
             HStack {
-                Button("Show in Finder") { reveal() }
-                    .disabled(selection == nil)
                 Spacer()
                 // No Return shortcut: Return starts the next term.
                 Button("Done") { if save() { dismiss() } }
@@ -96,26 +90,60 @@ struct GlossaryEditor: View {
         }
     }
 
+    /// The courses, with the Mac's + and − at the foot of the list: + makes or imports
+    /// one, − moves the selected one to the Trash. Show in Finder is in each
+    /// course's menu.
     private var courses: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 0) {
             List(model.glossaries, selection: Binding(get: { selection }, set: { select($0) })) {
-                Text($0.name)
+                glossary in
+                Text(glossary.name)
+                    .contextMenu {
+                        Button("Show in Finder") { reveal(glossary.name) }
+                        Divider()
+                        Button("Move to Trash…") {
+                            select(glossary.name)
+                            confirmingDeletion = true
+                        }
+                    }
             }
-            .listStyle(.bordered)
-            HStack {
-                Button("New…") { naming = true }
-                Button("Import…") { importing = true }
-                Button("Delete…") { confirmingDeletion = true }
-                    .disabled(selection == nil)
+            .listStyle(.plain)
+            Divider()
+            HStack(spacing: 0) {
+                Menu {
+                    Button("New Course…") { naming = true }
+                    Button("Import…") { importing = true }
+                } label: {
+                    Image(systemName: "plus").frame(width: 24, height: 20)
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
+                .accessibilityLabel("Add a course")
+                .help("New course, or import a text file with one term per line")
+                Divider().frame(height: 16)
+                Button {
+                    confirmingDeletion = true
+                } label: {
+                    Image(systemName: "minus").frame(width: 24, height: 20)
+                }
+                .buttonStyle(.borderless)
+                .disabled(selection == nil)
+                .accessibilityLabel("Move the course to the Trash")
+                .help("Move the course to the Trash")
             }
+            .padding(4)
         }
+        // In one box with the terms' edge, + and − inside its foot, as in
+        // System Settings.
+        .editorBorder()
         .frame(width: 200)
     }
 
     @ViewBuilder
     private var terms: some View {
         if selection == nil {
-            Text("Create a course, or import a text file with one term per line.")
+            Text("Add a course with +, or import a text file with one term per line.")
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
@@ -257,10 +285,9 @@ struct GlossaryEditor: View {
         exact = result.exact
     }
 
-    private func reveal() {
-        guard let selection else { return }
+    private func reveal(_ name: String) {
         NSWorkspace.shared.activateFileViewerSelecting([
-            GlossaryStore.location(of: selection, in: model.glossaryFolder)
+            GlossaryStore.location(of: name, in: model.glossaryFolder)
         ])
     }
 }
