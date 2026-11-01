@@ -158,12 +158,13 @@ struct PlayerTimeline: View {
         }
     }
 
-    /// The mark of the paragraph playing carries the accent, grey with the
-    /// glass while the window is in the background; the one under the pointer
-    /// stands out.
+    /// The mark of the paragraph playing carries the accent, grey on macOS 26
+    /// while the window is in the background, as the glass turns; the one
+    /// under the pointer stands out.
     private func style(ofMark index: Int) -> AnyShapeStyle {
         if index == current {
-            return appearsActive ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary)
+            if #available(macOS 26, *), !appearsActive { return AnyShapeStyle(.primary) }
+            return AnyShapeStyle(.tint)
         }
         return index == highlighted ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary)
     }
