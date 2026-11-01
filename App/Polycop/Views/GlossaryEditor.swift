@@ -159,9 +159,17 @@ struct GlossaryEditor: View {
                 if count > 0 {
                     counter
                 }
-                HStack(spacing: 12) {
-                    Button("Terms from Documents…") { findingTerms = true }
-                    Text("BETA").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                HStack(spacing: 8) {
+                    Button("Find Terms in Documents…", systemImage: "doc.text.magnifyingglass") {
+                        findingTerms = true
+                    }
+                    .buttonBorderShape(.capsule)
+                    Text("BETA")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(.quaternary, in: Capsule())
                 }
                 if !corrections.isEmpty { correctionList }
             }
