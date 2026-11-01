@@ -130,8 +130,8 @@ Every page speaks the same visual language. The shared pieces live in
   stays in the label colours, since orange, red or green text is too faint to read
   on a light window; emphasis inside text is a line (underline, strikethrough).
 * Spacing: 28 points around a page, 16 between blocks. The transcript page has 16
-  under the toolbar, and its player floats 16 above the window's foot. Sheets have
-  24 points of padding, popovers 20.
+  under the toolbar, and its player floats 8 above the window's foot, level with
+  the foot of the library beside it. Sheets have 24 points of padding, popovers 20.
 * Type: a page's title is the window's (`navigationTitle`); a sheet title in `.title2`
   semibold. A row says what it is in a few words; a line under it only for what a
   student could not guess. Text styles only, no fixed point sizes.

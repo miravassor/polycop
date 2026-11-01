@@ -12,6 +12,9 @@ import SwiftUI
 struct PlayerBar: View, @MainActor Equatable {
     /// The bar's width at its narrowest, with its controls on one line.
     static let narrowest: CGFloat = 410
+    /// Its distance from the window's foot, level with the foot of the
+    /// library, which floats 8 points in on macOS 26.
+    static let foot: CGFloat = 8
 
     @Bindable var player: Player
     /// The opening second of each paragraph.
@@ -75,7 +78,7 @@ struct PlayerBar: View, @MainActor Equatable {
             }
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 6)
+        .padding(.vertical, 8)
         .modifier(FloatingSurface(cornerRadius: width >= Self.oneLine ? 26 : 18))
         .onGeometryChange(for: CGFloat.self) {
             $0.size.width
@@ -96,7 +99,7 @@ struct PlayerBar: View, @MainActor Equatable {
 
     private func time(_ text: String) -> some View {
         Text(text)
-            .font(.caption.monospacedDigit())
+            .font(.subheadline.monospacedDigit())
             .foregroundStyle(.secondary)
             .fixedSize()
     }
@@ -127,8 +130,8 @@ struct PlayerBar: View, @MainActor Equatable {
             skip(by: -5)
             Button(action: playOrPause) {
                 Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
-                    .font(.title)
-                    .frame(width: 28, height: 32)
+                    .font(.largeTitle)
+                    .frame(width: 32, height: 36)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.borderless)
@@ -147,8 +150,8 @@ struct PlayerBar: View, @MainActor Equatable {
             step(offset)
         } label: {
             Image(systemName: offset < 0 ? "backward.end.fill" : "forward.end.fill")
-                .font(.body)
-                .frame(width: 24, height: 32)
+                .font(.title3)
+                .frame(width: 26, height: 36)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.borderless)
@@ -166,8 +169,8 @@ struct PlayerBar: View, @MainActor Equatable {
             seek(min(duration, max(0, position + seconds)))
         } label: {
             Image(systemName: seconds < 0 ? "gobackward.5" : "goforward.5")
-                .font(.title3)
-                .frame(width: 24, height: 32)
+                .font(.title2)
+                .frame(width: 26, height: 36)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.borderless)
@@ -213,7 +216,7 @@ struct PlayerBar: View, @MainActor Equatable {
             .pickerStyle(.inline)
         } label: {
             Text(label(player.speed))
-                .font(.callout.monospacedDigit())
+                .font(.body.monospacedDigit())
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
