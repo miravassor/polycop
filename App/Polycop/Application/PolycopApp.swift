@@ -99,7 +99,7 @@ struct PolycopApp: App {
         // inspector, side by side on first launch; macOS keeps the size after.
         .defaultSize(
             width: ContentView.idealLibraryWidth
-                + EntryView.readingWidth(textSize: EntryView.defaultTextSize) + 56
+                + EntryView.readingWidth(textSize: EntryView.defaultTextSize) + 2 * Spacing.page
                 + EntryView.idealInspectorWidth,
             height: 880
         )

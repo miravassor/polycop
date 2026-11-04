@@ -10,11 +10,8 @@ struct LibraryWarnings: View {
     var body: some View {
         if let failure = model.storageFailure {
             VStack(alignment: .leading, spacing: 8) {
-                Label(
-                    "Changes could not be stored", systemImage: "exclamationmark.triangle"
-                )
-                .font(.callout.weight(.semibold))
-                .notice(.orange)
+                Notice("Changes could not be stored", .warning)
+                    .font(.callout.weight(.semibold))
                 Text(failure)
                     .font(.callout)
                     .textSelection(.enabled)
@@ -27,12 +24,8 @@ struct LibraryWarnings: View {
         }
         if let warning = model.libraryWarning {
             VStack(alignment: .leading, spacing: 8) {
-                Label(
-                    "Part of your library could not be read",
-                    systemImage: "exclamationmark.triangle"
-                )
-                .font(.callout.weight(.semibold))
-                .notice(.orange)
+                Notice("Part of your library could not be read", .warning)
+                    .font(.callout.weight(.semibold))
                 Text(warning)
                     .font(.callout)
                     .textSelection(.enabled)

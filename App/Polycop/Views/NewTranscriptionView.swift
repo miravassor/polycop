@@ -62,8 +62,8 @@ struct NewTranscriptionView: View {
                     .notice(.red)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 28)
-                    .padding(.top, 16)
+                    .padding(.horizontal, Spacing.page)
+                    .padding(.top, Spacing.block)
             }
             if model.waiting.isEmpty {
                 VStack(spacing: 24) {
@@ -71,7 +71,7 @@ struct NewTranscriptionView: View {
                     // What runs while nothing waits, under the empty state.
                     StartBar(model: model, showsSettings: !showsInspector)
                 }
-                .padding(.bottom, 28)
+                .padding(.bottom, Spacing.page)
             } else {
                 RecordingsQueue(
                     model: model, showsSettings: !showsInspector, choose: chooseRecordings)
@@ -114,7 +114,7 @@ struct NewTranscriptionView: View {
         } actions: {
             // The way to add recordings first, in the accent colour as Start;
             // a transcript made elsewhere as a quieter line under it.
-            VStack(spacing: 16) {
+            VStack(spacing: Spacing.block) {
                 ActionButton(
                     title: "Choose Recordings…", systemImage: "plus", action: chooseRecordings)
                 Button(

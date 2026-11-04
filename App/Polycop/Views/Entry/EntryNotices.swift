@@ -22,16 +22,14 @@ struct EntryNotices: View {
         let canRebuild = offersRebuild && model.canRebuildParagraphs(of: entry)
         let gaps = entry.textGaps
         if let warning = entry.glossaryWarning {
-            Label(warning, systemImage: "exclamationmark.triangle")
+            Notice(warning, .warning)
                 .font(.callout)
-                .notice(.orange)
                 .textSelection(.enabled)
         }
         if let warning = findings.repetitionWarning {
             HStack(spacing: 12) {
-                Label(warning, systemImage: "exclamationmark.triangle")
+                Notice(warning, .warning)
                     .font(.callout)
-                    .notice(.orange)
                     .textSelection(.enabled)
                 // The repeats and the engine are checked here, so only the
                 // corrections decide.
@@ -151,9 +149,8 @@ struct EntryNotices: View {
             [model.failure, model.failure(for: entry.id), model.player.failure].compactMap { $0 },
             id: \.self
         ) { failure in
-            Label(failure, systemImage: "xmark.octagon")
+            Notice(failure, .failure)
                 .font(.callout)
-                .notice(.red)
                 .textSelection(.enabled)
         }
     }
