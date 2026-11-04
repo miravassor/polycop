@@ -159,8 +159,7 @@ final class AppModel {
 
     /// Course glossaries, and the one sent with the next recordings added.
     var glossaries: [Glossary] = []
-    /// Glossary files that cannot be read, by name, which the Glossaries
-    /// window names.
+    /// The glossary files that cannot be read, named in the Glossaries window.
     var unreadableGlossaries: [String] = []
     var glossaryName: String? {
         didSet { defaults.set(glossaryName, forKey: Self.glossaryKey) }
