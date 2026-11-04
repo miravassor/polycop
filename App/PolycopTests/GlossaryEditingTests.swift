@@ -24,6 +24,30 @@ import Testing
     #expect(try CourseCorrections.all(for: "Psychologie", in: folder).isEmpty)
 }
 
+/// A course whose corrections cannot go to the Trash stays whole, and the
+/// failure is shown: deleted without them, it would hand them to the next
+/// course given its name. The locked file stops the deletion before anything
+/// reaches the Trash.
+@MainActor
+@Test func aCourseWhoseCorrectionsCannotBeDeletedIsKept() throws {
+    let root = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    let file = root.appending(path: "Psychologie.corrections.json")
+    defer {
+        try? FileManager.default.setAttributes([.immutable: false], ofItemAtPath: file.path)
+        try? FileManager.default.removeItem(at: root)
+    }
+    let correction = CourseCorrection(text: "Froid", replacement: "Freud")
+    try GlossaryStore.save(Glossary(name: "Psychologie", text: "Freud"), in: root)
+    try CourseCorrections.remember(correction, for: "Psychologie", in: root)
+    try FileManager.default.setAttributes([.immutable: true], ofItemAtPath: file.path)
+    let model = AppModel(history: root.appending(path: "History"), glossaries: root)
+
+    #expect(throws: (any Error).self) { try model.deleteGlossary(named: "Psychologie") }
+
+    #expect(model.glossaries.map(\.name) == ["Psychologie"])
+    #expect(try CourseCorrections.all(for: "Psychologie", in: root) == [correction])
+}
+
 /// A place that already reads as the replacement is left alone however its
 /// apostrophe is written, and applying a correction twice changes nothing.
 @Test func aCorrectionAlreadyInPlaceIsLeftAloneWhateverItsApostrophe() {
