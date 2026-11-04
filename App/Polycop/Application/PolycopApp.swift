@@ -20,11 +20,11 @@ struct PolycopApp: App {
             ModelStore.sweep()
             Player.sweep()
         }
-        Following.adoptEarlierSetting(in: MemoryDefaults.forThisRun)
+        Following.adoptEarlierSetting(in: Self.settings)
         _model = State(
             initialValue: AppModel(
                 history: Self.library, glossaries: Self.glossaries,
-                playbackCopies: Self.playbackCopies))
+                playbackCopies: Self.playbackCopies, defaults: Self.settings))
     }
 
     /// The transcript on screen, when it has text to export and is not being
@@ -77,6 +77,11 @@ struct PolycopApp: App {
     static let glossaries = ownFolder?.appending(path: "Glossaries") ?? GlossaryStore.directory
     static let playbackCopies = ownFolder?.appending(path: "Replay") ?? Player.copies
 
+    /// The preferences the window and the model read and write: the user's, or
+    /// for a test run settings in memory, since a view's `@AppStorage` writes
+    /// to the user's unless its scene names another store.
+    static let settings = MemoryDefaults.forThisRun
+
     private static let ownFolder =
         isHostingTests || isSecondCopy
         ? URL.temporaryDirectory.appending(path: "Polycop \(UUID().uuidString)") : nil
@@ -95,6 +100,7 @@ struct PolycopApp: App {
             ContentView(model: model)
                 .onAppear { delegate.model = model }
         }
+        .defaultAppStorage(Self.settings)
         // The library, the text at its reading width with its margins, and the
         // inspector, side by side on first launch; macOS keeps the size after.
         .defaultSize(
@@ -159,6 +165,7 @@ struct PolycopApp: App {
         Window("Keyboard Shortcuts", id: "shortcuts") {
             ShortcutHelpView()
         }
+        .defaultAppStorage(Self.settings)
         .windowResizability(.contentSize)
 
         // Preferences that are not part of a recording's settings: they apply
@@ -200,6 +207,7 @@ struct PolycopApp: App {
             .formStyle(.grouped)
             .frame(width: 420)
         }
+        .defaultAppStorage(Self.settings)
     }
 }
 

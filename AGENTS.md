@@ -27,7 +27,8 @@ Tools/package.sh           # locally signed app and zip with its sources, in bui
 
 * The test suite takes about 3 minutes once built. Run it once per change set, not after each edit.
 * Tests can run while Polycop is open. The app they run in opens an empty library of
-  its own and clears no leftover files, so it leaves the user's copy alone.
+  its own, keeps its settings in memory and clears no leftover files, so it leaves
+  the user's copy alone.
 * Tests that need a model skip themselves when that model is not installed.
 * CI runs the suite under the thread and address sanitizers, but has no model, so it
   never reaches the engines. After changing `Engine/`, `Audio/`, a version in
