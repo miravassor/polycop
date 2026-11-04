@@ -16,8 +16,6 @@ struct NewTranscriptionSettings: View {
         Form {
             Section("Transcription Settings") {
                 LabeledContent("Model") {
-                    // Managing at the foot of the choices, as Xcode's scheme
-                    // menu ends with Manage Schemes….
                     Menu {
                         Picker("Model", selection: $model.selected) {
                             ForEach(ModelCatalog.all) { Text($0.name).tag($0.id) }

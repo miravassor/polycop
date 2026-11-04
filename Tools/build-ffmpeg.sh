@@ -131,6 +131,7 @@ fi
 
 require muxer f32le
 require muxer wav
+require encoder pcm_f32le
 require encoder pcm_s16le
 for name in ${DEMUXERS//,/ }; do require demuxer "$name"; done
 for name in ${DECODERS//,/ }; do require decoder "$name"; done

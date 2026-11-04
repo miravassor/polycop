@@ -14,7 +14,8 @@ Views (SwiftUI, AppKit text views)          main actor
 AppModel (+ one extension per concern)      main actor, the one holder of app state
    │  starts tasks, receives their results
    ├──► Player, NowPlaying,                 main actor, AVPlayer, media keys,
-   │    PlaybackInterruptions               sleep and output changes
+   │    PlaybackInterruptions,              sleep and output changes, Picture
+   │    VideoPresentation                   in Picture and full screen
    ├──► AudioDecoder                        off the main actor, runs the bundled ffmpeg
    ├──► WhisperEngine, AudioCppEngine       own serial queues, C libraries
    ├──► ModelDownloader, ModelStore         URLSession, SHA-256 proofs, free space
@@ -26,9 +27,12 @@ Output/                                     pure functions on values: paragraphs
 
 Arrows point one way. Views never read or write files through a store, nor
 call an engine or the decoder; stores and engines never know about views or
-`AppModel`. `Output/` and
-`Glossary/Terms` are pure and hold no state, which is why most tests live
-there.
+`AppModel`. `Output/` and `Glossary/Terms` are pure and hold no state, which is
+why most tests live there.
+
+Two parts sit beside `AppModel` rather than under it. The update check
+(`UpdatePrompt`, `UpdateCheck`) is started from the app's menu and settings, and
+Find Terms (`TermFinder`) reads the chosen documents itself, through `Documents`.
 
 ## State
 
@@ -95,23 +99,29 @@ memory.
 * A paragraph is an `NSTextView` (`ParagraphEditor`) inside a lazy list
   (`TranscriptView`). Word times come from `WordLayout`, which places the
   engine's timed words on the corrected text with a word diff (`Edits`).
-* An edit becomes an undo step in `AppModel.undoSteps`, so undo and revert
-  work per transcript. Typing is saved after a one second pause; any other
-  change is written at once, in the background.
-* The player bar, floating over the foot of the text, and `SpaceToPlay` drive `Player`.
-  The bar's paragraph steps (`ParagraphSteps`) also reach the Playback menu as a focused
-  value, with their shortcuts. Its timeline (`PlayerTimeline`) draws the played part as
-  glass on macOS 26 (`PlayedGlass`). The inspector beside the text (`EntryInspector`, a
-  grouped form) holds the video, Follow and export.
-  `NowPlaying` connects the player to the media keys and Control Center; `PlaybackInterruptions`
-  pauses it when the Mac sleeps or the output it plays through goes away. For a video
-  AVFoundation plays, `VideoView` draws the picture of the same `AVPlayer`, with no
-  controls of its own, so speed, seeking and every shortcut act on picture and sound
-  together. `VideoPresentation`, held by `AppModel`, takes the picture elsewhere:
-  Picture in Picture floats an unseen layer the main window keeps, since macOS ends it
-  only while that layer is in a window, and full screen shows `FullScreenVideo`, with
-  the system's controls, in a window made for it and closed when it leaves full screen.
-  While either shows, `Player` follows playback their controls start.
+* Undo has two histories. Each paragraph's text view keeps its own
+  `UndoManager`, which ⌘Z uses while typing in it. Every edit that reaches the
+  model also becomes a step in `AppModel.undoSteps`, per transcript, which Undo
+  Last Correction takes back and Revert to Original clears.
+* Typing is saved after a one second pause; any other change is written at once,
+  in the background.
+* The player bar, floating over the foot of the text, and `SpaceToPlay` drive
+  `Player`. The bar's paragraph steps (`ParagraphSteps`) also reach the Playback
+  menu as a focused value, with their shortcuts. Its timeline (`PlayerTimeline`)
+  draws the played part as glass on macOS 26 (`PlayedGlass`). The inspector beside
+  the text (`EntryInspector`, a grouped form) holds the video, Follow and export.
+* `NowPlaying` connects the player to the media keys and Control Center.
+  `PlaybackInterruptions` pauses it when the Mac sleeps or the output it plays
+  through goes away.
+* For a video AVFoundation plays, `VideoView` draws the picture of the same
+  `AVPlayer`, with no controls of its own, so speed, seeking and every shortcut act
+  on picture and sound together. `VideoPresentation`, held by `AppModel`, takes the
+  picture elsewhere. Picture in Picture floats a hidden layer that the main window
+  keeps, since macOS can end Picture in Picture only while that layer is in a
+  window. Full screen shows `FullScreenVideo`, with the system's controls, in a
+  window made for it and closed when it leaves full screen. While either shows,
+  `Player` keeps playback that their controls start, rather than stopping it as
+  playback nobody asked for.
 
 ## Persistence
 
@@ -131,13 +141,13 @@ they only read.
 There is no index: the directory listing is the library, read on every core
 at launch. A removed entry keeps its file, with the date it was removed, in
 Recently Deleted (`AppModel.recentlyDeleted`), and is deleted at the first
-launch 30 days later. A file that fails to decode is left in place and reported, never
-overwritten. Records are encoded and written off the main actor, one after
-another on `HistoryWriter`'s queue, so the last write of an entry is the one on
-disk and a delete follows the writes asked before it. A write that fails is
-kept in memory and retried, and quitting waits for every write, then asks
-before losing one that failed. Stored property names never change (see
-`AGENTS.md`).
+launch 30 days later. A file that fails to decode is left in place and
+reported, never overwritten. Records are encoded and written off the main
+actor, one after another on `HistoryWriter`'s queue, so the last write of an
+entry is the one on disk and a delete follows the writes asked before it. A
+write that fails is kept in memory and retried, and quitting waits for every
+write, then asks before losing one that failed. Stored property names never
+change (see `AGENTS.md`).
 
 ## Outside the app
 
@@ -151,9 +161,7 @@ before losing one that failed. Stored property names never change (see
 
 `App/PolycopTests/` has one suite per subject. Pure code in `Output/`,
 `Glossary/` and `History/` is tested directly on values. `AppModel` is
-tested with temporary folders; the player with settings in memory. Its queue is
-also tested with a scripted engine and silence detector given through
-`Engines`, so pause, resume,
-stop, quit and failures run in CI; engine tests run only when their model is
-installed. Audio timing is never asserted: CI
-runs on shared machines.
+tested with temporary folders, and the player with settings in memory. The
+queue is also tested with a scripted engine and silence detector given through
+`Engines`, so pause, resume, stop, quit and failures run in CI; engine tests
+run only when their model is installed.

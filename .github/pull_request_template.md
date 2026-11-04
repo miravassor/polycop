@@ -2,6 +2,7 @@
 
 ## How it was checked
 
-- [ ] `Tools/lint.sh` passes, with no new SwiftLint warning
-- [ ] The test suite passes, with a test for any behaviour change
-- [ ] No recordings, real transcripts or model weights added
+- [ ] One concern: the title needs no "and"
+- [ ] `Tools/lint.sh` and the test suite pass
+- [ ] What the table in AGENTS.md asks for this kind of change
+- [ ] No recordings, real transcripts or model weights

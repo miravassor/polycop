@@ -114,14 +114,14 @@ jobs:
             echo
             echo "Built from commit $GITHUB_SHA in run $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID, with $(xcodebuild -version | head -1)."
             echo "Polycop-$VERSION.zip holds the same app and the complete corresponding source of the app and of every bundled component. Polycop-$VERSION.dSYM.zip holds the debugging symbols that turn a crash report into lines of code."
-            echo "The disk image and both zips are attested by GitHub: \`gh attestation verify Polycop-$VERSION.dmg --repo $GITHUB_REPOSITORY\` names the commit and the run that built it."
+            echo "The disk image and both zips are attested by GitHub: \`gh attestation verify Polycop-$VERSION.dmg --repo $GITHUB_REPOSITORY --signer-workflow $GITHUB_REPOSITORY/.github/workflows/release.yml\` names the commit and the run that built it."
             echo
             echo "SHA-256:"
             echo
             cat build/upload/*.sha256 | sed 's/^/    /'
           } >> build/upload/notes.md
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release
           path: build/upload/
@@ -142,13 +142,14 @@ jobs:
       attestations: write # to store the attestations
       artifact-metadata: write # to record the attested files
     steps:
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: release
           path: release
 
       # Anyone can then check that a file was built here, from which commit:
-      # gh attestation verify Polycop-X.Y.Z.dmg --repo miravassor/polycop
+      # gh attestation verify Polycop-X.Y.Z.dmg --repo miravassor/polycop \
+      #   --signer-workflow miravassor/polycop/.github/workflows/release.yml
       - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-path: |

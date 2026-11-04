@@ -1,9 +1,18 @@
-# Keeps the GitHub Actions used by the workflows up to date. The Swift
-# packages wrap binaries, whisper.cpp's pinned by checksum and audio.cpp's
-# built from a pinned commit, and are updated by hand.
+# Keeps the GitHub Actions used by the workflows up to date. The components
+# pinned in Tools/versions.sh, and the linters pinned in the lint scripts, are
+# updated by hand, as CONTRIBUTING.md says under Dependencies: Dependabot cannot
+# read them.
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: monthly
+    # A compromised release is usually found and pulled within days, so a new
+    # version waits a week before it is proposed.
+    cooldown:
+      default-days: 7
+    # One pull request a month for every action, rather than one each.
+    groups:
+      actions:
+        patterns: ["*"]
