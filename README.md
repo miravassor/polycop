@@ -6,12 +6,10 @@
 
 Polycop turns speech into text on Apple Silicon Macs. It was first built to
 transcribe university lectures with open source tools only, running entirely on
-the student's own Mac: the recording never leaves it, so a course, which
-belongs to the teacher who gives it, stays in the hands of the people who
-attend it.
+the student's own Mac: the recording never leaves it.
 
 Because the code is open source and the app is free, teachers and students can
-both check what it does. That is what makes it a tool both sides can trust.
+both check what it does.
 
 Lectures are what it was made for, but it transcribes any audio or video file.
 
@@ -100,12 +98,12 @@ unless they agree to more.
 | Whisper Large v3 turbo (recommended) | 1.6 GB | 2.8 GB | fast; reads a glossary |
 | Whisper Large v3 turbo quantized | 0.9 GB | 2.0 GB | fast; half the download |
 | Whisper Large v3 | 3.1 GB | 5.0 GB | the full Whisper model, slower |
-| Qwen3-ASR 1.7B | 2.5 GB | 3.9 GB | sentence timings with the optional aligner (1.1 GB more) |
+| Qwen3-ASR 1.7B | 2.5 GB | 3.9 GB | sentence and word timings with the optional aligner (1.1 GB more) |
 | MOSS-Transcribe-Diarize 0.9B | 1.1 GB | 5.6 GB | labels speaker turns |
 | Voxtral Mini 4B Realtime | 5.1 GB | 6.0 GB | streamed; takes about as long as the recording |
 
-The optional Qwen3 Forced Aligner (1.1 GB) times each sentence of a Qwen3-ASR
-transcript, which makes subtitles possible. Qwen3-ASR and Whisper are told the
+The optional Qwen3 Forced Aligner (1.1 GB) times each word of a Qwen3-ASR
+transcript, which gives it timed sentences, subtitles and word timings. Qwen3-ASR and Whisper are told the
 language (French or English); MOSS and Voxtral detect it. Every model has its own
 licence, shown before you download it.
 
@@ -203,7 +201,7 @@ open its release page.
 1. Quit Polycop and move `Polycop.app` to the Bin.
 2. To remove your transcripts, glossaries and downloaded models as well, delete
    the folder `~/Library/Application Support/Polycop/` (in the Finder, choose
-   Go > Go to Folder). Models take up to about 5 GB each.
+   Go > Go to Folder). Each model takes up to 5.1 GB.
 
 Your recordings and exported files are never stored there, and stay where they
 are.
