@@ -5,8 +5,8 @@
 # mistakes, zizmor for security (credentials, injection, permissions, update
 # cooldown), with every finding shown rather than only the most likely ones.
 # Both are downloaded once at a pinned release and refused if their digest
-# differs. zizmor also asks GitHub about
-# the actions used when GH_TOKEN is set, and stays offline otherwise.
+# differs. zizmor also asks GitHub about the actions used when GH_TOKEN is set,
+# and stays offline otherwise.
 #
 # Usage: Tools/lint-workflows.sh
 
