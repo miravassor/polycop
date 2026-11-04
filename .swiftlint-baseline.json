@@ -78,12 +78,12 @@
         "text": "}",
         "violation": {
             "location": {
-                "line": 460,
+                "line": 418,
                 "file": "App/Polycop/Application/AppModel+Transcription.swift",
                 "character": 1
             },
             "ruleIdentifier": "file_length",
-            "reason": "File should contain 400 lines or less: currently contains 460",
+            "reason": "File should contain 400 lines or less: currently contains 418",
             "ruleDescription": "Files should not span too many lines.",
             "ruleName": "File Length",
             "severity": "warning"

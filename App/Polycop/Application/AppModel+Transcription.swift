@@ -12,48 +12,6 @@ extension AppModel {
         recordingsRequest = UUID()
     }
 
-    func chooseTranscriptImport() {
-        guard !isShuttingDown, !stage.isBusy else { return }
-        transcriptImportRequest = UUID()
-    }
-
-    func importTranscript(_ transcript: URL, audio: URL) {
-        guard !isShuttingDown, !stage.isBusy else { return }
-        failure = nil
-        stage = .decoding
-        let number = beginJob()
-        work = Task { [weak self] in
-            guard let self else { return }
-            do {
-                let parsed = try await TranscriptImport.read(transcript)
-                let duration =
-                    Double(try await AudioDecoder.samples(of: audio).count)
-                    / Double(AudioDecoder.sampleRate)
-                try Task.checkCancellation()
-                guard isCurrent(number) else { return }
-                var entry = try parsed.entry(
-                    recording: audio, duration: duration, source: transcript.lastPathComponent)
-                entry = adoptingLastExport(entry)
-                let names = Set(entries.map(\.name))
-                if names.contains(entry.name) {
-                    entry.title = Entry.freeName(
-                        from: entry.name, of: entry.recording, among: names)
-                }
-                entries.insert(entry, at: 0)
-                store(entry)
-                pane = .entry(entry.id)
-                finish()
-            } catch is CancellationError {
-                guard isCurrent(number) else { return }
-                finish()
-            } catch {
-                guard isCurrent(number) else { return }
-                failure = error.localizedDescription
-                finish()
-            }
-        }
-    }
-
     /// Adds recordings with the settings on screen now. They wait for Start in
     /// the order given, and the page stays on New Transcription, where those
     /// settings can still change.

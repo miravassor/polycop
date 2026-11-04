@@ -175,10 +175,9 @@ import Testing
             path: "Fixtures/formats/clip.wav")
         let history = root.appending(path: "History")
         let model = AppModel(history: history)
-        model.importTranscript(transcript, audio: audio)
-        for _ in 0..<500 where model.stage.isBusy { try await Task.sleep(for: .milliseconds(20)) }
-        #expect(!model.stage.isBusy)
+        try await model.importTranscript(transcript, audio: audio)
         let entry = try #require(model.entries.first)
+        #expect(model.pane == .entry(entry.id))
         #expect(entry.importSource == "Synthetic.srt")
         #expect(entry.timesSentences)
         model.edit(entry.id, paragraphAt: 0, text: "Correction.")
@@ -191,18 +190,52 @@ import Testing
         await model.shutDown()
     }
 
+    /// Stopped while its recording is decoded, an import adds nothing. The
+    /// stop runs on the main actor, so the job is no longer current when the
+    /// decoding ends, however soon that is.
     @MainActor
     @Test func cancellingAnImportCreatesNoEntry() async throws {
         let root = URL.temporaryDirectory.appending(path: UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
-        let model = AppModel(history: root)
-        model.importTranscript(
-            URL(filePath: "/tmp/missing.txt"), audio: URL(filePath: "/tmp/missing.wav"))
+        let transcript = root.appending(path: "Synthetic.srt")
+        try Data("1\n00:00:00,000 --> 00:00:01,000\nBonjour.\n".utf8).write(to: transcript)
+        let audio = URL(filePath: #filePath).deletingLastPathComponent().appending(
+            path: "Fixtures/formats/clip.wav")
+        let history = root.appending(path: "History")
+        let model = AppModel(history: history)
+        let importing = Task { try await model.importTranscript(transcript, audio: audio) }
+        for _ in 0..<5000 where !model.stage.isBusy { try await Task.sleep(for: .milliseconds(1)) }
+        try #require(model.stage.isBusy)
+
         model.cancel()
-        for _ in 0..<500 where model.stage.isBusy { try await Task.sleep(for: .milliseconds(20)) }
-        #expect(!model.stage.isBusy)
+        _ = await importing.result
+
         #expect(model.entries.isEmpty)
-        #expect(HistoryStore.all(in: root).entries.isEmpty)
+        #expect(HistoryStore.all(in: history).entries.isEmpty)
+        await model.shutDown()
+    }
+
+    /// A failed import is told to the sheet that asked for it, which shows it,
+    /// and leaves the page behind the sheet as it was.
+    @MainActor
+    @Test func aFailedImportThrowsRatherThanShowingOnThePage() async throws {
+        let root = URL.temporaryDirectory.appending(path: UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let transcript = root.appending(path: "Synthetic.srt")
+        try Data("Pas un sous-titre.".utf8).write(to: transcript)
+        let audio = URL(filePath: #filePath).deletingLastPathComponent().appending(
+            path: "Fixtures/formats/clip.wav")
+        let model = AppModel(history: root.appending(path: "History"))
+
+        await #expect(throws: (any Error).self) {
+            try await model.importTranscript(transcript, audio: audio)
+        }
+
+        #expect(model.failure == nil)
+        #expect(model.entries.isEmpty)
+        #expect(!model.stage.isBusy)
         await model.shutDown()
     }
 }
