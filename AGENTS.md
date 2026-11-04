@@ -97,31 +97,28 @@ Every page speaks the same visual language. The shared pieces live in
 `Views/Styles.swift`; use them rather than a new variant.
 
 * Settings and choices are the system's grouped form (`Form` with `.formStyle(.grouped)`),
-  one setting a row, as in System Settings: a page's in the system inspector
+  one setting a row: a page's in the system inspector
   (`InspectorColumn` gives every page the same width and button), a sheet's in the
   sheet. No tinted cards or hand drawn boxes.
 * An empty page is the system's empty state (`ContentUnavailableView`), with the way
   to fill it.
 * A page's main action is one `ActionButton`: a large capsule with an SF Symbol, glass
   in the accent colour on macOS 26, centred right under what it acts on. The player
-  is a capsule too, floating at the foot of the text, which scrolls under it, as the
-  Music player: the previous and next paragraph either side of 5 seconds back, play
-  and 5 seconds on, then the timeline and times, centred on one line, on
-  `FloatingSurface` (glass on macOS 26, the system's material before). Its played
-  part is glass too on macOS 26 (`PlayedGlass`): a line in the accent colour and a
-  knob of the same glass that melt into one, the marks under it drawn larger on
-  top, as through a lens, and light flowing along the glass at the playing speed.
-  Find opens at the top, away from it. Work under way on a transcript is one
-  capsule on the same surface, centred above the text, in the words of its row in
-  the library.
+  is a capsule too, floating at the foot of the text, which scrolls under it: the
+  previous and next paragraph either side of 5 seconds back, play and 5 seconds on,
+  then the timeline and times, centred on one line, on `FloatingSurface` (glass on
+  macOS 26, the system's material before). Find opens at the top, away from it.
+  Work under way on a transcript is one capsule on the same surface, centred above
+  the text, in the words of its row in the library.
 * `FloatingSurface` keeps its glass in a `GlassEffectContainer`: glass placed in
   plain glass turns the floating player dark in a light window.
 * A list's Add and Clear sit on its title line at the trailing edge, aligned with the
   rows, removal last. A list of things kept, such as courses, has the Mac's + and −
   inside the foot of its edge. Managing a choice ("Manage Models…") is the last item
-  of that choice's menu, as Xcode's scheme menu ends with Manage Schemes….
+  of that choice's menu.
 * A page's tools are window toolbar items, drawn by the system, each also a menu
-  command. Controls are the system's, never drawn by hand.
+  command. Controls are the system's, never drawn by hand. The player's timeline is
+  the one exception: no system slider marks where each paragraph opens.
 * Text editors: `editorBorder()`, with the corners of a control.
 * Warnings and failures: a `Label` with `notice(_:)`, colour on the icon only. Text
   stays in the label colours, since orange, red or green text is too faint to read
