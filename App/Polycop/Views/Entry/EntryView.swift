@@ -180,24 +180,25 @@ struct EntryView: View {
     /// About 75 characters a line, times included, at a text size.
     static func readingWidth(textSize: Double) -> CGFloat { 40 * textSize + 160 }
 
-    /// The page's tools in the window's toolbar, each also reachable by its
-    /// shortcut; the actions on the whole transcript in its More menu.
+    /// Above the text they act on, the inspector's button alone at the
+    /// trailing edge.
     @ToolbarContentBuilder private var pageTools: some ToolbarContent {
-        // Above the text they act on, the inspector's button alone at the
-        // trailing edge. One capsule of evenly spaced symbols: the menus show
-        // no arrow, which would set one apart in a capsule of its own.
         ToolbarItemGroup(placement: .principal) {
-            if !entry.paragraphs.isEmpty {
-                compareToggle
-                reviewMenu
-                findButton
-                textMenu
-            }
-            EntryActionsMenu(
-                model: model, entry: entry, isRunning: isRunning,
-                confirmingRevert: $confirmingRevert, confirmingRemoval: $confirmingRemoval,
-                exportAs: { EntryExportSection.exportAs(entry, with: model) })
+            EntryTools(
+                model: model, id: entry.id, facts: toolFacts, page: page,
+                isComparing: $isComparing, isFindShown: $find.isShown,
+                isReplacing: $find.isReplacing, isSearchFocused: $isSearchFocused,
+                showsUncertainWords: $showsUncertainWords, size: $size,
+                confirmingRevert: $confirmingRevert, confirmingRemoval: $confirmingRemoval)
         }
+    }
+
+    private var toolFacts: EntryTools.Facts {
+        EntryTools.Facts(
+            paragraphCount: entry.paragraphs.count, flagged: entry.reviewParagraphs.sorted(),
+            canUndo: model.canUndo(entry.id), isEdited: entry.isEdited,
+            hasRecording: entry.hasRecording, hasExport: model.lastExport(of: entry) != nil,
+            isRunning: isRunning)
     }
 
     @ViewBuilder private var findBar: some View {
@@ -206,68 +207,6 @@ struct EntryView: View {
                 model: model, entry: entry, isRunning: isRunning, find: $find,
                 isFocused: $isSearchFocused, navigate: { navigateMatch(forward: $0) })
         }
-    }
-
-    /// One switch rather than two choices: the original beside the text, or not.
-    private var compareToggle: some View {
-        Toggle(isOn: $isComparing) {
-            Label("Compare", systemImage: "rectangle.split.2x1")
-        }
-        .help(isComparing ? "Show your text alone" : "Show the original beside your text")
-    }
-
-    private var reviewMenu: some View {
-        Menu {
-            Button("Previous Flagged Passage") { navigateReview(forward: false) }
-                .disabled(entry.reviewParagraphs.isEmpty)
-            Button("Next Flagged Passage") { navigateReview(forward: true) }
-                .disabled(entry.reviewParagraphs.isEmpty)
-            Divider()
-            Text("Use the flag beside a paragraph to review it later.")
-        } label: {
-            Label("Review (\(entry.reviewParagraphs.count))", systemImage: "flag")
-        }
-        .menuIndicator(.hidden)
-        .help("Flagged passages: \(entry.reviewParagraphs.count)")
-    }
-
-    private var textMenu: some View {
-        Menu {
-            Button("Undo Last Correction") { model.undo(entry.id) }
-                .disabled(isRunning || !model.canUndo(entry.id))
-            Button("Find") {
-                find.isShown = true
-                isSearchFocused = true
-            }
-            .keyboardShortcut("f")
-            Button("Find and Replace") {
-                find.isShown = true
-                find.isReplacing = true
-                isSearchFocused = true
-            }
-            .keyboardShortcut("f", modifiers: [.command, .option])
-            Toggle("Underline Uncertain Words", isOn: $showsUncertainWords)
-            Divider()
-            Button("Smaller Text") { size = max(10, size - 1) }
-                .keyboardShortcut("-")
-                .disabled(size <= 10)
-            Button("Larger Text") { size = min(28, size + 1) }
-                .keyboardShortcut("+")
-                .disabled(size >= 28)
-        } label: {
-            Label("Text", systemImage: "textformat.size")
-        }
-        .menuIndicator(.hidden)
-        .help("Text size and correction history")
-    }
-
-    /// Pressed while the find bar shows, so a second click closes it; Command-F,
-    /// in the Text menu, only ever opens it.
-    private var findButton: some View {
-        Toggle(isOn: $find.isShown) {
-            Label("Find", systemImage: "magnifyingglass")
-        }
-        .help(find.isShown ? "Close the find bar" : "Find in your text (Command-F)")
     }
 
     private func refreshSearch(navigate: Bool = true) {
@@ -283,16 +222,6 @@ struct EntryView: View {
         guard !find.matches.isEmpty else { return }
         find.step(forward: forward)
         if let current = find.current { page.show(current.paragraph) }
-    }
-
-    private func navigateReview(forward: Bool) {
-        let indices = entry.reviewParagraphs.sorted()
-        let next =
-            forward
-            ? indices.first { $0 > (activeParagraph ?? -1) } ?? indices.first
-            : indices.last { $0 < (activeParagraph ?? entry.paragraphs.count) } ?? indices.last
-        guard let next else { return }
-        page.show(next)
     }
 }
 

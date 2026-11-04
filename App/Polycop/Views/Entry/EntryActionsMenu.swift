@@ -4,40 +4,44 @@ import AppKit
 import SwiftUI
 
 /// The More menu of a transcript's toolbar: corrections, export and removal.
+/// Given what it shows rather than the transcript, as `EntryTools` says.
 struct EntryActionsMenu: View {
     let model: AppModel
-    let entry: Entry
-    let isRunning: Bool
+    let id: Entry.ID
+    let facts: EntryTools.Facts
     @Binding var confirmingRevert: Bool
     @Binding var confirmingRemoval: Bool
-    let exportAs: () -> Void
 
     var body: some View {
         Menu {
-            if !entry.paragraphs.isEmpty {
-                Button("Undo Last Correction") { model.undo(entry.id) }
-                    .disabled(isRunning || !model.canUndo(entry.id))
+            if facts.hasText {
+                Button("Undo Last Correction") { model.undo(id) }
+                    .disabled(facts.isRunning || !facts.canUndo)
                 Button("Revert to Original…") { confirmingRevert = true }
-                    .disabled(isRunning || !entry.isEdited)
-                Button("Duplicate Transcript") { model.duplicate(entry.id) }
-                    .disabled(isRunning)
+                    .disabled(facts.isRunning || !facts.isEdited)
+                Button("Duplicate Transcript") { model.duplicate(id) }
+                    .disabled(facts.isRunning)
                 Divider()
-                Button("Export…", action: exportAs)
-                    .disabled(isRunning)
-                if model.lastExport(of: entry) != nil {
+                Button("Export…") {
+                    guard let entry = model.entry(id) else { return }
+                    EntryExportSection.exportAs(entry, with: model)
+                }
+                .disabled(facts.isRunning)
+                if facts.hasExport {
                     Button("Show Export in Finder") {
+                        guard let entry = model.entry(id) else { return }
                         NSWorkspace.shared.activateFileViewerSelecting(
                             model.existingExports(of: entry))
                     }
                 }
                 Button("Transcribe Again with Current Settings…") {
-                    model.transcribeAgain(entry.id)
+                    model.transcribeAgain(id)
                 }
-                .disabled(isRunning || !entry.hasRecording)
+                .disabled(facts.isRunning || !facts.hasRecording)
                 Divider()
             }
             Button("Remove from Library…", role: .destructive) { confirmingRemoval = true }
-                .disabled(isRunning)
+                .disabled(facts.isRunning)
         } label: {
             Label("Transcript Actions", systemImage: "ellipsis.circle")
         }
