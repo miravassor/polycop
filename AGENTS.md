@@ -6,9 +6,9 @@ transcription and the tools to listen, correct and export. SwiftUI, Swift 6,
 macOS 14 or later, arm64 only. Licence GPL-3.0-or-later.
 
 This file holds the rules, for people and agents alike. The rest lives in one
-place each: what the app does for students in `README.md`; build prerequisites,
-dependencies and releasing in `CONTRIBUTING.md`; how the parts fit, and why, in
-`ARCHITECTURE.md`; what reaches the network and how releases are signed in
+place each: what the app does for students in `README.md`; updating dependencies
+and releasing in `CONTRIBUTING.md`; how the parts fit, and why, in
+`ARCHITECTURE.md`; how releases are attested and vulnerabilities reported in
 `SECURITY.md`.
 
 ## Commands
