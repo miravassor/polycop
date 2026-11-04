@@ -88,7 +88,10 @@ Tools/                 build, fixture and packaging scripts
 * A new dependency, tool or model is pinned to a version and checked against a digest,
   as the build scripts and `Tools/lint.sh` do. Versions of what ships with its source
   live in `Tools/versions.sh`; `Tools/check-versions.sh` checks that both
-  `Package.swift` files and the notices agree.
+  `Package.swift` files and the notices agree. Three tools come unpinned from
+  Homebrew or the build machine: GnuPG, which only checks a download already pinned
+  by digest; CMake, which builds audio.cpp; and the ffmpeg of `Tools/fixtures.sh`,
+  whose output is committed.
 * Interface strings are in English. No emoji, and no dashes as punctuation, in the
   interface or the documentation.
 
