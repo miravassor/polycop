@@ -161,7 +161,7 @@ final class AppModel {
     var glossaries: [Glossary] = []
     /// Glossary files that cannot be read, by name, which the Glossaries
     /// window names.
-    private(set) var unreadableGlossaries: [String] = []
+    var unreadableGlossaries: [String] = []
     var glossaryName: String? {
         didSet { defaults.set(glossaryName, forKey: Self.glossaryKey) }
     }
