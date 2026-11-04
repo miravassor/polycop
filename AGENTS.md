@@ -68,7 +68,8 @@ Tools/                 build, fixture and packaging scripts
 * `@unchecked Sendable` only where a serial queue or a lock guards the state, with a comment
   saying which. Prefer checked `Sendable`.
 * The build has no warnings: CI compiles with `SWIFT_TREAT_WARNINGS_AS_ERRORS=YES`.
-* Comments are English, short, and say why, not what. No dates, no measurement stories.
+* Comments are English, short, and say why, not what. No dates, no measurement stories,
+  and no comparison with another app in place of the reason.
 * Every Swift file, script and workflow starts with
   `// SPDX-License-Identifier: GPL-3.0-or-later` (`#` in scripts and workflows).
 * Formatting follows `.swift-format`; the lint must stay clean. No force unwrap or
@@ -192,4 +193,17 @@ Every page speaks the same visual language. The shared pieces live in
 
 * English, imperative subject, one concern per commit.
 * Before committing, read `git status` in full and stage only the paths the task changed.
+* Before committing, read the diff itself, not a summary of it, and check that:
+  * nothing in it exists already: search for the main word of each new function;
+  * every new parameter, branch, type and file has a caller now;
+  * what it replaces is deleted, with the tests that guarded only that;
+  * each "cannot", "must" or "always" in a comment was checked, in the
+    documentation or by trying it;
+  * the system does not already do it: a formatter, `Form`, a menu command,
+    observation, the undo manager;
+  * a stored `Task` is cancelled when another replaces it, and a new `static var`
+    says why it is safe to share;
+  * a test checks what the user would see, not a state on the way such as "not
+    busy", and an API added to production code for a test says so in its comment;
+  * a fact in the documentation is stated in one place, and the others link to it.
 * The lint and the test suite pass before a pull request is opened.
