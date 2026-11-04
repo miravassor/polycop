@@ -208,10 +208,9 @@ are.
 
 ## Build from source
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). You need Xcode 27, CMake and GnuPG; the
-scripts in `Tools/` build ffmpeg and audio.cpp from pinned, verified sources, and
-Swift Package Manager checks the official whisper.cpp framework against its
-checksum.
+See [CONTRIBUTING.md](CONTRIBUTING.md). The scripts in `Tools/` build ffmpeg and
+audio.cpp from pinned, verified sources, and Swift Package Manager checks the
+official whisper.cpp framework against its checksum.
 
 ## Licence
 

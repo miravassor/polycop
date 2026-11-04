@@ -13,15 +13,8 @@ Tools/build-audiocpp.sh     # the audio.cpp framework, from its pinned commit
 open App/Polycop.xcodeproj  # then run the Polycop scheme
 ```
 
-## Before a pull request
-
-```sh
-Tools/lint.sh
-xcodebuild test -project App/Polycop.xcodeproj -scheme Polycop -destination 'platform=macOS,arch=arm64'
-```
-
-Tests can run while Polycop is open: the app they run in opens an empty library
-of its own. Tests that need a model are skipped unless it is installed.
+The lint, the tests and the other commands are in [AGENTS.md](AGENTS.md), with
+the conventions a pull request follows.
 
 ## Releasing
 
