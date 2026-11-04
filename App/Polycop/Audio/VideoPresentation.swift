@@ -20,6 +20,8 @@ final class VideoPresentation: NSObject {
     /// The layer Picture in Picture floats, which the main window keeps.
     @ObservationIgnored weak var pictureLayer: AVPlayerLayer?
     @ObservationIgnored private var pictureInPicture: AVPictureInPictureController?
+    /// Waits for Picture in Picture to become possible, then starts it.
+    @ObservationIgnored private var starting: Task<Void, Never>?
     /// The window filling the screen with the picture, made by the page.
     @ObservationIgnored private var fullScreen: NSWindow?
     @ObservationIgnored private var fullScreenObservers: [any NSObjectProtocol] = []
@@ -35,7 +37,7 @@ final class VideoPresentation: NSObject {
         get { isInPictureInPicture }
         set {
             if newValue {
-                Task { await startPictureInPicture() }
+                startPictureInPicture()
             } else {
                 stopPictureInPicture()
             }
@@ -43,30 +45,45 @@ final class VideoPresentation: NSObject {
     }
 
     /// Floats the picture above every window, on any screen.
-    func startPictureInPicture() async {
+    func startPictureInPicture() {
         guard let pictureLayer, let playing = player.player, pictureInPicture == nil else { return }
         pictureLayer.player = playing
         let controller = AVPictureInPictureController(
             contentSource: .init(playerLayer: pictureLayer))
         controller.delegate = self
         pictureInPicture = controller
-        // Possible once the controller has looked at the layer, a moment later.
-        for _ in 0..<40 where !controller.isPictureInPicturePossible {
-            try? await Task.sleep(for: .milliseconds(50))
+        starting = Task {
+            // Possible once the controller has looked at the layer, a moment later.
+            do {
+                for _ in 0..<40 where !controller.isPictureInPicturePossible {
+                    try await Task.sleep(for: .milliseconds(50))
+                }
+            } catch {
+                return
+            }
+            starting = nil
+            guard controller.isPictureInPicturePossible else {
+                pictureInPicture = nil
+                pictureLayer.player = nil
+                Log.playback.error("Picture in Picture was not possible")
+                return
+            }
+            controller.startPictureInPicture()
         }
-        guard pictureInPicture === controller else { return }
-        guard controller.isPictureInPicturePossible else {
-            pictureInPicture = nil
-            pictureLayer.player = nil
-            Log.playback.error("Picture in Picture was not possible")
-            return
-        }
-        controller.startPictureInPicture()
     }
 
-    /// Brings the floating picture back to its page.
+    /// Brings the floating picture back to its page. One still waiting to
+    /// start never floats: stopping a controller that has not started does
+    /// nothing.
     func stopPictureInPicture() {
-        pictureInPicture?.stopPictureInPicture()
+        if let starting {
+            starting.cancel()
+            self.starting = nil
+            pictureInPicture = nil
+            pictureLayer?.player = nil
+        } else {
+            pictureInPicture?.stopPictureInPicture()
+        }
     }
 
     /// Fills the screen with the picture, in a window the page makes for it,
@@ -109,8 +126,8 @@ final class VideoPresentation: NSObject {
     /// Another recording has opened, or none: the floating picture is of the
     /// one that played, so it goes.
     func playerChanged(to player: AVPlayer?) {
-        guard let pictureInPicture, pictureLayer?.player !== player else { return }
-        pictureInPicture.stopPictureInPicture()
+        guard pictureInPicture != nil, pictureLayer?.player !== player else { return }
+        stopPictureInPicture()
     }
 }
 
