@@ -27,12 +27,9 @@ Tools/package.sh           # locally signed app and zip with its sources, in bui
   never reaches the engines. After changing `Engine/`, `Audio/` or any code that uses
   unsafe pointers, run the suite locally with the models installed, once with
   `-enableThreadSanitizer YES` and once with `-enableAddressSanitizer YES`.
-* A release starts on a branch `release/X.Y.Z` that sets `MARKETING_VERSION` and raises
-  `CURRENT_PROJECT_VERSION` in both targets and both configurations (four lines in
-  the project file, one value), and turns the changelog's "Unreleased" into "X.Y.Z (date)".
-  Once it is merged, pushing the tag `vX.Y.Z` makes `.github/workflows/release.yml`
-  build and test with read access only, then attest the files and draft the
-  GitHub release in a separate job. Only that job may write to the repository.
+* A release follows the steps under Releasing in `CONTRIBUTING.md`. In
+  `.github/workflows/release.yml`, only the job that drafts the release may write
+  to the repository.
 
 ## Layout
 
