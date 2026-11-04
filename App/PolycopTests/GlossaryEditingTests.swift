@@ -90,5 +90,5 @@ import Testing
     await model.retrySavingHistory()
 
     #expect(model.unsavedGlossaries.isEmpty)
-    #expect(GlossaryStore.all(in: glossaries).first?.text == "Freud")
+    #expect(GlossaryStore.all(in: glossaries).glossaries.first?.text == "Freud")
 }

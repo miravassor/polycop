@@ -14,7 +14,9 @@ extension AppModel {
 
     /// Read from the folder, so a file edited in another application counts.
     func refreshGlossaries() {
-        glossaries = GlossaryStore.all(in: glossaryFolder)
+        let listing = GlossaryStore.all(in: glossaryFolder)
+        glossaries = listing.glossaries
+        unreadableGlossaries = listing.unreadable
         for glossary in unsavedGlossaries.values {
             glossaries.removeAll { $0.name == glossary.name }
             glossaries.append(glossary)

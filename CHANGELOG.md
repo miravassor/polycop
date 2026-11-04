@@ -33,6 +33,10 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 * The Follow playback checkbox and the cursor setting in Settings, replaced by Follow in the inspector.
 * The export options popover, replaced by the inspector's Export section.
 
+### Fixed
+
+* A glossary whose file cannot be read, such as one grown too large in another application, is named in the Glossaries window rather than missing from the list without a word.
+
 ## 0.4.0 (2026-10-03)
 
 This release makes the library safer to keep and the text easier to finish:
