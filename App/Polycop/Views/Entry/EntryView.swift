@@ -117,9 +117,9 @@ struct EntryView: View {
                 hover: { focused = $0 },
                 original: original, isComparing: isComparing,
                 isFollowing: following != .off && !isFollowSuspended,
-                suspendFollowing: suspendFollowing,
+                suspendFollowing: page.suspendFollowing,
                 suspendForEditing: {
-                    if following.stopsWhenEditing { suspendFollowing() }
+                    if following.stopsWhenEditing { page.suspendFollowing() }
                 },
                 jump: $jump, start: entry.readingParagraph,
                 scrolled: { model.readingParagraph = $0 }, focused: focused, size: size,
@@ -272,23 +272,17 @@ struct EntryView: View {
 
     private func refreshSearch(navigate: Bool = true) {
         find.refresh(in: entry.paragraphs, startingOver: navigate)
-        if navigate, let current = find.current { show(current.paragraph) }
+        if navigate, let current = find.current { page.show(current.paragraph) }
     }
 
     private func regroupWords() {
         words = WordLayout.grouped(entry.shown, into: entry.paragraphs)
     }
 
-    /// Stops following while the reader looks elsewhere, and offers the way back.
-    private func suspendFollowing() {
-        guard following != .off, !isFollowSuspended else { return }
-        isFollowSuspended = true
-    }
-
     private func navigateMatch(forward: Bool) {
         guard !find.matches.isEmpty else { return }
         find.step(forward: forward)
-        if let current = find.current { show(current.paragraph) }
+        if let current = find.current { page.show(current.paragraph) }
     }
 
     private func navigateReview(forward: Bool) {
@@ -298,15 +292,7 @@ struct EntryView: View {
             ? indices.first { $0 > (activeParagraph ?? -1) } ?? indices.first
             : indices.last { $0 < (activeParagraph ?? entry.paragraphs.count) } ?? indices.last
         guard let next else { return }
-        show(next)
-    }
-
-    /// Brings a paragraph into view and makes it the active one, leaving
-    /// playback to be followed again later.
-    private func show(_ paragraph: Int) {
-        suspendFollowing()
-        activeParagraph = paragraph
-        jump = paragraph
+        page.show(next)
     }
 }
 
@@ -320,6 +306,12 @@ extension EntryView {
             hasTimedWords: words.contains { !$0.isEmpty }, isRunning: isRunning, engine: engine
         )
         .modifier(InspectorColumn(width: $inspectorWidth))
+    }
+
+    private var page: PageNavigation {
+        PageNavigation(
+            activeParagraph: $activeParagraph, jump: $jump,
+            isFollowSuspended: $isFollowSuspended, following: following)
     }
 
     private var steps: ParagraphSteps {
