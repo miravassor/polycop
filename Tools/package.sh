@@ -143,7 +143,10 @@ for name in audiocpp whisper; do
         echo "$CHECKOUT holds changes or extra files" >&2
         exit 1
     }
-    test "$(git -C "$CHECKOUT" rev-parse HEAD)" = "$(git -C "$CHECKOUT" rev-parse "$REF^{commit}")"
+    [ "$(git -C "$CHECKOUT" rev-parse HEAD)" = "$(git -C "$CHECKOUT" rev-parse "$REF^{commit}")" ] || {
+        echo "$CHECKOUT is not at $REF" >&2
+        exit 1
+    }
     git -C "$CHECKOUT" archive --format=tar --prefix="$name/" "$REF" \
         | gzip > "$SOURCE/Dependencies/$name.tar.gz"
 done
