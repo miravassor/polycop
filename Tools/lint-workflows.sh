@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# Checks the GitHub workflows: actionlint for mistakes, zizmor for security
-# (credentials, injection, permissions), with every finding shown rather than
-# only the most likely ones. Both are downloaded once at a pinned
-# release and refused if their digest differs. zizmor also asks GitHub about
+# Checks the GitHub workflows and the Dependabot configuration: actionlint for
+# mistakes, zizmor for security (credentials, injection, permissions, update
+# cooldown), with every finding shown rather than only the most likely ones.
+# Both are downloaded once at a pinned release and refused if their digest
+# differs. zizmor also asks GitHub about
 # the actions used when GH_TOKEN is set, and stays offline otherwise.
 #
 # Usage: Tools/lint-workflows.sh
@@ -67,7 +68,7 @@ fetch "https://github.com/zizmorcore/zizmor/releases/download/v$ZIZMOR/$ZIZMOR_A
 cd "$ROOT"
 "$TOOLS/actionlint-$ACTIONLINT/actionlint"
 if [ -n "${GH_TOKEN:-}" ]; then
-    "$TOOLS/zizmor-$ZIZMOR/zizmor" --persona=auditor .github/workflows
+    "$TOOLS/zizmor-$ZIZMOR/zizmor" --persona=auditor .github
 else
-    "$TOOLS/zizmor-$ZIZMOR/zizmor" --persona=auditor --offline .github/workflows
+    "$TOOLS/zizmor-$ZIZMOR/zizmor" --persona=auditor --offline .github
 fi
