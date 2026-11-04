@@ -134,12 +134,31 @@ Every page speaks the same visual language. The shared pieces live in
 * Type: a page's title is the window's (`navigationTitle`); a sheet title in `.title2`
   semibold. A row says what it is in a few words; a line under it only for what a
   student could not guess. Text styles only, no fixed point sizes.
-* One prominent button per area, for its main action; the rest use the default style.
-  Names say what happens, in the app's own words: a recording is audio or video, an
-  action that finds terms is Find Terms.
+* One prominent button per area, for its main action; the rest use the default style,
+  except a button showing only an icon, in a row or a bar, which is `.borderless`.
+  `.plain` hides that a button can be pressed: only for a row pressed as a whole.
+* A button showing only an icon is a `Label` with `.labelStyle(.iconOnly)` and a
+  `.help` in the same words, so VoiceOver and the tooltip say what it does.
+* Names say what happens, in the app's own words: a recording is audio or video, an
+  action that finds terms is Find Terms. One action keeps one name and one SF Symbol
+  in the toolbar, the menu and the row.
+* Buttons, menu items and window or sheet titles are in title case, with an ellipsis
+  when the action asks for more before it acts. Labels, pickers, toggles and section
+  headers are in sentence case.
+* Alignment comes from the container: `Form`, `LabeledContent` for a label and its
+  value, `Grid` for columns, a stack's alignment. No fixed width to line things up.
+* Colour comes from the system: its styles (`.primary`, `.secondary`, `.tint`,
+  `.fill`) for text and surfaces, its named colours (`.orange`, `.red`) only on the
+  icon of a state. No colour or opacity chosen by hand outside the timeline. A state
+  such as paused, stopped or failed keeps one colour and one symbol wherever it shows.
+* Hover, focus and disabled states are the system's; animations use its defaults
+  and respect Reduce Motion.
+* A new view has a `#Preview` with made-up data.
 * Text keeps a reading width, about 75 characters at the reader's size, centred:
   a wide window adds margins rather than longer lines, and the inspector can take
-  the width. Check a change from the smallest window to full screen.
+  the width. Check a change from the smallest window to full screen, in light and
+  dark appearance, and a change to an `#available(macOS 26, *)` branch also with
+  the look before it.
 * No `.frame(minWidth:minHeight:)` around a whole page: SwiftUI asks for the minimum
   after every change, and such a frame measures the page to answer. The window and the
   detail column give theirs with `minimumSize` in `ContentView`.
