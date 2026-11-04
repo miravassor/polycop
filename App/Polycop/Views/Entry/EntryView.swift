@@ -53,6 +53,7 @@ struct EntryView: View {
         .padding(.top, 16)
         .navigationTitle(entry.name)
         .toolbar { pageTools }
+        .modifier(InspectorToggle(isShown: $showsInspector))
         .inspector(isPresented: $showsInspector) { inspector }
         // The Playback menu's steps, which work with the inspector hidden.
         .focusedSceneValue(\.paragraphSteps, steps)
@@ -322,7 +323,7 @@ extension EntryView {
             isFollowSuspended: $isFollowSuspended,
             hasTimedWords: words.contains { !$0.isEmpty }, isRunning: isRunning, engine: engine
         )
-        .modifier(InspectorColumn(isShown: $showsInspector, width: $inspectorWidth))
+        .modifier(InspectorColumn(width: $inspectorWidth))
     }
 
     private var steps: ParagraphSteps {

@@ -73,10 +73,9 @@ struct EntryInspector: View {
     }
 }
 
-/// An inspector's width and button, the same on every page: it starts where
+/// An inspector's width, the same on every page: it starts where
 /// the reader left it, since each page has an inspector of its own.
 struct InspectorColumn: ViewModifier {
-    @Binding var isShown: Bool
     @Binding var width: Double
 
     func body(content: Content) -> some View {
@@ -90,6 +89,5 @@ struct InspectorColumn: ViewModifier {
                 min: EntryView.inspectorWidths.lowerBound, ideal: width,
                 max: EntryView.inspectorWidths.upperBound
             )
-            .modifier(InspectorToggle(isShown: $isShown))
     }
 }

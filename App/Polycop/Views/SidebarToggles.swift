@@ -37,8 +37,10 @@ struct LibraryToggle: ViewModifier {
 /// The inspector's button, at the trailing edge of the toolbar above it, the
 /// mirror of the library's. On macOS 26 it leaves its glass out over the
 /// inspector, which is glass already, and has it on the bar while the
-/// inspector is hidden, as the library's. Branched here rather than inside
-/// the toolbar, where an availability check needs macOS 14.5.
+/// inspector is hidden, as the library's. A page declares it, not the
+/// inspector, whose content is not redrawn while hidden, so its glass would
+/// come late. Branched here rather than inside the toolbar, where an
+/// availability check needs macOS 14.5.
 struct InspectorToggle: ViewModifier {
     @Binding var isShown: Bool
 

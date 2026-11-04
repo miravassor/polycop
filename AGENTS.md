@@ -101,7 +101,7 @@ Every page speaks the same visual language. The shared pieces live in
 
 * Settings and choices are the system's grouped form (`Form` with `.formStyle(.grouped)`),
   one setting a row, as in System Settings: a page's in the system inspector
-  (`InspectorColumn` gives every page the same width and button), a sheet's in the
+  (`InspectorColumn` gives every page the same width, `InspectorToggle` the same button), a sheet's in the
   sheet. No tinted cards or hand drawn boxes.
 * An empty page is the system's empty state (`ContentUnavailableView`), with the way
   to fill it.
