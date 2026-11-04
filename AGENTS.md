@@ -226,18 +226,35 @@ Every page speaks the same visual language. The shared pieces live in
 * A test that waits for asynchronous work polls for its result with a bound, as
   `open(_:)` in `PlayerTests` does, rather than sleeping a fixed time: tests run in
   parallel, and on CI they keep the main actor busy for seconds.
+* A test that fails once without a known cause becomes an issue. Running it again
+  until it passes hides the bug it found.
 * Player tests check what was asked, which the player shows at once, not what the
   audio does, and play muted under the test host (`TestHost`): fades and playback timing are checked by ear, since CI runs on busy
   virtual machines where audio timing is unreliable.
 
 ## Commits and pull requests
 
-* English, imperative subject, one concern per commit and per pull request. A pull
+* English, imperative subject in lower case, one concern per commit and per pull request. A pull
   request is squash merged, so its title becomes the commit's subject: a title that
   needs "and" is two pull requests.
 * A problem found and not fixed in the pull request at hand becomes a GitHub issue
   saying where it is and how it fails, not a TODO comment, a note file in the
   repository or a line in a merged pull request.
+* A feature that adds a page or changes what is stored starts with an issue saying
+  what the student does and what is stored, before any code.
+* What a pull request needs before it is merged depends on what it changes:
+
+  | It changes | It needs |
+  |---|---|
+  | behaviour | a test, as Tests and data says |
+  | what the user sees or does | a line under Unreleased in `CHANGELOG.md`, in the user's words |
+  | the interface | screenshots at the smallest window and full screen, light and dark, with no real course name |
+  | `Engine/`, `Audio/`, unsafe pointers or `Tools/versions.sh` | the suite run locally under both sanitizers, as Commands says, and a second reading |
+  | what is stored, or `.github/workflows/` | a second reading |
+  | a dependency | a pull request of its own, as `CONTRIBUTING.md` says |
+
+  A second reading is a review by someone, or a coding agent, that did not write
+  the change and reads the diff rather than its description.
 * Before committing, read `git status` in full and stage only the paths the task changed.
 * Before committing, read the diff itself, not a summary of it, and check that:
   * nothing in it exists already: search for the main word of each new function;
