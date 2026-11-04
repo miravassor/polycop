@@ -114,7 +114,7 @@ jobs:
             echo
             echo "Built from commit $GITHUB_SHA in run $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID, with $(xcodebuild -version | head -1)."
             echo "Polycop-$VERSION.zip holds the same app and the complete corresponding source of the app and of every bundled component. Polycop-$VERSION.dSYM.zip holds the debugging symbols that turn a crash report into lines of code."
-            echo "The disk image and both zips are attested by GitHub: \`gh attestation verify Polycop-$VERSION.dmg --repo $GITHUB_REPOSITORY\` names the commit and the run that built it."
+            echo "The disk image and both zips are attested by GitHub: \`gh attestation verify Polycop-$VERSION.dmg --repo $GITHUB_REPOSITORY --signer-workflow $GITHUB_REPOSITORY/.github/workflows/release.yml\` names the commit and the run that built it."
             echo
             echo "SHA-256:"
             echo
@@ -148,7 +148,8 @@ jobs:
           path: release
 
       # Anyone can then check that a file was built here, from which commit:
-      # gh attestation verify Polycop-X.Y.Z.dmg --repo miravassor/polycop
+      # gh attestation verify Polycop-X.Y.Z.dmg --repo miravassor/polycop \
+      #   --signer-workflow miravassor/polycop/.github/workflows/release.yml
       - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-path: |
