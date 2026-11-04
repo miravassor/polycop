@@ -8,8 +8,11 @@
 # Usage: Tools/lint.sh
 # Fails on a style violation, on any SwiftLint violation not listed in
 # .swiftlint-baseline.json, or on a broken rule. The baseline lists the warnings
-# already there; it only ever shrinks. After removing one, rewrite it with
-#   build/swiftlint-$VERSION/swiftlint lint --quiet --write-baseline .swiftlint-baseline.json
+# already there and only ever shrinks. After removing one, and only while the
+# lint passes, so that nothing new is taken in, rewrite it one field a line, so
+# that its diff shows each entry removed:
+#   build/swiftlint-$VERSION/swiftlint lint --quiet --write-baseline build/baseline.json
+#   python3 -m json.tool build/baseline.json > .swiftlint-baseline.json
 
 set -euo pipefail
 
@@ -41,7 +44,8 @@ if git grep -nwE 'TO''DO|FIX''ME' -- '*.swift' '*.sh' '*.yml'; then
     echo "A problem left for later is an issue, not a comment in the code" >&2
     failed=1
 fi
-if git grep -nE '—|–' -- '*.md'; then
+# The notices quote licences, which keep their own punctuation.
+if git grep -nE '—|–' -- '*.md' ':!THIRD_PARTY_NOTICES.md'; then
     echo "No dashes as punctuation in the documentation" >&2
     failed=1
 fi
