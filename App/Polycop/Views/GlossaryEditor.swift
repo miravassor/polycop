@@ -26,6 +26,13 @@ struct GlossaryEditor: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.block) {
             Text("Glossaries").font(.sheetTitle)
+            if !model.unreadableGlossaries.isEmpty {
+                Notice(
+                    "Glossary files that cannot be read, left as they are: \(model.unreadableGlossaries.formatted(.list(type: .and)))",
+                    .warning
+                )
+                .font(.callout)
+            }
             HStack(alignment: .top, spacing: Spacing.block) {
                 courses
                 terms

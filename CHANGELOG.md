@@ -37,6 +37,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 * Deleting a course keeps it, and says why, when its remembered corrections cannot go to the Trash, rather than leaving them to the next course given its name.
 * The Glossaries window closes even when a glossary cannot be saved: the text is kept, and Retry Saving in the library writes it.
+* A glossary whose file cannot be read, such as one grown too large in another application, is named in the Glossaries window rather than missing from the list without a word.
 
 ## 0.4.0 (2026-10-03)
 
