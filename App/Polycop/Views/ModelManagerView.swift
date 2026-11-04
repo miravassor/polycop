@@ -13,8 +13,8 @@ struct ModelManagerView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Models").font(.title2.weight(.semibold))
-                .padding([.horizontal, .top], 24)
+            Text("Models").font(.sheetTitle)
+                .padding([.horizontal, .top], Spacing.sheet)
             // Grouped rows as the inspector beside the page, one section an
             // engine, without a colour of its own.
             Form {
@@ -23,10 +23,9 @@ struct ModelManagerView: View {
             }
             .formStyle(.grouped)
             if let failure = model.failure {
-                Label(failure, systemImage: "xmark.octagon")
-                    .notice(.red)
+                Notice(failure, .failure)
                     .textSelection(.enabled)
-                    .padding(.horizontal, 24)
+                    .padding(.horizontal, Spacing.sheet)
             }
             HStack {
                 Button("Import Downloaded Model…") { importingModel = true }
@@ -38,7 +37,7 @@ struct ModelManagerView: View {
                 Button("Done") { dismiss() }
                     .keyboardShortcut(.cancelAction)
             }
-            .padding(24)
+            .padding(Spacing.sheet)
         }
         .frame(width: 620, height: 600)
         .confirmationDialog(
