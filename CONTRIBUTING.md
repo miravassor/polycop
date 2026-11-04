@@ -64,11 +64,8 @@ Each update is its own pull request.
 
 ## Guidelines
 
-* The conventions are in [AGENTS.md](AGENTS.md); they apply to people and coding agents alike.
-* A change to a model setting needs a measurement showing it does at least as
-  well on corrected transcripts; say how it was measured.
-* Never attach real lecture recordings or their transcripts to an issue or a
-  pull request. Use a short synthetic clip instead.
+The conventions, and what a pull request needs before it is merged, are in
+[AGENTS.md](AGENTS.md). They apply to people and coding agents alike.
 
 By contributing, you agree that your contribution is licensed under the
 GPL-3.0-or-later, like the rest of the project.
