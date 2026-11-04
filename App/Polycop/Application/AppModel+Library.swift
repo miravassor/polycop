@@ -141,15 +141,12 @@ extension AppModel {
     }
 
     /// Transcripts dragged onto a folder, or onto the unfiled section to leave
-    /// one. What is carried is the identifier; a recording dragged in from the
-    /// Finder carries a path instead, which matches no entry, and is refused.
+    /// one. Refused when none is in the library, such as rows dragged from
+    /// another copy of the app.
     @discardableResult
-    func moveEntries(_ identifiers: [String], to folderID: UUID?) -> Bool {
+    func moveEntries(_ ids: [Entry.ID], to folderID: UUID?) -> Bool {
         guard !foldersAreDamaged else { return false }
-        let moved =
-            identifiers
-            .compactMap(UUID.init(uuidString:))
-            .filter { id in entries.contains { $0.id == id } }
+        let moved = ids.filter { id in entries.contains { $0.id == id } }
         guard !moved.isEmpty else { return false }
         for id in moved { moveEntry(id, to: folderID) }
         return true
