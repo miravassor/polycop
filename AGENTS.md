@@ -194,7 +194,12 @@ Every page speaks the same visual language. The shared pieces live in
 
 ## Commits and pull requests
 
-* English, imperative subject, one concern per commit.
+* English, imperative subject, one concern per commit and per pull request. A pull
+  request is squash merged, so its title becomes the commit's subject: a title that
+  needs "and" is two pull requests.
+* A problem found and not fixed in the pull request at hand becomes a GitHub issue
+  saying where it is and how it fails, not a TODO comment, a note file in the
+  repository or a line in a merged pull request.
 * Before committing, read `git status` in full and stage only the paths the task changed.
 * Before committing, read the diff itself, not a summary of it, and check that:
   * nothing in it exists already: search for the main word of each new function;

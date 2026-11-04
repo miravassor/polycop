@@ -53,7 +53,6 @@ of its own. Tests that need a model are skipped unless it is installed.
 ## Guidelines
 
 * The conventions are in [AGENTS.md](AGENTS.md); they apply to people and coding agents alike.
-* Keep a pull request to one concern, with a test for any behaviour change.
 * A change to a model setting needs a measurement showing it does at least as
   well on corrected transcripts; say how it was measured.
 * Never attach real lecture recordings or their transcripts to an issue or a
