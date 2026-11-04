@@ -215,7 +215,7 @@ struct ContentView: View {
                     in: RoundedRectangle(cornerRadius: 6)
                 )
                 .contextMenu { newFolder }
-                .dropDestination(for: String.self) { items, _ in
+                .dropDestination(for: DraggedTranscripts.self) { items, _ in
                     drop(items, into: nil)
                 } isTargeted: {
                     highlightsUnfiled = $0
@@ -257,7 +257,7 @@ struct ContentView: View {
                                 ? Color.accentColor.opacity(0.25) : .clear,
                             in: RoundedRectangle(cornerRadius: 6)
                         )
-                        .dropDestination(for: String.self) { items, _ in
+                        .dropDestination(for: DraggedTranscripts.self) { items, _ in
                             drop(items, into: folder.id)
                         } isTargeted: {
                             highlighted = $0 ? folder.id : nil
@@ -320,7 +320,7 @@ extension ContentView {
         let isWorking = entry.id == model.busyEntry || model.isWaitingForDownload(entry)
         return EntryRow(entry: entry, stage: isWorking ? model.stage : nil)
             .tag(AppModel.Pane.entry(entry.id))
-            .draggable(targets.map(\.uuidString).joined(separator: "\n"))
+            .draggable(DraggedTranscripts(ids: targets))
             .contextMenu {
                 Button("Move to Folder…") {
                     destinationFolder = entry.folderID
@@ -369,11 +369,9 @@ extension ContentView {
     }
 
     /// A transcript dragged onto a folder, or onto the unfiled section to leave
-    /// one. What travels is the identifier: a recording dragged in from the
-    /// Finder carries a path, which no entry answers to, and is refused.
-    private func drop(_ items: [String], into folder: UUID?) -> Bool {
-        let moved = items.flatMap { $0.split(separator: "\n").map(String.init) }
-        guard model.moveEntries(moved, to: folder) else { return false }
+    /// one.
+    private func drop(_ items: [DraggedTranscripts], into folder: UUID?) -> Bool {
+        guard model.moveEntries(items.flatMap(\.ids), to: folder) else { return false }
         if let folder { expandedFolders.insert(folder) }
         return true
     }

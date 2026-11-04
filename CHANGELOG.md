@@ -39,6 +39,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 * The Glossaries window closes even when a glossary cannot be saved: the text is kept, and Retry Saving in the library writes it.
 * A glossary whose file cannot be read, such as one grown too large in another application, is named in the Glossaries window rather than missing from the list without a word.
 * A failed import shows why in the import window only, no longer on the New Transcription page behind it as well.
+* A transcript dragged from the library and dropped on the text, or into another app, no longer types its identifier there.
 
 ## 0.4.0 (2026-10-03)
 

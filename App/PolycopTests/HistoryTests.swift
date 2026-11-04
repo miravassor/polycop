@@ -4,6 +4,7 @@
 
 import Foundation
 import Testing
+import UniformTypeIdentifiers
 
 @testable import Polycop
 
@@ -49,14 +50,26 @@ import Testing
     let model = AppModel(history: history)
     let folder = try model.createFolder(named: "Philosophy")
 
-    #expect(model.moveEntries([entry.id.uuidString], to: folder))
+    #expect(model.moveEntries([entry.id], to: folder))
     #expect(model.entry(entry.id)?.folderID == folder)
-    #expect(model.moveEntries([entry.id.uuidString], to: nil))
+    #expect(model.moveEntries([entry.id], to: nil))
     #expect(model.entry(entry.id)?.folderID == nil)
-    // What the Finder hands over is a path, and an unknown transcript is gone.
-    #expect(!model.moveEntries(["/Users/someone/cours.wav"], to: folder))
-    #expect(!model.moveEntries([UUID().uuidString], to: folder))
+    // A transcript not in this library, such as one from another copy.
+    #expect(!model.moveEntries([UUID()], to: folder))
     #expect(model.entry(entry.id)?.folderID == nil)
+}
+
+/// Rows travel as the app's own type, declared in its Info.plist, never as
+/// text, which a paragraph would take into the transcript, and arrive as they
+/// left.
+@Test func draggedRowsAreNotText() async throws {
+    #expect(UTType.transcripts.isDeclared)
+    #expect(!UTType.transcripts.conforms(to: .text))
+    guard #available(macOS 15.2, *) else { return }
+    #expect(DraggedTranscripts.exportedContentTypes() == [.transcripts])
+    let dragged = DraggedTranscripts(ids: [UUID(), UUID()])
+    let data = try await dragged.exported(as: .transcripts)
+    #expect(try JSONDecoder().decode(DraggedTranscripts.self, from: data).ids == dragged.ids)
 }
 
 private func temporaryFolder() throws -> URL {
