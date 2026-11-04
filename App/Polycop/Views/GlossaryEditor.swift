@@ -39,14 +39,18 @@ struct GlossaryEditor: View {
             Divider()
             HStack {
                 Spacer()
-                // No Return shortcut: Return starts the next term.
-                Button("Done") { if save() { dismiss() } }
-                    .keyboardShortcut(.cancelAction)
+                // No Return shortcut: Return starts the next term. Closing
+                // even when the save fails: the model keeps the text, and the
+                // library offers Retry Saving.
+                Button("Done") {
+                    save()
+                    dismiss()
+                }
+                .keyboardShortcut(.cancelAction)
                 Button("Use This Glossary") {
-                    if save() {
-                        model.glossaryName = selection
-                        dismiss()
-                    }
+                    save()
+                    model.glossaryName = selection
+                    dismiss()
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(selection == nil)
@@ -54,7 +58,6 @@ struct GlossaryEditor: View {
         }
         .padding(24)
         .frame(width: 700, height: 500)
-        .interactiveDismissDisabled(problem != nil)
         .sheet(isPresented: $findingTerms) {
             TermFinder(attested: Set(Glossary.terms(in: text)), add: append)
         }
