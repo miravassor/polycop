@@ -2,7 +2,6 @@
 
 import AppKit
 import SwiftUI
-import UniformTypeIdentifiers
 
 /// The More menu of a transcript's toolbar: corrections, export and removal.
 struct EntryActionsMenu: View {
