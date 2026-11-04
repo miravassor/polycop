@@ -37,7 +37,7 @@ struct EntryView: View {
     private var engine: Engine? { ModelCatalog.model(entry.modelFile)?.engine }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: Spacing.block) {
             EntryProgress(model: model, entry: entry, isRunning: isRunning)
             EntryNotices(
                 entry: entry, findings: findings ?? entry.findings, model: model,
@@ -49,8 +49,8 @@ struct EntryView: View {
         // A reading column: a wide window adds margins, not longer lines.
         .frame(maxWidth: readingWidth)
         .frame(maxWidth: .infinity)
-        .padding(.horizontal, 28)
-        .padding(.top, 16)
+        .padding(.horizontal, Spacing.page)
+        .padding(.top, Spacing.block)
         .navigationTitle(entry.name)
         .toolbar { pageTools }
         .modifier(InspectorToggle(isShown: $showsInspector))
@@ -165,9 +165,8 @@ struct EntryView: View {
         if !isRunning && !entry.paragraphs.isEmpty
             && (model.hasUnsavedHistory || model.storageFailure != nil)
         {
-            Label("Library has unsaved changes", systemImage: "exclamationmark.triangle")
+            Notice("Library has unsaved changes", .warning)
                 .font(.caption)
-                .notice(.orange)
         }
     }
 
