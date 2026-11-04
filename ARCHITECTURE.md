@@ -164,5 +164,4 @@ change (see `AGENTS.md`).
 tested with temporary folders, and the player with settings in memory. The
 queue is also tested with a scripted engine and silence detector given through
 `Engines`, so pause, resume, stop, quit and failures run in CI; engine tests
-run only when their model is installed. Audio timing is never asserted: CI
-runs on shared machines.
+run only when their model is installed.
