@@ -96,6 +96,24 @@ Tools/                 build, fixture and packaging scripts
 * Interface strings are in English. No emoji, and no dashes as punctuation, in the
   interface or the documentation.
 
+## Official documentation
+
+Apple's documentation and the Human Interface Guidelines settle interface and API
+choices, not memory, which misses recent APIs and what macOS 14 lacks.
+
+* Read the page before relying on an API, a flag or a behaviour; for a C library,
+  its headers or source. Say so when it cannot be checked.
+* Apple's pages need JavaScript, so read them as JSON, which also gives the
+  version each API appeared in:
+  `developer.apple.com/documentation/swiftui/buttonstyle` is
+  `developer.apple.com/tutorials/data/documentation/swiftui/buttonstyle.json`, and
+  `developer.apple.com/design/human-interface-guidelines/layout` is
+  `developer.apple.com/tutorials/data/design/human-interface-guidelines/layout.json`.
+* A pull request that makes an interface or API choice links the page it follows.
+  Code that departs from it says why in a comment.
+* Where this file and Apple's documentation disagree, the pull request says so
+  rather than picking one in silence.
+
 ## Interface
 
 Every page speaks the same visual language. The shared pieces live in
