@@ -26,19 +26,36 @@ BUILD="$ROOT/build/audiocpp-build"
 FRAMEWORK="$ROOT/build/audiocpp/audiocpp.framework"
 OUTPUT="$ROOT/Packages/AudioCppFramework/audiocpp.xcframework"
 
-if [ ! -d "$SOURCE/.git" ]; then
-    git clone --depth 1 --branch "$VERSION" https://github.com/0xShug0/audio.cpp.git "$SOURCE"
+# A release's source zip ships the archive that Tools/package.sh made, so the
+# app builds from it offline.
+ARCHIVE="$ROOT/Dependencies/audiocpp.tar.gz"
+if [ ! -d "$SOURCE/.git" ] && [ -f "$ARCHIVE" ]; then
+    # git archive writes the commit into the tar header. The header is read
+    # through a process substitution, since the reader stops after it and a
+    # pipe would fail under pipefail.
+    archived="$(git get-tar-commit-id < <(gzip -dc "$ARCHIVE"))" || true
+    if [ "$archived" != "$COMMIT" ]; then
+        echo "$ARCHIVE is not audio.cpp $VERSION ($COMMIT)" >&2
+        exit 1
+    fi
+    rm -rf "$SOURCE"
+    mkdir -p "$SOURCE"
+    tar -xzf "$ARCHIVE" -C "$SOURCE" --strip-components 1
+else
+    if [ ! -d "$SOURCE/.git" ]; then
+        git clone --depth 1 --branch "$VERSION" https://github.com/0xShug0/audio.cpp.git "$SOURCE"
+    fi
+    if [ "$(git -C "$SOURCE" rev-parse HEAD)" != "$COMMIT" ]; then
+        echo "The checkout in $SOURCE is not audio.cpp $VERSION ($COMMIT)" >&2
+        exit 1
+    fi
+    # Untracked and ignored files count too: the build compiles in every model
+    # specification file it finds.
+    [ -z "$(git -C "$SOURCE" status --porcelain --ignored)" ] || {
+        echo "The audio.cpp checkout has local changes; refusing to package them as $VERSION" >&2
+        exit 1
+    }
 fi
-if [ "$(git -C "$SOURCE" rev-parse HEAD)" != "$COMMIT" ]; then
-    echo "The checkout in $SOURCE is not audio.cpp $VERSION ($COMMIT)" >&2
-    exit 1
-fi
-# Untracked and ignored files count too: the build compiles in every model
-# specification file it finds.
-[ -z "$(git -C "$SOURCE" status --porcelain --ignored)" ] || {
-    echo "The audio.cpp checkout has local changes; refusing to package them as $VERSION" >&2
-    exit 1
-}
 
 # OpenMP is off because Apple's compiler ships no runtime for it. The model
 # specifications are compiled in, so the library needs no files at run time.

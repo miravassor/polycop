@@ -158,9 +158,9 @@ Tools/fixtures.sh documents how the synthetic test recordings were generated.
 
 Dependencies contains the corresponding pinned audio.cpp, whisper.cpp and
 FFmpeg sources. The audio.cpp server frontend submodule is not built or shipped.
-To use the included audio.cpp archive instead of cloning, extract it into
-build/audiocpp-source and run the CMake commands in Tools/build-audiocpp.sh;
-its initial Git checkout check applies only to Git checkouts.
+Tools/build-audiocpp.sh builds from the included audio.cpp archive rather
+than cloning, once it has checked that the archive was made from the pinned
+commit.
 The FFmpeg source archive can be placed in build/ffmpeg-source before running
 Tools/build-ffmpeg.sh; its signature and the official release key are required.
 whisper.cpp includes its upstream XCFramework build scripts under scripts/.
