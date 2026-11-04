@@ -76,8 +76,9 @@ Tools/                 build, fixture and packaging scripts
 * Formatting follows `.swift-format`; the lint must stay clean. No force unwrap or
   `try!`: where a value can never be missing, such as a URL built from literals, say
   why in a comment above a `swift-format-ignore` for that one rule.
-* Size and complexity follow `.swiftlint.yml`. A warning there is debt: do not add
-  one, and split code rather than raise a limit. When a split brings the largest
+* Size and complexity follow `.swiftlint.yml`. A warning there is debt: the lint
+  fails on any not listed in `.swiftlint-baseline.json`, and that list only
+  shrinks. Split code rather than raise a limit. When a split brings the largest
   case down, lower the error limit to just above what remains.
 * No abstraction before a second use exists. Prefer the simplest code that reads well.
 * `try?` only where a failure changes nothing the user relies on, such as removing a
