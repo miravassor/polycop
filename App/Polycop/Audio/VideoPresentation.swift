@@ -22,6 +22,8 @@ final class VideoPresentation: NSObject {
     @ObservationIgnored private var pictureInPicture: AVPictureInPictureController?
     /// Waits for Picture in Picture to become possible, then starts it.
     @ObservationIgnored private var starting: Task<Void, Never>?
+    /// Stopped while the system was still floating it up.
+    @ObservationIgnored private var stopsOnceStarted = false
     /// The window filling the screen with the picture, made by the page.
     @ObservationIgnored private var fullScreen: NSWindow?
     @ObservationIgnored private var fullScreenObservers: [any NSObjectProtocol] = []
@@ -47,6 +49,7 @@ final class VideoPresentation: NSObject {
     /// Floats the picture above every window, on any screen.
     func startPictureInPicture() {
         guard let pictureLayer, let playing = player.player, pictureInPicture == nil else { return }
+        stopsOnceStarted = false
         pictureLayer.player = playing
         let controller = AVPictureInPictureController(
             contentSource: .init(playerLayer: pictureLayer))
@@ -61,6 +64,8 @@ final class VideoPresentation: NSObject {
             } catch {
                 return
             }
+            // Stopped, or replaced, while its sleep had already ended.
+            guard !Task.isCancelled, pictureInPicture === controller else { return }
             starting = nil
             guard controller.isPictureInPicturePossible else {
                 pictureInPicture = nil
@@ -72,17 +77,20 @@ final class VideoPresentation: NSObject {
         }
     }
 
-    /// Brings the floating picture back to its page. One still waiting to
-    /// start never floats: stopping a controller that has not started does
-    /// nothing.
+    /// Brings the floating picture back to its page. Stopping a controller
+    /// does nothing until its picture is up, so one still waiting never
+    /// floats, and one floating up is stopped once it is.
     func stopPictureInPicture() {
+        guard let pictureInPicture else { return }
         if let starting {
             starting.cancel()
             self.starting = nil
-            pictureInPicture = nil
+            self.pictureInPicture = nil
             pictureLayer?.player = nil
+        } else if pictureInPicture.isPictureInPictureActive {
+            pictureInPicture.stopPictureInPicture()
         } else {
-            pictureInPicture?.stopPictureInPicture()
+            stopsOnceStarted = true
         }
     }
 
@@ -136,6 +144,10 @@ extension VideoPresentation: @preconcurrency AVPictureInPictureControllerDelegat
         _ controller: AVPictureInPictureController
     ) {
         isInPictureInPicture = true
+        if stopsOnceStarted {
+            stopsOnceStarted = false
+            controller.stopPictureInPicture()
+        }
     }
 
     func pictureInPictureControllerDidStopPictureInPicture(
@@ -143,6 +155,7 @@ extension VideoPresentation: @preconcurrency AVPictureInPictureControllerDelegat
     ) {
         if pictureInPicture === controller { pictureInPicture = nil }
         pictureLayer?.player = nil
+        stopsOnceStarted = false
         isInPictureInPicture = false
     }
 
@@ -152,6 +165,7 @@ extension VideoPresentation: @preconcurrency AVPictureInPictureControllerDelegat
     ) {
         if pictureInPicture === controller { pictureInPicture = nil }
         pictureLayer?.player = nil
+        stopsOnceStarted = false
         Log.playback.error("Picture in Picture failed: \(error, privacy: .public)")
     }
 
