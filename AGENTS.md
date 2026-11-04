@@ -24,9 +24,10 @@ Tools/package.sh           # locally signed app and zip with its sources, in bui
   its own and clears no leftover files, so it leaves the user's copy alone.
 * Tests that need a model skip themselves when that model is not installed.
 * CI runs the suite under the thread and address sanitizers, but has no model, so it
-  never reaches the engines. After changing `Engine/`, `Audio/` or any code that uses
-  unsafe pointers, run the suite locally with the models installed, once with
-  `-enableThreadSanitizer YES` and once with `-enableAddressSanitizer YES`.
+  never reaches the engines. After changing `Engine/`, `Audio/`, a version in
+  `Tools/versions.sh` or any code that uses unsafe pointers, run the suite locally
+  with the models installed, once with `-enableThreadSanitizer YES` and once with
+  `-enableAddressSanitizer YES`.
 * A release follows the steps under Releasing in `CONTRIBUTING.md`. In
   `.github/workflows/release.yml`, only the job that drafts the release may write
   to the repository.
