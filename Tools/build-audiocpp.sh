@@ -3,7 +3,8 @@
 #
 # Builds the audio.cpp library the app links for Qwen3-ASR, MOSS and Voxtral:
 # its C API only, arm64, Metal, with no other model family compiled in. The
-# source is checked out at a pinned commit and refused if the checkout differs.
+# source is checked out at a pinned commit, or unpacked from the archive a
+# release's source zip includes, and refused if it is not that commit.
 #
 # Usage: Tools/build-audiocpp.sh
 # Result: Packages/AudioCppFramework/audiocpp.xcframework, and the
