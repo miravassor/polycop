@@ -40,7 +40,9 @@ Each update is its own pull request.
    both targets, Polycop and PolycopTests, in Debug and Release: four lines in
    `App/Polycop.xcodeproj/project.pbxproj`.
    `grep MARKETING_VERSION App/Polycop.xcodeproj/project.pbxproj | sort -u` must
-   show one value, or the release workflow refuses the tag.
+   show one value, or the release workflow refuses the tag. A release of fixes
+   only raises the last number; one with a feature, or a change to what is
+   stored, raises the middle one.
 3. If the release stores something new in a record (see "Things that break
    silently" in [AGENTS.md](AGENTS.md)), add a record as this version writes it
    to `App/PolycopTests/Fixtures/records/`, such as `entry-X.Y.Z.json`, and
