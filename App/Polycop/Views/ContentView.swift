@@ -356,8 +356,8 @@ extension ContentView {
     }
 
     /// The transcripts an action on this row applies to: the whole selection
-    /// when the row is part of it, and the row alone otherwise, as the Finder
-    /// behaves.
+    /// when the row is part of it, so one menu acts on everything selected, and
+    /// the row alone otherwise.
     private func targets(of entry: Entry) -> [Entry.ID] {
         guard selection.contains(.entry(entry.id)), selected.count > 1 else { return [entry.id] }
         return selected

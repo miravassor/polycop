@@ -5,8 +5,8 @@ import CoreAudio
 import os
 
 /// Pauses playback when the Mac is about to sleep and when the audio output
-/// it plays through goes away, as Music and Podcasts do: a lecture heard in
-/// headphones must not move to the speakers when they disconnect. Plugging in
+/// it plays through goes away: a lecture heard in headphones must not move to
+/// the speakers when they disconnect. Plugging in
 /// headphones, or choosing another output, keeps playing there. Playback the
 /// user then resumes behaves as any other resume.
 final class PlaybackInterruptions {
