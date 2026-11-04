@@ -73,10 +73,9 @@ struct EntryInspector: View {
     }
 }
 
-/// An inspector's width and button, the same on every page: it starts where
-/// the reader left it, since each page has an inspector of its own.
+/// An inspector's width, the same on every page: it starts where the reader
+/// left it, since each page has an inspector of its own.
 struct InspectorColumn: ViewModifier {
-    @Binding var isShown: Bool
     @Binding var width: Double
 
     func body(content: Content) -> some View {
@@ -90,15 +89,16 @@ struct InspectorColumn: ViewModifier {
                 min: EntryView.inspectorWidths.lowerBound, ideal: width,
                 max: EntryView.inspectorWidths.upperBound
             )
-            .modifier(InspectorToggle(isShown: $isShown))
     }
 }
 
 /// The inspector's button, at the trailing edge of the toolbar above it, the
-/// mirror of the library's button at the leading edge. On macOS 26 a toolbar
-/// item sits on glass, while the library's button, on the library's own glass,
-/// has none, so this one leaves its glass out to match. Branched here rather
-/// than inside the toolbar, where an availability check needs macOS 14.5.
+/// mirror of the library's button at the leading edge. On macOS 26 it has the
+/// toolbar's glass only while the inspector is hidden, as the library's has
+/// while the library is: over the inspector's own glass it has none. Each
+/// page declares it, rather than the inspector's content, where its glass
+/// followed the inspector late. Branched here rather than inside the toolbar,
+/// where an availability check needs macOS 14.5.
 struct InspectorToggle: ViewModifier {
     @Binding var isShown: Bool
 
@@ -106,7 +106,8 @@ struct InspectorToggle: ViewModifier {
         if #available(macOS 26, *) {
             content.toolbar {
                 ToolbarSpacer(.flexible)
-                ToolbarItem { button }.sharedBackgroundVisibility(.hidden)
+                ToolbarItem { button }
+                    .sharedBackgroundVisibility(isShown ? .hidden : .automatic)
             }
         } else {
             content.toolbar {
