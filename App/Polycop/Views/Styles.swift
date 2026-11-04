@@ -8,8 +8,8 @@ import SwiftUI
 
 extension View {
     /// Controls floating over the foot of a scrolling view: on macOS 26 the
-    /// content scrolls under them with the system's soft edge, as Music's list
-    /// under its player; before, under them as they are.
+    /// content scrolls under them with the system's soft edge; before, under
+    /// them as they are.
     @ViewBuilder func floatingBar(@ViewBuilder _ bar: () -> some View) -> some View {
         let bar = bar()
         if #available(macOS 26, *) {
@@ -38,8 +38,8 @@ extension View {
 }
 
 /// The surface of what floats at the foot of a page, the player or Start:
-/// glass on macOS 26, as Music's player, blurring what scrolls under it; the
-/// system's material before. A capsule on one line, rounder corners on two.
+/// glass on macOS 26, blurring what scrolls under it; the system's material
+/// before. A capsule on one line, rounder corners on two.
 struct FloatingSurface: ViewModifier {
     let cornerRadius: CGFloat
 

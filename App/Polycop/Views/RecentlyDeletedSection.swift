@@ -2,7 +2,7 @@
 
 import SwiftUI
 
-/// Removed transcripts, kept for a while as Notes and Voice Memos keep them.
+/// Removed transcripts, kept for a while so that a removal can be taken back.
 /// Shown only when there is one. A row is not a page: it is recovered or
 /// deleted from its menu.
 struct RecentlyDeletedSection: View {

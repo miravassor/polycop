@@ -100,8 +100,8 @@ struct EntryExportSection: View {
 
     /// The save panel every Mac application uses, so the user chooses the name
     /// and the place, and macOS is what asks before replacing a file. The
-    /// format and its choices are set before, in the inspector, as Pages sets
-    /// them before its save panel; the name shows the extension they give.
+    /// format and its choices are set before, in the inspector; the name shows
+    /// the extension they give.
     static func exportAs(_ entry: Entry, with model: AppModel) {
         let panel = NSSavePanel()
         panel.nameFieldStringValue = Transcript.suggestedName(

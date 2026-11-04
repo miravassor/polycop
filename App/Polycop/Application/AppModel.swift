@@ -51,7 +51,7 @@ final class AppModel {
     /// Every recording given to the app, newest first.
     var entries: [Entry] = []
     /// Transcripts removed from the library in the last `keepsDeleted`, most
-    /// recent first, as Notes and Voice Memos keep them.
+    /// recent first, so that a removal can be taken back.
     var recentlyDeleted: [Entry] = []
     var folders: [TranscriptFolder] = []
     /// The entry being transcribed, or paused part way through.
