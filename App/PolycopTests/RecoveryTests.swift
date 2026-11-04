@@ -263,7 +263,7 @@ private func finished(_ recording: URL, in history: URL, model: String, language
     let model = AppModel(history: history)
 
     model.moveEntry(filed.id, to: nil)
-    #expect(!model.moveEntries([filed.id.uuidString], to: nil))
+    #expect(!model.moveEntries([filed.id], to: nil))
 
     #expect(model.entry(filed.id)?.folderID == folder)
     #expect(HistoryStore.all(in: history).entries.first?.folderID == folder)
@@ -417,8 +417,7 @@ private func finished(_ recording: URL, in history: URL, model: String, language
     let course = try model.createFolder(named: "Psychologie")
 
     // A drag of several rows carries their identifiers together.
-    let dragged = [first, second].map(\.id.uuidString).joined(separator: "\n")
-    let carried = dragged.split(separator: "\n").map(String.init)
+    let carried = DraggedTranscripts(ids: [first.id, second.id]).ids
     #expect(model.moveEntries(carried, to: course))
     #expect(model.entry(first.id)?.folderID == course)
     #expect(model.entry(second.id)?.folderID == course)
