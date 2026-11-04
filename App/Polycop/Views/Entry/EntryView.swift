@@ -53,7 +53,6 @@ struct EntryView: View {
         .padding(.top, 16)
         .navigationTitle(entry.name)
         .toolbar { pageTools }
-        .modifier(InspectorToggle(isShown: $showsInspector))
         .inspector(isPresented: $showsInspector) { inspector }
         // The Playback menu's steps, which work with the inspector hidden.
         .focusedSceneValue(\.paragraphSteps, steps)
@@ -188,19 +187,16 @@ struct EntryView: View {
         // trailing edge. One capsule of evenly spaced symbols: the menus show
         // no arrow, which would set one apart in a capsule of its own.
         ToolbarItemGroup(placement: .principal) {
-            Group {
-                if !entry.paragraphs.isEmpty {
-                    compareToggle
-                    reviewMenu
-                    findButton
-                    textMenu
-                }
-                EntryActionsMenu(
-                    model: model, entry: entry, isRunning: isRunning,
-                    confirmingRevert: $confirmingRevert, confirmingRemoval: $confirmingRemoval,
-                    exportAs: { EntryExportSection.exportAs(entry, with: model) })
+            if !entry.paragraphs.isEmpty {
+                compareToggle
+                reviewMenu
+                findButton
+                textMenu
             }
-            .modifier(ToolbarItemSize())
+            EntryActionsMenu(
+                model: model, entry: entry, isRunning: isRunning,
+                confirmingRevert: $confirmingRevert, confirmingRemoval: $confirmingRemoval,
+                exportAs: { EntryExportSection.exportAs(entry, with: model) })
         }
     }
 
@@ -323,7 +319,7 @@ extension EntryView {
             isFollowSuspended: $isFollowSuspended,
             hasTimedWords: words.contains { !$0.isEmpty }, isRunning: isRunning, engine: engine
         )
-        .modifier(InspectorColumn(width: $inspectorWidth))
+        .modifier(InspectorColumn(isShown: $showsInspector, width: $inspectorWidth))
     }
 
     private var steps: ParagraphSteps {

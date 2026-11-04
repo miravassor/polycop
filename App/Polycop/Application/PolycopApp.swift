@@ -105,10 +105,8 @@ struct PolycopApp: App {
         )
         // No title beside the page's tools: a recording's name is long, and
         // the tools must fit above the text of a split screen window. The
-        // name stays the window's, in the Window menu, and the library shows
-        // which transcript is open, as Notes does. Not the compact style,
-        // which would put the library under the bar rather than floating up
-        // to the window's top; the items take its size (`ToolbarItemSize`).
+        // name stays the window's, in the Window menu, and the selected row
+        // of the library.
         .windowToolbarStyle(.unified(showsTitle: false))
         .commands {
             CommandGroup(after: .appInfo) {

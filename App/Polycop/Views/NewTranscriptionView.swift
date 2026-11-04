@@ -20,13 +20,12 @@ struct NewTranscriptionView: View {
     var body: some View {
         page
             .navigationTitle("New Transcription")
-            .modifier(InspectorToggle(isShown: $showsInspector))
             .inspector(isPresented: $showsInspector) {
                 NewTranscriptionSettings(
                     model: model, managingModels: $managingModels,
                     editingGlossaries: $editingGlossaries
                 )
-                .modifier(InspectorColumn(width: $inspectorWidth))
+                .modifier(InspectorColumn(isShown: $showsInspector, width: $inspectorWidth))
             }
             .sheet(isPresented: $editingGlossaries) { GlossaryEditor(model: model) }
             .sheet(isPresented: $managingModels) {
