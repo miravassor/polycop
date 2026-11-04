@@ -5,6 +5,12 @@ Silicon, fully offline once a model is downloaded. New work goes into both: the
 transcription and the tools to listen, correct and export. SwiftUI, Swift 6,
 macOS 14 or later, arm64 only. Licence GPL-3.0-or-later.
 
+This file holds the rules, for people and agents alike. The rest lives in one
+place each: what the app does for students in `README.md`; build prerequisites,
+dependencies and releasing in `CONTRIBUTING.md`; how the parts fit, and why, in
+`ARCHITECTURE.md`; what reaches the network and how releases are signed in
+`SECURITY.md`.
+
 ## Commands
 
 Run from the repository root. Xcode 27 is required; the scripts set
@@ -28,13 +34,10 @@ Tools/package.sh           # locally signed app and zip with its sources, in bui
   `Tools/versions.sh` or any code that uses unsafe pointers, run the suite locally
   with the models installed, once with `-enableThreadSanitizer YES` and once with
   `-enableAddressSanitizer YES`.
-* A release follows the steps under Releasing in `CONTRIBUTING.md`. In
-  `.github/workflows/release.yml`, only the job that drafts the release may write
+* In `.github/workflows/release.yml`, only the job that drafts the release may write
   to the repository.
 
 ## Layout
-
-How the parts fit, who owns which state and where work runs: `ARCHITECTURE.md`.
 
 ```
 App/Polycop/
@@ -84,8 +87,7 @@ Tools/                 build, fixture and packaging scripts
   temporary file. A failure the user would notice is shown, or kept and retried as
   history writes are; one they would not notice but a maintainer needs is logged
   through `Log`.
-* Layers call one way, as `ARCHITECTURE.md` draws them. A change to that shape updates
-  `ARCHITECTURE.md` in the same pull request.
+* Layers call one way, as `ARCHITECTURE.md` draws them.
 * A new dependency, tool or model is pinned to a version and checked against a digest,
   as the build scripts and `Tools/lint.sh` do. Versions of what ships with its source
   live in `Tools/versions.sh`; `Tools/check-versions.sh` checks that both
@@ -217,8 +219,9 @@ Every page speaks the same visual language. The shared pieces live in
 * Fixtures are synthetic: the recordings in `Fixtures/formats/` are made by
   `Tools/fixtures.sh` from the macOS `say` voices; records and paragraphs are written
   by hand from made-up text.
-* Never commit recordings, transcripts of real lectures, or model weights, nor a
-  screenshot that shows a real library: blur course names first.
+* Never commit, or attach to an issue or a pull request, recordings or transcripts of
+  real lectures, model weights, or a screenshot that shows a real library: blur
+  course names first, and use a short synthetic clip rather than a recording.
 * Tests never touch the user's library, preferences or Trash: use a temporary folder or
   an injected one, and give a test its own settings in memory, as `PlayerTests` does:
   a set value leaves a file behind, and a registered one is shared by every test
@@ -229,14 +232,15 @@ Every page speaks the same visual language. The shared pieces live in
 * A test that fails once without a known cause becomes an issue. Running it again
   until it passes hides the bug it found.
 * Player tests check what was asked, which the player shows at once, not what the
-  audio does, and play muted under the test host (`TestHost`): fades and playback timing are checked by ear, since CI runs on busy
-  virtual machines where audio timing is unreliable.
+  audio does, and play muted under the test host (`TestHost`): fades and playback
+  timing are checked by ear, since CI runs on busy virtual machines where audio
+  timing is unreliable.
 
 ## Commits and pull requests
 
-* English, imperative subject in lower case, one concern per commit and per pull request. A pull
-  request is squash merged, so its title becomes the commit's subject: a title that
-  needs "and" is two pull requests.
+* English, imperative subject in lower case, one concern per commit and per pull
+  request. A pull request is squash merged, so its title becomes the commit's
+  subject: a title that needs "and" is two pull requests.
 * A problem found and not fixed in the pull request at hand becomes a GitHub issue
   saying where it is and how it fails, not a TODO comment, a note file in the
   repository or a line in a merged pull request.
@@ -252,10 +256,15 @@ Every page speaks the same visual language. The shared pieces live in
   | `Engine/`, `Audio/`, unsafe pointers or `Tools/versions.sh` | the suite run locally under both sanitizers, as Commands says, and a second reading |
   | what is stored, or `.github/workflows/` | a second reading |
   | a dependency | a pull request of its own, as `CONTRIBUTING.md` says |
+  | an interface or API choice | a link to the Apple page it follows, as Official documentation says |
+  | a model setting | a measurement on corrected transcripts showing it does at least as well, and how it was measured |
+  | what a document describes: a command, the layout, a flow in `ARCHITECTURE.md` | that document, updated in the same pull request |
 
   A second reading is a review by someone, or a coding agent, that did not write
   the change and reads the diff rather than its description.
-* Before committing, read `git status` in full and stage only the paths the task changed.
+* Before editing, and again before committing, read `git status` in full: another
+  session may be changing the same files. Never overwrite changes you did not make,
+  and stage only the paths the task changed.
 * Before committing, read the diff itself, not a summary of it, and check that:
   * nothing in it exists already: search for the main word of each new function;
   * every new parameter, branch, type and file has a caller now;
