@@ -33,6 +33,10 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 * The Follow playback checkbox and the cursor setting in Settings, replaced by Follow in the inspector.
 * The export options popover, replaced by the inspector's Export section.
 
+### Fixed
+
+* Deleting a course keeps it, and says why, when its remembered corrections cannot go to the Trash, rather than leaving them to the next course given its name.
+
 ## 0.4.0 (2026-10-03)
 
 This release makes the library safer to keep and the text easier to finish:
