@@ -115,6 +115,7 @@ struct TermFinder: View {
                 Spacer()
                 Button("Add…", systemImage: "plus") { choosing = true }
                     .buttonBorderShape(.capsule)
+                    .disabled(searching)
             }
         } footer: {
             Text("Read for their words only; nothing is copied into Polycop.")
@@ -145,12 +146,14 @@ struct TermFinder: View {
     }
 
     private func find() {
+        search?.cancel()
         searching = true
         problem = nil
         let chosen = files
         let text = pasted
         search = Task {
-            defer { searching = false }
+            // A search replaced by another leaves the spinner to it.
+            defer { if !Task.isCancelled { searching = false } }
             do {
                 var pages: [String] = []
                 var bytes = text.utf8.count
