@@ -190,21 +190,29 @@ import Testing
         await model.shutDown()
     }
 
+    /// Stopped while its recording is decoded, an import adds nothing. The
+    /// stop runs on the main actor, so the job is no longer current when the
+    /// decoding ends, however soon that is.
     @MainActor
     @Test func cancellingAnImportCreatesNoEntry() async throws {
         let root = URL.temporaryDirectory.appending(path: UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
-        let model = AppModel(history: root)
-        let importing = Task {
-            try await model.importTranscript(
-                URL(filePath: "/tmp/missing.txt"), audio: URL(filePath: "/tmp/missing.wav"))
-        }
-        for _ in 0..<1000 where !model.stage.isBusy { await Task.yield() }
-        #expect(model.stage.isBusy)
+        let transcript = root.appending(path: "Synthetic.srt")
+        try Data("1\n00:00:00,000 --> 00:00:01,000\nBonjour.\n".utf8).write(to: transcript)
+        let audio = URL(filePath: #filePath).deletingLastPathComponent().appending(
+            path: "Fixtures/formats/clip.wav")
+        let history = root.appending(path: "History")
+        let model = AppModel(history: history)
+        let importing = Task { try await model.importTranscript(transcript, audio: audio) }
+        for _ in 0..<5000 where !model.stage.isBusy { try await Task.sleep(for: .milliseconds(1)) }
+        try #require(model.stage.isBusy)
+
         model.cancel()
         _ = await importing.result
+
         #expect(model.entries.isEmpty)
-        #expect(HistoryStore.all(in: root).entries.isEmpty)
+        #expect(HistoryStore.all(in: history).entries.isEmpty)
         await model.shutDown()
     }
 
