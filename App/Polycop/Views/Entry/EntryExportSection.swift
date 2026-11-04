@@ -71,10 +71,7 @@ struct EntryExportSection: View {
         if let file = model.lastExport(of: entry) {
             LabeledContent {
                 Button("Show in Finder") {
-                    NSWorkspace.shared.activateFileViewerSelecting(
-                        entry.saved.filter {
-                            FileManager.default.fileExists(atPath: $0.path(percentEncoded: false))
-                        })
+                    NSWorkspace.shared.activateFileViewerSelecting(model.existingExports(of: entry))
                 }
             } label: {
                 Text("Last Export")

@@ -82,6 +82,23 @@ private func finished(_ recording: URL, in history: URL) throws -> Entry {
     #expect(model.lastExport(of: try #require(model.entry(entry.id))) == again)
 }
 
+/// Show in Finder selects the exports still there: a record from 0.4.0 can
+/// hold a text and its subtitles, of which one may have been deleted.
+@MainActor
+@Test func showInFinderSelectsOnlyTheExportsStillThere() throws {
+    let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let text = folder.appending(path: "cours.txt")
+    try Data("Bonjour.".utf8).write(to: text)
+    var entry = Entry(
+        recording: clip, modelFile: ModelCatalog.recommended.id, glossary: nil,
+        skipsSilence: false, subtitles: false)
+    entry.saved = [text, folder.appending(path: "cours.srt")]
+    let model = AppModel(history: folder.appending(path: "History"))
+    #expect(model.existingExports(of: entry) == [text])
+}
+
 @MainActor
 @Test func exportingIntoAFolderThatIsGoneSaysSo() throws {
     let (folder, recording) = try library()

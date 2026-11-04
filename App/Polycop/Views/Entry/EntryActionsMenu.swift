@@ -25,12 +25,10 @@ struct EntryActionsMenu: View {
                 Divider()
                 Button("Export…", action: exportAs)
                     .disabled(isRunning)
-                let exports = entry.saved.filter {
-                    FileManager.default.fileExists(atPath: $0.path(percentEncoded: false))
-                }
-                if !exports.isEmpty {
+                if model.lastExport(of: entry) != nil {
                     Button("Show Export in Finder") {
-                        NSWorkspace.shared.activateFileViewerSelecting(exports)
+                        NSWorkspace.shared.activateFileViewerSelecting(
+                            model.existingExports(of: entry))
                     }
                 }
                 Button("Transcribe Again with Current Settings…") {
