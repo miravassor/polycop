@@ -109,6 +109,11 @@ struct PolycopApp: App {
                 + EntryView.idealInspectorWidth,
             height: 880
         )
+        // No title beside the page's tools: a recording's name is long, and
+        // the tools must fit above the text of a split screen window. The
+        // name stays the window's, in the Window menu, and the selected row
+        // of the library.
+        .windowToolbarStyle(.unified(showsTitle: false))
         .commands {
             CommandGroup(after: .appInfo) {
                 Button("Check for Updates…") { UpdatePrompt.checkForUpdates() }
