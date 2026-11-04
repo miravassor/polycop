@@ -25,8 +25,7 @@ struct EntryProgress: View {
                 }
             case .failed(let message):
                 HStack(spacing: 12) {
-                    Label(message, systemImage: "xmark.octagon")
-                        .notice(.red)
+                    Notice(message, .failure)
                         .textSelection(.enabled)
                     retry
                 }

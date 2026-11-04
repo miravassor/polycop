@@ -14,7 +14,9 @@ extension AppModel {
 
     /// Read from the folder, so a file edited in another application counts.
     func refreshGlossaries() {
-        glossaries = GlossaryStore.all(in: glossaryFolder)
+        let listing = GlossaryStore.all(in: glossaryFolder)
+        glossaries = listing.glossaries
+        unreadableGlossaries = listing.unreadable
         for glossary in unsavedGlossaries.values {
             glossaries.removeAll { $0.name == glossary.name }
             glossaries.append(glossary)
@@ -76,8 +78,10 @@ extension AppModel {
 
     func deleteGlossary(named name: String) throws {
         defer { refreshGlossaries() }
+        // The corrections first: left behind, they would apply to the next
+        // course given this name.
+        try CourseCorrections.delete(for: name, in: glossaryFolder)
         try GlossaryStore.delete(named: name, in: glossaryFolder)
-        CourseCorrections.delete(for: name, in: glossaryFolder)
         readCourseCorrections[name] = nil
         unsavedGlossaries[name] = nil
         if !hasUnsavedHistory { storageFailure = nil }

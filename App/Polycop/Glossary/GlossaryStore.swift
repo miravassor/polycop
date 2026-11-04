@@ -33,21 +33,31 @@ nonisolated enum GlossaryStore {
         }
     }
 
-    static func all(in folder: URL = directory) -> [Glossary] {
+    /// The glossaries in a folder, and the names of those whose file cannot
+    /// be read, such as one grown past the limit in another application: left
+    /// as they are, and named, so a course never vanishes without a word.
+    struct Listing {
+        var glossaries: [Glossary] = []
+        var unreadable: [String] = []
+    }
+
+    static func all(in folder: URL = directory) -> Listing {
         let path = folder.path(percentEncoded: false)
         guard let files = try? FileManager.default.contentsOfDirectory(atPath: path) else {
-            return []
+            return Listing()
         }
-        return
-            files
-            .filter { $0.hasSuffix(".txt") }
-            .compactMap { file in
-                guard let text = try? contents(of: folder.appending(path: file)) else {
-                    return nil
-                }
-                return Glossary(name: (file as NSString).deletingPathExtension, text: text)
+        var listing = Listing()
+        for file in files where file.hasSuffix(".txt") {
+            let name = (file as NSString).deletingPathExtension
+            if let text = try? contents(of: folder.appending(path: file)) {
+                listing.glossaries.append(Glossary(name: name, text: text))
+            } else {
+                listing.unreadable.append(name)
             }
-            .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+        }
+        listing.glossaries.sort { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+        listing.unreadable.sort { $0.localizedStandardCompare($1) == .orderedAscending }
+        return listing
     }
 
     static func save(_ glossary: Glossary, in folder: URL = directory) throws {

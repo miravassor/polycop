@@ -158,7 +158,7 @@ private func open(_ player: Player) async throws {
 
     player.seek(to: 3)
     player.toggle()
-    settings.values[Player.resumeRewindKey] = 0.0
+    settings.set(0.0, forKey: Player.resumeRewindKey)
     player.toggle()
     #expect(player.position == 3)
 }
@@ -175,7 +175,7 @@ private func open(_ player: Player) async throws {
     #expect(!player.isPlaying)
 
     player.toggle()
-    settings.values[Player.pausesWhileTypingKey] = false
+    settings.set(false, forKey: Player.pausesWhileTypingKey)
     player.pauseForTyping()
     #expect(player.isPlaying)
 }
@@ -185,7 +185,7 @@ private func open(_ player: Player) async throws {
 @MainActor
 @Test func playbackResumesOnceTypingStops() async throws {
     let settings = Settings()
-    settings.values[Player.resumeAfterTypingKey] = 0.2
+    settings.set(0.2, forKey: Player.resumeAfterTypingKey)
     let player = Player(defaults: settings)
     defer { player.stop() }
     try await open(player)
@@ -216,7 +216,7 @@ private func open(_ player: Player) async throws {
     try await Task.sleep(for: .milliseconds(500))
     #expect(!player.isPlaying)
 
-    settings.values[Player.resumeAfterTypingKey] = 0.0
+    settings.set(0.0, forKey: Player.resumeAfterTypingKey)
     player.toggle()
     player.pauseForTyping()
     try await Task.sleep(for: .milliseconds(500))
@@ -232,7 +232,7 @@ struct InterruptionTests {
     /// comes back by itself after the Mac woke or the headphones left.
     @Test func anInterruptionPausesPlaybackAndCancelsAResumeAfterTyping() async throws {
         let settings = Settings()
-        settings.values[Player.resumeAfterTypingKey] = 0.2
+        settings.set(0.2, forKey: Player.resumeAfterTypingKey)
         let player = Player(defaults: settings)
         let interruptions = PlaybackInterruptions(
             player: player, center: NotificationCenter(), watchesOutput: false)

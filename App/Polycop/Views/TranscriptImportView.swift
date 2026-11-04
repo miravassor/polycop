@@ -16,7 +16,7 @@ struct TranscriptImportView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-            Text("Import transcript and recording").font(.title2.weight(.semibold))
+            Text("Import transcript and recording").font(.sheetTitle)
             Text(
                 "Correct an existing transcript while listening to its recording. The source files stay unchanged."
             )
@@ -72,7 +72,7 @@ struct TranscriptImportView: View {
                 .disabled(transcript == nil || audio == nil || model.stage.isBusy || importing)
             }
         }
-        .padding(24)
+        .padding(Spacing.sheet)
         .frame(width: 560)
         .fixedSize(horizontal: false, vertical: true)
         .interactiveDismissDisabled(importing)
