@@ -37,7 +37,7 @@ struct EntryView: View {
     private var engine: Engine? { ModelCatalog.model(entry.modelFile)?.engine }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: Spacing.block) {
             EntryProgress(model: model, entry: entry, isRunning: isRunning)
             EntryNotices(
                 entry: entry, findings: findings ?? entry.findings, model: model,
@@ -49,10 +49,11 @@ struct EntryView: View {
         // A reading column: a wide window adds margins, not longer lines.
         .frame(maxWidth: readingWidth)
         .frame(maxWidth: .infinity)
-        .padding(.horizontal, 28)
-        .padding(.top, 16)
+        .padding(.horizontal, Spacing.page)
+        .padding(.top, Spacing.block)
         .navigationTitle(entry.name)
         .toolbar { pageTools }
+        .modifier(InspectorToggle(isShown: $showsInspector))
         .inspector(isPresented: $showsInspector) { inspector }
         // The Playback menu's steps, which work with the inspector hidden.
         .focusedSceneValue(\.paragraphSteps, steps)
@@ -164,9 +165,8 @@ struct EntryView: View {
         if !isRunning && !entry.paragraphs.isEmpty
             && (model.hasUnsavedHistory || model.storageFailure != nil)
         {
-            Label("Library has unsaved changes", systemImage: "exclamationmark.triangle")
+            Notice("Library has unsaved changes", .warning)
                 .font(.caption)
-                .notice(.orange)
         }
     }
 
@@ -184,16 +184,15 @@ struct EntryView: View {
     /// shortcut; the actions on the whole transcript in its More menu.
     @ToolbarContentBuilder private var pageTools: some ToolbarContent {
         // Above the text they act on, the inspector's button alone at the
-        // trailing edge.
-        if !entry.paragraphs.isEmpty {
-            ToolbarItemGroup(placement: .principal) {
+        // trailing edge. One capsule of evenly spaced symbols: the menus show
+        // no arrow, which would set one apart in a capsule of its own.
+        ToolbarItemGroup(placement: .principal) {
+            if !entry.paragraphs.isEmpty {
                 compareToggle
                 reviewMenu
                 findButton
                 textMenu
             }
-        }
-        ToolbarItem(placement: .principal) {
             EntryActionsMenu(
                 model: model, entry: entry, isRunning: isRunning,
                 confirmingRevert: $confirmingRevert, confirmingRemoval: $confirmingRemoval,
@@ -228,6 +227,7 @@ struct EntryView: View {
         } label: {
             Label("Review (\(entry.reviewParagraphs.count))", systemImage: "flag")
         }
+        .menuIndicator(.hidden)
         .help("Flagged passages: \(entry.reviewParagraphs.count)")
     }
 
@@ -319,7 +319,7 @@ extension EntryView {
             isFollowSuspended: $isFollowSuspended,
             hasTimedWords: words.contains { !$0.isEmpty }, isRunning: isRunning, engine: engine
         )
-        .modifier(InspectorColumn(isShown: $showsInspector, width: $inspectorWidth))
+        .modifier(InspectorColumn(width: $inspectorWidth))
     }
 
     private var steps: ParagraphSteps {

@@ -13,7 +13,7 @@ struct MoveTranscriptsSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             Text(moving.count > 1 ? "Move transcripts" : "Move transcript")
-                .font(.title2.weight(.semibold))
+                .font(.sheetTitle)
             Text(
                 moving.count > 1
                     ? "\(moving.count) transcripts"
@@ -39,7 +39,7 @@ struct MoveTranscriptsSheet: View {
                 .keyboardShortcut(.defaultAction)
             }
         }
-        .padding(24)
+        .padding(Spacing.sheet)
         .frame(width: 380)
     }
 }

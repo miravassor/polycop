@@ -24,37 +24,46 @@ struct GlossaryEditor: View {
     @State private var findingTerms = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Glossaries").font(.title2.weight(.semibold))
-            HStack(alignment: .top, spacing: 16) {
+        VStack(alignment: .leading, spacing: Spacing.block) {
+            Text("Glossaries").font(.sheetTitle)
+            if !model.unreadableGlossaries.isEmpty {
+                Notice(
+                    "Glossary files that cannot be read, left as they are: \(model.unreadableGlossaries.formatted(.list(type: .and)))",
+                    .warning
+                )
+                .font(.callout)
+            }
+            HStack(alignment: .top, spacing: Spacing.block) {
                 courses
                 terms
             }
             if let problem {
-                Label(problem, systemImage: "xmark.octagon")
+                Notice(problem, .failure)
                     .font(.callout)
-                    .notice(.red)
                     .textSelection(.enabled)
             }
             Divider()
             HStack {
                 Spacer()
-                // No Return shortcut: Return starts the next term.
-                Button("Done") { if save() { dismiss() } }
-                    .keyboardShortcut(.cancelAction)
+                // No Return shortcut: Return starts the next term. Closing
+                // even when the save fails: the model keeps the text, and the
+                // library offers Retry Saving.
+                Button("Done") {
+                    save()
+                    dismiss()
+                }
+                .keyboardShortcut(.cancelAction)
                 Button("Use This Glossary") {
-                    if save() {
-                        model.glossaryName = selection
-                        dismiss()
-                    }
+                    save()
+                    model.glossaryName = selection
+                    dismiss()
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(selection == nil)
             }
         }
-        .padding(24)
+        .padding(Spacing.sheet)
         .frame(width: 700, height: 500)
-        .interactiveDismissDisabled(problem != nil)
         .sheet(isPresented: $findingTerms) {
             TermFinder(attested: Set(Glossary.terms(in: text)), add: append)
         }
@@ -221,12 +230,11 @@ struct GlossaryEditor: View {
         .monospacedDigit()
         .foregroundStyle(over ? .primary : .secondary)
         if over {
-            Label(
+            Notice(
                 "Whisper reads only the last \(Glossary.tokenBudget) tokens, so the first terms would be ignored. MOSS uses the terms as hotwords.",
-                systemImage: "exclamationmark.triangle"
+                .warning
             )
             .font(.caption)
-            .notice(.orange)
         }
     }
 

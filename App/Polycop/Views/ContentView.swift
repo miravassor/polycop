@@ -42,7 +42,7 @@ struct ContentView: View {
         guard showsInspector, selected.count <= 1 else { return 860 }
         // At its widest: macOS squeezes a column below its minimum otherwise.
         let library = showsLibrary ? Self.libraryWidths.upperBound : 0
-        return max(860, library + PlayerBar.narrowest + 56 + inspectorWidth)
+        return max(860, library + PlayerBar.narrowest + 2 * Spacing.page + inspectorWidth)
     }
     /// The library shown or hidden, as the window remembers it.
     private var columns: Binding<NavigationSplitViewVisibility> {
@@ -109,7 +109,7 @@ struct ContentView: View {
             }
             // The detail column asks for a minimum of its own: the player
             // under the text, and the page's margins.
-            .minimumSize(width: PlayerBar.narrowest + 56, height: 450)
+            .minimumSize(width: PlayerBar.narrowest + 2 * Spacing.page, height: 450)
         }
         .onChange(of: selection) { _, chosen in
             // Several rows are a selection to act on, not a page to show, so

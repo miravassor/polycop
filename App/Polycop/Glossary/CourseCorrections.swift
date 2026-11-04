@@ -44,10 +44,14 @@ nonisolated enum CourseCorrections {
             in: folder)
     }
 
-    /// Goes to the Trash with its glossary.
-    static func delete(for glossary: String, in folder: URL = GlossaryStore.directory) {
-        try? FileManager.default.trashItem(
-            at: file(for: glossary, in: folder), resultingItemURL: nil)
+    /// Goes to the Trash with its glossary. No file means none were remembered.
+    static func delete(for glossary: String, in folder: URL = GlossaryStore.directory) throws {
+        do {
+            try FileManager.default.trashItem(
+                at: file(for: glossary, in: folder), resultingItemURL: nil)
+        } catch let error as CocoaError where error.code == .fileNoSuchFile {
+            return
+        }
     }
 
     /// No file means no corrections yet. A file that cannot be read throws,

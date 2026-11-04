@@ -56,7 +56,7 @@ private func temporaryFolder() -> URL {
     #expect(throws: GlossaryStore.ImportError.tooLarge) {
         try GlossaryStore.importFile(large, in: folder)
     }
-    #expect(GlossaryStore.all(in: folder).isEmpty)
+    #expect(GlossaryStore.all(in: folder).glossaries.isEmpty)
 }
 
 @Test func curlyApostrophesAreStraightened() {
@@ -82,7 +82,7 @@ private func temporaryFolder() -> URL {
     defer { try? FileManager.default.removeItem(at: folder) }
 
     try GlossaryStore.save(Glossary(name: "Philosophie", text: "Descartes\nHéloïse"), in: folder)
-    let found = GlossaryStore.all(in: folder)
+    let found = GlossaryStore.all(in: folder).glossaries
 
     #expect(found.map(\.name) == ["Philosophie"])
     #expect(found.first?.terms == ["Descartes", "Héloïse"])
@@ -106,7 +106,7 @@ private func temporaryFolder() -> URL {
 
     #expect(imported.name == "Philosophie 2")
     #expect(imported.text == "Pascal\nMontaigne")
-    #expect(GlossaryStore.all(in: folder).count == 2)
+    #expect(GlossaryStore.all(in: folder).glossaries.count == 2)
 }
 
 /// A text file saved on Windows is often not UTF-8, and its accents must survive.
@@ -135,6 +135,7 @@ private func temporaryFolder() -> URL {
     #expect(GlossaryStore.freeName(for: "logique", in: folder) == "logique 2")
 }
 
+@MainActor
 @Test func glossaryLimitAlsoAppliesToEditingAndFilesChangedOutsideTheApp() throws {
     let folder = temporaryFolder()
     defer { try? FileManager.default.removeItem(at: folder) }
@@ -144,7 +145,12 @@ private func temporaryFolder() -> URL {
         try GlossaryStore.save(Glossary(name: "Too large", text: large), in: folder)
     }
     try large.write(to: folder.appending(path: "External.txt"), atomically: true, encoding: .utf8)
-    #expect(GlossaryStore.all(in: folder).isEmpty)
+    #expect(GlossaryStore.all(in: folder).glossaries.isEmpty)
+    // Left as it is, and named rather than dropped without a word.
+    #expect(GlossaryStore.all(in: folder).unreadable == ["External"])
+    #expect(FileManager.default.fileExists(atPath: folder.appending(path: "External.txt").path))
+    let model = AppModel(history: folder.appending(path: "History"), glossaries: folder)
+    #expect(model.unreadableGlossaries == ["External"])
     #expect(throws: CocoaError.self) {
         try GlossaryStore.save(Glossary(name: "../outside", text: "Pascal"), in: folder)
     }
@@ -189,7 +195,7 @@ private func temporaryFolder() -> URL {
     try CourseCorrections.remember(
         CourseCorrection(text: "Froid", replacement: "Freud"), for: "Psychologie", in: folder)
 
-    #expect(GlossaryStore.all(in: folder).map(\.name) == ["Psychologie"])
+    #expect(GlossaryStore.all(in: folder).glossaries.map(\.name) == ["Psychologie"])
 }
 
 /// A course's corrections do not stand in the way of putting credits back:
@@ -333,7 +339,7 @@ private func temporaryFolder() -> URL {
     try model.saveGlossary(Glossary(name: created, text: "Descartes\nHéloïse"))
 
     #expect(Set(model.glossaries.map(\.name)) == [created, imported])
-    let written = Set(GlossaryStore.all(in: glossaries).map(\.text))
+    let written = Set(GlossaryStore.all(in: glossaries).glossaries.map(\.text))
     #expect(written == ["Descartes\nHéloïse", "Frege\nRussell"])
 }
 

@@ -16,7 +16,7 @@ struct TranscriptImportView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-            Text("Import transcript and recording").font(.title2.weight(.semibold))
+            Text("Import transcript and recording").font(.sheetTitle)
             Text(
                 "Correct an existing transcript while listening to its recording. The source files stay unchanged."
             )
@@ -57,14 +57,22 @@ struct TranscriptImportView: View {
                     guard let transcript, let audio else { return }
                     problem = nil
                     importing = true
-                    model.importTranscript(transcript, audio: audio)
+                    Task {
+                        do {
+                            try await model.importTranscript(transcript, audio: audio)
+                            dismiss()
+                        } catch {
+                            if closing { dismiss() } else { problem = error.localizedDescription }
+                        }
+                        importing = false
+                    }
                 }
                 .buttonStyle(.borderedProminent)
                 .keyboardShortcut(.defaultAction)
                 .disabled(transcript == nil || audio == nil || model.stage.isBusy || importing)
             }
         }
-        .padding(24)
+        .padding(Spacing.sheet)
         .frame(width: 560)
         .fixedSize(horizontal: false, vertical: true)
         .interactiveDismissDisabled(importing)
@@ -77,17 +85,6 @@ struct TranscriptImportView: View {
                 if choosingTranscript { transcript = file } else { audio = file }
                 problem = nil
             case .failure(let error): problem = error.localizedDescription
-            }
-        }
-        .onChange(of: model.stage) {
-            guard importing, !model.stage.isBusy else { return }
-            importing = false
-            if closing || model.failure == nil { dismiss() } else { problem = model.failure }
-        }
-        .onChange(of: model.pane) {
-            if importing, case .entry(let id) = model.pane, model.entry(id)?.importSource != nil {
-                importing = false
-                dismiss()
             }
         }
     }
