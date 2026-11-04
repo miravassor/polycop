@@ -24,16 +24,15 @@ struct GlossaryEditor: View {
     @State private var findingTerms = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Glossaries").font(.title2.weight(.semibold))
-            HStack(alignment: .top, spacing: 16) {
+        VStack(alignment: .leading, spacing: Spacing.block) {
+            Text("Glossaries").font(.sheetTitle)
+            HStack(alignment: .top, spacing: Spacing.block) {
                 courses
                 terms
             }
             if let problem {
-                Label(problem, systemImage: "xmark.octagon")
+                Notice(problem, .failure)
                     .font(.callout)
-                    .notice(.red)
                     .textSelection(.enabled)
             }
             Divider()
@@ -56,7 +55,7 @@ struct GlossaryEditor: View {
                 .disabled(selection == nil)
             }
         }
-        .padding(24)
+        .padding(Spacing.sheet)
         .frame(width: 700, height: 500)
         .sheet(isPresented: $findingTerms) {
             TermFinder(attested: Set(Glossary.terms(in: text)), add: append)
@@ -224,12 +223,11 @@ struct GlossaryEditor: View {
         .monospacedDigit()
         .foregroundStyle(over ? .primary : .secondary)
         if over {
-            Label(
+            Notice(
                 "Whisper reads only the last \(Glossary.tokenBudget) tokens, so the first terms would be ignored. MOSS uses the terms as hotwords.",
-                systemImage: "exclamationmark.triangle"
+                .warning
             )
             .font(.caption)
-            .notice(.orange)
         }
     }
 

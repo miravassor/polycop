@@ -115,7 +115,7 @@ struct EntryVideo: View {
     }
 
     private func floatPicture() {
-        Task { await model.video.startPictureInPicture() }
+        model.video.startPictureInPicture()
     }
 
     private func fillScreen() {

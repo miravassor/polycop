@@ -4,7 +4,70 @@ import SwiftUI
 
 // The shapes the app repeats beyond the system's own: what floats at the foot
 // of a page, a page's main action, notices, and the edge of a text editor,
-// with a control's corners.
+// with a control's corners; and the spacing and text of each role.
+
+/// The space each role takes. A small gap inside a row is the stack's own,
+/// with no number.
+enum Spacing {
+    /// Around a page.
+    static let page: CGFloat = 28
+    /// Around a sheet.
+    static let sheet: CGFloat = 24
+    /// Between the blocks of a page or a sheet.
+    static let block: CGFloat = 16
+}
+
+extension Font {
+    static let sheetTitle = Font.title2.weight(.semibold)
+}
+
+/// A state a notice tells, with one symbol and one colour wherever it shows.
+enum NoticeState {
+    /// Something to check; the work went on.
+    case warning
+    /// What was asked did not happen.
+    case failure
+
+    var symbol: String {
+        switch self {
+        case .warning: "exclamationmark.triangle"
+        case .failure: "xmark.octagon"
+        }
+    }
+
+    var tint: Color {
+        switch self {
+        case .warning: .orange
+        case .failure: .red
+        }
+    }
+}
+
+/// A warning or a failure: the state's symbol in its colour, the text in the
+/// label colours.
+struct Notice: View {
+    private let title: Text
+    private let state: NoticeState
+
+    init(_ title: LocalizedStringKey, _ state: NoticeState) {
+        self.title = Text(title)
+        self.state = state
+    }
+
+    init(_ title: some StringProtocol, _ state: NoticeState) {
+        self.title = Text(title)
+        self.state = state
+    }
+
+    var body: some View {
+        Label {
+            title
+        } icon: {
+            Image(systemName: state.symbol)
+        }
+        .notice(state.tint)
+    }
+}
 
 extension View {
     /// Controls floating over the foot of a scrolling view: on macOS 26 the
@@ -101,4 +164,13 @@ struct ActionButton: View {
         .buttonBorderShape(.capsule)
         .controlSize(.extraLarge)
     }
+}
+
+#Preview("Notices") {
+    VStack(alignment: .leading, spacing: Spacing.block) {
+        Notice("The glossary is longer than Whisper reads.", .warning)
+        Notice("The recording could not be read.", .failure)
+    }
+    .font(.callout)
+    .padding(Spacing.sheet)
 }

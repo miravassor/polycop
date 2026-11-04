@@ -255,6 +255,13 @@ extension LoadingAModel {
     #expect(!PolycopApp.library.path.hasPrefix(URL.applicationSupportDirectory.path))
 }
 
+/// The app the tests run in keeps its settings in memory: its window's views
+/// write theirs, such as the library's width, as soon as they are laid out.
+@MainActor
+@Test func theTestHostLeavesTheUsersPreferencesAlone() {
+    #expect(PolycopApp.settings is MemoryDefaults)
+}
+
 /// A job cut short by quitting cannot resume, so it comes back stopped; a
 /// recording that never started comes back waiting for the next Start.
 @MainActor

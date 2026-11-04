@@ -27,7 +27,8 @@ Tools/package.sh           # locally signed app and zip with its sources, in bui
 
 * The test suite takes about 3 minutes once built. Run it once per change set, not after each edit.
 * Tests can run while Polycop is open. The app they run in opens an empty library of
-  its own and clears no leftover files, so it leaves the user's copy alone.
+  its own, keeps its settings in memory and clears no leftover files, so it leaves
+  the user's copy alone.
 * Tests that need a model skip themselves when that model is not installed.
 * CI runs the suite under the thread and address sanitizers, but has no model, so it
   never reaches the engines. After changing `Engine/`, `Audio/`, a version in
@@ -124,7 +125,7 @@ Every page speaks the same visual language. The shared pieces live in
 
 * Settings and choices are the system's grouped form (`Form` with `.formStyle(.grouped)`),
   one setting a row: a page's in the system inspector
-  (`InspectorColumn` gives every page the same width and button), a sheet's in the
+  (`InspectorColumn` gives every page the same width, `InspectorToggle` the same button), a sheet's in the
   sheet. No tinted cards or hand drawn boxes.
 * An empty page is the system's empty state (`ContentUnavailableView`), with the way
   to fill it.
@@ -146,14 +147,18 @@ Every page speaks the same visual language. The shared pieces live in
   command. Controls are the system's, never drawn by hand. The player's timeline is
   the one exception: no system slider marks where each paragraph opens.
 * Text editors: `editorBorder()`, with the corners of a control.
-* Warnings and failures: a `Label` with `notice(_:)`, colour on the icon only. Text
-  stays in the label colours, since orange, red or green text is too faint to read
-  on a light window; emphasis inside text is a line (underline, strikethrough).
-* Spacing: 28 points around a page, 16 between blocks. The transcript page has 16
-  under the toolbar, and its player floats 8 above the window's foot, level with
-  the foot of the library beside it. Sheets have 24 points of padding, popovers 20.
-* Type: a page's title is the window's (`navigationTitle`); a sheet title in `.title2`
-  semibold. A row says what it is in a few words; a line under it only for what a
+* Warnings and failures: a `Notice`, `.warning` or `.failure`, each with one symbol
+  and colour; a notice with a symbol of its own is a `Label` with `notice(_:)`. Colour
+  goes on the icon only. Text stays in the label colours, since orange, red or green
+  text is too faint to read on a light window; emphasis inside text is a line
+  (underline, strikethrough).
+* Spacing comes from its role in `Spacing`: `page` (28 points) around a page,
+  `block` (16) between blocks, the transcript page's first one under the toolbar
+  included, `sheet` (24) around a sheet; popovers have 20. The player floats 8 above
+  the window's foot, level with the foot of the library beside it. A small gap
+  inside a row is the stack's own.
+* Type: a page's title is the window's (`navigationTitle`); a sheet's title is
+  `.sheetTitle`. A row says what it is in a few words; a line under it only for what a
   student could not guess. Text styles only, no fixed point sizes.
 * One prominent button per area, for its main action; the rest use the default style,
   except a button showing only an icon, in a row or a bar, which is `.borderless`.

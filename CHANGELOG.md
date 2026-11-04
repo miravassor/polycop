@@ -22,7 +22,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 * Recordings added while another is transcribed no longer wait for the whole queue: Add to Queue puts them behind the one running.
 * Follow, in the inspector, offers Off, Page, or Page and Cursor, and Page is on from the start. With Page and Cursor, clicking or typing in the text no longer stops the page from following. It needs a transcript with word timings.
 * Export… (⌘S) makes a new file each time and always asks where. The format and its options are set in the inspector, and a new transcript starts from the format chosen last. Subtitles (SRT) is a format of its own, for a model that times its sentences, rather than a file beside the text.
-* The window's title is the open transcript's, and the page's tools are in the toolbar.
+* The page's tools are in the toolbar, in one group with no title beside them, so they fit above the text of a split screen window. The window is named after the open transcript in the Window menu.
 * The text keeps a reading width of about 75 characters a line, so a wide window adds margins.
 * The widths of the library and the inspector, whether the library shows, and Compare are remembered across launches.
 * Renamed: Import Transcript and Audio is now Import Transcript and Recording, Leave out hesitations is now Remove filler words, and "Word following" is now "Word timings".
@@ -35,6 +35,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ### Fixed
 
+* Deleting a course keeps it, and says why, when its remembered corrections cannot go to the Trash, rather than leaving them to the next course given its name.
 * The Glossaries window closes even when a glossary cannot be saved: the text is kept, and Retry Saving in the library writes it.
 
 ## 0.4.0 (2026-10-03)

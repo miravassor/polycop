@@ -25,7 +25,7 @@ struct TermFinder: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text("Find Terms in Documents").font(.title2.weight(.semibold))
+                Text("Find Terms in Documents").font(.sheetTitle)
                 Text("BETA")
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(.secondary)
@@ -33,7 +33,7 @@ struct TermFinder: View {
                     .padding(.vertical, 2)
                     .background(.quaternary, in: Capsule())
             }
-            .padding([.horizontal, .top], 24)
+            .padding([.horizontal, .top], Spacing.sheet)
             // Grouped rows as the other sheets: what is read, then what was
             // found, to trim before adding.
             Form {
@@ -68,7 +68,7 @@ struct TermFinder: View {
                 .buttonStyle(.borderedProminent)
                 .disabled(terms.isEmpty || searching)
             }
-            .padding(24)
+            .padding(Spacing.sheet)
         }
         .onDisappear { search?.cancel() }
         .frame(width: 640, height: 640)
@@ -115,6 +115,7 @@ struct TermFinder: View {
                 Spacer()
                 Button("Add…", systemImage: "plus") { choosing = true }
                     .buttonBorderShape(.capsule)
+                    .disabled(searching)
             }
         } footer: {
             Text("Read for their words only; nothing is copied into Polycop.")
@@ -145,12 +146,14 @@ struct TermFinder: View {
     }
 
     private func find() {
+        search?.cancel()
         searching = true
         problem = nil
         let chosen = files
         let text = pasted
         search = Task {
-            defer { searching = false }
+            // A search replaced by another leaves the spinner to it.
+            defer { if !Task.isCancelled { searching = false } }
             do {
                 var pages: [String] = []
                 var bytes = text.utf8.count
