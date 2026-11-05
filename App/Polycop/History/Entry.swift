@@ -38,8 +38,9 @@ nonisolated struct Entry: Identifiable, Equatable, Codable, Sendable {
     private(set) var modelFile: String
     private(set) var glossary: String?
     private(set) var prompt: String?
-    /// The language it was transcribed in. Absent in entries created before
-    /// the app offered a language choice; those recordings are all French.
+    /// The language chosen when it was transcribed. Absent in entries created
+    /// before the app offered a language choice; those recordings are all French.
+    /// A model that detects the language ignores it.
     private(set) var language: String?
     private(set) var skipsSilence: Bool
     var subtitles: Bool

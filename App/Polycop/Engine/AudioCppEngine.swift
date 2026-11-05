@@ -129,7 +129,7 @@ nonisolated final class AudioCppEngine: TranscriptionEngine, @unchecked Sendable
         let first = try Self.firstSample(at: start, count: samples.count)
         let windows = Self.windows(
             in: samples, from: first, lasting: profile.window, atSilence: profile.cutsAtSilence)
-        let language = Self.qwenLanguages[settings.language] ?? ""
+        let language = Self.qwenLanguage(for: settings.language)
         let hotwords = profile.readsHotwords ? settings.prompt.map(Glossary.terms(in:)) ?? [] : []
         let cancelled = OSAllocatedUnfairLock(initialState: false)
         return try await withTaskCancellationHandler {

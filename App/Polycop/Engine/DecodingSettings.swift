@@ -11,11 +11,15 @@ nonisolated struct DecodingSettings: Equatable, Sendable {
     /// Language of the lecture, forced rather than detected.
     var language = "fr"
 
-    /// What the window offers. Whisper reads about a hundred languages; these
-    /// two are the ones measured here, and a wrong automatic guess is worse
-    /// than a short list to choose from.
+    /// What the window offers: a wrong automatic guess is worse than a short
+    /// list to choose from. These are the languages on Voxtral's model card, the
+    /// shortest list of the models, and each was tried on Whisper, Qwen and MOSS.
+    /// A code is Whisper's, and a name is the word Qwen is told.
     static let languages: [(code: String, name: String)] = [
-        ("fr", "French"), ("en", "English"),
+        ("ar", "Arabic"), ("zh", "Chinese"), ("nl", "Dutch"), ("en", "English"),
+        ("fr", "French"), ("de", "German"), ("hi", "Hindi"), ("it", "Italian"),
+        ("ja", "Japanese"), ("ko", "Korean"), ("pt", "Portuguese"), ("ru", "Russian"),
+        ("es", "Spanish"),
     ]
 
     /// Beam search width, and the candidates kept when a window is decoded

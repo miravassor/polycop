@@ -347,3 +347,12 @@ func launchStartsOnTheRecommendedModelOrAnInstalledOne(installed: [String], expe
     #expect(
         AppModel(history: history, glossaries: glossaries, defaults: defaults).glossaryName == nil)
 }
+
+@MainActor
+@Test func aLanguageOfTheMenuIsRemembered() {
+    let history = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: history) }
+    let defaults = MemoryDefaults()
+    AppModel(history: history, defaults: defaults).language = "zh"
+    #expect(AppModel(history: history, defaults: defaults).language == "zh")
+}

@@ -214,3 +214,15 @@ extension LoadingAModel {
     #expect(spoken.allSatisfy { $0.lowerBound >= 0 && $0.upperBound <= duration + 0.1 })
     #expect(silent.isEmpty)
 }
+
+/// Qwen knows a language only by these words, from `add_supported_languages` in
+/// audio.cpp; told nothing, it detects.
+@Test func qwenIsToldEveryLanguageOffered() {
+    let known: Set = [
+        "Arabic", "Chinese", "Dutch", "English", "French", "German", "Hindi", "Italian",
+        "Japanese", "Korean", "Portuguese", "Russian", "Spanish",
+    ]
+    let told = DecodingSettings.languages.map { AudioCppEngine.qwenLanguage(for: $0.code) }
+    #expect(Set(told) == known)
+    #expect(AudioCppEngine.qwenLanguage(for: "xx").isEmpty)
+}
