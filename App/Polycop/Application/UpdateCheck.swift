@@ -134,7 +134,7 @@ enum UpdatePrompt {
     private static var isChecking = false
 
     private static var currentVersion: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
+        Bundle.main.shortVersion ?? "0"
     }
 
     /// The Check for Updates command. It always answers, including when the
