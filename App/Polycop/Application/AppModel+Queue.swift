@@ -87,14 +87,16 @@ extension AppModel {
     }
 
     /// Whether a transcript that stopped part way can continue from there now.
-    /// Continuing lays out the whole text again, which corrections would not
-    /// survive, so a corrected one is reverted first. It runs at once or not at
-    /// all: waiting its turn, its text could be corrected in the meantime. The
-    /// stage is read last, as a page reads this at every step of other work.
+    /// Continuing lays out the whole text again, which the user's corrections
+    /// would not survive. It runs at once or not at all: waiting its turn, its
+    /// text could be corrected in the meantime. The stage is read late, as a
+    /// page reads this at every step of other work, and the corrections last, as
+    /// they run over the whole text.
     func canResume(_ entry: Entry) -> Bool {
-        entry.state == .stopped && !entry.decoded.isEmpty && !entry.isEdited
+        entry.state == .stopped && !entry.decoded.isEmpty && entry.hasRecording
             && isInstalled(entry.modelFile) && !isShuttingDown && !hasUnsavedHistory
             && busyEntry == nil && nextInLine == nil && !stage.isBusy
+            && canRebuildParagraphs(of: entry)
     }
 
     /// Continues a stopped transcript with the settings it was given, whatever
@@ -104,8 +106,6 @@ extension AppModel {
         refreshInstalled()
         guard let entry = entry(id), canResume(entry) else { return }
         failure = nil
-        // As after a repair: an earlier step would bring back a shorter text.
-        undoSteps[id] = nil
         updateEntry(id) { $0.state = .waiting }
         scheduled.insert(id)
         startNext()

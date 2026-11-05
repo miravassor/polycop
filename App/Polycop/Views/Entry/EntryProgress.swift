@@ -39,10 +39,7 @@ struct EntryProgress: View {
     private var resume: some View {
         Button("Resume Transcription") { model.resumeStopped(entry.id) }
             .disabled(!model.canResume(entry))
-            .help(
-                entry.isEdited
-                    ? "Resuming writes the text again: revert your corrections first"
-                    : "Continue from where it stopped, with the settings it was given")
+            .help("Continue from where it stopped, for a transcript with no corrections of yours")
     }
 
     private var retry: some View {

@@ -109,21 +109,16 @@ private func until(_ condition: () -> Bool) async throws {
         await model.shutDown()
     }
 
-    @Test func aRecordingGoneFailsAndKeepsTheText() async throws {
+    @Test func aRecordingGoneLeavesItStopped() async throws {
         let job = try Stopped()
         let (folder, id, model) = (job.folder, job.id, job.model)
         defer { try? FileManager.default.removeItem(at: folder) }
         try FileManager.default.removeItem(at: folder.appending(path: "lecture.wav"))
 
         model.resumeStopped(id)
-        try await until { !model.hasWork && !model.stage.isBusy }
 
-        let entry = try #require(model.entry(id))
-        guard case .failed = entry.state else {
-            Issue.record("Expected the transcript to fail")
-            return
-        }
-        #expect(entry.paragraphs.map(\.text) == [first.text])
+        #expect(model.entry(id)?.state == .stopped)
+        #expect(model.entry(id)?.paragraphs.map(\.text) == [first.text])
         await model.shutDown()
     }
 
@@ -132,7 +127,7 @@ private func until(_ condition: () -> Bool) async throws {
         let job = try Stopped(engine)
         let (folder, id, model) = (job.folder, job.id, job.model)
         defer { try? FileManager.default.removeItem(at: folder) }
-        model.updateEntry(id) { $0.edit(paragraphAt: 0, text: "Corrected.") }
+        model.edit(id, paragraphAt: 0, text: "Corrected.")
         let entry = try #require(model.entry(id))
         #expect(!model.canResume(entry))
 
@@ -141,6 +136,32 @@ private func until(_ condition: () -> Bool) async throws {
         #expect(model.entry(id)?.state == .stopped)
         #expect(model.entry(id)?.paragraphs.map(\.text) == ["Corrected."])
         #expect(engine.starts.isEmpty)
+        await model.shutDown()
+    }
+
+    /// A course's corrections count as edits but are not the user's here: a new
+    /// layout applies them again, and to the new text as well.
+    @Test func aCoursesCorrectionsDoNotStopItAndReachTheNewText() async throws {
+        let job = try Stopped()
+        let (folder, id, model) = (job.folder, job.id, job.model)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        model.updateEntry(id) {
+            $0.courseCorrections = [
+                CourseCorrection(text: "Bonjour", replacement: "Salut"),
+                CourseCorrection(text: "plan", replacement: "programme"),
+            ]
+            $0.publish($0.decoded, partial: true)
+        }
+        let entry = try #require(model.entry(id))
+        #expect(entry.isEdited)
+        #expect(model.canResume(entry))
+
+        model.resumeStopped(id)
+        try await until { !model.hasWork && !model.stage.isBusy }
+
+        let text = model.entry(id)?.paragraphs.map(\.text).joined()
+        #expect(text?.contains("Salut à tous.") == true)
+        #expect(text?.contains("Voici le programme.") == true)
         await model.shutDown()
     }
 
