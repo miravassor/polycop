@@ -7,6 +7,20 @@ import Foundation
 /// Only sounds without meaning are listed. Words such as "ben", "du coup" or
 /// "voilà" can carry sense, so they stay and the text keeps its meaning.
 nonisolated enum Hesitations {
+    /// The sounds listed are French and English ones. In German and Portuguese
+    /// "um" is a word. A record without a language is French.
+    static func cover(_ language: String?) -> Bool {
+        language == nil || language == "fr" || language == "en"
+    }
+
+    /// A transcript's own language counts only if its model was told it. Where
+    /// a model detected it or the text was imported, `language` is just the
+    /// setting of the day, so the language is not known and the option stays.
+    static func cover(_ entry: Entry) -> Bool {
+        let detects = ModelCatalog.model(entry.modelFile)?.engine.audioCpp?.setsLanguage == false
+        return entry.importSource != nil || detects || cover(entry.language)
+    }
+
     /// Built where it is used, since a Regex is not Sendable.
     private static var sound: Regex<Substring> {
         /\b(?:e+u+h+|h+e+u+|h+u+m+|h+m+|m+h+|bah|u+m+|u+h+|e+r+m+)\b(?:,|…|\.\.\.)*\s*/

@@ -474,6 +474,42 @@ private func entry(_ name: String, in folder: URL, added: Date = .now) -> Entry 
     #expect(model.entry(entry.id)?.isSaved == false)
 }
 
+/// "um" is a word in German: the option, carried from the last export, must not
+/// take it out of the text.
+@MainActor
+@Test func aLanguageWithoutFillerWordsKeepsItsText() throws {
+    let folder = try temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let history = folder.appending(path: "History")
+    var entry = Entry(
+        recording: folder.appending(path: "vorlesung.wav"), modelFile: "ggml-test.bin",
+        glossary: nil, skipsSilence: false, subtitles: false, language: "de")
+    entry.publish([Segment(start: 0, end: 4, text: "Wir beginnen um neun.")], partial: false)
+    entry.state = .finished
+    entry.removesHesitations = true
+    try HistoryStore.write(entry, in: history)
+    let model = AppModel(history: history)
+
+    model.export(entry.id, as: .plainText, times: false, to: folder.appending(path: "V.txt"))
+
+    let written = try String(contentsOf: folder.appending(path: "V.txt"), encoding: .utf8)
+    #expect(written.contains("Wir beginnen um neun."))
+}
+
+/// A model that detects the language ignores the menu, so the menu's German says
+/// nothing about what was spoken.
+@Test func aDetectedLanguageKeepsTheFillerWordsOption() {
+    let recording = URL(filePath: "/made/up.wav")
+    let told = Entry(
+        recording: recording, modelFile: ModelCatalog.turbo.id, glossary: nil,
+        skipsSilence: false, subtitles: false, language: "de")
+    let detected = Entry(
+        recording: recording, modelFile: ModelCatalog.voxtral.id, glossary: nil,
+        skipsSilence: false, subtitles: false, language: "de")
+    #expect(!Hesitations.cover(told))
+    #expect(Hesitations.cover(detected))
+}
+
 /// Typing is written after a pause rather than at each key, and what is left
 /// is written before quitting.
 @MainActor

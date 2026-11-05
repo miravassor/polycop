@@ -12,6 +12,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 * An inspector beside the transcript holds the video, Follow, the export settings and the transcription details. Control-Command-I shows and hides it, and Control-Command-S the library.
 * A transcript that cannot be opened, because it needs a newer Polycop or its file is damaged, stays in the library with a warning beside its name, and nothing can change it. Its page says what to do. So opening your library with an earlier version no longer risks what a later one stored, from this version on.
 * Pause Transcription and Stop Transcription in the File menu, and Replay Passage and Stop in the Playback menu.
+* More languages to transcribe: Arabic, Chinese, Dutch, German, Hindi, Italian, Japanese, Korean, Portuguese, Russian and Spanish. Remove filler words stays with French and English, since "um" is a word in German and Portuguese.
 
 ### Changed
 

@@ -36,13 +36,15 @@ struct EntryExportSection: View {
                     .help("Write each paragraph's time before it")
                     // Said under its name, as in Settings: what it removes
                     // is not obvious.
-                    Toggle(
-                        isOn: Binding(
-                            get: { entry.removesHesitations ?? false },
-                            set: { model.setRemovesHesitations($0, for: entry.id) })
-                    ) {
-                        Text("Remove filler words")
-                        Text("Euh, hum and the like.")
+                    if Hesitations.cover(entry) {
+                        Toggle(
+                            isOn: Binding(
+                                get: { entry.removesHesitations ?? false },
+                                set: { model.setRemovesHesitations($0, for: entry.id) })
+                        ) {
+                            Text("Remove filler words")
+                            Text("Euh, hum and the like.")
+                        }
                     }
                 }
                 lastExport

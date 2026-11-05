@@ -46,7 +46,7 @@ extension AppModel {
         let layout = entry.exportLayout
         let times = entry.exportsTimes
         var paragraphs = entry.paragraphs
-        if entry.removesHesitations == true {
+        if entry.removesHesitations == true, Hesitations.cover(entry) {
             for index in paragraphs.indices {
                 paragraphs[index].text = Hesitations.removed(from: paragraphs[index].text)
             }

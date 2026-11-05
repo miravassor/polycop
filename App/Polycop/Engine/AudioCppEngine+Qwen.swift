@@ -6,8 +6,11 @@ import audiocpp
 /// How Qwen3-ASR is asked and read: its whole window at once, timed in
 /// sentences when the aligner runs.
 nonisolated extension AudioCppEngine {
-    /// Qwen names languages in English words where the app keeps codes.
-    static let qwenLanguages = ["fr": "French", "en": "English"]
+    /// Qwen names languages in the English words the menu shows, where the app
+    /// keeps codes. Told nothing, it detects the language.
+    static func qwenLanguage(for code: String) -> String {
+        DecodingSettings.languages.first { $0.code == code }?.name ?? ""
+    }
 
     /// Qwen's text as the sentences the aligner timed, placed on the
     /// recording; else one segment for the whole window.

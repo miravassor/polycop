@@ -53,7 +53,8 @@ struct NewTranscriptionSettings: View {
         if chosen.engine.audioCpp?.setsLanguage == false {
             LabeledContent("Language", value: String(localized: "Detected automatically"))
         } else {
-            LabeledContent("Language") {
+            let current = DecodingSettings.languages.first { $0.code == model.language }
+            LabeledContent {
                 // A menu as the rows beside it, which end with Manage….
                 Menu {
                     Picker("Language", selection: $model.language) {
@@ -64,12 +65,14 @@ struct NewTranscriptionSettings: View {
                     .pickerStyle(.inline)
                     .labelsHidden()
                 } label: {
-                    Text(
-                        LocalizedStringKey(
-                            DecodingSettings.languages.first { $0.code == model.language }?.name
-                                ?? model.language))
+                    Text(LocalizedStringKey(current?.name ?? model.language))
                 }
                 .fixedSize()
+            } label: {
+                Text("Language")
+                if !Hesitations.cover(model.language) {
+                    Text("Some automatic cleaning covers only French and English.")
+                }
             }
         }
     }
