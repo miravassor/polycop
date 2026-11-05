@@ -15,6 +15,13 @@ extension AppModel {
         }
     }
 
+    /// The files exported from it that are still where they were written.
+    func existingExports(of entry: Entry) -> [URL] {
+        entry.saved.filter {
+            FileManager.default.fileExists(atPath: $0.path(percentEncoded: false))
+        }
+    }
+
     /// Writes the transcript where the user chose. The save panel is what
     /// asks before replacing a file, so what it returns is written as it is.
     func export(_ id: Entry.ID, to destination: URL) {

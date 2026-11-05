@@ -16,12 +16,9 @@ struct EntryView: View {
     @State private var activeParagraph: Int?
     @State private var find = TranscriptFind()
     @FocusState private var isSearchFocused: Bool
-    @AppStorage("comparesOriginal") private var isComparing = false
     @AppStorage(Following.key) private var following = Following.page
     @State private var isFollowSuspended = false
     @State private var jump: Int?
-    @AppStorage("transcriptTextSize") private var size = EntryView.defaultTextSize
-    @AppStorage("showsUncertainWords") private var showsUncertainWords = true
     /// The timed words of each paragraph, grouped when the paragraphs change
     /// rather than on every update of the page.
     @State private var words: [[Segment.Word]] = []
@@ -33,6 +30,7 @@ struct EntryView: View {
     @State private var confirmingRevert = false
 
     private var isRunning: Bool { model.busyEntry == entry.id }
+    private var reading: ReadingSettings { model.reading }
     /// What transcribed this entry, which decides what can be done with it.
     private var engine: Engine? { ModelCatalog.model(entry.modelFile)?.engine }
 
@@ -57,7 +55,7 @@ struct EntryView: View {
         .inspector(isPresented: $showsInspector) { inspector }
         // The Playback menu's steps, which work with the inspector hidden.
         .focusedSceneValue(\.paragraphSteps, steps)
-        .focusedSceneValue(\.comparesOriginal, $isComparing)
+        .focusedSceneValue(\.comparesOriginal, Bindable(reading).isComparing)
         .onChange(of: find.query) { refreshSearch() }
         .onChange(of: find.isShown) { _, isShown in
             if isShown { isSearchFocused = true } else { find.close() }
@@ -77,7 +75,9 @@ struct EntryView: View {
             findings = entry.findings
         }
         .onChange(of: entry.paragraphs) {
-            refreshSearch(navigate: false)
+            // Nothing to find: left as it is, so that typing does not update
+            // what reads it, the toolbar's Find among them.
+            if !find.query.isEmpty { refreshSearch(navigate: false) }
             if let activeParagraph, !entry.paragraphs.indices.contains(activeParagraph) {
                 self.activeParagraph = nil
             }
@@ -115,21 +115,21 @@ struct EntryView: View {
                 edit: { model.edit(entry.id, paragraphAt: $0, text: $1) },
                 typing: { model.player.pauseForTyping() },
                 hover: { focused = $0 },
-                original: original, isComparing: isComparing,
+                original: original, isComparing: reading.isComparing,
                 isFollowing: following != .off && !isFollowSuspended,
-                suspendFollowing: suspendFollowing,
+                suspendFollowing: page.suspendFollowing,
                 suspendForEditing: {
-                    if following.stopsWhenEditing { suspendFollowing() }
+                    if following.stopsWhenEditing { page.suspendFollowing() }
                 },
                 jump: $jump, start: entry.readingParagraph,
-                scrolled: { model.readingParagraph = $0 }, focused: focused, size: size,
+                scrolled: { model.readingParagraph = $0 }, focused: focused, size: reading.textSize,
                 active: activeParagraph,
                 activate: { if activeParagraph != $0 { activeParagraph = $0 } },
                 review: entry.reviewParagraphs,
                 toggleReview: { model.toggleReview(entry.id, paragraphAt: $0) },
                 matches: find.matches, currentMatch: find.current,
                 words: words,
-                showsUncertainWords: showsUncertainWords
+                showsUncertainWords: reading.showsUncertainWords
             )
             // As in Music, the player floats at the foot of the text, which
             // scrolls under it; Find stays at the top, away from it.
@@ -172,32 +172,29 @@ struct EntryView: View {
 
     /// Twice the reading width when the original shows beside the text.
     private var readingWidth: CGFloat {
-        Self.readingWidth(textSize: size) * (isComparing ? 2 : 1)
+        Self.readingWidth(textSize: reading.textSize) * (reading.isComparing ? 2 : 1)
     }
-
-    static let defaultTextSize = 13.0
 
     /// About 75 characters a line, times included, at a text size.
     static func readingWidth(textSize: Double) -> CGFloat { 40 * textSize + 160 }
 
-    /// The page's tools in the window's toolbar, each also reachable by its
-    /// shortcut; the actions on the whole transcript in its More menu.
+    /// Above the text they act on, the inspector's button alone at the
+    /// trailing edge.
     @ToolbarContentBuilder private var pageTools: some ToolbarContent {
-        // Above the text they act on, the inspector's button alone at the
-        // trailing edge. One capsule of evenly spaced symbols: the menus show
-        // no arrow, which would set one apart in a capsule of its own.
         ToolbarItemGroup(placement: .principal) {
-            if !entry.paragraphs.isEmpty {
-                compareToggle
-                reviewMenu
-                findButton
-                textMenu
-            }
-            EntryActionsMenu(
-                model: model, entry: entry, isRunning: isRunning,
-                confirmingRevert: $confirmingRevert, confirmingRemoval: $confirmingRemoval,
-                exportAs: { EntryExportSection.exportAs(entry, with: model) })
+            EntryTools(
+                model: model, id: entry.id, facts: toolFacts, page: page,
+                find: $find, isSearchFocused: $isSearchFocused,
+                confirmingRevert: $confirmingRevert, confirmingRemoval: $confirmingRemoval)
         }
+    }
+
+    private var toolFacts: EntryTools.Facts {
+        EntryTools.Facts(
+            paragraphCount: entry.paragraphs.count, flagged: entry.reviewParagraphs.sorted(),
+            canUndo: model.canUndo(entry.id), isEdited: entry.isEdited,
+            hasRecording: entry.hasRecording, hasExport: model.lastExport(of: entry) != nil,
+            isRunning: isRunning)
     }
 
     @ViewBuilder private var findBar: some View {
@@ -208,105 +205,19 @@ struct EntryView: View {
         }
     }
 
-    /// One switch rather than two choices: the original beside the text, or not.
-    private var compareToggle: some View {
-        Toggle(isOn: $isComparing) {
-            Label("Compare", systemImage: "rectangle.split.2x1")
-        }
-        .help(isComparing ? "Show your text alone" : "Show the original beside your text")
-    }
-
-    private var reviewMenu: some View {
-        Menu {
-            Button("Previous Flagged Passage") { navigateReview(forward: false) }
-                .disabled(entry.reviewParagraphs.isEmpty)
-            Button("Next Flagged Passage") { navigateReview(forward: true) }
-                .disabled(entry.reviewParagraphs.isEmpty)
-            Divider()
-            Text("Use the flag beside a paragraph to review it later.")
-        } label: {
-            Label("Review (\(entry.reviewParagraphs.count))", systemImage: "flag")
-        }
-        .menuIndicator(.hidden)
-        .help("Flagged passages: \(entry.reviewParagraphs.count)")
-    }
-
-    private var textMenu: some View {
-        Menu {
-            Button("Undo Last Correction") { model.undo(entry.id) }
-                .disabled(isRunning || !model.canUndo(entry.id))
-            Button("Find") {
-                find.isShown = true
-                isSearchFocused = true
-            }
-            .keyboardShortcut("f")
-            Button("Find and Replace") {
-                find.isShown = true
-                find.isReplacing = true
-                isSearchFocused = true
-            }
-            .keyboardShortcut("f", modifiers: [.command, .option])
-            Toggle("Underline Uncertain Words", isOn: $showsUncertainWords)
-            Divider()
-            Button("Smaller Text") { size = max(10, size - 1) }
-                .keyboardShortcut("-")
-                .disabled(size <= 10)
-            Button("Larger Text") { size = min(28, size + 1) }
-                .keyboardShortcut("+")
-                .disabled(size >= 28)
-        } label: {
-            Label("Text", systemImage: "textformat.size")
-        }
-        .menuIndicator(.hidden)
-        .help("Text size and correction history")
-    }
-
-    /// Pressed while the find bar shows, so a second click closes it; Command-F,
-    /// in the Text menu, only ever opens it.
-    private var findButton: some View {
-        Toggle(isOn: $find.isShown) {
-            Label("Find", systemImage: "magnifyingglass")
-        }
-        .help(find.isShown ? "Close the find bar" : "Find in your text (Command-F)")
-    }
-
     private func refreshSearch(navigate: Bool = true) {
         find.refresh(in: entry.paragraphs, startingOver: navigate)
-        if navigate, let current = find.current { show(current.paragraph) }
+        if navigate, let current = find.current { page.show(current.paragraph) }
     }
 
     private func regroupWords() {
         words = WordLayout.grouped(entry.shown, into: entry.paragraphs)
     }
 
-    /// Stops following while the reader looks elsewhere, and offers the way back.
-    private func suspendFollowing() {
-        guard following != .off, !isFollowSuspended else { return }
-        isFollowSuspended = true
-    }
-
     private func navigateMatch(forward: Bool) {
         guard !find.matches.isEmpty else { return }
         find.step(forward: forward)
-        if let current = find.current { show(current.paragraph) }
-    }
-
-    private func navigateReview(forward: Bool) {
-        let indices = entry.reviewParagraphs.sorted()
-        let next =
-            forward
-            ? indices.first { $0 > (activeParagraph ?? -1) } ?? indices.first
-            : indices.last { $0 < (activeParagraph ?? entry.paragraphs.count) } ?? indices.last
-        guard let next else { return }
-        show(next)
-    }
-
-    /// Brings a paragraph into view and makes it the active one, leaving
-    /// playback to be followed again later.
-    private func show(_ paragraph: Int) {
-        suspendFollowing()
-        activeParagraph = paragraph
-        jump = paragraph
+        if let current = find.current { page.show(current.paragraph) }
     }
 }
 
@@ -320,6 +231,12 @@ extension EntryView {
             hasTimedWords: words.contains { !$0.isEmpty }, isRunning: isRunning, engine: engine
         )
         .modifier(InspectorColumn(width: $inspectorWidth))
+    }
+
+    private var page: PageNavigation {
+        PageNavigation(
+            activeParagraph: $activeParagraph, jump: $jump,
+            isFollowSuspended: $isFollowSuspended, following: following)
     }
 
     private var steps: ParagraphSteps {
