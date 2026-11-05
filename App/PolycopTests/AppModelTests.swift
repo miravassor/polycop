@@ -384,7 +384,7 @@ extension LoadingAModel {
 
         try await withModel(history: history) { model in
             #expect(model.entry(entry.id)?.repeats == [0...11])
-            #expect(model.entry(entry.id)?.repetitionWarning != nil)
+            #expect(model.entry(entry.id)?.findings.repetitionWarning != nil)
             model.repairRepeats(entry.id)
             try await settle(model)
 

@@ -55,7 +55,7 @@ import Testing
         #expect(
             entry.paragraphs[0].text == "Merci d'avoir regardé cette vidéo.\nUne deuxième ligne.")
         #expect(entry.decoded.map(\.end) == [3, 5])
-        #expect(entry.hiddenCredits.isEmpty)
+        #expect(entry.findings.hiddenCredits.isEmpty)
         #expect(entry.original == entry.paragraphs)
         #expect(!entry.timesSentences)
         #expect(entry.importSource == "Course.txt")
