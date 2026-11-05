@@ -9,26 +9,12 @@ struct LibraryWarnings: View {
 
     var body: some View {
         if let failure = model.storageFailure {
-            VStack(alignment: .leading, spacing: 8) {
-                Notice("Changes could not be stored", .warning)
-                    .font(.callout.weight(.semibold))
-                Text(failure)
-                    .font(.callout)
-                    .textSelection(.enabled)
+            Banner("Changes could not be stored", text: failure) {
                 Button("Retry Saving") { Task { await model.retrySavingHistory() } }
             }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.orange.opacity(0.1))
-            Divider()
         }
         if let warning = model.libraryWarning {
-            VStack(alignment: .leading, spacing: 8) {
-                Notice("Part of your library could not be read", .warning)
-                    .font(.callout.weight(.semibold))
-                Text(warning)
-                    .font(.callout)
-                    .textSelection(.enabled)
+            Banner("Part of your library could not be read", text: warning) {
                 if model.foldersAreDamaged {
                     Text(
                         "Folders cannot be created, renamed or deleted, and transcripts cannot be moved between them, until the file that lists them is repaired or removed, so that nothing writes over it or loses which folder a transcript is in."
@@ -36,10 +22,42 @@ struct LibraryWarnings: View {
                     .font(.callout)
                 }
             }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.orange.opacity(0.1))
-            Divider()
         }
+    }
+}
+
+/// One warning across the top of the window, with what can be done about it.
+private struct Banner<Details: View>: View {
+    let title: LocalizedStringKey
+    let text: String
+    @ViewBuilder let details: Details
+
+    init(
+        _ title: LocalizedStringKey, text: String,
+        @ViewBuilder details: () -> Details = { EmptyView() }
+    ) {
+        self.title = title
+        self.text = text
+        self.details = details()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Notice(title, .warning)
+                .font(.callout.weight(.semibold))
+            Text(text)
+                .font(.callout)
+                .textSelection(.enabled)
+            details
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        Divider()
+    }
+}
+
+#Preview {
+    Banner("Changes could not be stored", text: "The disk is full.") {
+        Button("Retry Saving") {}
     }
 }
