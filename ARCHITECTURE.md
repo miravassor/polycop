@@ -142,7 +142,9 @@ There is no index: the directory listing is the library, read on every core
 at launch. A removed entry keeps its file, with the date it was removed, in
 Recently Deleted (`AppModel.recentlyDeleted`), and is deleted at the first
 launch 30 days later. A file that fails to decode is left in place and
-reported, never overwritten. Records are encoded and written off the main
+reported, never overwritten, and so is a record whose `requires` is above what
+this version knows (see `AGENTS.md`). Each record says which version wrote it
+(`writtenBy`). Records are encoded and written off the main
 actor, one after another on `HistoryWriter`'s queue, so the last write of an
 entry is the one on disk and a delete follows the writes asked before it. A
 write that fails is kept in memory and retried, and quitting waits for every

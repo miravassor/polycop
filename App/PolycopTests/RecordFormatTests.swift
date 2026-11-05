@@ -126,3 +126,87 @@ private func changed(_ change: (inout [String: Any]) -> Void) throws -> URL {
     #expect(entry.playbackPosition == nil)
     #expect(PlayerBar.clock(1e100) == PlayerBar.clock(AudioDecoder.longestRecording + 60))
 }
+
+/// A format this version does not know, whether or not it still decodes, is left
+/// out of the library with its file as it was, so that nothing is lost by opening
+/// the library with an earlier version.
+@MainActor
+@Test(arguments: [false, true])
+func aRecordInANewerFormatIsLeftOutUntouched(stillDecodes: Bool) async throws {
+    let history = try changed { record in
+        record["requires"] = HistoryStore.knownFormat + 1
+        if !stillDecodes { record["paragraphs"] = ["in": "a shape not known yet"] }
+    }
+    defer { try? FileManager.default.removeItem(at: history) }
+    let name = try #require(FileManager.default.contentsOfDirectory(atPath: history.path()).first)
+    let file = history.appending(path: name)
+    let written = try Data(contentsOf: file)
+    let other = Entry(
+        recording: URL(filePath: "/tmp/cours.wav"), modelFile: ModelCatalog.recommended.id,
+        glossary: nil, skipsSilence: false, subtitles: false)
+    try HistoryStore.write(other, in: history)
+
+    let library = HistoryStore.all(in: history)
+    #expect(library.newer == [name])
+    #expect(library.damaged.isEmpty)
+    #expect(library.entries.map(\.id) == [other.id])
+
+    let model = AppModel(history: history)
+    #expect(model.newerRecords == 1)
+    #expect(model.libraryWarning == nil)
+    #expect(model.entries.map(\.id) == [other.id])
+    await model.finishWrites()
+    #expect(try Data(contentsOf: file) == written)
+}
+
+/// A number that says nothing about the format does not hide that a record is
+/// damaged.
+@Test(arguments: [HistoryStore.knownFormat, 0])
+func aDamagedRecordIsNotTakenForANewerOne(format: Int) throws {
+    let history = try changed { record in
+        record["requires"] = format
+        record["paragraphs"] = ["in": "a shape not known yet"]
+    }
+    defer { try? FileManager.default.removeItem(at: history) }
+
+    let library = HistoryStore.all(in: history)
+
+    #expect(library.newer.isEmpty)
+    #expect(library.damaged.count == 1)
+}
+
+/// A record in the format this version knows opens, and keeps saying so.
+@Test func aRecordInTheKnownFormatOpensAndStaysInIt() throws {
+    let history = try changed { $0["requires"] = HistoryStore.knownFormat }
+    defer { try? FileManager.default.removeItem(at: history) }
+
+    let entry = try #require(HistoryStore.all(in: history).entries.first)
+    try HistoryStore.write(entry, in: history)
+
+    #expect(HistoryStore.all(in: history).entries == [entry])
+    #expect(entry.requires == HistoryStore.knownFormat)
+}
+
+/// What this version writes keeps every key a release wrote, which the releases
+/// before it read, and says which version wrote it.
+@Test(arguments: ["0.2.0", "0.3.0", "0.3.2", "0.4.0"])
+func rewritingARecordLosesNoKey(release: String) throws {
+    let name = "entry-\(release).json"
+    let read = {
+        try #require(
+            JSONSerialization.jsonObject(with: Data(contentsOf: $0)) as? [String: Any])
+    }
+    let stored = try read(records.appending(path: name))
+    let id = try #require(stored["id"] as? String)
+    let history = try folder(holding: name, as: id + ".json")
+    defer { try? FileManager.default.removeItem(at: history) }
+
+    try HistoryStore.write(
+        #require(HistoryStore.all(in: history).entries.first), in: history)
+
+    let rewritten = try read(history.appending(path: id + ".json"))
+    #expect(Set(stored.keys).subtracting(rewritten.keys).isEmpty)
+    #expect(rewritten["writtenBy"] as? String == Bundle.main.shortVersion)
+    #expect(Bundle.main.shortVersion != nil)
+    #expect(rewritten["requires"] == nil)
+}

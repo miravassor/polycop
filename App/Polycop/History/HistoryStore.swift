@@ -8,6 +8,10 @@ import os
 /// directory listing is the library, as for glossaries and models.
 nonisolated enum HistoryStore {
     static let directory = URL.applicationSupportDirectory.appending(path: "Polycop/History")
+    /// The newest format of a record this version reads and rewrites. It rises
+    /// only with a record that holds what an earlier version would lose or
+    /// misread, and that record says so in `Entry.requires`.
+    static let knownFormat = 1
 
     /// What the library holds, and what of it could not be read.
     struct Library {
@@ -17,6 +21,9 @@ nonisolated enum HistoryStore {
         /// damaged file is the only copy of that transcript and may still be
         /// recoverable by hand.
         var damaged: [String] = []
+        /// Records in a format this version does not know. Left where they are:
+        /// rewriting one would drop what this version cannot read.
+        var newer: [String] = []
     }
 
     /// Newest first. A record that fails to decode is skipped and left on
@@ -39,7 +46,7 @@ nonisolated enum HistoryStore {
         // Decoding is nearly all of a launch, and records do not depend on one
         // another, so they are decoded on every core at once.
         let read = OSAllocatedUnfairLock(
-            initialState: [Result<Entry, DamagedRecord>?](repeating: nil, count: records.count))
+            initialState: [Result<Entry, UnreadableRecord>?](repeating: nil, count: records.count))
         DispatchQueue.concurrentPerform(iterations: records.count) { index in
             let result = record(folder.appending(path: records[index]))
             read.withLock { $0[index] = result }
@@ -49,10 +56,14 @@ nonisolated enum HistoryStore {
             switch result {
             case .success(let entry):
                 library.entries.append(entry)
-            case .failure(let damage):
+            case .failure(let failure):
                 Log.persistence.error(
-                    "a transcript record could not be read: \(damage.reason, privacy: .public)")
-                library.damaged.append(name)
+                    "a transcript record could not be read: \(failure.reason, privacy: .public)")
+                if failure.needsNewerVersion {
+                    library.newer.append(name)
+                } else {
+                    library.damaged.append(name)
+                }
             case nil:
                 library.damaged.append(name)
             }
@@ -61,21 +72,25 @@ nonisolated enum HistoryStore {
         return library
     }
 
-    /// Which check a record failed, in words that hold none of its text: a
-    /// record holds a lecture, and the log is read by whoever is sent it.
-    struct DamagedRecord: Error {
+    /// Why a record was not read, in words that hold none of its text: a record
+    /// holds a lecture, and the log is read by whoever is sent it.
+    struct UnreadableRecord: Error {
         let reason: String
+        var needsNewerVersion = false
     }
 
-    /// The entry a record holds, or which check it failed.
+    /// The entry a record holds, or why it was not read.
     static func record(
         _ file: URL, decoder: JSONDecoder = JSONDecoder()
-    ) -> Result<Entry, DamagedRecord> {
-        func damaged(_ reason: String) -> Result<Entry, DamagedRecord> {
-            .failure(DamagedRecord(reason: reason))
+    ) -> Result<Entry, UnreadableRecord> {
+        func damaged(_ reason: String) -> Result<Entry, UnreadableRecord> {
+            .failure(UnreadableRecord(reason: reason))
         }
-        func path(_ keys: [any CodingKey]) -> String {
-            keys.isEmpty ? "the top" : keys.map(\.stringValue).joined(separator: ".")
+        func newer(_ format: Int) -> Result<Entry, UnreadableRecord> {
+            .failure(
+                UnreadableRecord(
+                    reason: "it requires format \(format), and this version knows \(knownFormat)",
+                    needsNewerVersion: true))
         }
         let data: Data
         do {
@@ -86,23 +101,46 @@ nonisolated enum HistoryStore {
         var entry: Entry
         do {
             entry = try decoder.decode(Entry.self, from: data)
-        } catch DecodingError.keyNotFound(let key, let context) {
-            return damaged("\(path(context.codingPath + [key])) is missing")
-        } catch DecodingError.typeMismatch(_, let context), DecodingError.valueNotFound(
-            _, let context)
-        {
-            return damaged("\(path(context.codingPath)) has the wrong type")
-        } catch DecodingError.dataCorrupted(let context) {
-            return damaged("\(path(context.codingPath)) is not valid")
         } catch {
-            return damaged("the file is not a record")
+            // A newer format need not decode as an `Entry`, so that alone does
+            // not make a record damaged. Asked only now: reading every record
+            // twice would slow each launch.
+            if let format = try? decoder.decode(StoredFormat.self, from: data).requires,
+                format > knownFormat
+            {
+                return newer(format)
+            }
+            return damaged(reason(error))
         }
+        if let format = entry.requires, format > knownFormat { return newer(format) }
         guard entry.id == UUID(uuidString: file.deletingPathExtension().lastPathComponent) else {
             return damaged("its id differs from the file name")
         }
         entry.repair()
         guard entry.hasValidHistory else { return damaged("a time or a path is out of bounds") }
         return .success(entry)
+    }
+
+    private struct StoredFormat: Decodable {
+        let requires: Int?
+    }
+
+    /// Which check a record failed.
+    private static func reason(_ error: any Error) -> String {
+        func path(_ keys: [any CodingKey]) -> String {
+            keys.isEmpty ? "the top" : keys.map(\.stringValue).joined(separator: ".")
+        }
+        switch error {
+        case DecodingError.keyNotFound(let key, let context):
+            return "\(path(context.codingPath + [key])) is missing"
+        case DecodingError.typeMismatch(_, let context),
+            DecodingError.valueNotFound(_, let context):
+            return "\(path(context.codingPath)) has the wrong type"
+        case DecodingError.dataCorrupted(let context):
+            return "\(path(context.codingPath)) is not valid"
+        default:
+            return "the file is not a record"
+        }
     }
 
     private static func isRecord(_ name: String) -> Bool {
@@ -129,7 +167,25 @@ nonisolated enum HistoryStore {
     static func write(_ entry: Entry, in folder: URL = directory) throws {
         try FileManager.default.createDirectory(
             at: folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
-        try JSONEncoder().encode(entry).write(to: file(for: entry.id, in: folder), options: .atomic)
+        try JSONEncoder().encode(StoredEntry(entry: entry))
+            .write(to: file(for: entry.id, in: folder), options: .atomic)
+    }
+
+    /// An entry as it goes to disk, with the version that wrote it: a fact about
+    /// the file rather than the transcript, which tells a repair and a maintainer
+    /// what shape to expect.
+    private struct StoredEntry: Encodable {
+        let entry: Entry
+
+        private enum CodingKeys: CodingKey {
+            case writtenBy
+        }
+
+        func encode(to encoder: any Encoder) throws {
+            try entry.encode(to: encoder)
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encodeIfPresent(Bundle.main.shortVersion, forKey: .writtenBy)
+        }
     }
 
     static func delete(_ id: Entry.ID, in folder: URL = directory) throws {

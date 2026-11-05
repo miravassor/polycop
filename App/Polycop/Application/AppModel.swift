@@ -151,6 +151,8 @@ final class AppModel {
     /// Records that could not be read when the library opened. Shown until the
     /// user has dealt with them, and never acted on by the app.
     private(set) var libraryWarning: String?
+    /// How many transcripts need a newer version of the app, and are left out.
+    private(set) var newerRecords = 0
     /// Whether the list of folders could not be read. While it cannot, no
     /// folder is created, renamed or deleted, since a write would overwrite
     /// the only copy of the folder names.
@@ -283,6 +285,7 @@ final class AppModel {
         recentlyDeleted = library.entries.filter { $0.removed != nil }
             .sorted { ($0.removed ?? .distantPast) > ($1.removed ?? .distantPast) }
         deleteExpired()
+        newerRecords = library.newer.count
         var damaged = library.damaged.count
         do {
             folders = try HistoryStore.folders(in: history)

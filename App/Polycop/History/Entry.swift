@@ -21,6 +21,9 @@ nonisolated struct Entry: Identifiable, Equatable, Codable, Sendable {
     }
 
     var id: UUID
+    /// The format a version must know to read and rewrite this record, absent
+    /// meaning 1 (see `HistoryStore.knownFormat`).
+    private(set) var requires: Int?
     /// Where the recording was when it was added, or wherever the user has
     /// relinked it to since.
     private(set) var recording: URL

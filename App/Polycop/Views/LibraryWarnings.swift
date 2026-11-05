@@ -13,6 +13,9 @@ struct LibraryWarnings: View {
                 Button("Retry Saving") { Task { await model.retrySavingHistory() } }
             }
         }
+        if model.newerRecords > 0 {
+            Banner("Some transcripts need a newer version of Polycop", text: newerRecordsText)
+        }
         if let warning = model.libraryWarning {
             Banner("Part of your library could not be read", text: warning) {
                 if model.foldersAreDamaged {
@@ -23,6 +26,18 @@ struct LibraryWarnings: View {
                 }
             }
         }
+    }
+
+    private var newerRecordsText: String {
+        model.newerRecords == 1
+            ? String(
+                localized:
+                    "1 transcript was saved by a newer version. It has been left untouched, and comes back once you update Polycop."
+            )
+            : String(
+                localized:
+                    "\(model.newerRecords) transcripts were saved by a newer version. They have been left untouched, and come back once you update Polycop."
+            )
     }
 }
 
