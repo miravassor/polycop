@@ -10,8 +10,10 @@ struct RecentlyDeletedSection: View {
     @State private var deleting: Entry?
 
     var body: some View {
-        if !model.recentlyDeleted.isEmpty {
+        let unavailable = model.unavailable.filter { $0.removed != nil }
+        if !model.recentlyDeleted.isEmpty || !unavailable.isEmpty {
             Section {
+                ForEach(unavailable) { UnavailableRecordRow($0) }
                 ForEach(model.recentlyDeleted) { entry in
                     Text(entry.name)
                         .lineLimit(1)

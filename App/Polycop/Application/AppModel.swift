@@ -41,6 +41,10 @@ final class AppModel {
     enum Pane: Hashable {
         case new
         case entry(Entry.ID)
+        /// A record this version cannot read, which has a page saying so.
+        case unavailable(UnavailableRecord.ID)
+        /// Every file nothing identifies, together.
+        case unidentifiedFiles
     }
 
     // The setter of these is internal rather than private: extensions in the
@@ -151,8 +155,8 @@ final class AppModel {
     /// Records that could not be read when the library opened. Shown until the
     /// user has dealt with them, and never acted on by the app.
     private(set) var libraryWarning: String?
-    /// How many transcripts need a newer version of the app, and are left out.
-    private(set) var newerRecords = 0
+    /// Records this version cannot read, listed but never written.
+    private(set) var unavailable: [UnavailableRecord] = []
     /// Whether the list of folders could not be read. While it cannot, no
     /// folder is created, renamed or deleted, since a write would overwrite
     /// the only copy of the folder names.
@@ -280,13 +284,21 @@ final class AppModel {
         {
             glossaryName = remembered
         }
+        readLibrary()
+    }
+
+    /// What is on disk, at launch.
+    private func readLibrary() {
         let library = HistoryStore.all(in: history)
         entries = library.entries.filter { $0.removed == nil }
         recentlyDeleted = library.entries.filter { $0.removed != nil }
             .sorted { ($0.removed ?? .distantPast) > ($1.removed ?? .distantPast) }
         deleteExpired()
-        newerRecords = library.newer.count
-        var damaged = library.damaged.count
+        unavailable = library.unavailable
+        if library.isUnlisted {
+            libraryWarning = String(
+                localized: "The folder that holds your library could not be opened.")
+        }
         do {
             folders = try HistoryStore.folders(in: history)
         } catch {
@@ -294,27 +306,15 @@ final class AppModel {
             // written over, so nothing else is lost while the user decides
             // what to do; no folder can be changed until then.
             foldersAreDamaged = true
-            damaged += 1
+            libraryWarning = String(
+                localized: "The list of your folders could not be read. It has been left untouched."
+            )
         }
-        if damaged > 0 { libraryWarning = Self.warning(damaged: damaged, in: history) }
         // A job cut short by quitting cannot resume: its audio is gone.
         // Recordings that never started stay waiting for the next Start.
         for entry in entries where entry.state == .running {
             updateEntry(entry.id) { $0.state = .stopped }
         }
-    }
-
-    private static func warning(damaged: Int, in history: URL) -> String {
-        let place = history.path(percentEncoded: false)
-        return damaged == 1
-            ? String(
-                localized:
-                    "1 file of your library could not be read. It has been left untouched in \(place). The rest of your transcripts are here."
-            )
-            : String(
-                localized:
-                    "\(damaged) files of your library could not be read. They have been left untouched in \(place). The rest of your transcripts are here."
-            )
     }
 
     func refreshInstalled() {

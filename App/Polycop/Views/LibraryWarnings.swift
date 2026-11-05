@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+import AppKit
 import SwiftUI
 
 extension View {
@@ -22,11 +23,7 @@ private struct LibraryWarnings: View {
             if let failure = model.storageFailure {
                 Banner("Changes could not be stored", text: failure) {
                     Button("Retry Saving") { Task { await model.retrySavingHistory() } }
-                }
-            }
-            if model.newerRecords > 0 {
-                Banner("Some transcripts need a newer version of Polycop", text: newerRecordsText) {
-                    Button("Check for Updates…") { UpdatePrompt.checkForUpdates() }
+                        .frame(maxWidth: .infinity)
                 }
             }
             if let warning = model.libraryWarning {
@@ -36,22 +33,16 @@ private struct LibraryWarnings: View {
                             "Folders cannot be created, renamed or deleted, and transcripts cannot be moved between them, until the file that lists them is repaired or removed, so that nothing writes over it or loses which folder a transcript is in."
                         )
                         .font(.callout)
+                        Button("Show in Finder") {
+                            NSWorkspace.shared.activateFileViewerSelecting([
+                                model.history.appending(path: "folders.json")
+                            ])
+                        }
+                        .frame(maxWidth: .infinity)
                     }
                 }
             }
         }
-    }
-
-    private var newerRecordsText: String {
-        model.newerRecords == 1
-            ? String(
-                localized:
-                    "1 transcript was saved by a newer version. It has been left untouched: update Polycop to open it."
-            )
-            : String(
-                localized:
-                    "\(model.newerRecords) transcripts were saved by a newer version. They have been left untouched: update Polycop to open them."
-            )
     }
 }
 

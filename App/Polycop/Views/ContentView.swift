@@ -96,6 +96,8 @@ struct ContentView: View {
                         remove: { removing = $0 }
                     )
                     .libraryWarnings(model)
+                } else if let page = UnavailableRecordPage(model: model) {
+                    page.libraryWarnings(model)
                 } else if case .entry(let id) = model.pane, let entry = model.entry(id) {
                     EntryView(
                         model: model, entry: entry, showsInspector: $showsInspector,
@@ -202,10 +204,13 @@ struct ContentView: View {
     /// The transcripts in no folder, or the whole library before there is one.
     private var unfiledSection: some View {
         Section {
-            if unfiled.isEmpty {
+            if unfiled.isEmpty, model.unavailable(in: nil).isEmpty,
+                model.unidentifiedFiles.isEmpty
+            {
                 Text("Nothing outside a folder")
                     .font(.caption).foregroundStyle(.secondary)
             }
+            UnavailableRows(model: model, folder: nil)
             ForEach(unfiled) { entry in row(entry) }
         } header: {
             Text(model.folders.isEmpty ? "Library" : "Unfiled")
@@ -244,9 +249,10 @@ struct ContentView: View {
                     )
                 ) {
                     let entries = model.entries.filter { $0.folderID == folder.id }
-                    if entries.isEmpty {
+                    if entries.isEmpty, model.unavailable(in: folder.id).isEmpty {
                         Text("Empty folder").font(.caption).foregroundStyle(.secondary)
                     }
+                    UnavailableRows(model: model, folder: folder.id)
                     ForEach(entries) { entry in row(entry) }
                 } label: {
                     Label(folder.name, systemImage: "folder")
@@ -272,7 +278,7 @@ struct ContentView: View {
                             Button("Delete Empty Folder", role: .destructive) {
                                 attempt { try model.removeFolder(folder.id) }
                             }
-                            .disabled(model.entries.contains { $0.folderID == folder.id })
+                            .disabled(model.holdsTranscripts(folder.id))
                             Divider()
                             newFolder
                         }

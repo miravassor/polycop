@@ -16,20 +16,14 @@ nonisolated enum HistoryStore {
     /// What the library holds, and what of it could not be read.
     struct Library {
         var entries: [Entry] = []
-        /// Records that could not be read, or the History folder's own name
-        /// when it cannot be listed. Left exactly where they are, since a
-        /// damaged file is the only copy of that transcript and may still be
-        /// recoverable by hand.
-        var damaged: [String] = []
-        /// Records in a format this version does not know. Left where they are:
-        /// rewriting one would drop what this version cannot read.
-        var newer: [String] = []
+        var unavailable: [UnavailableRecord] = []
+        /// Whether the History folder itself could not be listed.
+        var isUnlisted = false
     }
 
-    /// Newest first. A record that fails to decode is skipped and left on
-    /// disk, so one damaged file does not hide the rest. Its name is reported
-    /// so the user is told a transcript is missing instead of losing it
-    /// silently.
+    /// Newest first. A record that cannot be read is left on disk and reported,
+    /// so one damaged file does not hide the rest, and the user is told rather
+    /// than losing a transcript silently.
     static func all(in folder: URL = directory) -> Library {
         let path = folder.path(percentEncoded: false)
         let names: [String]
@@ -38,7 +32,7 @@ nonisolated enum HistoryStore {
         } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
             return Library()
         } catch {
-            return Library(damaged: [folder.lastPathComponent])
+            return Library(isUnlisted: true)
         }
         // `folders.json` lives in the same folder but is not an entry; isRecord
         // filters it out so it is never reported as a damaged record.
@@ -46,7 +40,7 @@ nonisolated enum HistoryStore {
         // Decoding is nearly all of a launch, and records do not depend on one
         // another, so they are decoded on every core at once.
         let read = OSAllocatedUnfairLock(
-            initialState: [Result<Entry, UnreadableRecord>?](repeating: nil, count: records.count))
+            initialState: [Result<Entry, UnavailableRecord>?](repeating: nil, count: records.count))
         DispatchQueue.concurrentPerform(iterations: records.count) { index in
             let result = record(folder.appending(path: records[index]))
             read.withLock { $0[index] = result }
@@ -56,47 +50,46 @@ nonisolated enum HistoryStore {
             switch result {
             case .success(let entry):
                 library.entries.append(entry)
-            case .failure(let failure):
+            case .failure(let record):
                 Log.persistence.error(
-                    "a transcript record could not be read: \(failure.reason, privacy: .public)")
-                if failure.needsNewerVersion {
-                    library.newer.append(name)
-                } else {
-                    library.damaged.append(name)
-                }
+                    "a transcript record could not be read: \(record.reason, privacy: .public)")
+                library.unavailable.append(record)
             case nil:
-                library.damaged.append(name)
+                library.unavailable.append(
+                    UnavailableRecord(
+                        file: folder.appending(path: name), reason: "it was not read"))
             }
         }
         library.entries.sort { $0.added > $1.added }
         return library
     }
 
-    /// Why a record was not read, in words that hold none of its text: a record
-    /// holds a lecture, and the log is read by whoever is sent it.
-    struct UnreadableRecord: Error {
-        let reason: String
-        var needsNewerVersion = false
-    }
-
-    /// The entry a record holds, or why it was not read.
+    /// The entry a record holds, or why it cannot be read.
     static func record(
         _ file: URL, decoder: JSONDecoder = JSONDecoder()
-    ) -> Result<Entry, UnreadableRecord> {
-        func damaged(_ reason: String) -> Result<Entry, UnreadableRecord> {
-            .failure(UnreadableRecord(reason: reason))
-        }
-        func newer(_ format: Int) -> Result<Entry, UnreadableRecord> {
-            .failure(
-                UnreadableRecord(
-                    reason: "it requires format \(format), and this version knows \(knownFormat)",
-                    needsNewerVersion: true))
-        }
+    ) -> Result<Entry, UnavailableRecord> {
         let data: Data
         do {
             data = try Data(contentsOf: file)
         } catch {
-            return damaged("the file cannot be read")
+            return .failure(UnavailableRecord(file: file, reason: "the file cannot be read"))
+        }
+        func summary() -> UnavailableRecord.Summary? {
+            try? decoder.decode(UnavailableRecord.Summary.self, from: data)
+        }
+        func unavailable(
+            _ reason: String, needsNewerVersion: Bool = false
+        ) -> Result<Entry, UnavailableRecord> {
+            let summary = summary()
+            return .failure(
+                UnavailableRecord(
+                    file: file, reason: reason, needsNewerVersion: needsNewerVersion,
+                    name: summary?.name, folderID: summary?.folderID, removed: summary?.removed))
+        }
+        func newer(_ format: Int) -> Result<Entry, UnavailableRecord> {
+            unavailable(
+                "it requires format \(format), and this version knows \(knownFormat)",
+                needsNewerVersion: true)
         }
         var entry: Entry
         do {
@@ -105,24 +98,18 @@ nonisolated enum HistoryStore {
             // A newer format need not decode as an `Entry`, so that alone does
             // not make a record damaged. Asked only now: reading every record
             // twice would slow each launch.
-            if let format = try? decoder.decode(StoredFormat.self, from: data).requires,
-                format > knownFormat
-            {
-                return newer(format)
-            }
-            return damaged(reason(error))
+            if let format = summary()?.requires, format > knownFormat { return newer(format) }
+            return unavailable(reason(error))
         }
         if let format = entry.requires, format > knownFormat { return newer(format) }
         guard entry.id == UUID(uuidString: file.deletingPathExtension().lastPathComponent) else {
-            return damaged("its id differs from the file name")
+            return unavailable("its id differs from the file name")
         }
         entry.repair()
-        guard entry.hasValidHistory else { return damaged("a time or a path is out of bounds") }
+        guard entry.hasValidHistory else {
+            return unavailable("a time or a path is out of bounds")
+        }
         return .success(entry)
-    }
-
-    private struct StoredFormat: Decodable {
-        let requires: Int?
     }
 
     /// Which check a record failed.

@@ -35,7 +35,7 @@ func aTranscriptWrittenByAnEarlierReleaseStillLoads(release: String) throws {
 
     let library = HistoryStore.all(in: history)
 
-    #expect(library.damaged.isEmpty)
+    #expect(library.unavailable.isEmpty)
     let entry = try #require(library.entries.first)
     #expect(entry.name == "Cours 12 (2).m4a")
     #expect(entry.paragraphs.first?.text == "Bonjour à toutes et à tous.")
@@ -101,7 +101,7 @@ private func changed(_ change: (inout [String: Any]) -> Void) throws -> URL {
 
     let library = HistoryStore.all(in: history)
 
-    #expect(library.damaged.isEmpty)
+    #expect(library.unavailable.isEmpty)
     let entry = try #require(library.entries.first)
     #expect(entry.paragraphs.map(\.start) == [0, 4000])
     #expect(entry.paragraphs.first?.text == "Bonjour à toutes et à tous.")
@@ -121,7 +121,7 @@ private func changed(_ change: (inout [String: Any]) -> Void) throws -> URL {
 
     let library = HistoryStore.all(in: history)
 
-    #expect(library.damaged.isEmpty)
+    #expect(library.unavailable.isEmpty)
     let entry = try #require(library.entries.first)
     #expect(entry.playbackPosition == nil)
     #expect(PlayerBar.clock(1e100) == PlayerBar.clock(AudioDecoder.longestRecording + 60))
@@ -149,12 +149,14 @@ func aRecordInANewerFormatIsLeftOutUntouched(stillDecodes: Bool) async throws {
     try HistoryStore.write(other, in: history)
 
     let library = HistoryStore.all(in: history)
-    #expect(library.newer == [name])
-    #expect(library.damaged.isEmpty)
+    let record = try #require(library.unavailable.first)
+    #expect(record.needsNewerVersion)
+    #expect(record.file.lastPathComponent == name)
+    #expect(record.name == "Cours 12 (2).m4a")
     #expect(library.entries.map(\.id) == [other.id])
 
     let model = AppModel(history: history)
-    #expect(model.newerRecords == 1)
+    #expect(model.unavailable.map(\.file.lastPathComponent) == [name])
     #expect(model.libraryWarning == nil)
     #expect(model.entries.map(\.id) == [other.id])
     await model.finishWrites()
@@ -173,8 +175,7 @@ func aDamagedRecordIsNotTakenForANewerOne(format: Int) throws {
 
     let library = HistoryStore.all(in: history)
 
-    #expect(library.newer.isEmpty)
-    #expect(library.damaged.count == 1)
+    #expect(library.unavailable.map(\.needsNewerVersion) == [false])
 }
 
 /// A record in the format this version knows opens, and keeps saying so.
@@ -211,4 +212,49 @@ func rewritingARecordLosesNoKey(release: String) throws {
     #expect(rewritten["writtenBy"] as? String == Bundle.main.shortVersion)
     #expect(Bundle.main.shortVersion != nil)
     #expect(rewritten["requires"] == nil)
+}
+
+/// A damaged record keeps what still reads of it, so that it is listed under its
+/// name in its folder. Unknown folders count as none, as for a transcript, and a
+/// folder that holds one is not empty.
+@MainActor
+@Test func aDamagedRecordIsListedWhereItBelongs() throws {
+    let folder = UUID()
+    let history = try changed { record in
+        record["paragraphs"] = ["in": "a shape not known"]
+        record["title"] = "Made up title"
+        record["folderID"] = folder.uuidString
+    }
+    defer { try? FileManager.default.removeItem(at: history) }
+    try HistoryStore.writeFolders([TranscriptFolder(id: folder, name: "Made up")], in: history)
+
+    let model = AppModel(history: history)
+
+    #expect(model.unavailable(in: folder).map(\.name) == ["Made up title"])
+    #expect(model.unavailable(in: nil).isEmpty)
+    #expect(model.holdsTranscripts(folder))
+    try model.removeFolder(folder)
+    #expect(model.folders.map(\.id) == [folder])
+
+    try HistoryStore.writeFolders([], in: history)
+    #expect(AppModel(history: history).unavailable(in: nil).map(\.name) == ["Made up title"])
+}
+
+/// A file nothing identifies is in no section of its own: such files are listed
+/// together, and one removed from the library stays with Recently Deleted.
+@MainActor
+@Test func whatNothingIdentifiesIsListedApart() throws {
+    let history = try changed { record in
+        record["paragraphs"] = ["in": "a shape not known"]
+        record["removed"] = 0
+    }
+    defer { try? FileManager.default.removeItem(at: history) }
+    try Data("{ not a record".utf8).write(
+        to: history.appending(path: UUID().uuidString + ".json"))
+
+    let model = AppModel(history: history)
+
+    #expect(model.unavailable.count == 2)
+    #expect(model.unavailable.filter(\.isUnidentified).count == 1)
+    #expect(model.unavailable(in: nil).isEmpty)
 }

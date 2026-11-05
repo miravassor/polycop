@@ -10,7 +10,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 * Picture in Picture and full screen, from the buttons on the picture's corner or its menu. A double click fills the screen, and Esc leaves it.
 * Copy Frame, in the video's menu, copies the picture on screen, to paste a slide into notes.
 * An inspector beside the transcript holds the video, Follow, the export settings and the transcription details. Control-Command-I shows and hides it, and Control-Command-S the library.
-* Opening your library with an earlier version no longer risks what a later one stored: from this version on, a transcript that needs a newer Polycop is left out and untouched, and the window says so.
+* A transcript that cannot be opened, because it needs a newer Polycop or its file is damaged, stays in the library with a warning beside its name, and nothing can change it. Its page says what to do. So opening your library with an earlier version no longer risks what a later one stored, from this version on.
 * Pause Transcription and Stop Transcription in the File menu, and Replay Passage and Stop in the Playback menu.
 
 ### Changed

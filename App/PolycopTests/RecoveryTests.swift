@@ -172,7 +172,7 @@ private func finished(_ recording: URL, in history: URL, model: String, language
     let library = HistoryStore.all(in: history)
 
     #expect(library.entries.map(\.id) == [entry.id])
-    #expect(library.damaged == [damaged.lastPathComponent])
+    #expect(library.unavailable.map(\.file) == [damaged])
     #expect(FileManager.default.fileExists(atPath: damaged.path(percentEncoded: false)))
 }
 
@@ -221,7 +221,7 @@ private func finished(_ recording: URL, in history: URL, model: String, language
     let library = HistoryStore.all(in: history)
 
     #expect(library.entries.isEmpty)
-    #expect(library.damaged.isEmpty)
+    #expect(library.unavailable.isEmpty)
 }
 
 /// An unreadable folder list must not be treated as an empty one, since the
@@ -502,7 +502,7 @@ private func finished(_ recording: URL, in history: URL, model: String, language
         at: root.appending(path: entry.id.uuidString + ".json"), to: wrong)
     let library = HistoryStore.all(in: root)
     #expect(library.entries.isEmpty)
-    #expect(library.damaged == [wrong.lastPathComponent])
+    #expect(library.unavailable.map(\.file) == [wrong])
     #expect(try JSONDecoder().decode(Entry.self, from: Data(contentsOf: wrong)) == entry)
 }
 
