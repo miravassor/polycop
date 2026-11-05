@@ -25,7 +25,9 @@ private struct LibraryWarnings: View {
                 }
             }
             if model.newerRecords > 0 {
-                Banner("Some transcripts need a newer version of Polycop", text: newerRecordsText)
+                Banner("Some transcripts need a newer version of Polycop", text: newerRecordsText) {
+                    Button("Check for Updates…") { UpdatePrompt.checkForUpdates() }
+                }
             }
             if let warning = model.libraryWarning {
                 Banner("Part of your library could not be read", text: warning) {
@@ -44,11 +46,11 @@ private struct LibraryWarnings: View {
         model.newerRecords == 1
             ? String(
                 localized:
-                    "1 transcript was saved by a newer version. It has been left untouched, and comes back once you update Polycop."
+                    "1 transcript was saved by a newer version. It has been left untouched: update Polycop to open it."
             )
             : String(
                 localized:
-                    "\(model.newerRecords) transcripts were saved by a newer version. They have been left untouched, and come back once you update Polycop."
+                    "\(model.newerRecords) transcripts were saved by a newer version. They have been left untouched: update Polycop to open them."
             )
     }
 }
