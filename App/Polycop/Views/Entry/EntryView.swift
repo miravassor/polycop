@@ -16,12 +16,9 @@ struct EntryView: View {
     @State private var activeParagraph: Int?
     @State private var find = TranscriptFind()
     @FocusState private var isSearchFocused: Bool
-    @AppStorage("comparesOriginal") private var isComparing = false
     @AppStorage(Following.key) private var following = Following.page
     @State private var isFollowSuspended = false
     @State private var jump: Int?
-    @AppStorage("transcriptTextSize") private var size = EntryView.defaultTextSize
-    @AppStorage("showsUncertainWords") private var showsUncertainWords = true
     /// The timed words of each paragraph, grouped when the paragraphs change
     /// rather than on every update of the page.
     @State private var words: [[Segment.Word]] = []
@@ -33,6 +30,7 @@ struct EntryView: View {
     @State private var confirmingRevert = false
 
     private var isRunning: Bool { model.busyEntry == entry.id }
+    private var reading: ReadingSettings { model.reading }
     /// What transcribed this entry, which decides what can be done with it.
     private var engine: Engine? { ModelCatalog.model(entry.modelFile)?.engine }
 
@@ -57,7 +55,7 @@ struct EntryView: View {
         .inspector(isPresented: $showsInspector) { inspector }
         // The Playback menu's steps, which work with the inspector hidden.
         .focusedSceneValue(\.paragraphSteps, steps)
-        .focusedSceneValue(\.comparesOriginal, $isComparing)
+        .focusedSceneValue(\.comparesOriginal, Bindable(reading).isComparing)
         .onChange(of: find.query) { refreshSearch() }
         .onChange(of: find.isShown) { _, isShown in
             if isShown { isSearchFocused = true } else { find.close() }
@@ -77,7 +75,9 @@ struct EntryView: View {
             findings = entry.findings
         }
         .onChange(of: entry.paragraphs) {
-            refreshSearch(navigate: false)
+            // Nothing to find: left as it is, so that typing does not update
+            // what reads it, the toolbar's Find among them.
+            if !find.query.isEmpty { refreshSearch(navigate: false) }
             if let activeParagraph, !entry.paragraphs.indices.contains(activeParagraph) {
                 self.activeParagraph = nil
             }
@@ -115,21 +115,21 @@ struct EntryView: View {
                 edit: { model.edit(entry.id, paragraphAt: $0, text: $1) },
                 typing: { model.player.pauseForTyping() },
                 hover: { focused = $0 },
-                original: original, isComparing: isComparing,
+                original: original, isComparing: reading.isComparing,
                 isFollowing: following != .off && !isFollowSuspended,
                 suspendFollowing: page.suspendFollowing,
                 suspendForEditing: {
                     if following.stopsWhenEditing { page.suspendFollowing() }
                 },
                 jump: $jump, start: entry.readingParagraph,
-                scrolled: { model.readingParagraph = $0 }, focused: focused, size: size,
+                scrolled: { model.readingParagraph = $0 }, focused: focused, size: reading.textSize,
                 active: activeParagraph,
                 activate: { if activeParagraph != $0 { activeParagraph = $0 } },
                 review: entry.reviewParagraphs,
                 toggleReview: { model.toggleReview(entry.id, paragraphAt: $0) },
                 matches: find.matches, currentMatch: find.current,
                 words: words,
-                showsUncertainWords: showsUncertainWords
+                showsUncertainWords: reading.showsUncertainWords
             )
             // As in Music, the player floats at the foot of the text, which
             // scrolls under it; Find stays at the top, away from it.
@@ -172,10 +172,8 @@ struct EntryView: View {
 
     /// Twice the reading width when the original shows beside the text.
     private var readingWidth: CGFloat {
-        Self.readingWidth(textSize: size) * (isComparing ? 2 : 1)
+        Self.readingWidth(textSize: reading.textSize) * (reading.isComparing ? 2 : 1)
     }
-
-    static let defaultTextSize = 13.0
 
     /// About 75 characters a line, times included, at a text size.
     static func readingWidth(textSize: Double) -> CGFloat { 40 * textSize + 160 }
@@ -186,9 +184,7 @@ struct EntryView: View {
         ToolbarItemGroup(placement: .principal) {
             EntryTools(
                 model: model, id: entry.id, facts: toolFacts, page: page,
-                isComparing: $isComparing, isFindShown: $find.isShown,
-                isReplacing: $find.isReplacing, isSearchFocused: $isSearchFocused,
-                showsUncertainWords: $showsUncertainWords, size: $size,
+                find: $find, isSearchFocused: $isSearchFocused,
                 confirmingRevert: $confirmingRevert, confirmingRemoval: $confirmingRemoval)
         }
     }

@@ -188,6 +188,9 @@ Every page speaks the same visual language. The shared pieces live in
 * No `.frame(minWidth:minHeight:)` around a whole page: SwiftUI asks for the minimum
   after every change, and such a frame measures the page to answer. The window and the
   detail column give theirs with `minimumSize` in `ContentView`.
+* No `@AppStorage`, or a binding made from one, in a view that should stay as it is
+  while the reader types: SwiftUI redoes such a view at every update of its parent. A
+  setting the transcript page reads belongs in `ReadingSettings`, on the model.
 
 ## Things that break silently
 

@@ -3,10 +3,10 @@
 import SwiftUI
 
 /// Taking the page to a paragraph the reader asked for, from Find or a flag,
-/// which stops it following playback until they come back. A value rather
-/// than functions of the page, so the toolbar can hold it and still be left
-/// alone when only the text changes.
-struct PageNavigation {
+/// which stops it following playback until they come back. A dynamic property
+/// so that SwiftUI compares its bindings, which in a plain value would count
+/// as changed at each update and redraw the toolbar's Review menu holding it.
+struct PageNavigation: DynamicProperty {
     @Binding var activeParagraph: Int?
     @Binding var jump: Int?
     @Binding var isFollowSuspended: Bool

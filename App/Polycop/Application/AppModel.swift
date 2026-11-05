@@ -135,6 +135,7 @@ final class AppModel {
     static let removesHesitationsKey = "removesHesitations"
     /// Where the preferences are kept; tests give settings of their own.
     @ObservationIgnored let defaults: UserDefaults
+    let reading: ReadingSettings
     var failure: String?
     /// A failure that belongs to one transcript rather than to the library, so
     /// that it cannot appear under another one after the list moves on.
@@ -244,6 +245,7 @@ final class AppModel {
         engines: Engines? = nil, defaults: UserDefaults = MemoryDefaults.forThisRun
     ) {
         self.defaults = defaults
+        reading = ReadingSettings(defaults: defaults)
         keepAwake = defaults.object(forKey: Self.keepAwakeKey) as? Bool ?? true
         skipsSilence = defaults.object(forKey: Self.skipsSilenceKey) as? Bool ?? false
         if let remembered = defaults.object(forKey: Self.languageKey) as? String,
