@@ -20,15 +20,21 @@ private struct Stopped {
     let opener: Opener
     let model: AppModel
 
-    init(_ engine: ScriptedEngine = ScriptedEngine()) throws {
+    /// `cutShort` leaves the record a crash leaves, for the launch to stop.
+    init(_ engine: ScriptedEngine = ScriptedEngine(), cutShort: Bool = false) throws {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         let recording = folder.appending(path: "lecture.wav")
         try FileManager.default.copyItem(at: clip, to: recording)
         var entry = Entry(
             recording: recording, modelFile: ModelCatalog.recommended.id, glossary: nil,
             skipsSilence: false, subtitles: false, language: "en")
-        entry.publish([first], partial: true)
-        entry.state = .stopped
+        if cutShort {
+            entry.decoded = [first]
+            entry.state = .running
+        } else {
+            entry.publish([first], partial: true)
+            entry.state = .stopped
+        }
         let history = folder.appending(path: "History")
         try HistoryStore.write(entry, in: history)
         id = entry.id
@@ -68,6 +74,25 @@ private func until(_ condition: () -> Bool) async throws {
         #expect(entry.resumedAt == [first.end])
         #expect(engine.starts == [first.end])
         #expect(opener.opened == 1)
+        await model.shutDown()
+    }
+
+    @Test func aJobCutShortByACrashContinuesFromWhatItSaved() async throws {
+        let engine = ScriptedEngine()
+        let job = try Stopped(engine, cutShort: true)
+        let (folder, id, model) = (job.folder, job.id, job.model)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let entry = try #require(model.entry(id))
+        #expect(entry.state == .stopped)
+        #expect(model.canResume(entry))
+
+        model.resumeStopped(id)
+        try await until { !model.hasWork && !model.stage.isBusy }
+
+        #expect(model.entry(id)?.state == .finished)
+        #expect(model.entry(id)?.decoded.count == 3)
+        #expect(model.entry(id)?.decoded.first == first)
+        #expect(engine.starts == [first.end])
         await model.shutDown()
     }
 
