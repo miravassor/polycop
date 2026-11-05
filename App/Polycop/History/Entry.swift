@@ -86,8 +86,8 @@ nonisolated struct Entry: Identifiable, Equatable, Codable, Sendable {
     var transcribedIn: TimeInterval?
     /// The stretches the detector kept, in seconds, when silences are skipped.
     var speech: [ClosedRange<TimeInterval>]?
-    /// Where transcription resumed after a pause, in seconds. Words near such
-    /// a point can be missing or repeated.
+    /// Where transcription resumed, in seconds. Words near such a point can be
+    /// missing or repeated.
     var resumedAt: [TimeInterval]?
     /// Whether segments align to sentence boundaries, set by the run that
     /// wrote them. True for Qwen once the aligner has timed its words; nil

@@ -10,7 +10,7 @@ import SwiftUI
 /// engine's own words can be shown beside it.
 struct TranscriptView: View {
     let paragraphs: [Transcript.Paragraph]
-    /// Paragraphs where transcription resumed after a pause.
+    /// Paragraphs where transcription resumed.
     let resumed: Set<Int>
     let player: Player
     let isEditable: Bool

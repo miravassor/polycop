@@ -410,7 +410,7 @@ extension AppModel {
     }
 
     /// Adds what this run took to the time already spent on the entry, so a
-    /// transcription resumed after a pause reports the whole of it.
+    /// transcription resumed reports the whole of it.
     private func recordTimeSpent(since started: Date, on id: Entry.ID) {
         let taken = max(0, Date.now.timeIntervalSince(started))
         updateEntry(id) { $0.transcribedIn = ($0.transcribedIn ?? 0) + taken }

@@ -91,8 +91,9 @@ Find Terms (`TermFinder`) reads the chosen documents itself, through `Documents`
 
 Quitting stops the job and keeps the segments it had decoded, flushes typing,
 and writes every pending change before the app replies to the termination
-request. A paused job cannot resume after a relaunch: its samples lived in
-memory.
+request. A paused job comes back stopped, since its samples lived in memory.
+Resuming a stopped transcript (`resumeStopped`) converts the recording again and
+continues from the end of its segments.
 
 ## Editing and playback
 

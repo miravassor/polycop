@@ -75,7 +75,7 @@ struct TranscriptRow: View, Equatable {
                 if isResumed {
                     Image(systemName: "arrow.clockwise")
                         .foregroundStyle(.orange)
-                        .accessibilityLabel("Transcription resumed here after a pause")
+                        .accessibilityLabel("Transcription resumed here")
                         .help("Words near this point can be missing or repeated.")
                 }
             }

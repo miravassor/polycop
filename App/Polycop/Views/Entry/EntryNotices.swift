@@ -47,7 +47,7 @@ struct EntryNotices: View {
         if let times = entry.resumedAt, !times.isEmpty {
             VStack(alignment: .leading, spacing: 12) {
                 Label(
-                    "Resumed after a pause. Words near these points can be missing or repeated:",
+                    "Resumed part way. Words near these points can be missing or repeated:",
                     systemImage: "arrow.clockwise"
                 )
                 .font(.callout)

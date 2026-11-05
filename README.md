@@ -201,8 +201,9 @@ open its release page.
   where it left off the next time.
 * Recordings waiting in the queue stay there when you quit, for the next Start.
 * Pausing keeps the text obtained so far; a few words may be dropped or repeated
-  where the work resumes, and those spots are marked. A paused job does not
-  survive quitting the app.
+  where the work resumes, and those spots are marked. A paused job stops when you
+  quit the app. A stopped transcript can be resumed with **Resume Transcription**,
+  once any corrections to it are reverted, since resuming writes the text again.
 
 ## Uninstall
 
