@@ -75,6 +75,7 @@ nonisolated enum GlossaryStore {
     /// Moves the file to the Trash rather than deleting it outright, since a
     /// glossary is typed by hand and cannot be downloaded again.
     static func delete(named name: String, in folder: URL = directory) throws {
+        try LibrarySnapshots.remove(file(named: name, in: folder))
         try FileManager.default.trashItem(at: file(named: name, in: folder), resultingItemURL: nil)
     }
 

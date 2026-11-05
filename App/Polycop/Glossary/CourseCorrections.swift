@@ -46,6 +46,7 @@ nonisolated enum CourseCorrections {
 
     /// Goes to the Trash with its glossary. No file means none were remembered.
     static func delete(for glossary: String, in folder: URL = GlossaryStore.directory) throws {
+        try LibrarySnapshots.remove(file(for: glossary, in: folder))
         do {
             try FileManager.default.trashItem(
                 at: file(for: glossary, in: folder), resultingItemURL: nil)

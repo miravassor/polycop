@@ -209,6 +209,9 @@ Every page speaks the same visual language. The shared pieces live in
   others. A version from 0.5.0 on then lists those records without opening or writing
   them (`UnavailableRecord`); earlier ones still strip them. Folders and course corrections have no such
   number: what they cannot lose goes in a new file, which earlier versions never open.
+* The library is also kept in `Snapshots/` (`LibrarySnapshots`). Code that deletes a
+  file of the library for good takes it out of the copies with `LibrarySnapshots.remove`,
+  or what the user deleted stays there.
 * Model files are identified by catalog id and verified by size and SHA-256. Changing
   a catalog entry means a new pinned file, never an edited hash.
 * Typed text stays in the paragraph's text view and reaches the model after a pause,

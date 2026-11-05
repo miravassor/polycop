@@ -20,6 +20,11 @@ struct PolycopApp: App {
             ModelStore.sweep()
             Player.sweep()
         }
+        // In the library this run opens, so that a test run or a second copy
+        // finds its own empty one and never copies the user's.
+        if let version = Bundle.main.shortVersion {
+            LibrarySnapshots.take(before: version, in: Self.library.deletingLastPathComponent())
+        }
         Following.adoptEarlierSetting(in: Self.settings)
         _model = State(
             initialValue: AppModel(

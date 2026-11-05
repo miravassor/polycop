@@ -146,6 +146,12 @@ speaker, so trying two models on your own recordings is worth it.
 The release also offers `Polycop-X.Y.Z.zip`: the same app, with the source of
 every component it ships and the instructions to build it.
 
+Before a new version first opens your library, Polycop keeps a copy of your
+transcripts and glossaries, in the folder `Snapshots` beside them, for the last
+two versions. A transcript you delete for good, or a glossary, leaves these
+copies too. If a version damages your library, quit Polycop and replace the
+folders `History` and `Glossaries` with those of the copy made before it.
+
 Polycop does not update itself. On its second launch it asks whether to check for
 a new version once a day; you can change that in Settings, or choose **Check for
 Updates…** in the Polycop menu at any time. When a newer version is out, it offers to

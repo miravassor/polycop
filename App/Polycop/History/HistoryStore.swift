@@ -177,6 +177,7 @@ nonisolated enum HistoryStore {
     }
 
     static func delete(_ id: Entry.ID, in folder: URL = directory) throws {
+        try LibrarySnapshots.remove(file(for: id, in: folder))
         do {
             try FileManager.default.removeItem(at: file(for: id, in: folder))
         } catch let error as CocoaError where error.code == .fileNoSuchFile {
