@@ -204,6 +204,8 @@ open its release page.
   where the work resumes, and those spots are marked. A paused job stops when you
   quit the app. A stopped transcript with no corrections of yours can continue with
   **Resume Transcription**, since resuming writes the text again.
+* A transcription under way is saved every five minutes. After a crash or a dead
+  battery, the transcript stops at what was saved and can be transcribed again.
 
 ## Uninstall
 

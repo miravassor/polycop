@@ -100,6 +100,33 @@ extension AppModel {
         }
     }
 
+    /// The engine that runs this model, opened unless the one loaded serves.
+    func preparedEngine(for model: Model, skipsSilence: Bool) async throws
+        -> any TranscriptionEngine
+    {
+        try Task.checkCancellation()
+        // Qwen times its sentences when the aligner is installed, which is
+        // part of the engine it opens.
+        let aligner = ModelCatalog.qwenAligner
+        let aligns =
+            model.engine == .qwen && ModelStore.isInstalled(aligner, in: modelFolder)
+            && Memory.areLikelyToFit(model, aligner)
+        if engineFile != model.id || engineSkipsSilence != skipsSilence || engineAligns != aligns
+            || (engine as? WhisperEngine)?.isUsable == false
+        {
+            releaseEngine()
+        }
+        if let engine { return engine }
+        stage = .loading
+        let opened = try await engines.open(model, aligns)
+        try Task.checkCancellation()
+        engine = opened
+        engineFile = model.id
+        engineSkipsSilence = skipsSilence
+        engineAligns = aligns
+        return opened
+    }
+
     func releaseEngine() {
         engine = nil
         engineFile = nil

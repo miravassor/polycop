@@ -71,7 +71,9 @@ Find Terms (`TermFinder`) reads the chosen documents itself, through `Documents`
   the decoder terminates ffmpeg.
 * Progress reaches the main actor through a `@Sendable` callback. Segments
   are collected under a lock and published when the job ends, pauses, stops
-  or fails, so a paused job keeps what it had decoded.
+  or fails, so a paused job keeps what it had decoded. Every few minutes they
+  also go in a write of the entry, not in `entries`, since the page reacts to
+  them (`SavedProgress`).
 
 ## A transcription
 
@@ -94,6 +96,8 @@ and writes every pending change before the app replies to the termination
 request. A paused job comes back stopped, since its samples lived in memory.
 Resuming a stopped transcript (`resumeStopped`) converts the recording again and
 continues from the end of its segments.
+A crash or a dead battery leaves a record still running, which the next launch
+stops with what it had saved as its text.
 
 ## Editing and playback
 
