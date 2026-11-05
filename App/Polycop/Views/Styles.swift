@@ -9,6 +9,8 @@ import SwiftUI
 /// The space each role takes. A small gap inside a row is the stack's own,
 /// with no number.
 enum Spacing {
+    /// Between an icon and the text it belongs to.
+    static let icon: CGFloat = 4
     /// Around a page.
     static let page: CGFloat = 28
     /// Around a sheet.

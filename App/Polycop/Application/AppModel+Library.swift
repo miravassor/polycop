@@ -186,10 +186,9 @@ extension AppModel {
         unavailable.filter(\.isUnidentified).map(\.file)
     }
 
-    /// Whether a folder holds anything, including what cannot be read, whose
-    /// file still names it.
+    /// Whether a folder lists anything, including what cannot be read.
     func holdsTranscripts(_ folder: UUID) -> Bool {
-        entries.contains { $0.folderID == folder } || unavailable.contains { $0.folderID == folder }
+        entries.contains { $0.folderID == folder } || !unavailable(in: folder).isEmpty
     }
 
     func removeFolder(_ id: UUID) throws {

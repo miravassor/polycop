@@ -34,9 +34,16 @@ struct UnavailableRecordRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
-            Notice(title, .warning)
-                .lineLimit(1)
-                .truncationMode(.middle)
+            // A stack, not a `Notice`: a sidebar gives a label's icon a column
+            // as wide as a section's symbol, far from a name it should sit beside.
+            HStack(alignment: .firstTextBaseline, spacing: Spacing.icon) {
+                Image(systemName: NoticeState.warning.symbol)
+                    .imageScale(.small)
+                    .foregroundStyle(NoticeState.warning.tint)
+                Text(title)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
             Text(status)
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -129,6 +136,17 @@ struct UnavailableRecordPage: View {
         }
         .navigationTitle(title)
     }
+}
+
+#Preview("Rows") {
+    List {
+        UnavailableRecordRow(unidentified: [URL(filePath: "/tmp/a.json")])
+        UnavailableRecordRow(
+            UnavailableRecord(
+                file: URL(filePath: "/tmp/made-up.json"), reason: "", needsNewerVersion: true,
+                name: "Made up class.m4a"))
+    }
+    .listStyle(.sidebar)
 }
 
 #Preview("Newer") {

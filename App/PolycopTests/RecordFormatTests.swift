@@ -240,21 +240,74 @@ func rewritingARecordLosesNoKey(release: String) throws {
     #expect(AppModel(history: history).unavailable(in: nil).map(\.name) == ["Made up title"])
 }
 
-/// A file nothing identifies is in no section of its own: such files are listed
-/// together, and one removed from the library stays with Recently Deleted.
+/// Files nothing identifies are listed together. One that still says it was
+/// removed stays with Recently Deleted, and is listed once.
 @MainActor
 @Test func whatNothingIdentifiesIsListedApart() throws {
     let history = try changed { record in
         record["paragraphs"] = ["in": "a shape not known"]
+        record["recording"] = nil
+        record["title"] = nil
         record["removed"] = 0
     }
     defer { try? FileManager.default.removeItem(at: history) }
-    try Data("{ not a record".utf8).write(
-        to: history.appending(path: UUID().uuidString + ".json"))
+    let unreadable = history.appending(path: UUID().uuidString + ".json")
+    try Data("{ not a record".utf8).write(to: unreadable)
 
     let model = AppModel(history: history)
 
     #expect(model.unavailable.count == 2)
-    #expect(model.unavailable.filter(\.isUnidentified).count == 1)
+    #expect(model.unidentifiedFiles.map(\.lastPathComponent) == [unreadable.lastPathComponent])
+    #expect(model.unavailable.filter { $0.removed != nil }.map(\.name) == [nil])
     #expect(model.unavailable(in: nil).isEmpty)
+}
+
+/// A newer format can change any stored property. Whichever it changes, the
+/// record is still known as newer, and keeps what still reads.
+@Test(arguments: ["recording", "folderID", "removed", "title"])
+func aNewerRecordIsNotTakenForADamagedOneWhenAPropertyChangedShape(key: String) throws {
+    let history = try changed { record in
+        record["requires"] = HistoryStore.knownFormat + 1
+        record["title"] = "Made up title"
+        record[key] = ["in": "a shape not known"]
+    }
+    defer { try? FileManager.default.removeItem(at: history) }
+
+    let record = try #require(HistoryStore.all(in: history).unavailable.first)
+
+    #expect(record.needsNewerVersion)
+    #expect(record.name == (key == "title" ? "Cours 12.m4a" : "Made up title"))
+}
+
+/// A folder that lists nothing can be deleted, as with a removed transcript,
+/// even when a record it no longer lists still names it.
+@MainActor
+@Test func aFolderHoldsOnlyWhatItLists() throws {
+    let folder = UUID()
+    let history = try changed { record in
+        record["paragraphs"] = ["in": "a shape not known"]
+        record["folderID"] = folder.uuidString
+        record["removed"] = 0
+    }
+    defer { try? FileManager.default.removeItem(at: history) }
+    try HistoryStore.writeFolders([TranscriptFolder(id: folder, name: "Made up")], in: history)
+
+    let model = AppModel(history: history)
+
+    #expect(!model.holdsTranscripts(folder))
+    try model.removeFolder(folder)
+    #expect(model.folders.isEmpty)
+}
+
+/// A library that cannot be listed says that, not what follows from it.
+@MainActor
+@Test func aLibraryThatCannotBeListedSaysSo() throws {
+    let history = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    try Data("not a folder".utf8).write(to: history)
+    defer { try? FileManager.default.removeItem(at: history) }
+
+    let model = AppModel(history: history)
+
+    #expect(model.libraryWarning?.contains("could not be opened") == true)
+    #expect(model.entries.isEmpty)
 }

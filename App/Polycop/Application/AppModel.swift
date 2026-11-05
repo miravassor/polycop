@@ -152,8 +152,8 @@ final class AppModel {
     var glossariesRequest: UUID?
     var transcriptImportRequest: UUID?
     var storageFailure: String?
-    /// Records that could not be read when the library opened. Shown until the
-    /// user has dealt with them, and never acted on by the app.
+    /// What could not be read of the library itself when it opened: its folder,
+    /// or the list of folders. A record that cannot be read has a row of its own.
     private(set) var libraryWarning: String?
     /// Records this version cannot read, listed but never written.
     private(set) var unavailable: [UnavailableRecord] = []
@@ -295,10 +295,6 @@ final class AppModel {
             .sorted { ($0.removed ?? .distantPast) > ($1.removed ?? .distantPast) }
         deleteExpired()
         unavailable = library.unavailable
-        if library.isUnlisted {
-            libraryWarning = String(
-                localized: "The folder that holds your library could not be opened.")
-        }
         do {
             folders = try HistoryStore.folders(in: history)
         } catch {
@@ -309,6 +305,10 @@ final class AppModel {
             libraryWarning = String(
                 localized: "The list of your folders could not be read. It has been left untouched."
             )
+        }
+        if library.isUnlisted {
+            libraryWarning = String(
+                localized: "The folder that holds your library could not be opened.")
         }
         // A job cut short by quitting cannot resume: its audio is gone.
         // Recordings that never started stay waiting for the next Start.
