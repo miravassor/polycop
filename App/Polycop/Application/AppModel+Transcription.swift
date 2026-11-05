@@ -278,14 +278,7 @@ extension AppModel {
             // returns nothing, and what it had decoded must survive.
             let collected = OSAllocatedUnfairLock(initialState: [Segment]())
             defer {
-                // Stop and quit invalidate the job, but its completed segments still belong here.
-                if self.entry(id)?.state == .stopped {
-                    let result = kept + collected.withLock { $0 }
-                    if result.count > kept.count {
-                        updateEntry(id) { $0.publish(result, partial: true) }
-                        recordTimeSpent(since: started, on: id)
-                    }
-                }
+                keepWhatAStopLeft(of: id, kept: kept, collected.withLock { $0 }, since: started)
             }
             do {
                 guard let catalogued else { throw ModelStore.ImportError.unrecognized }
@@ -328,6 +321,8 @@ extension AppModel {
                     updateEntry(id) { $0.resumedAt = ($0.resumedAt ?? []) + [from] }
                 }
                 stage = .transcribing(total > 0 ? from / total : 0)
+                let saving = saveProgress(of: id, job: number) { kept + collected.withLock { $0 } }
+                defer { saving.cancel() }
                 _ = try await engine.transcribe(
                     samples: transcription.samples,
                     settings: settings,
@@ -382,36 +377,9 @@ extension AppModel {
         }
     }
 
-    /// The engine that runs this model, opened unless the one loaded serves.
-    func preparedEngine(for model: Model, skipsSilence: Bool) async throws
-        -> any TranscriptionEngine
-    {
-        try Task.checkCancellation()
-        // Qwen times its sentences when the aligner is installed, which is
-        // part of the engine it opens.
-        let aligner = ModelCatalog.qwenAligner
-        let aligns =
-            model.engine == .qwen && ModelStore.isInstalled(aligner, in: modelFolder)
-            && Memory.areLikelyToFit(model, aligner)
-        if engineFile != model.id || engineSkipsSilence != skipsSilence || engineAligns != aligns
-            || (engine as? WhisperEngine)?.isUsable == false
-        {
-            releaseEngine()
-        }
-        if let engine { return engine }
-        stage = .loading
-        let opened = try await engines.open(model, aligns)
-        try Task.checkCancellation()
-        engine = opened
-        engineFile = model.id
-        engineSkipsSilence = skipsSilence
-        engineAligns = aligns
-        return opened
-    }
-
     /// Adds what this run took to the time already spent on the entry, so a
     /// transcription resumed after a pause reports the whole of it.
-    private func recordTimeSpent(since started: Date, on id: Entry.ID) {
+    func recordTimeSpent(since started: Date, on id: Entry.ID) {
         let taken = max(0, Date.now.timeIntervalSince(started))
         updateEntry(id) { $0.transcribedIn = ($0.transcribedIn ?? 0) + taken }
     }
