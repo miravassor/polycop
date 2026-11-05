@@ -14,6 +14,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 * Pause Transcription and Stop Transcription in the File menu, and Replay Passage and Stop in the Playback menu.
 * More languages to transcribe: Arabic, Chinese, Dutch, German, Hindi, Italian, Japanese, Korean, Portuguese, Russian and Spanish. Remove filler words stays with French and English, since "um" is a word in German and Portuguese.
 * Before a new version first opens your library, Polycop keeps a copy of your transcripts and glossaries, for the last two versions, so a version that damages them can be undone. A transcript you delete for good, or a glossary, leaves these copies too. The README says how to restore one.
+* A transcription under way is saved every five minutes, so a crash or a dead battery no longer loses all of it: the transcript stops at what was saved.
 
 ### Changed
 

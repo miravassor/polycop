@@ -33,12 +33,12 @@
         "text": "    private func run(_ transcription: Transcription) {",
         "violation": {
             "location": {
-                "line": 293,
+                "line": 251,
                 "file": "App/Polycop/Application/AppModel+Transcription.swift",
                 "character": 13
             },
             "ruleIdentifier": "cyclomatic_complexity",
-            "reason": "Function should have complexity 10 or less; currently complexity is 21",
+            "reason": "Function should have complexity 10 or less; currently complexity is 19",
             "ruleDescription": "Complexity of function bodies should be limited.",
             "ruleName": "Cyclomatic Complexity",
             "severity": "warning"
@@ -48,12 +48,12 @@
         "text": "    private func run(_ transcription: Transcription) {",
         "violation": {
             "location": {
-                "line": 293,
+                "line": 251,
                 "file": "App/Polycop/Application/AppModel+Transcription.swift",
                 "character": 13
             },
             "ruleIdentifier": "function_body_length",
-            "reason": "Function body should span 50 lines or less excluding comments and whitespace: currently spans 113 lines",
+            "reason": "Function body should span 50 lines or less excluding comments and whitespace: currently spans 109 lines",
             "ruleDescription": "Function bodies should not span too many lines",
             "ruleName": "Function Body Length",
             "severity": "warning"
@@ -63,29 +63,14 @@
         "text": "        work = Task { [weak self] in",
         "violation": {
             "location": {
-                "line": 315,
+                "line": 273,
                 "file": "App/Polycop/Application/AppModel+Transcription.swift",
                 "character": 21
             },
             "ruleIdentifier": "closure_body_length",
-            "reason": "Closure body should span 60 lines or less excluding comments and whitespace: currently spans 93 lines",
+            "reason": "Closure body should span 60 lines or less excluding comments and whitespace: currently spans 89 lines",
             "ruleDescription": "Closure bodies should not span too many lines",
             "ruleName": "Closure Body Length",
-            "severity": "warning"
-        }
-    },
-    {
-        "text": "}",
-        "violation": {
-            "location": {
-                "line": 418,
-                "file": "App/Polycop/Application/AppModel+Transcription.swift",
-                "character": 1
-            },
-            "ruleIdentifier": "file_length",
-            "reason": "File should contain 400 lines or less: currently contains 418",
-            "ruleDescription": "Files should not span too many lines.",
-            "ruleName": "File Length",
             "severity": "warning"
         }
     },

@@ -239,6 +239,7 @@ final class AppModel {
         var samples: [Float] = []
     }
     var paused: Transcription?
+    @ObservationIgnored var savedProgress = SavedProgress()
     var pausing = false
     var pausedAt = 0.0
     private var activity: NSObjectProtocol?
@@ -310,11 +311,8 @@ final class AppModel {
             libraryWarning = String(
                 localized: "The folder that holds your library could not be opened.")
         }
-        // A job cut short by quitting cannot resume: its audio is gone.
         // Recordings that never started stay waiting for the next Start.
-        for entry in entries where entry.state == .running {
-            updateEntry(entry.id) { $0.state = .stopped }
-        }
+        stopJobsCutShort()
     }
 
     func refreshInstalled() {

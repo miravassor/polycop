@@ -47,7 +47,9 @@ extension AppModel {
     /// order writes were asked; `finishWrites()` waits for all of them.
     func store(_ entry: Entry) {
         pendingSaves.remove(entry.id)
-        historyWriter.write(entry) { [weak self] result in
+        var written = entry
+        if savedProgress.isAhead(of: entry) { written.decoded = savedProgress.segments }
+        historyWriter.write(written) { [weak self] result in
             self?.written(entry.id, result)
         }
     }
