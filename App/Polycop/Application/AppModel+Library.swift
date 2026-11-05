@@ -169,8 +169,30 @@ extension AppModel {
         folders = updated
     }
 
+    /// The records a place in the library holds that this version cannot read:
+    /// those of a folder, or with `nil` those in no folder this library knows, as
+    /// for transcripts. What nothing identifies is in no folder.
+    func unavailable(in folder: UUID?) -> [UnavailableRecord] {
+        let known = Set(folders.map(\.id))
+        return unavailable.filter { record in
+            guard record.removed == nil, !record.isUnidentified else { return false }
+            if let folder { return record.folderID == folder }
+            return record.folderID.map { !known.contains($0) } ?? true
+        }
+    }
+
+    /// Every file nothing identifies.
+    var unidentifiedFiles: [URL] {
+        unavailable.filter(\.isUnidentified).map(\.file)
+    }
+
+    /// Whether a folder lists anything, including what cannot be read.
+    func holdsTranscripts(_ folder: UUID) -> Bool {
+        entries.contains { $0.folderID == folder } || !unavailable(in: folder).isEmpty
+    }
+
     func removeFolder(_ id: UUID) throws {
-        guard !entries.contains(where: { $0.folderID == id }) else { return }
+        guard !holdsTranscripts(id) else { return }
         try refuseDamagedFolders()
         let updated = folders.filter { $0.id != id }
         try HistoryStore.writeFolders(updated, in: history)

@@ -202,6 +202,13 @@ Every page speaks the same visual language. The shared pieces live in
   values, so `var isPinned = false` would make every record written before it fail
   to load. `RecordFormatTests` decodes records as each release wrote them; a release
   that changes what is stored adds its own to `App/PolycopTests/Fixtures/records/`.
+* That promise has no end, and it runs one way. A record written by a later version
+  is best effort: a version rewrites only what it knows, so what it does not know is
+  lost. A stored property an earlier version would lose or misread raises
+  `HistoryStore.knownFormat` and sets `requires` on the records that hold it, and no
+  others. A version from 0.5.0 on then lists those records without opening or writing
+  them (`UnavailableRecord`); earlier ones still strip them. Folders and course corrections have no such
+  number: what they cannot lose goes in a new file, which earlier versions never open.
 * Model files are identified by catalog id and verified by size and SHA-256. Changing
   a catalog entry means a new pinned file, never an edited hash.
 * Typed text stays in the paragraph's text view and reaches the model after a pause,

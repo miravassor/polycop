@@ -19,6 +19,7 @@ struct NewTranscriptionView: View {
 
     var body: some View {
         page
+            .libraryWarnings(model)
             .navigationTitle("New Transcription")
             .modifier(InspectorToggle(isShown: $showsInspector))
             .inspector(isPresented: $showsInspector) {

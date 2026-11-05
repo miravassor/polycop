@@ -196,11 +196,11 @@ private func entry(_ name: String, in folder: URL, added: Date = .now) -> Entry 
             Segment(start: 32, end: 60, text: "Bonjour à tous."),
         ], partial: false)
     #expect(looped.paragraphs.map(\.text) == ["Merci Merci", "Bonjour à tous."])
-    #expect(looped.shortenedLoops.count == 1)
+    #expect(looped.findings.shortenedLoops.count == 1)
 
     looped.putBackCredits()
 
-    #expect(looped.shortenedLoops.isEmpty)
+    #expect(looped.findings.shortenedLoops.isEmpty)
     #expect(looped.paragraphs.first?.text == loop)
 }
 
@@ -214,7 +214,7 @@ private func entry(_ name: String, in folder: URL, added: Date = .now) -> Entry 
     var corrected = entry("cours.m4a", in: URL.temporaryDirectory)
     corrected.publish(result, partial: false)
     #expect(corrected.paragraphs.map(\.text) == ["Bonjour à tous."])
-    #expect(corrected.hiddenCredits.count == 1)
+    #expect(corrected.findings.hiddenCredits.count == 1)
 
     var untouched = corrected
     corrected.edit(paragraphAt: 0, text: "Bonjour à toutes.")
@@ -225,7 +225,7 @@ private func entry(_ name: String, in folder: URL, added: Date = .now) -> Entry 
     // One second of silence between them, so the line joins the paragraph.
     #expect(
         untouched.paragraphs.map(\.text) == ["Sous-titrage Société Radio-Canada Bonjour à tous."])
-    #expect(untouched.hiddenCredits.isEmpty)
+    #expect(untouched.findings.hiddenCredits.isEmpty)
 }
 
 /// What the detector left out is the recording less what it kept, each second
@@ -503,28 +503,6 @@ private func entry(_ name: String, in folder: URL, added: Date = .now) -> Entry 
     model.edit(entry.id, paragraphAt: 0, text: "Bonsoir à toutes.")
     #expect(await model.retrySavingHistory())
     #expect(try written() == "Bonsoir à toutes.")
-}
-
-/// The notices' findings, worked out in one pass, say what each said alone.
-@Test func findingsMatchWhatEachNoticeSaid() {
-    var entry = Entry(
-        recording: URL(filePath: "/tmp/cours.wav"), modelFile: ModelCatalog.recommended.id,
-        glossary: nil, skipsSilence: false, subtitles: false)
-    let looped = (0..<12).map {
-        Segment(
-            start: 10 + Double($0), end: 11 + Double($0), text: " On voit bien ici le principe.")
-    }
-    entry.publish(
-        [Segment(start: 0, end: 5, text: " Sous-titrage Société Radio-Canada")] + looped
-            + [Segment(start: 30, end: 33, text: " Fin du cours.")], partial: false)
-
-    let findings = entry.findings
-
-    #expect(!findings.hiddenCredits.isEmpty)
-    #expect(findings.repetitionWarning == entry.repetitionWarning)
-    #expect(findings.repeats == entry.repeats)
-    #expect(findings.hiddenCredits == entry.hiddenCredits)
-    #expect(findings.shortenedLoops == entry.shortenedLoops)
 }
 
 /// Leaving a transcript keeps where it was read and heard, on disk as well, and

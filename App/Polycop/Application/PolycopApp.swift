@@ -180,11 +180,8 @@ struct PolycopApp: App {
             Form {
                 Section("Polycop") {
                     LabeledContent("Version") {
-                        Text(
-                            Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString")
-                                as? String ?? "Unknown"
-                        )
-                        .textSelection(.enabled)
+                        Text(Bundle.main.shortVersion ?? "Unknown")
+                            .textSelection(.enabled)
                     }
                     LabeledContent("Build") {
                         Text(

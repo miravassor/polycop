@@ -21,6 +21,9 @@ nonisolated struct Entry: Identifiable, Equatable, Codable, Sendable {
     }
 
     var id: UUID
+    /// The format a version must know to read and rewrite this record, absent
+    /// meaning 1 (see `HistoryStore.knownFormat`).
+    private(set) var requires: Int?
     /// Where the recording was when it was added, or wherever the user has
     /// relinked it to since.
     private(set) var recording: URL
@@ -271,8 +274,6 @@ nonisolated struct Entry: Identifiable, Equatable, Codable, Sendable {
     /// The segments as shown and saved. Credit lines stay hidden and loops
     /// stay shortened until put back.
     var shown: [Segment] { showsCredits ? decoded : cleaned.speech }
-    var hiddenCredits: [Segment] { showsCredits ? [] : cleaned.credits }
-    var shortenedLoops: [Segment] { showsCredits ? [] : cleaned.looped }
 
     /// Segments with credit lines removed and loops shortened, until put back.
     private var cleaned: (speech: [Segment], credits: [Segment], looped: [Segment]) {
@@ -280,7 +281,6 @@ nonisolated struct Entry: Identifiable, Equatable, Codable, Sendable {
         let (speech, looped) = Degeneration.shortenLoops(heard)
         return (speech, credits, looped)
     }
-    var repetitionWarning: String? { Degeneration.check(shown).map(Degeneration.warning) }
 
     /// What the notices above a transcript report. Each reads the whole
     /// transcript, and typing changes none of them, so a page works them out

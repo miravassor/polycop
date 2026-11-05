@@ -49,6 +49,7 @@ struct EntryView: View {
         .frame(maxWidth: .infinity)
         .padding(.horizontal, Spacing.page)
         .padding(.top, Spacing.block)
+        .libraryWarnings(model)
         .navigationTitle(entry.name)
         .toolbar { pageTools }
         .modifier(InspectorToggle(isShown: $showsInspector))

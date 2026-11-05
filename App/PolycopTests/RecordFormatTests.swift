@@ -35,7 +35,7 @@ func aTranscriptWrittenByAnEarlierReleaseStillLoads(release: String) throws {
 
     let library = HistoryStore.all(in: history)
 
-    #expect(library.damaged.isEmpty)
+    #expect(library.unavailable.isEmpty)
     let entry = try #require(library.entries.first)
     #expect(entry.name == "Cours 12 (2).m4a")
     #expect(entry.paragraphs.first?.text == "Bonjour à toutes et à tous.")
@@ -101,7 +101,7 @@ private func changed(_ change: (inout [String: Any]) -> Void) throws -> URL {
 
     let library = HistoryStore.all(in: history)
 
-    #expect(library.damaged.isEmpty)
+    #expect(library.unavailable.isEmpty)
     let entry = try #require(library.entries.first)
     #expect(entry.paragraphs.map(\.start) == [0, 4000])
     #expect(entry.paragraphs.first?.text == "Bonjour à toutes et à tous.")
@@ -121,8 +121,193 @@ private func changed(_ change: (inout [String: Any]) -> Void) throws -> URL {
 
     let library = HistoryStore.all(in: history)
 
-    #expect(library.damaged.isEmpty)
+    #expect(library.unavailable.isEmpty)
     let entry = try #require(library.entries.first)
     #expect(entry.playbackPosition == nil)
     #expect(PlayerBar.clock(1e100) == PlayerBar.clock(AudioDecoder.longestRecording + 60))
+}
+
+/// A format this version does not know, whether or not it still decodes, is left
+/// out of the library with its file as it was, so that nothing is lost by opening
+/// the library with an earlier version. This one went to Recently Deleted long
+/// ago, so a version that read it would delete it for good at launch.
+@MainActor
+@Test(arguments: [false, true])
+func aRecordInANewerFormatIsLeftOutUntouched(stillDecodes: Bool) async throws {
+    let history = try changed { record in
+        record["requires"] = HistoryStore.knownFormat + 1
+        record["removed"] = 0
+        if !stillDecodes { record["paragraphs"] = ["in": "a shape not known yet"] }
+    }
+    defer { try? FileManager.default.removeItem(at: history) }
+    let name = try #require(FileManager.default.contentsOfDirectory(atPath: history.path()).first)
+    let file = history.appending(path: name)
+    let written = try Data(contentsOf: file)
+    let other = Entry(
+        recording: URL(filePath: "/tmp/cours.wav"), modelFile: ModelCatalog.recommended.id,
+        glossary: nil, skipsSilence: false, subtitles: false)
+    try HistoryStore.write(other, in: history)
+
+    let library = HistoryStore.all(in: history)
+    let record = try #require(library.unavailable.first)
+    #expect(record.needsNewerVersion)
+    #expect(record.file.lastPathComponent == name)
+    #expect(record.name == "Cours 12 (2).m4a")
+    #expect(library.entries.map(\.id) == [other.id])
+
+    let model = AppModel(history: history)
+    #expect(model.unavailable.map(\.file.lastPathComponent) == [name])
+    #expect(model.libraryWarning == nil)
+    #expect(model.entries.map(\.id) == [other.id])
+    await model.finishWrites()
+    #expect(try Data(contentsOf: file) == written)
+}
+
+/// A number that says nothing about the format does not hide that a record is
+/// damaged.
+@Test(arguments: [HistoryStore.knownFormat, 0])
+func aDamagedRecordIsNotTakenForANewerOne(format: Int) throws {
+    let history = try changed { record in
+        record["requires"] = format
+        record["paragraphs"] = ["in": "a shape not known yet"]
+    }
+    defer { try? FileManager.default.removeItem(at: history) }
+
+    let library = HistoryStore.all(in: history)
+
+    #expect(library.unavailable.map(\.needsNewerVersion) == [false])
+}
+
+/// A record in the format this version knows opens, and keeps saying so.
+@Test func aRecordInTheKnownFormatOpensAndStaysInIt() throws {
+    let history = try changed { $0["requires"] = HistoryStore.knownFormat }
+    defer { try? FileManager.default.removeItem(at: history) }
+
+    let entry = try #require(HistoryStore.all(in: history).entries.first)
+    try HistoryStore.write(entry, in: history)
+
+    #expect(HistoryStore.all(in: history).entries == [entry])
+    #expect(entry.requires == HistoryStore.knownFormat)
+}
+
+/// What this version writes keeps every key a release wrote, which the releases
+/// before it read, and says which version wrote it.
+@Test(arguments: ["0.2.0", "0.3.0", "0.3.2", "0.4.0"])
+func rewritingARecordLosesNoKey(release: String) throws {
+    let name = "entry-\(release).json"
+    let read = {
+        try #require(
+            JSONSerialization.jsonObject(with: Data(contentsOf: $0)) as? [String: Any])
+    }
+    let stored = try read(records.appending(path: name))
+    let id = try #require(stored["id"] as? String)
+    let history = try folder(holding: name, as: id + ".json")
+    defer { try? FileManager.default.removeItem(at: history) }
+
+    try HistoryStore.write(
+        #require(HistoryStore.all(in: history).entries.first), in: history)
+
+    let rewritten = try read(history.appending(path: id + ".json"))
+    #expect(Set(stored.keys).subtracting(rewritten.keys).isEmpty)
+    #expect(rewritten["writtenBy"] as? String == Bundle.main.shortVersion)
+    #expect(Bundle.main.shortVersion != nil)
+    #expect(rewritten["requires"] == nil)
+}
+
+/// A damaged record keeps what still reads of it, so that it is listed under its
+/// name in its folder. Unknown folders count as none, as for a transcript, and a
+/// folder that holds one is not empty.
+@MainActor
+@Test func aDamagedRecordIsListedWhereItBelongs() throws {
+    let folder = UUID()
+    let history = try changed { record in
+        record["paragraphs"] = ["in": "a shape not known"]
+        record["title"] = "Made up title"
+        record["folderID"] = folder.uuidString
+    }
+    defer { try? FileManager.default.removeItem(at: history) }
+    try HistoryStore.writeFolders([TranscriptFolder(id: folder, name: "Made up")], in: history)
+
+    let model = AppModel(history: history)
+
+    #expect(model.unavailable(in: folder).map(\.name) == ["Made up title"])
+    #expect(model.unavailable(in: nil).isEmpty)
+    #expect(model.holdsTranscripts(folder))
+    try model.removeFolder(folder)
+    #expect(model.folders.map(\.id) == [folder])
+
+    try HistoryStore.writeFolders([], in: history)
+    #expect(AppModel(history: history).unavailable(in: nil).map(\.name) == ["Made up title"])
+}
+
+/// Files nothing identifies are listed together. One that still says it was
+/// removed stays with Recently Deleted, and is listed once.
+@MainActor
+@Test func whatNothingIdentifiesIsListedApart() throws {
+    let history = try changed { record in
+        record["paragraphs"] = ["in": "a shape not known"]
+        record["recording"] = nil
+        record["title"] = nil
+        record["removed"] = 0
+    }
+    defer { try? FileManager.default.removeItem(at: history) }
+    let unreadable = history.appending(path: UUID().uuidString + ".json")
+    try Data("{ not a record".utf8).write(to: unreadable)
+
+    let model = AppModel(history: history)
+
+    #expect(model.unavailable.count == 2)
+    #expect(model.unidentifiedFiles.map(\.lastPathComponent) == [unreadable.lastPathComponent])
+    #expect(model.unavailable.filter { $0.removed != nil }.map(\.name) == [nil])
+    #expect(model.unavailable(in: nil).isEmpty)
+}
+
+/// A newer format can change any stored property. Whichever it changes, the
+/// record is still known as newer, and keeps what still reads.
+@Test(arguments: ["recording", "folderID", "removed", "title"])
+func aNewerRecordIsNotTakenForADamagedOneWhenAPropertyChangedShape(key: String) throws {
+    let history = try changed { record in
+        record["requires"] = HistoryStore.knownFormat + 1
+        record["title"] = "Made up title"
+        record[key] = ["in": "a shape not known"]
+    }
+    defer { try? FileManager.default.removeItem(at: history) }
+
+    let record = try #require(HistoryStore.all(in: history).unavailable.first)
+
+    #expect(record.needsNewerVersion)
+    #expect(record.name == (key == "title" ? "Cours 12.m4a" : "Made up title"))
+}
+
+/// A folder that lists nothing can be deleted, as with a removed transcript,
+/// even when a record it no longer lists still names it.
+@MainActor
+@Test func aFolderHoldsOnlyWhatItLists() throws {
+    let folder = UUID()
+    let history = try changed { record in
+        record["paragraphs"] = ["in": "a shape not known"]
+        record["folderID"] = folder.uuidString
+        record["removed"] = 0
+    }
+    defer { try? FileManager.default.removeItem(at: history) }
+    try HistoryStore.writeFolders([TranscriptFolder(id: folder, name: "Made up")], in: history)
+
+    let model = AppModel(history: history)
+
+    #expect(!model.holdsTranscripts(folder))
+    try model.removeFolder(folder)
+    #expect(model.folders.isEmpty)
+}
+
+/// A library that cannot be listed says that, not what follows from it.
+@MainActor
+@Test func aLibraryThatCannotBeListedSaysSo() throws {
+    let history = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    try Data("not a folder".utf8).write(to: history)
+    defer { try? FileManager.default.removeItem(at: history) }
+
+    let model = AppModel(history: history)
+
+    #expect(model.libraryWarning?.contains("could not be opened") == true)
+    #expect(model.entries.isEmpty)
 }
