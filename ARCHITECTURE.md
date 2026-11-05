@@ -132,6 +132,7 @@ Everything lives in `~/Library/Application Support/Polycop/`:
 | `History/` | one JSON file per entry | `HistoryStore` |
 | `Glossaries/` | one text file per course, and its remembered corrections | `GlossaryStore`, `CourseCorrections` |
 | `Models/` | downloaded or imported weights | `ModelStore`, `ModelDownloader` |
+| `Snapshots/` | copies of `History/` and `Glossaries/` from before the last two versions opened them | `LibrarySnapshots` |
 
 Decoded playback copies go to a temporary folder, emptied at launch. Each
 folder is passed to `AppModel` when it is made: the window gets these, a test
@@ -141,8 +142,9 @@ they only read.
 There is no index: the directory listing is the library, read on every core
 at launch. A removed entry keeps its file, with the date it was removed, in
 Recently Deleted (`AppModel.recentlyDeleted`), and is deleted at the first
-launch 30 days later. A file that fails to decode is left in place and
-never overwritten, and so is a record whose `requires` is above what this version
+launch 30 days later. Deleted for good, it also leaves `Snapshots/`, in the
+same call that deletes it from the library, and so does a glossary. A file that
+fails to decode is left in place and never overwritten, and so is a record whose `requires` is above what this version
 knows (see `AGENTS.md`). Each is an `UnavailableRecord`, listed where it belongs but
 not an `Entry`, so nothing that writes a transcript can reach it. Each record says which version wrote it
 (`writtenBy`). Records are encoded and written off the main
