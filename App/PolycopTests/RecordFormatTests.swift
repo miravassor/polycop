@@ -129,12 +129,14 @@ private func changed(_ change: (inout [String: Any]) -> Void) throws -> URL {
 
 /// A format this version does not know, whether or not it still decodes, is left
 /// out of the library with its file as it was, so that nothing is lost by opening
-/// the library with an earlier version.
+/// the library with an earlier version. This one went to Recently Deleted long
+/// ago, so a version that read it would delete it for good at launch.
 @MainActor
 @Test(arguments: [false, true])
 func aRecordInANewerFormatIsLeftOutUntouched(stillDecodes: Bool) async throws {
     let history = try changed { record in
         record["requires"] = HistoryStore.knownFormat + 1
+        record["removed"] = 0
         if !stillDecodes { record["paragraphs"] = ["in": "a shape not known yet"] }
     }
     defer { try? FileManager.default.removeItem(at: history) }

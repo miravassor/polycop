@@ -172,8 +172,9 @@ nonisolated enum HistoryStore {
     }
 
     /// An entry as it goes to disk, with the version that wrote it: a fact about
-    /// the file rather than the transcript, which tells a repair and a maintainer
-    /// what shape to expect.
+    /// the file rather than the transcript. Nothing reads it yet. It is written
+    /// from now on because a later repair, or a maintainer looking at a record,
+    /// cannot get it back for the records written before.
     private struct StoredEntry: Encodable {
         let entry: Entry
 

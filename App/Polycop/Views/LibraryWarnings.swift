@@ -2,27 +2,39 @@
 
 import SwiftUI
 
-/// What went wrong with the library itself, above whatever page is shown:
-/// changes that could not be stored, and files that could not be read.
-struct LibraryWarnings: View {
+extension View {
+    /// What went wrong with the library, above this page's content. It goes on
+    /// the content rather than on the page, whose inspector would start below it.
+    /// The content takes the whole height, or the warnings would stay against
+    /// a page centred in the window rather than at the top.
+    func libraryWarnings(_ model: AppModel) -> some View {
+        frame(maxWidth: .infinity, maxHeight: .infinity)
+            .safeAreaInset(edge: .top, spacing: 0) { LibraryWarnings(model: model) }
+    }
+}
+
+/// Changes that could not be stored, and files that could not be read.
+private struct LibraryWarnings: View {
     let model: AppModel
 
     var body: some View {
-        if let failure = model.storageFailure {
-            Banner("Changes could not be stored", text: failure) {
-                Button("Retry Saving") { Task { await model.retrySavingHistory() } }
+        VStack(spacing: 0) {
+            if let failure = model.storageFailure {
+                Banner("Changes could not be stored", text: failure) {
+                    Button("Retry Saving") { Task { await model.retrySavingHistory() } }
+                }
             }
-        }
-        if model.newerRecords > 0 {
-            Banner("Some transcripts need a newer version of Polycop", text: newerRecordsText)
-        }
-        if let warning = model.libraryWarning {
-            Banner("Part of your library could not be read", text: warning) {
-                if model.foldersAreDamaged {
-                    Text(
-                        "Folders cannot be created, renamed or deleted, and transcripts cannot be moved between them, until the file that lists them is repaired or removed, so that nothing writes over it or loses which folder a transcript is in."
-                    )
-                    .font(.callout)
+            if model.newerRecords > 0 {
+                Banner("Some transcripts need a newer version of Polycop", text: newerRecordsText)
+            }
+            if let warning = model.libraryWarning {
+                Banner("Part of your library could not be read", text: warning) {
+                    if model.foldersAreDamaged {
+                        Text(
+                            "Folders cannot be created, renamed or deleted, and transcripts cannot be moved between them, until the file that lists them is repaired or removed, so that nothing writes over it or loses which folder a transcript is in."
+                        )
+                        .font(.callout)
+                    }
                 }
             }
         }

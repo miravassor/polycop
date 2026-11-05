@@ -85,8 +85,7 @@ struct ContentView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         } detail: {
-            VStack(spacing: 0) {
-                LibraryWarnings(model: model)
+            Group {
                 if selected.count > 1 {
                     SelectionView(
                         model: model, selected: selected,
@@ -94,7 +93,9 @@ struct ContentView: View {
                             destinationFolder = nil
                             moving = ids
                         },
-                        remove: { removing = $0 })
+                        remove: { removing = $0 }
+                    )
+                    .libraryWarnings(model)
                 } else if case .entry(let id) = model.pane, let entry = model.entry(id) {
                     EntryView(
                         model: model, entry: entry, showsInspector: $showsInspector,
