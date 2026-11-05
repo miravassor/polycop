@@ -39,13 +39,18 @@ nonisolated struct Glossary: Identifiable, Equatable, Sendable {
 
     /// The sentence sent to the model, "Ce cours porte sur a, b.". This form
     /// recalls more of the glossary than a bare list; English follows it word
-    /// for word. The course name is left out, since a free-form name can
-    /// break the French sentence.
+    /// for word. No sentence was measured in another language, so that gets the
+    /// list alone. The course name is left out, since a free-form name can break
+    /// the French sentence.
     func prompt(in language: String = "fr") -> String? {
         let terms = terms.filter { $0.count <= Glossary.longestTerm }
         guard !terms.isEmpty else { return nil }
         let list = terms.joined(separator: ", ")
-        return language == "en" ? "This lecture is about \(list)." : "Ce cours porte sur \(list)."
+        switch language {
+        case "fr": return "Ce cours porte sur \(list)."
+        case "en": return "This lecture is about \(list)."
+        default: return list
+        }
     }
 
     /// Terms from free text, one per line or comma separated. A single-line

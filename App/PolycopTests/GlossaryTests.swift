@@ -77,6 +77,14 @@ private func temporaryFolder() -> URL {
     #expect(Glossary(name: "Empty", text: "  \n ").prompt() == nil)
 }
 
+/// No French sentence in a German lecture, and Qwen still reads the terms back.
+@Test func aLanguageWithNoSentenceGetsTheListAlone() throws {
+    let glossary = Glossary(name: "Philosophie", text: "Kant\nHegel")
+    let prompt = try #require(glossary.prompt(in: "de"))
+    #expect(prompt == "Kant, Hegel")
+    #expect(Glossary.terms(in: prompt) == glossary.terms)
+}
+
 @Test func aGlossaryIsFoundAgainFromTheFolder() throws {
     let folder = temporaryFolder()
     defer { try? FileManager.default.removeItem(at: folder) }
