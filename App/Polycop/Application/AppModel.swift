@@ -378,13 +378,6 @@ final class AppModel {
         isShuttingDown = false
     }
 
-    func releaseEngine() {
-        engine = nil
-        engineFile = nil
-        engineSkipsSilence = nil
-        engineAligns = nil
-    }
-
     /// Held while work runs. Without it App Nap can slow a transcription whose
     /// window is hidden; with keep awake on, idle sleep is held off as well.
     private func holdActivity(while running: Bool) {

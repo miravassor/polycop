@@ -99,4 +99,11 @@ extension AppModel {
             }
         }
     }
+
+    func releaseEngine() {
+        engine = nil
+        engineFile = nil
+        engineSkipsSilence = nil
+        engineAligns = nil
+    }
 }
