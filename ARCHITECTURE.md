@@ -132,7 +132,7 @@ Everything lives in `~/Library/Application Support/Polycop/`:
 | `History/` | one JSON file per entry | `HistoryStore` |
 | `Glossaries/` | one text file per course, and its remembered corrections | `GlossaryStore`, `CourseCorrections` |
 | `Models/` | downloaded or imported weights | `ModelStore`, `ModelDownloader` |
-| `Snapshots/` | copies of `History/` and `Glossaries/` from before the last two versions opened them | `LibrarySnapshots` |
+| `Snapshots/` | copies of `History/` and `Glossaries/` from before a new version opened them | `LibrarySnapshots` |
 
 Decoded playback copies go to a temporary folder, emptied at launch. Each
 folder is passed to `AppModel` when it is made: the window gets these, a test

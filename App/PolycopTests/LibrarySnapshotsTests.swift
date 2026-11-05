@@ -88,9 +88,21 @@ private func day(_ number: Int) -> Date {
 
     try library.write("A")
     LibrarySnapshots.take(before: "0.5.0", in: library.root, now: day(2))
-    #expect(try library.copies().isEmpty)
-    LibrarySnapshots.take(before: "0.6.0", in: library.root, now: day(3))
+    LibrarySnapshots.take(before: "0.5.0", in: library.root, now: day(3))
     #expect(try library.copies().count == 1)
+}
+
+@Test func onlyTheUserCanOpenTheCopies() throws {
+    let library = Library()
+    defer { library.clear() }
+    try library.write("A")
+    LibrarySnapshots.take(before: "0.5.0", in: library.root)
+    let copy = try #require(try library.copies().first)
+    for folder in [library.snapshots, library.snapshots.appending(path: copy)] {
+        let attributes = try FileManager.default.attributesOfItem(
+            atPath: folder.path(percentEncoded: false))
+        #expect(attributes[.posixPermissions] as? Int == 0o700)
+    }
 }
 
 /// The reason for two: the version that fixes a damaging one copies what it
