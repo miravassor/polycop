@@ -91,7 +91,7 @@ private func finished(_ recording: URL, in history: URL, model: String, language
     #expect(model.isNeeded(wanted.id))
     #expect(!model.isNeeded(done.modelFile))
     model.delete(wanted)
-    #expect(model.failure != nil)
+    #expect(model.failure?.contains(wanted.name) == true)
 }
 
 // MARK: Retrying

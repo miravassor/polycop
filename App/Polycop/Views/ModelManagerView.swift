@@ -27,6 +27,7 @@ struct ModelManagerView: View {
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity)
                     .padding(.horizontal, Spacing.sheet)
+                    .padding(.top, Spacing.block)
             }
             HStack {
                 Button("Import Downloaded Model…") { importingModel = true }

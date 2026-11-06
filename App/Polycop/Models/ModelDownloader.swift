@@ -5,7 +5,7 @@ import os
 
 nonisolated enum DownloadError: LocalizedError {
     case httpFailure(Int)
-    case checksumMismatch(Model)
+    case checksumMismatch
     case tooLarge
     case notEnoughSpace(needed: Int64, available: Int64)
 
@@ -17,11 +17,8 @@ nonisolated enum DownloadError: LocalizedError {
             String(localized: "The download exceeded the model's expected size and was stopped.")
         case .httpFailure(let code):
             String(localized: "The download failed (code \(code)).")
-        case .checksumMismatch(let model):
-            String(
-                localized:
-                    "The file received does not match \(model.name) and was not installed."
-            )
+        case .checksumMismatch:
+            String(localized: "The file received is not the expected one and was not installed.")
         }
     }
 }
@@ -154,7 +151,7 @@ nonisolated enum ModelDownloader {
             // The transfer may already be finished when the stop arrives.
             try Task.checkCancellation()
             guard try await digest(received) == model.sha256 else {
-                throw DownloadError.checksumMismatch(model)
+                throw DownloadError.checksumMismatch
             }
             // A stop can arrive after hashing and before publication.
             try Task.checkCancellation()
