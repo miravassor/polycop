@@ -25,6 +25,7 @@ struct ModelManagerView: View {
             if let failure = model.failure {
                 Notice(failure, .failure)
                     .textSelection(.enabled)
+                    .frame(maxWidth: .infinity)
                     .padding(.horizontal, Spacing.sheet)
             }
             HStack {

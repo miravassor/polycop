@@ -34,6 +34,7 @@ struct TranscriptImportView: View {
             if let problem {
                 Label(problem, systemImage: "exclamationmark.triangle")
                     .notice(.red).textSelection(.enabled)
+                    .frame(maxWidth: .infinity)
             }
             Divider()
             HStack(spacing: 12) {

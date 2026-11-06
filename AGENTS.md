@@ -151,7 +151,10 @@ Every page speaks the same visual language. The shared pieces live in
   and colour; a notice with a symbol of its own is a `Label` with `notice(_:)`. Colour
   goes on the icon only. Text stays in the label colours, since orange, red or green
   text is too faint to read on a light window; emphasis inside text is a line
-  (underline, strikethrough).
+  (underline, strikethrough). A message is centred in what holds it, on a line with
+  its button if it has one; several lines centre as a block, their text aligned left.
+  On the transcript page each is a `statusCapsule`, and checks on the text gather
+  into one that opens their list, so that the text stays in place.
 * Spacing comes from its role in `Spacing`: `page` (28 points) around a page,
   `block` (16) between blocks, the transcript page's first one under the toolbar
   included, `sheet` (24) around a sheet; popovers have 20. The player floats 8 above

@@ -91,6 +91,15 @@ extension View {
         labelStyle(NoticeLabelStyle(tint: tint))
     }
 
+    /// What is happening to a transcript, above its text, on the surface of
+    /// the player below it.
+    func statusCapsule() -> some View {
+        font(.callout)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .modifier(FloatingSurface(cornerRadius: 22))
+    }
+
     /// The edge of a text editor, with the corners of a control.
     func editorBorder() -> some View {
         clipShape(RoundedRectangle(cornerRadius: 6))
@@ -125,12 +134,10 @@ struct NoticeLabelStyle: LabelStyle {
     let tint: Color
 
     func makeBody(configuration: Configuration) -> some View {
-        Label {
-            configuration.title
-        } icon: {
+        HStack(alignment: .firstTextBaseline, spacing: Spacing.icon) {
             configuration.icon.foregroundStyle(tint)
+            configuration.title
         }
-        .labelStyle(.titleAndIcon)
     }
 }
 
