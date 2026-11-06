@@ -59,6 +59,44 @@ final class ModelFailureTests {
         await app.shutDown()
     }
 
+    @Test func theSheetKeepsItsFailureFromThePageBehindIt() async {
+        let app = model(models: root.appending(path: "Models"))
+        app.isManagingModels = true
+
+        app.delete(ModelStore.Imported(id: "gone.bin", bytes: 1))
+
+        #expect(app.modelsFailure?.hasPrefix("Could not delete gone. ") == true)
+        #expect(app.failure == nil)
+
+        app.isManagingModels = false
+
+        #expect(app.modelsFailure == nil)
+        #expect(app.failure == nil)
+        await app.shutDown()
+    }
+
+    @Test func openingTheSheetLeavesThePageFailureBehind() async {
+        let app = model(models: root.appending(path: "Models"))
+        app.delete(ModelStore.Imported(id: "gone.bin", bytes: 1))
+        #expect(app.failure != nil)
+
+        app.isManagingModels = true
+
+        #expect(app.failure == nil)
+        await app.shutDown()
+    }
+
+    /// The sheet belongs to the page, so coming back must not reopen it.
+    @Test func leavingThePageClosesTheSheet() async {
+        let app = model(models: root.appending(path: "Models"))
+        app.isManagingModels = true
+
+        app.pane = .entry(UUID())
+
+        #expect(!app.isManagingModels)
+        await app.shutDown()
+    }
+
     @Test func aFailedDeletionNamesTheModel() async {
         let app = model(models: root.appending(path: "Models"))
 

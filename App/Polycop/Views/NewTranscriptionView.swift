@@ -13,7 +13,6 @@ struct NewTranscriptionView: View {
     @Binding var inspectorWidth: Double
     @State private var importing = false
     @State private var importingModel = false
-    @State private var managingModels = false
     @State private var editingGlossaries = false
     @State private var isTargeted = false
 
@@ -24,13 +23,12 @@ struct NewTranscriptionView: View {
             .modifier(InspectorToggle(isShown: $showsInspector))
             .inspector(isPresented: $showsInspector) {
                 NewTranscriptionSettings(
-                    model: model, managingModels: $managingModels,
-                    editingGlossaries: $editingGlossaries
+                    model: model, editingGlossaries: $editingGlossaries
                 )
                 .modifier(InspectorColumn(width: $inspectorWidth))
             }
             .sheet(isPresented: $editingGlossaries) { GlossaryEditor(model: model) }
-            .sheet(isPresented: $managingModels) {
+            .sheet(isPresented: $model.isManagingModels) {
                 ModelManagerView(model: model, importingModel: $importingModel)
             }
             .task(id: model.recordingsRequest) {
@@ -58,8 +56,7 @@ struct NewTranscriptionView: View {
 
     private var page: some View {
         VStack(spacing: 0) {
-            // The sheet shows it: here it would stick out from behind the sheet.
-            if let failure = model.failure, !managingModels {
+            if let failure = model.failure {
                 Label(failure, systemImage: "exclamationmark.circle")
                     .font(.callout)
                     .notice(.red)

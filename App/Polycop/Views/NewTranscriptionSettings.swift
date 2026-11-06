@@ -7,7 +7,6 @@ import SwiftUI
 /// one setting a row. Those already started keep theirs.
 struct NewTranscriptionSettings: View {
     @Bindable var model: AppModel
-    @Binding var managingModels: Bool
     @Binding var editingGlossaries: Bool
 
     private var chosen: Model { model.selectedCatalogue ?? ModelCatalog.recommended }
@@ -23,7 +22,7 @@ struct NewTranscriptionSettings: View {
                         .pickerStyle(.inline)
                         .labelsHidden()
                         Divider()
-                        Button("Manage Models…") { managingModels = true }
+                        Button("Manage Models…") { model.isManagingModels = true }
                     } label: {
                         Text(chosen.name)
                     }

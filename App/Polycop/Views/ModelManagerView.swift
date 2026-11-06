@@ -22,7 +22,7 @@ struct ModelManagerView: View {
                 imported
             }
             .formStyle(.grouped)
-            if let failure = model.failure {
+            if let failure = model.modelsFailure {
                 Notice(failure, .failure)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity)
@@ -36,13 +36,8 @@ struct ModelManagerView: View {
                         "Only unchanged catalogue models are accepted; their SHA-256 is verified before use."
                     )
                 Spacer()
-                Button("Done") {
-                    // It goes with the sheet that showed it, not after: the
-                    // page behind would keep it with nothing there to act on.
-                    model.failure = nil
-                    dismiss()
-                }
-                .keyboardShortcut(.cancelAction)
+                Button("Done") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
             }
             .padding(Spacing.sheet)
         }
@@ -72,7 +67,7 @@ struct ModelManagerView: View {
         .fileImporter(isPresented: $importingModel, allowedContentTypes: [.data]) { result in
             switch result {
             case .success(let file): model.importModel(file)
-            case .failure(let error): model.report(error)
+            case .failure(let error): model.modelsFailure = error.localizedDescription
             }
         }
     }

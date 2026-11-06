@@ -155,6 +155,8 @@ Every page speaks the same visual language. The shared pieces live in
   its button if it has one; several lines centre as a block, their text aligned left.
   On the transcript page each is a `statusCapsule`, and checks on the text gather
   into one that opens their list, so that the text stays in place.
+  A sheet shows its own failures, never through `AppModel.failure`, which the page
+  behind it would show too.
 * Spacing comes from its role in `Spacing`: `page` (28 points) around a page,
   `block` (16) between blocks, the transcript page's first one under the toolbar
   included, `sheet` (24) around a sheet; popovers have 20. The player floats 8 above
