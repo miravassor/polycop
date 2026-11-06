@@ -20,6 +20,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 ### Changed
 
 * Warnings and failures are centred, closer to their icon, and take less room. On a transcript each sits in a capsule above the text, and several warnings gather into one capsule that opens their list, so the text stays in place.
+* A paragraph's flag lines up under its time, with the mark of a resumed transcription beside it.
 * The player floats at the foot of the text: previous and next paragraph, 5 seconds back and on, the timeline and the speed. Find opens at the top.
 * On macOS 26, the player's timeline is drawn in glass, with light flowing along it while playing. The light stays still with Reduce Motion, in Low Power Mode and in a background window.
 * New Transcription has the recordings in the middle and their settings in the inspector, where a model not downloaded yet can be downloaded.

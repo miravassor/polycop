@@ -46,6 +46,34 @@ struct TranscriptRow: View, Equatable {
             && lhs.timeColumnWidth == rhs.timeColumnWidth
     }
 
+    /// The flag and any other mark of a paragraph, under the digits of its
+    /// time, past the place the time keeps for its symbol.
+    private var marks: some View {
+        HStack(spacing: 0) {
+            Button {
+                activate(index)
+                toggleReview(index)
+            } label: {
+                Image(systemName: isFlagged ? "flag.fill" : "flag")
+                    .frame(width: 24, height: 24, alignment: .leading)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(isFlagged ? Color.accentColor : Color.secondary)
+            .disabled(!isEditable)
+            // One label, with the flag as its state, as for any toggle.
+            .accessibilityLabel("Flag paragraph \(index + 1) for review")
+            .accessibilityAddTraits(isFlagged ? .isSelected : [])
+            .help(isFlagged ? "Remove review flag" : "Review this passage later")
+            if isResumed {
+                Image(systemName: "arrow.clockwise")
+                    .foregroundStyle(.orange)
+                    .accessibilityLabel("Transcription resumed here")
+                    .help("Words near this point can be missing or repeated.")
+            }
+        }
+        .padding(.leading, ParagraphTime.digitsStart)
+    }
+
     var body: some View {
         HStack(alignment: .top, spacing: 16) {
             VStack(alignment: .leading, spacing: 4) {
@@ -58,26 +86,7 @@ struct TranscriptRow: View, Equatable {
                     hover: { hover($0 ? index : nil) }
                 )
                 .frame(width: timeColumnWidth, alignment: .leading)
-                Button {
-                    activate(index)
-                    toggleReview(index)
-                } label: {
-                    Image(systemName: isFlagged ? "flag.fill" : "flag")
-                        .frame(width: 24, height: 24)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(isFlagged ? Color.accentColor : Color.secondary)
-                .disabled(!isEditable)
-                // One label, with the flag as its state, as for any toggle.
-                .accessibilityLabel("Flag paragraph \(index + 1) for review")
-                .accessibilityAddTraits(isFlagged ? .isSelected : [])
-                .help(isFlagged ? "Remove review flag" : "Review this passage later")
-                if isResumed {
-                    Image(systemName: "arrow.clockwise")
-                        .foregroundStyle(.orange)
-                        .accessibilityLabel("Transcription resumed here")
-                        .help("Words near this point can be missing or repeated.")
-                }
+                marks
             }
             .frame(width: timeColumnWidth, alignment: .leading)
             if isComparing {
@@ -170,14 +179,20 @@ private struct ParagraphTime: View {
     let play: () -> Void
     let hover: (Bool) -> Void
 
+    private static let symbolWidth: CGFloat = 8
+    private static let symbolGap: CGFloat = 4
+    /// Where the digits start, past the place kept for the playing symbol, so
+    /// that the times stay level whichever row plays.
+    static let digitsStart = symbolWidth + symbolGap
+
     var body: some View {
         Button(action: play) {
-            HStack(spacing: 4) {
+            HStack(spacing: Self.symbolGap) {
                 // Read only in the current row, so play and pause redraw that row alone.
                 Image(systemName: isCurrent && player.isPlaying ? "play.fill" : "pause.fill")
                     .font(.caption2.weight(.semibold))
                     .imageScale(.small)
-                    .frame(width: 8)
+                    .frame(width: Self.symbolWidth)
                     .opacity(isCurrent ? 1 : 0)
                     .accessibilityHidden(true)
                 Text(paragraph.time)
