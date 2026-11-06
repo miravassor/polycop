@@ -75,6 +75,22 @@ final class ModelFailureTests {
         await app.shutDown()
     }
 
+    /// Closed before the job has run: nothing awaits between the two.
+    @Test func aDownloadThatOutlivesTheSheetSaysSoOnThePage() async throws {
+        let file = root.appending(path: "file")
+        try Data().write(to: file)
+        let app = model(models: file.appending(path: "Models"))
+        app.isManagingModels = true
+
+        app.download(ModelCatalog.recommended)
+        app.isManagingModels = false
+        try await settled(app)
+
+        #expect(app.failure?.hasPrefix("Could not download ") == true)
+        #expect(app.modelsFailure == nil)
+        await app.shutDown()
+    }
+
     @Test func openingTheSheetLeavesThePageFailureBehind() async {
         let app = model(models: root.appending(path: "Models"))
         app.delete(ModelStore.Imported(id: "gone.bin", bytes: 1))

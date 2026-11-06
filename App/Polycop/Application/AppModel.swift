@@ -141,9 +141,10 @@ final class AppModel {
     /// Where the preferences are kept; tests give settings of their own.
     @ObservationIgnored let defaults: UserDefaults
     let reading: ReadingSettings
+    /// What went wrong, shown by the page on screen until it changes. A sheet
+    /// keeps its failures to itself, or the page behind would show them too.
     var failure: String?
-    /// A failure of the models while their sheet is open, which shows it. In
-    /// `failure`, the page would also show it behind the sheet, and keep it after.
+    /// A failure of the models while their sheet is open. It goes when the sheet does.
     var modelsFailure: String?
     /// Here rather than in the page's state, so that a model's failure knows
     /// where it will be seen. Opening leaves the page's failure behind.
