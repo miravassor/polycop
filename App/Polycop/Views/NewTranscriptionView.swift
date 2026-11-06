@@ -13,7 +13,6 @@ struct NewTranscriptionView: View {
     @Binding var inspectorWidth: Double
     @State private var importing = false
     @State private var importingModel = false
-    @State private var managingModels = false
     @State private var editingGlossaries = false
     @State private var isTargeted = false
 
@@ -24,13 +23,12 @@ struct NewTranscriptionView: View {
             .modifier(InspectorToggle(isShown: $showsInspector))
             .inspector(isPresented: $showsInspector) {
                 NewTranscriptionSettings(
-                    model: model, managingModels: $managingModels,
-                    editingGlossaries: $editingGlossaries
+                    model: model, editingGlossaries: $editingGlossaries
                 )
                 .modifier(InspectorColumn(width: $inspectorWidth))
             }
             .sheet(isPresented: $editingGlossaries) { GlossaryEditor(model: model) }
-            .sheet(isPresented: $managingModels) {
+            .sheet(isPresented: $model.isManagingModels) {
                 ModelManagerView(model: model, importingModel: $importingModel)
             }
             .task(id: model.recordingsRequest) {

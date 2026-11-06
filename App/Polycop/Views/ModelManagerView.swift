@@ -22,7 +22,7 @@ struct ModelManagerView: View {
                 imported
             }
             .formStyle(.grouped)
-            if let failure = model.failure {
+            if let failure = model.modelsFailure {
                 Notice(failure, .failure)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity)
@@ -67,7 +67,7 @@ struct ModelManagerView: View {
         .fileImporter(isPresented: $importingModel, allowedContentTypes: [.data]) { result in
             switch result {
             case .success(let file): model.importModel(file)
-            case .failure(let error): model.report(error)
+            case .failure(let error): model.modelsFailure = error.localizedDescription
             }
         }
     }

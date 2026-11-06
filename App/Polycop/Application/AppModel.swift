@@ -75,6 +75,7 @@ final class AppModel {
             savePending()
             player.stop()
             failure = nil
+            isManagingModels = false
         }
     }
     /// The paragraph at the top of the transcript on screen, reported as the
@@ -140,7 +141,20 @@ final class AppModel {
     /// Where the preferences are kept; tests give settings of their own.
     @ObservationIgnored let defaults: UserDefaults
     let reading: ReadingSettings
+    /// What went wrong, shown by the page on screen until it changes. A sheet
+    /// keeps its failures to itself, or the page behind would show them too.
     var failure: String?
+    /// A failure of the models while their sheet is open. It goes when the sheet does.
+    var modelsFailure: String?
+    /// Here rather than in the page's state, so that a model's failure knows
+    /// where it will be seen. Opening leaves the page's failure behind.
+    var isManagingModels = false {
+        didSet {
+            guard isManagingModels != oldValue else { return }
+            modelsFailure = nil
+            if isManagingModels { failure = nil }
+        }
+    }
     /// A failure that belongs to one transcript rather than to the library, so
     /// that it cannot appear under another one after the list moves on.
     var entryFailure: EntryFailure?
@@ -181,25 +195,10 @@ final class AppModel {
     /// Recordings being transcribed or waiting their turn.
     var hasWork: Bool { running != nil || !waiting.isEmpty }
 
-    /// The model the waiting recordings need, when it is not installed yet.
-    /// Waiting for it is not a failure, since the model can still arrive.
-    var missingModel: Model? {
-        guard let next = nextInLine, !isInstalled(next.modelFile) else { return nil }
-        return ModelCatalog.model(next.modelFile)
-    }
-
     /// Recordings added and not yet transcribed, in the order they were added.
     var waiting: [Entry] { entries.filter { $0.state == .waiting }.sorted { $0.added < $1.added } }
 
     var nextInLine: Entry? { waiting.first { scheduled.contains($0.id) } }
-
-    /// Whether a recording that waits or runs needs this model, so that
-    /// deleting it cannot make a queued transcription fail later.
-    func isNeeded(_ file: String) -> Bool {
-        entries.contains {
-            $0.modelFile == file && ($0.state == .waiting || $0.state == .running)
-        }
-    }
 
     /// Serves entries one after another without reloading the weights, and is
     /// released once none is waiting, and before the process exits: a live
