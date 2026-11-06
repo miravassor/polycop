@@ -86,6 +86,31 @@ extension AppModel {
         return .nothing
     }
 
+    /// Whether a transcript that stopped part way can continue from there now.
+    /// Continuing lays out the whole text again, which the user's corrections
+    /// would not survive. It runs at once or not at all: waiting its turn, its
+    /// text could be corrected in the meantime. The stage is read late, as a
+    /// page reads this at every step of other work, and the corrections last, as
+    /// they run over the whole text.
+    func canResume(_ entry: Entry) -> Bool {
+        entry.state == .stopped && !entry.decoded.isEmpty && entry.hasRecording
+            && isInstalled(entry.modelFile) && !isShuttingDown && !hasUnsavedHistory
+            && busyEntry == nil && nextInLine == nil && !stage.isBusy
+            && canRebuildParagraphs(of: entry)
+    }
+
+    /// Continues a stopped transcript with the settings it was given, whatever
+    /// the page holds now. Its samples are gone, so the recording is converted
+    /// again.
+    func resumeStopped(_ id: Entry.ID) {
+        refreshInstalled()
+        guard let entry = entry(id), canResume(entry) else { return }
+        failure = nil
+        updateEntry(id) { $0.state = .waiting }
+        scheduled.insert(id)
+        startNext()
+    }
+
     /// Puts the recordings added since behind those running, with the settings
     /// on the page now, as Start would. The queue takes them in turn when the
     /// running one, or the model download, finishes.

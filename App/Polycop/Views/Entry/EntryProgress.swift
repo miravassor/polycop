@@ -21,6 +21,7 @@ struct EntryProgress: View {
                 HStack(spacing: 12) {
                     Label("Stopped before the end", systemImage: "stop.circle")
                         .notice(.orange)
+                    if !entry.decoded.isEmpty { resume }
                     retry
                 }
             case .failed(let message):
@@ -33,6 +34,12 @@ struct EntryProgress: View {
                 EmptyView()
             }
         }
+    }
+
+    private var resume: some View {
+        Button("Resume Transcription") { model.resumeStopped(entry.id) }
+            .disabled(!model.canResume(entry))
+            .help("Continue from where it stopped, for a transcript with no corrections of yours")
     }
 
     private var retry: some View {
