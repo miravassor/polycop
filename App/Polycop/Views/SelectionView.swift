@@ -33,9 +33,8 @@ struct SelectionView: View {
                 Button("Remove from Library…", role: .destructive) { remove(selected) }
             }
             if let failure = model.failure {
-                Label(failure, systemImage: "exclamationmark.circle")
+                Notice(failure, .failure)
                     .font(.callout)
-                    .notice(.red)
                     .textSelection(.enabled)
             }
             Spacer()

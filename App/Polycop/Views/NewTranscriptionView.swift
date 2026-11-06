@@ -57,9 +57,8 @@ struct NewTranscriptionView: View {
     private var page: some View {
         VStack(spacing: 0) {
             if let failure = model.failure {
-                Label(failure, systemImage: "exclamationmark.circle")
+                Notice(failure, .failure)
                     .font(.callout)
-                    .notice(.red)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity)
                     .padding(.horizontal, Spacing.page)
