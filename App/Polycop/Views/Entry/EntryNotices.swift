@@ -240,6 +240,9 @@ struct TextChecksList: View {
         }
         .font(.callout)
         .padding(20)
+        // A popover would cut its text to one line. Only here: on the page, this
+        // lets the column outgrow the window and takes the player out of it.
+        .fixedSize(horizontal: false, vertical: true)
         .frame(width: 440, alignment: .leading)
     }
 }
@@ -265,7 +268,6 @@ private struct TextCheckContent: View {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 Text(check.text)
                     .textSelection(.enabled)
-                    .fixedSize(horizontal: false, vertical: true)
                 if let action = check.action {
                     Button(action.title, action: action.perform)
                         .disabled(action.isDisabled)
