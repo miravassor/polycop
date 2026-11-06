@@ -24,12 +24,14 @@ struct EntryProgress: View {
                     if !entry.decoded.isEmpty { resume }
                     retry
                 }
+                .statusCapsule()
             case .failed(let message):
                 HStack(spacing: 12) {
                     Notice(message, .failure)
                         .textSelection(.enabled)
                     retry
                 }
+                .statusCapsule()
             case .waiting, .running, .finished:
                 EmptyView()
             }
@@ -74,10 +76,7 @@ struct TranscriptionStatus: View {
             controls
         }
         .accessibilityElement(children: .contain)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .modifier(FloatingSurface(cornerRadius: 22))
-        .frame(maxWidth: .infinity)
+        .statusCapsule()
     }
 
     @ViewBuilder private var icon: some View {

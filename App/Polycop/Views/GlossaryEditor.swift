@@ -32,6 +32,7 @@ struct GlossaryEditor: View {
                     .warning
                 )
                 .font(.callout)
+                .frame(maxWidth: .infinity)
             }
             HStack(alignment: .top, spacing: Spacing.block) {
                 courses
@@ -41,6 +42,7 @@ struct GlossaryEditor: View {
                 Notice(problem, .failure)
                     .font(.callout)
                     .textSelection(.enabled)
+                    .frame(maxWidth: .infinity)
             }
             Divider()
             HStack {
@@ -235,6 +237,7 @@ struct GlossaryEditor: View {
                 .warning
             )
             .font(.caption)
+            .frame(maxWidth: .infinity)
         }
     }
 

@@ -36,11 +36,14 @@ struct EntryView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.block) {
-            EntryProgress(model: model, entry: entry, isRunning: isRunning)
-            EntryNotices(
-                entry: entry, findings: findings ?? entry.findings, model: model,
-                isRunning: isRunning, engine: engine)
-            unsaved
+            Group {
+                EntryProgress(model: model, entry: entry, isRunning: isRunning)
+                EntryNotices(
+                    entry: entry, findings: findings ?? entry.findings, model: model,
+                    isRunning: isRunning, engine: engine)
+                unsaved
+            }
+            .frame(maxWidth: .infinity)
             if !entry.paragraphs.isEmpty { findBar }
             transcript
         }
@@ -163,11 +166,11 @@ struct EntryView: View {
     /// Saving is the rule and goes unsaid; a library that could not be
     /// written says so.
     @ViewBuilder private var unsaved: some View {
-        if !isRunning && !entry.paragraphs.isEmpty
-            && (model.hasUnsavedHistory || model.storageFailure != nil)
+        if !isRunning && !entry.paragraphs.isEmpty && model.hasUnsavedHistory
+            && model.storageFailure == nil
         {
             Notice("Library has unsaved changes", .warning)
-                .font(.caption)
+                .statusCapsule()
         }
     }
 
