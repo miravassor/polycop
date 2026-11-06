@@ -4,14 +4,15 @@ import Foundation
 import os
 
 /// What the job under way has written, as last saved, so that a crash or a dead
-/// battery costs a few minutes of it rather than all of it. It goes in each
+/// battery costs a minute of it rather than all of it. It goes in each
 /// write of the entry and stays out of `entries`: the page reacts to segments
 /// with notices about a text it does not show yet, and a job's entry can still
 /// be written for another reason, such as a rename, which must not lose it.
 nonisolated struct SavedProgress {
-    /// A write costs little, off the main actor, but grows with the text. Tests
-    /// shorten this.
-    var interval: Duration = .seconds(300)
+    /// Short enough for a fast model, which can finish a long recording in a few
+    /// minutes. A write costs little, off the main actor, though it grows with the
+    /// text. Tests shorten this.
+    var interval: Duration = .seconds(60)
     var id: Entry.ID?
     var segments: [Segment] = []
 
