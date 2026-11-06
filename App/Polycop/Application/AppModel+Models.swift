@@ -35,7 +35,8 @@ extension AppModel {
             } catch {
                 guard isCurrent(number) else { return }
                 // What was received is kept, so a retry continues from it.
-                failure = error.localizedDescription
+                failure = String(
+                    localized: "Could not download \(model.name). \(error.localizedDescription)")
                 finish()
             }
         }
@@ -43,32 +44,34 @@ extension AppModel {
 
     /// Removes the weights and any interrupted transfer of the same model.
     func delete(_ model: Model) {
-        remove(named: model.id) { try ModelStore.remove(model, in: modelFolder) }
+        remove(id: model.id, name: model.name) { try ModelStore.remove(model, in: modelFolder) }
     }
 
     func delete(_ model: ModelStore.Imported) {
-        remove(named: model.id) { try ModelStore.remove(imported: model, in: modelFolder) }
+        remove(id: model.id, name: model.name) {
+            try ModelStore.remove(imported: model, in: modelFolder)
+        }
     }
 
-    private func remove(named name: String, _ erase: () throws -> Void) {
+    private func remove(id: String, name: String, _ erase: () throws -> Void) {
         guard !stage.isBusy, !isShuttingDown else { return }
         // Nothing is busy, yet recordings can still be waiting, since a failed
         // history write holds up the queue. Deleting what they need would
         // turn them into failures as soon as the write is retried.
-        guard !isNeeded(name) else {
+        guard !isNeeded(id) else {
             failure = String(
                 localized:
-                    "Recordings in your library are waiting for this model. Let them run, or remove them, before deleting it."
+                    "Recordings in your library are waiting for \(name). Let them run, or remove them, before deleting it."
             )
             return
         }
-        if engineFile == name || name == ModelCatalog.qwenAligner.id { releaseEngine() }
+        if engineFile == id || id == ModelCatalog.qwenAligner.id { releaseEngine() }
         do {
             try erase()
             refreshInstalled()
         } catch {
             Log.models.error("could not delete a model: \(error, privacy: .private)")
-            failure = error.localizedDescription
+            failure = String(localized: "Could not delete \(name). \(error.localizedDescription)")
         }
     }
 
@@ -94,7 +97,10 @@ extension AppModel {
                 finish()
             } catch {
                 guard isCurrent(number) else { return }
-                failure = error.localizedDescription
+                failure = String(
+                    localized:
+                        "Could not import \(source.lastPathComponent). \(error.localizedDescription)"
+                )
                 finish()
             }
         }
