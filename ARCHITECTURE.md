@@ -71,7 +71,7 @@ Find Terms (`TermFinder`) reads the chosen documents itself, through `Documents`
   the decoder terminates ffmpeg.
 * Progress reaches the main actor through a `@Sendable` callback. Segments
   are collected under a lock and published when the job ends, pauses, stops
-  or fails, so a paused job keeps what it had decoded. Every few minutes they
+  or fails, so a paused job keeps what it had decoded. Every minute they
   also go in a write of the entry, not in `entries`, since the page reacts to
   them (`SavedProgress`).
 
