@@ -63,7 +63,7 @@ struct NewTranscriptionView: View {
                     .font(.callout)
                     .notice(.red)
                     .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(maxWidth: .infinity)
                     .padding(.horizontal, Spacing.page)
                     .padding(.top, Spacing.block)
             }
