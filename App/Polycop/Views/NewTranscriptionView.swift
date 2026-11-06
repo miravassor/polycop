@@ -30,7 +30,9 @@ struct NewTranscriptionView: View {
                 .modifier(InspectorColumn(width: $inspectorWidth))
             }
             .sheet(isPresented: $editingGlossaries) { GlossaryEditor(model: model) }
-            .sheet(isPresented: $managingModels) {
+            // The sheet showed its failure. Behind it, the page would keep it
+            // with nothing on the page to act on.
+            .sheet(isPresented: $managingModels, onDismiss: { model.failure = nil }) {
                 ModelManagerView(model: model, importingModel: $importingModel)
             }
             .task(id: model.recordingsRequest) {
