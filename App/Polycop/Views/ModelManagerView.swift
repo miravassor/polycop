@@ -36,8 +36,13 @@ struct ModelManagerView: View {
                         "Only unchanged catalogue models are accepted; their SHA-256 is verified before use."
                     )
                 Spacer()
-                Button("Done") { dismiss() }
-                    .keyboardShortcut(.cancelAction)
+                Button("Done") {
+                    // It goes with the sheet that showed it, not after: the
+                    // page behind would keep it with nothing there to act on.
+                    model.failure = nil
+                    dismiss()
+                }
+                .keyboardShortcut(.cancelAction)
             }
             .padding(Spacing.sheet)
         }

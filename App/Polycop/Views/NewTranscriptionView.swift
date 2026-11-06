@@ -30,9 +30,7 @@ struct NewTranscriptionView: View {
                 .modifier(InspectorColumn(width: $inspectorWidth))
             }
             .sheet(isPresented: $editingGlossaries) { GlossaryEditor(model: model) }
-            // The sheet showed its failure. Behind it, the page would keep it
-            // with nothing on the page to act on.
-            .sheet(isPresented: $managingModels, onDismiss: { model.failure = nil }) {
+            .sheet(isPresented: $managingModels) {
                 ModelManagerView(model: model, importingModel: $importingModel)
             }
             .task(id: model.recordingsRequest) {
@@ -60,7 +58,8 @@ struct NewTranscriptionView: View {
 
     private var page: some View {
         VStack(spacing: 0) {
-            if let failure = model.failure {
+            // The sheet shows it: here it would stick out from behind the sheet.
+            if let failure = model.failure, !managingModels {
                 Label(failure, systemImage: "exclamationmark.circle")
                     .font(.callout)
                     .notice(.red)
