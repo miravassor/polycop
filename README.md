@@ -82,8 +82,9 @@ unless they agree to more.
   and headphone buttons control it too. It pauses when the Mac goes to sleep or
   when the headphones it plays through disconnect.
 * **Video** of a class recorded with Zoom or Teams plays in the inspector,
-  driven by the same player. A click on the picture plays or pauses, and a
-  double click fills the screen. The buttons on its corner float it in
+  driven by the same player. With the pointer over the picture, its controls
+  play or pause and go 5 seconds back or on. A click on the picture plays or
+  pauses, and a double click fills the screen. The buttons on its corner float it in
   Picture in Picture, above other apps and on any screen, or fill the screen,
   and folding its section keeps the sound only. Copy Frame, in the picture's
   menu, copies a slide to paste into notes.

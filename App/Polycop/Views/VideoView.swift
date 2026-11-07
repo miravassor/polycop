@@ -4,9 +4,9 @@ import AVFoundation
 import AppKit
 import SwiftUI
 
-/// The picture of the recording playing, with no controls of its own: the
-/// player bar below drives it, as it drives the sound. A click plays or
-/// pauses, a double click fills the screen.
+/// The picture of the recording playing, driven by the player bar below, as
+/// the sound is, and by the controls `EntryVideo` lays over it. A click plays
+/// or pauses, a double click fills the screen.
 struct VideoView: NSViewRepresentable {
     let player: AVPlayer?
     let toggle: () -> Void
