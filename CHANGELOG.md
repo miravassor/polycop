@@ -23,6 +23,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 * Warnings and failures are centred, closer to their icon, and take less room. On a transcript each sits in a capsule above the text, and several warnings gather into one capsule that opens their list, so the text stays in place.
 * A failure has the same red symbol wherever it shows, in the library too.
 * A paragraph's flag lines up under its time, with the mark of a resumed transcription beside it.
+* The times a warning offers to listen from wrap rather than scroll sideways. Above the text, a long list stops at "and N more", which opens all of them.
 * A failed download, import or deletion of a model says which model or file it was about. It shows in the list of models while that is open, and goes when it closes.
 * The player floats at the foot of the text: previous and next paragraph, 5 seconds back and on, the timeline and the speed. Find opens at the top.
 * On macOS 26, the player's timeline is drawn in glass, with light flowing along it while playing. The light stays still with Reduce Motion, in Low Power Mode and in a background window.
