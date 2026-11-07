@@ -45,6 +45,13 @@ struct TermFinder: View {
                         .scrollContentBackground(.hidden)
                         .frame(height: 56)
                         .accessibilityLabel("Text to read")
+                        // Refused as it arrives: a text view holding this much
+                        // freezes the window as it draws.
+                        .onChange(of: pasted) { before, text in
+                            guard text.utf8.count > Documents.largestText else { return }
+                            pasted = before
+                            problem = DocumentError.pastedTextTooLarge.localizedDescription
+                        }
                 }
                 results
             }
@@ -161,9 +168,6 @@ struct TermFinder: View {
             do {
                 var pages: [String] = []
                 var bytes = text.utf8.count
-                guard bytes <= Documents.largestText else {
-                    throw DocumentError.tooLarge(URL(filePath: "Pasted text"))
-                }
                 for file in chosen {
                     try Task.checkCancellation()
                     let read = try await Documents.pages(of: file)

@@ -8,6 +8,7 @@ import UniformTypeIdentifiers
 nonisolated enum DocumentError: LocalizedError {
     case unreadable(URL)
     case tooLarge(URL)
+    case pastedTextTooLarge
 
     var errorDescription: String? {
         switch self {
@@ -15,6 +16,8 @@ nonisolated enum DocumentError: LocalizedError {
             String(localized: "This file could not be read: \(file.lastPathComponent)")
         case .tooLarge(let file):
             String(localized: "This file is too large to read: \(file.lastPathComponent)")
+        case .pastedTextTooLarge:
+            String(localized: "The pasted text is too large to read.")
         }
     }
 }

@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+import AppKit
 import CoreText
 import Foundation
+import SwiftUI
 import Testing
 
 @testable import Polycop
@@ -201,4 +203,34 @@ private func write(_ pages: [String], to file: URL) throws {
     let pasted = String(repeating: "─", count: 5_000)
     let glossary = Glossary(name: "", text: "Descartes\n\(pasted)\nPascal")
     #expect(glossary.prompt() == "Ce cours porte sur Descartes, Pascal.")
+}
+
+/// Through the text view, as a paste does, and without touching the pasteboard.
+@MainActor
+@Test func refusesPastedTextTooLargeToDraw() async throws {
+    func textViews(in view: NSView) -> [NSTextView] {
+        (view as? NSTextView).map { [$0] } ?? view.subviews.flatMap(textViews)
+    }
+    let window = NSWindow(
+        contentRect: NSRect(x: 0, y: 0, width: 640, height: 640),
+        styleMask: [.titled], backing: .buffered, defer: false)
+    window.isReleasedWhenClosed = false
+    defer { window.close() }
+    let host = NSHostingView(rootView: TermFinder(attested: [], add: { _ in }))
+    window.contentView = host
+    var box: NSTextView?
+    for _ in 0..<500 where box == nil {
+        box = textViews(in: host).first
+        try await Task.sleep(for: .milliseconds(10))
+    }
+    let pasted = try #require(box)
+
+    pasted.insertText(
+        String(repeating: "mot ", count: Documents.largestText / 4 + 1),
+        replacementRange: NSRange(location: 0, length: 0))
+
+    for _ in 0..<500 where !pasted.string.isEmpty {
+        try await Task.sleep(for: .milliseconds(10))
+    }
+    #expect(pasted.string.isEmpty)
 }
