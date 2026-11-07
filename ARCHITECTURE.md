@@ -116,8 +116,9 @@ one decision it makes for a recording.
   `Player`. The bar's paragraph steps (`ParagraphSteps`) also reach the Playback
   menu as a focused value, with their shortcuts. Its timeline (`PlayerTimeline`)
   draws the played part as glass on macOS 26 (`PlayedGlass`). The inspector beside
-  the text (`EntryInspector`, a grouped form) holds the video, Follow, export, the warnings
-  about the text and the transcript's details.
+  the text (`EntryInspector`) holds the video, then a grouped form with Follow, export, the
+  warnings about the text and the transcript's details. Each folds by its title
+  (`FoldingSection`), and `ReadingSettings` remembers which.
 * `NowPlaying` connects the player to the media keys and Control Center.
   `PlaybackInterruptions` pauses it when the Mac sleeps or the output it plays
   through goes away.

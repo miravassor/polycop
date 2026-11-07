@@ -14,7 +14,7 @@ struct EntryExportSection: View {
 
     var body: some View {
         if !isRunning && !entry.paragraphs.isEmpty {
-            Section {
+            FoldingSection("Export", section: .export, reading: model.reading) {
                 Picker(
                     "Format",
                     selection: Binding(
@@ -55,8 +55,6 @@ struct EntryExportSection: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .help("Make a new file (Command-S)")
-            } header: {
-                Text("Export")
             } footer: {
                 // Only what a student could not guess: that subtitles leave
                 // the corrections out.

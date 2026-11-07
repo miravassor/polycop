@@ -5,10 +5,9 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// The video's section of the inspector, which folds to keep the sound alone.
-/// Only this view reads that setting, and only a video has it: a view that
-/// reads a setting is drawn again at each correction handed over, which the
-/// inspector of every transcript should not be.
+/// The video's section of the inspector, above its form rather than in it: a
+/// form keeps its margins around a row whatever the row asks, and the picture
+/// should take the width. It stays in view while the settings scroll.
 struct VideoSection: View {
     let model: AppModel
     let id: Entry.ID
@@ -16,12 +15,21 @@ struct VideoSection: View {
     let picture: CGSize
     /// Where the reader left off, played from when nothing is open yet.
     let resume: TimeInterval
-    @AppStorage("showsVideo") private var isShown = true
+
+    /// How far in a grouped form sets its sections, and the rows in them: the
+    /// picture lines up with the sections' edges, its title with their titles.
+    private static let formMargin: CGFloat = 10
 
     var body: some View {
-        Section("Video", isExpanded: $isShown) {
-            EntryVideo(model: model, id: id, source: source, picture: picture, resume: resume)
+        VStack(spacing: 7) {
+            FoldTitle("Video", section: .video, reading: model.reading)
+                .padding(.horizontal, Self.formMargin)
+            if !model.reading.foldedSections.contains(.video) {
+                EntryVideo(model: model, id: id, source: source, picture: picture, resume: resume)
+            }
         }
+        .padding(.horizontal, Self.formMargin)
+        .padding(.top, 10)
     }
 }
 
@@ -35,8 +43,9 @@ struct EntryVideo: View {
     let resume: TimeInterval
     @State private var isHovering = false
 
-    /// Tall enough for an upright phone video to leave the inspector room.
-    static let tallest: CGFloat = 480
+    /// Short enough for an upright phone video to leave the settings under it
+    /// room, in the smallest window.
+    static let tallest: CGFloat = 320
 
     var body: some View {
         // As wide as the inspector lets it be, never setting its width: a

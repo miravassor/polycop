@@ -8,11 +8,12 @@ import UniformTypeIdentifiers
 /// a section of the inspector, which shows the details of what is open.
 struct EntryDetails: View {
     let entry: Entry
+    let reading: ReadingSettings
 
     var body: some View {
-        // Selection on the rows only: on the section it also reached the
-        // header, which then drew in the text colour, unlike the others.
-        Section("Details") { rows.textSelection(.enabled) }
+        FoldingSection("Details", section: .details, reading: reading) {
+            rows.textSelection(.enabled)
+        }
     }
 
     @ViewBuilder private var rows: some View {

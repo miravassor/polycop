@@ -126,7 +126,9 @@ Every page speaks the same visual language. The shared pieces live in
 * Settings and choices are the system's grouped form (`Form` with `.formStyle(.grouped)`),
   one setting a row: a page's in the system inspector
   (`InspectorColumn` gives every page the same width, `InspectorToggle` the same button), a sheet's in the
-  sheet. No tinted cards or hand drawn boxes.
+  sheet. No tinted cards or hand drawn boxes. The transcript's inspector folds each
+  section by its title (`FoldingSection`), remembered in `ReadingSettings`, and holds
+  the picture of a video above its form.
 * An empty page is the system's empty state (`ContentUnavailableView`), with the way
   to fill it.
 * A page's main action is one `ActionButton`: a large capsule with an SF Symbol, glass
