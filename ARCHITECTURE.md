@@ -126,8 +126,8 @@ one decision it makes for a recording.
   `PlaybackInterruptions` pauses it when the Mac sleeps or the output it plays
   through goes away.
 * For a video AVFoundation plays, `VideoView` draws the picture of the same
-  `AVPlayer`, with no controls of its own, so speed, seeking and every shortcut act
-  on picture and sound together. `VideoPresentation`, held by `AppModel`, takes the
+  `AVPlayer`, so speed, seeking and every shortcut act on picture and sound
+  together; the controls over it (`VideoTransport`) skip through the same player. `VideoPresentation`, held by `AppModel`, takes the
   picture elsewhere. Picture in Picture floats a hidden layer that the main window
   keeps, since macOS can end Picture in Picture only while that layer is in a
   window. Full screen shows `FullScreenVideo`, with the system's controls, in a

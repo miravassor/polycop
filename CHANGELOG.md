@@ -8,6 +8,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 * Automatic, in the Language menu for Whisper and Qwen3-ASR: the model detects the language. Where the language is not known, Remove filler words starts off, since some filler sounds are words in other languages.
 * A class recorded as a video, such as a Zoom or Teams recording in MP4 or MOV, shows its picture beside the transcript and plays with the same player and shortcuts. A click on the picture plays or pauses. A video that macOS cannot play, such as WebM or MKV, still plays its sound.
+* Play or pause and 5 seconds back or on, in the middle of the picture while the pointer is over it, sized with the picture. They leave a playing video when the pointer rests, with the buttons on its corner.
 * Picture in Picture and full screen, from the buttons on the picture's corner or its menu. A double click fills the screen, and Esc leaves it.
 * Copy Frame, in the video's menu, copies the picture on screen, to paste a slide into notes.
 * The window opens as you left it: the same transcript, the library and the inspector shown or hidden, and the same folders open.
