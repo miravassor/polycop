@@ -201,7 +201,8 @@ Every page speaks the same visual language. The shared pieces live in
   detail column give theirs with `minimumSize` in `ContentView`.
 * No `@AppStorage`, or a binding made from one, in a view that should stay as it is
   while the reader types: SwiftUI redoes such a view at every update of its parent. A
-  setting the transcript page reads belongs in `ReadingSettings`, on the model.
+  setting the transcript page reads belongs in `ReadingSettings`, or `WindowLayout` for
+  how the window was left, on the model.
 
 ## Things that break silently
 

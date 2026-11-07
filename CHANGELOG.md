@@ -10,7 +10,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 * A class recorded as a video, such as a Zoom or Teams recording in MP4 or MOV, shows its picture beside the transcript and plays with the same player and shortcuts. A click on the picture plays or pauses. A video that macOS cannot play, such as WebM or MKV, still plays its sound.
 * Picture in Picture and full screen, from the buttons on the picture's corner or its menu. A double click fills the screen, and Esc leaves it.
 * Copy Frame, in the video's menu, copies the picture on screen, to paste a slide into notes.
-* The window opens as you left it: on the same transcript, with the library, the inspector and the folders shown or hidden as they were.
+* The window opens as you left it: the same transcript, the library and the inspector shown or hidden, and the same folders open.
 * An inspector beside the transcript holds the video, the export settings and the transcription details. Each section folds by its title, and stays as you left it. Control-Command-I shows and hides it, and Control-Command-S the library.
 * A transcript that cannot be opened, because it needs a newer Polycop or its file is damaged, stays in the library with a warning beside its name, and nothing can change it. Its page says what to do. So opening your library with an earlier version no longer risks what a later one stored, from this version on.
 * Pause Transcription and Stop Transcription in the File menu, and Replay Passage and Stop in the Playback menu.
@@ -49,6 +49,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ### Fixed
 
+* Hiding the library no longer puts the cursor in the text, where the next Space typed instead of playing.
 * Pasting too much text into Find Terms no longer freezes the window: the text is refused as it arrives, and Find Terms says why.
 * Deleting a course keeps it, and says why, when its remembered corrections cannot go to the Trash, rather than leaving them to the next course given its name.
 * The Glossaries window closes even when a glossary cannot be saved: the text is kept, and Retry Saving in the library writes it.

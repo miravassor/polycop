@@ -59,17 +59,17 @@ struct EntryInspector: View {
 /// An inspector's width, the same on every page: it starts where the reader
 /// left it, since each page has an inspector of its own.
 struct InspectorColumn: ViewModifier {
-    @Binding var width: Double
+    let layout: WindowLayout
 
     func body(content: Content) -> some View {
         content
             .onGeometryChange(for: CGFloat.self) {
                 $0.size.width
             } action: {
-                width = max($0, EntryView.inspectorWidths.lowerBound)
+                layout.inspectorWidth = max($0, EntryView.inspectorWidths.lowerBound)
             }
             .inspectorColumnWidth(
-                min: EntryView.inspectorWidths.lowerBound, ideal: width,
+                min: EntryView.inspectorWidths.lowerBound, ideal: layout.inspectorWidth,
                 max: EntryView.inspectorWidths.upperBound
             )
     }

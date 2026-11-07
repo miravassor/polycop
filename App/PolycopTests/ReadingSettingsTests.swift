@@ -13,9 +13,6 @@ import Testing
     #expect(settings.showsUncertainWords)
     #expect(settings.following == .page)
     #expect(settings.foldedSections.isEmpty)
-    #expect(settings.showsLibrary)
-    #expect(settings.showsInspector)
-    #expect(settings.openFolders.isEmpty)
 }
 
 /// The keys are written out: changing one would lose what readers chose.
@@ -59,10 +56,6 @@ import Testing
     settings.isComparing = true
     settings.showsUncertainWords = false
     settings.following = .cursor
-    settings.showsLibrary = false
-    settings.showsInspector = false
-    let folder = UUID()
-    settings.openFolders = [folder]
     settings.toggleFold(of: .warnings)
     settings.toggleFold(of: .video)
     settings.toggleFold(of: .details)
@@ -72,24 +65,7 @@ import Testing
     #expect(next.isComparing)
     #expect(!next.showsUncertainWords)
     #expect(next.following == .cursor)
-    #expect(!next.showsLibrary)
-    #expect(!next.showsInspector)
-    #expect(next.openFolders == [folder])
     #expect(next.foldedSections == [.warnings, .video])
-}
-
-/// The keys are written out, as above.
-@MainActor
-@Test func readingSettingsReadTheWindowsLayout() {
-    let defaults = MemoryDefaults()
-    let folder = UUID()
-    defaults.set(false, forKey: "showsLibrary")
-    defaults.set(false, forKey: "showsInspector")
-    defaults.set([folder.uuidString, "not one"], forKey: "openFolders")
-    let settings = ReadingSettings(defaults: defaults)
-    #expect(!settings.showsLibrary)
-    #expect(!settings.showsInspector)
-    #expect(settings.openFolders == [folder])
 }
 
 /// The key and the names are written out, as above; a section a later version

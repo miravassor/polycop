@@ -7,7 +7,7 @@ struct ContentView: View {
     /// What the sidebar has selected. Several rows can be selected with shift
     /// or command, to file or remove them together; one of them is also what
     /// the window shows, which is why the pane follows this.
-    @State private var selection: Set<AppModel.Pane> = [.new]
+    @State private var selection: Set<AppModel.Pane>
     @State private var removing: [Entry.ID] = []
     @State private var moving: [Entry.ID] = []
     @State private var destinationFolder: UUID?
@@ -26,25 +26,26 @@ struct ContentView: View {
         return model.entries.filter { $0.folderID.map { !known.contains($0) } ?? true }
     }
 
-    private var reading: ReadingSettings { model.reading }
-    /// How wide the reader made the inspector and the library, remembered
-    /// across launches as the window's size is.
-    @AppStorage("inspectorWidth") private var inspectorWidth = Double(EntryView.idealInspectorWidth)
-    @AppStorage("libraryWidth") private var libraryWidth = Double(ContentView.idealLibraryWidth)
+    private var layout: WindowLayout { model.layout }
+
+    init(model: AppModel) {
+        self.model = model
+        _selection = State(initialValue: [model.pane])
+    }
 
     /// Room for the library, the page with its player and the inspector, so
     /// that nothing is cut; hiding the inspector narrows it.
     private var minimumWidth: CGFloat {
-        guard reading.showsInspector, selected.count <= 1 else { return 860 }
+        guard layout.showsInspector, selected.count <= 1 else { return 860 }
         // At its widest: macOS squeezes a column below its minimum otherwise.
-        let library = reading.showsLibrary ? Self.libraryWidths.upperBound : 0
-        return max(860, library + PlayerBar.narrowest + 2 * Spacing.page + inspectorWidth)
+        let library = layout.showsLibrary ? Self.libraryWidths.upperBound : 0
+        return max(860, library + PlayerBar.narrowest + 2 * Spacing.page + layout.inspectorWidth)
     }
     /// The library shown or hidden.
     private var columns: Binding<NavigationSplitViewVisibility> {
         Binding(
-            get: { reading.showsLibrary ? .automatic : .detailOnly },
-            set: { reading.showsLibrary = $0 != .detailOnly })
+            get: { layout.showsLibrary ? .automatic : .detailOnly },
+            set: { layout.showsLibrary = $0 != .detailOnly })
     }
     /// The library's widths: by default about as wide as the inspector, so
     /// the text sits between two balanced columns.
@@ -67,10 +68,10 @@ struct ContentView: View {
             .onGeometryChange(for: CGFloat.self) {
                 $0.size.width
             } action: {
-                if Self.libraryWidths.contains($0) { libraryWidth = $0 }
+                if Self.libraryWidths.contains($0) { layout.libraryWidth = $0 }
             }
             .navigationSplitViewColumnWidth(
-                min: Self.libraryWidths.lowerBound, ideal: libraryWidth,
+                min: Self.libraryWidths.lowerBound, ideal: layout.libraryWidth,
                 max: Self.libraryWidths.upperBound
             )
             .safeAreaInset(edge: .bottom) {
@@ -96,11 +97,11 @@ struct ContentView: View {
                     page.libraryWarnings(model)
                 } else if case .entry(let id) = model.pane, let entry = model.entry(id) {
                     EntryView(
-                        model: model, entry: entry, inspectorWidth: $inspectorWidth
+                        model: model, entry: entry
                     )
                     .id(id)
                 } else {
-                    NewTranscriptionView(model: model, inspectorWidth: $inspectorWidth)
+                    NewTranscriptionView(model: model)
                 }
             }
             // The detail column asks for a minimum of its own: the player
@@ -113,8 +114,7 @@ struct ContentView: View {
             guard chosen.count == 1, let only = chosen.first, only != model.pane else { return }
             model.pane = only
         }
-        // Initially too: the window can open on a transcript left open last time.
-        .onChange(of: model.pane, initial: true) { _, pane in
+        .onChange(of: model.pane) { _, pane in
             guard selection != [pane] else { return }
             selection = [pane]
         }
@@ -138,7 +138,7 @@ struct ContentView: View {
                     if let renamedFolder {
                         try model.renameFolder(renamedFolder, to: folderName)
                     } else {
-                        reading.openFolders.insert(try model.createFolder(named: folderName))
+                        layout.openFolders.insert(try model.createFolder(named: folderName))
                     }
                 }
             }
@@ -184,7 +184,7 @@ struct ContentView: View {
         .sheet(isPresented: Binding(get: { !moving.isEmpty }, set: { if !$0 { moving = [] } })) {
             MoveTranscriptsSheet(
                 model: model, moving: $moving, destinationFolder: $destinationFolder,
-                opened: { reading.openFolders.insert($0) })
+                opened: { layout.openFolders.insert($0) })
         }
         .minimumSize(width: minimumWidth, height: 600)
         .disabled(model.isShuttingDown)
@@ -232,12 +232,12 @@ struct ContentView: View {
             ForEach(model.folders) { folder in
                 DisclosureGroup(
                     isExpanded: Binding(
-                        get: { reading.openFolders.contains(folder.id) },
+                        get: { layout.openFolders.contains(folder.id) },
                         set: {
                             if $0 {
-                                reading.openFolders.insert(folder.id)
+                                layout.openFolders.insert(folder.id)
                             } else {
-                                reading.openFolders.remove(folder.id)
+                                layout.openFolders.remove(folder.id)
                             }
                         }
                     )
@@ -373,7 +373,7 @@ extension ContentView {
     /// one.
     private func drop(_ items: [DraggedTranscripts], into folder: UUID?) -> Bool {
         guard model.moveEntries(items.flatMap(\.ids), to: folder) else { return false }
-        if let folder { reading.openFolders.insert(folder) }
+        if let folder { layout.openFolders.insert(folder) }
         return true
     }
 

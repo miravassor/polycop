@@ -197,5 +197,6 @@ extension AppModel {
         let updated = folders.filter { $0.id != id }
         try HistoryStore.writeFolders(updated, in: history)
         folders = updated
+        layout.openFolders.remove(id)
     }
 }

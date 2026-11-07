@@ -203,8 +203,8 @@ open its release page.
 * A model download that is cancelled, cut off or stopped by quitting continues
   where it left off the next time.
 * Recordings waiting in the queue stay there when you quit, for the next Start.
-* The window opens as you left it: the same transcript, with the library, the
-  inspector and the folders shown or hidden as they were.
+* The window opens as you left it: the same transcript, the library and the
+  inspector shown or hidden, and the same folders open.
 * Pausing keeps the text obtained so far; a few words may be dropped or repeated
   where the work resumes, and those spots are marked. A paused job stops when you
   quit the app. A stopped transcript with no corrections of yours can continue with

@@ -299,6 +299,18 @@ struct ParagraphEditor: NSViewRepresentable {
 /// A text view that plays the recording from a word clicked with Option held.
 /// A plain click still places the cursor for editing.
 final class WordTextView: NSTextView {
+    /// Reached with Tab only. AppKit also walks the key view loop for a window
+    /// first shown and when the view with the focus hides, as the library does:
+    /// the cursor would land in the text, and the next Space would type there
+    /// rather than play.
+    override var canBecomeKeyView: Bool {
+        let tab: UInt16 = 48  // kVK_Tab
+        guard let event = NSApp.currentEvent, event.type == .keyDown, event.keyCode == tab else {
+            return false
+        }
+        return super.canBecomeKeyView
+    }
+
     /// Plays from the word at a character index; false when no word is there.
     var playFromCharacter: ((Int) -> Bool)?
 

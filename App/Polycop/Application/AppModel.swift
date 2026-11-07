@@ -13,7 +13,7 @@ import os
 ///
 /// Holds the stored state and the helpers shared by the AppModel+*.swift
 /// extensions, one file per concern: models, glossaries, the transcription
-/// queue, repeat repair, editing, export, the library, failures.
+/// queue, repeat repair, editing, export, the library, the pane, failures.
 @Observable
 final class AppModel {
     enum Stage: Equatable {
@@ -133,6 +133,7 @@ final class AppModel {
     /// Where the preferences are kept; tests give settings of their own.
     @ObservationIgnored let defaults: UserDefaults
     let reading: ReadingSettings
+    let layout: WindowLayout
     /// What went wrong, shown by the page on screen until it changes. A sheet
     /// keeps its failures to itself, or the page behind would show them too.
     var failure: String?
@@ -246,6 +247,7 @@ final class AppModel {
     ) {
         self.defaults = defaults
         reading = ReadingSettings(defaults: defaults)
+        layout = WindowLayout(defaults: defaults)
         keepAwake = defaults.object(forKey: Self.keepAwakeKey) as? Bool ?? true
         skipsSilence = defaults.object(forKey: Self.skipsSilenceKey) as? Bool ?? false
         if let remembered = defaults.object(forKey: Self.languageKey) as? String,

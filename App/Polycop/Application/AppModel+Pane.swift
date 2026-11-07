@@ -25,12 +25,15 @@ extension AppModel {
         }
     }
 
-    /// Opens the transcript left open last time, while the library still has it.
+    /// Opens the transcript left open last time, while the library still has
+    /// it, with its row in view. At launch, so what leaving a pane clears is
+    /// still empty.
     func reopenTranscript() {
         guard
             let id = defaults.string(forKey: Self.openTranscriptKey)
-                .flatMap(UUID.init(uuidString:)), entry(id) != nil
+                .flatMap(UUID.init(uuidString:)), let entry = entry(id)
         else { return }
         pane = .entry(id)
+        if let folder = entry.folderID { layout.openFolders.insert(folder) }
     }
 }
