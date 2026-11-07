@@ -27,41 +27,40 @@ extension AppModel {
         }
     }
 
+    /// Runs `body` as the job under way. Once another job replaces it, nothing
+    /// it reports changes the window.
+    private func runModelJob(
+        failure: @escaping (any Error) -> String,
+        _ body: @escaping (_ number: Int) async throws -> Void
+    ) {
+        let number = beginJob()
+        work = Task {
+            do {
+                try await body(number)
+            } catch is CancellationError {
+            } catch {
+                if isCurrent(number) { showModelFailure(failure(error)) }
+            }
+            if isCurrent(number) { finish() }
+        }
+    }
+
     func download(_ model: Model) {
         guard !stage.isBusy, !isShuttingDown else { return }
         showModelFailure(nil)
         downloadingModel = model
         stage = .downloading(0)
-        let number = beginJob()
-
-        work = Task { [weak self] in
-            guard let self else { return }
-            do {
-                _ = try await ModelDownloader.download(model, in: modelFolder) {
-                    [weak self] progress in
-                    Task { @MainActor in
-                        guard let self, self.isCurrent(number), case .downloading = self.stage
-                        else {
-                            return
-                        }
-                        self.stage = .downloading(progress)
-                    }
+        // What was received is kept, so a retry continues from it.
+        runModelJob(failure: { error in
+            String(localized: "Could not download \(model.name). \(error.localizedDescription)")
+        }) { number in
+            _ = try await ModelDownloader.download(model, in: self.modelFolder) { progress in
+                Task { @MainActor in
+                    guard self.isCurrent(number), case .downloading = self.stage else { return }
+                    self.stage = .downloading(progress)
                 }
-                guard isCurrent(number) else { return }
-                refreshInstalled()
-                finish()
-            } catch is CancellationError {
-                guard isCurrent(number) else { return }
-                finish()
-            } catch {
-                guard isCurrent(number) else { return }
-                // What was received is kept, so a retry continues from it.
-                showModelFailure(
-                    String(
-                        localized:
-                            "Could not download \(model.name). \(error.localizedDescription)"))
-                finish()
             }
+            if self.isCurrent(number) { self.refreshInstalled() }
         }
     }
 
@@ -105,30 +104,17 @@ extension AppModel {
         guard !stage.isBusy, !isShuttingDown else { return }
         showModelFailure(nil)
         stage = .loading
-        let number = beginJob()
         releaseEngine()
-
-        work = Task { [weak self] in
-            guard let self else { return }
-            do {
-                let installed = try await ModelStore.install(source, in: modelFolder)
-                guard isCurrent(number) else { return }
-                refreshInstalled()
-                // The aligner is no model to transcribe with.
-                if ModelCatalog.model(installed.id) != nil { selected = installed.id }
-                finish()
-            } catch is CancellationError {
-                guard isCurrent(number) else { return }
-                finish()
-            } catch {
-                guard isCurrent(number) else { return }
-                showModelFailure(
-                    String(
-                        localized:
-                            "Could not import \(source.lastPathComponent). \(error.localizedDescription)"
-                    ))
-                finish()
-            }
+        runModelJob(failure: { error in
+            String(
+                localized:
+                    "Could not import \(source.lastPathComponent). \(error.localizedDescription)")
+        }) { number in
+            let installed = try await ModelStore.install(source, in: self.modelFolder)
+            guard self.isCurrent(number) else { return }
+            self.refreshInstalled()
+            // The aligner is no model to transcribe with.
+            if ModelCatalog.model(installed.id) != nil { self.selected = installed.id }
         }
     }
 
