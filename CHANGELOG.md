@@ -20,6 +20,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ### Changed
 
+* New Transcription no longer shows a Language row for MOSS and Voxtral, which detect the language themselves.
 * Warnings and failures are centred, closer to their icon, and take less room. On a transcript each sits in a capsule above the text, and several warnings gather into one capsule that opens their list, so the text stays in place.
 * A failure has the same red symbol wherever it shows, in the library too.
 * A paragraph's flag lines up under its time, with the mark of a resumed transcription beside it.

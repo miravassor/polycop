@@ -189,6 +189,8 @@ final class AppModel {
     var selectedCatalogue: Model? { ModelCatalog.model(selected) }
     /// A glossary only applies to a model that reads one.
     var glossaryApplies: Bool { selectedCatalogue?.readsGlossary ?? true }
+    /// A language only applies to a model that is told it; the others detect it.
+    var languageApplies: Bool { selectedCatalogue?.engine.audioCpp?.setsLanguage ?? true }
     /// Silence removal only applies to an engine that does it.
     var silenceApplies: Bool { selectedCatalogue?.engine.skipsSilence ?? true }
 

@@ -109,10 +109,10 @@ struct StartBar: View {
     static func summary(of model: AppModel) -> String {
         let chosen = model.selectedCatalogue ?? ModelCatalog.recommended
         let language =
-            chosen.engine.audioCpp?.setsLanguage == false
-            ? String(localized: "Language detected")
-            : DecodingSettings.languages.first { $0.code == model.language }
+            model.languageApplies
+            ? DecodingSettings.languages.first { $0.code == model.language }
                 .map { String(localized: String.LocalizationValue($0.name)) } ?? model.language
+            : String(localized: "Language detected")
         var parts = [chosen.name, language]
         if model.glossaryApplies, let glossary = model.glossaryName {
             parts.append(String(localized: "Glossary \(glossary)"))
