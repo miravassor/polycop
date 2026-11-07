@@ -7,8 +7,6 @@ import SwiftUI
 struct EntryView: View {
     let model: AppModel
     let entry: Entry
-    /// Whether the inspector beside the text shows, kept by the window.
-    @Binding var showsInspector: Bool
     /// How wide the reader made the inspector, which the window's minimum
     /// width makes room for.
     @Binding var inspectorWidth: Double
@@ -59,8 +57,8 @@ struct EntryView: View {
         .libraryWarnings(model)
         .navigationTitle(entry.name)
         .toolbar { pageTools }
-        .modifier(InspectorToggle(isShown: $showsInspector))
-        .inspector(isPresented: $showsInspector) { inspector }
+        .modifier(InspectorToggle(isShown: Bindable(reading).showsInspector))
+        .inspector(isPresented: Bindable(reading).showsInspector) { inspector }
         // The Playback menu's steps, which work with the inspector hidden.
         .focusedSceneValue(\.paragraphSteps, steps)
         .focusedSceneValue(\.comparesOriginal, Bindable(reading).isComparing)

@@ -37,16 +37,6 @@ final class AppModel {
         }
     }
 
-    /// What the window shows: the pane for new transcriptions, or one entry.
-    enum Pane: Hashable {
-        case new
-        case entry(Entry.ID)
-        /// A record this version cannot read, which has a page saying so.
-        case unavailable(UnavailableRecord.ID)
-        /// Every file nothing identifies, together.
-        case unidentifiedFiles
-    }
-
     // The setter of these is internal rather than private: extensions in the
     // other AppModel+*.swift files assign them directly.
     var stage = Stage.waiting {
@@ -70,6 +60,7 @@ final class AppModel {
     var pane = Pane.new {
         didSet {
             guard pane != oldValue else { return }
+            rememberOpenTranscript()
             rememberPlace(in: oldValue)
             // Leaving a transcript writes what was typed in it, and where it was left.
             savePending()
@@ -288,6 +279,7 @@ final class AppModel {
             glossaryName = remembered
         }
         readLibrary()
+        reopenTranscript()
     }
 
     /// What is on disk, at launch.

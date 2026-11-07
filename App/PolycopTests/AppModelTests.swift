@@ -693,3 +693,43 @@ extension LoadingAModel {
         #expect(opener.opened == 1)
     }
 }
+
+/// The window opens on the transcript left open, as long as the library still
+/// has it. Anything else opens on New Transcription.
+@MainActor
+@Test func theWindowOpensOnTheTranscriptLeftOpen() async throws {
+    let history = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: history) }
+    let defaults = MemoryDefaults()
+    let kept = Entry(
+        recording: clip, modelFile: ModelCatalog.recommended.id, glossary: nil,
+        skipsSilence: false, subtitles: false)
+    try HistoryStore.write(kept, in: history)
+
+    func reopened() async -> AppModel.Pane {
+        let model = AppModel(history: history, defaults: defaults)
+        let pane = model.pane
+        await model.shutDown()
+        return pane
+    }
+
+    #expect(await reopened() == .new)
+
+    let model = AppModel(history: history, defaults: defaults)
+    model.pane = .entry(kept.id)
+    await model.finishWrites()
+    #expect(await reopened() == .entry(kept.id))
+
+    model.pane = .new
+    #expect(await reopened() == .new)
+
+    model.pane = .entry(kept.id)
+    model.removeEntries([kept.id])
+    await model.finishWrites()
+    #expect(model.pane == .new)
+    #expect(await reopened() == .new)
+
+    defaults.set(UUID().uuidString, forKey: "openTranscript")
+    #expect(await reopened() == .new)
+    await model.shutDown()
+}

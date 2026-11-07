@@ -8,7 +8,9 @@ nonisolated enum InspectorSection: String {
     case video, export, warnings, details
 }
 
-/// How the reader has a transcript shown, remembered across launches. Here
+/// How the reader has the window and a transcript shown, remembered across
+/// launches: macOS restores scene storage only with the window, which by default
+/// it does not when the app quits. Here
 /// rather than in `@AppStorage`: SwiftUI redoes a view that holds a setting, or
 /// is given a binding made from one, at every update of its parent, while a
 /// view reading a property here is redrawn only when that property changes.
@@ -19,6 +21,9 @@ final class ReadingSettings {
     static let isComparingKey = "comparesOriginal"
     static let showsUncertainWordsKey = "showsUncertainWords"
     static let foldedSectionsKey = "foldedInspectorSections"
+    static let showsLibraryKey = "showsLibrary"
+    static let showsInspectorKey = "showsInspector"
+    static let openFoldersKey = "openFolders"
 
     var textSize: Double {
         didSet { defaults.set(textSize, forKey: Self.textSizeKey) }
@@ -38,6 +43,17 @@ final class ReadingSettings {
         didSet { defaults.set(foldedSections.map(\.rawValue), forKey: Self.foldedSectionsKey) }
     }
 
+    var showsLibrary: Bool {
+        didSet { defaults.set(showsLibrary, forKey: Self.showsLibraryKey) }
+    }
+    var showsInspector: Bool {
+        didSet { defaults.set(showsInspector, forKey: Self.showsInspectorKey) }
+    }
+    /// The library's folders showing what they hold.
+    var openFolders: Set<UUID> {
+        didSet { defaults.set(openFolders.map(\.uuidString), forKey: Self.openFoldersKey) }
+    }
+
     @ObservationIgnored private let defaults: UserDefaults
 
     init(defaults: UserDefaults) {
@@ -49,6 +65,11 @@ final class ReadingSettings {
         foldedSections = Set(
             (defaults.stringArray(forKey: Self.foldedSectionsKey) ?? [])
                 .compactMap(InspectorSection.init(rawValue:)))
+        showsLibrary = defaults.object(forKey: Self.showsLibraryKey) as? Bool ?? true
+        showsInspector = defaults.object(forKey: Self.showsInspectorKey) as? Bool ?? true
+        openFolders = Set(
+            (defaults.stringArray(forKey: Self.openFoldersKey) ?? [])
+                .compactMap(UUID.init(uuidString:)))
     }
 
     func toggleFold(of section: InspectorSection) {

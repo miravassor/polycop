@@ -8,8 +8,7 @@ import UniformTypeIdentifiers
 /// its controls there.
 struct NewTranscriptionView: View {
     @Bindable var model: AppModel
-    /// The inspector, shown, hidden and as wide as on a transcript's page.
-    @Binding var showsInspector: Bool
+    /// As wide as on a transcript's page.
     @Binding var inspectorWidth: Double
     @State private var importing = false
     @State private var editingGlossaries = false
@@ -19,8 +18,8 @@ struct NewTranscriptionView: View {
         page
             .libraryWarnings(model)
             .navigationTitle("New Transcription")
-            .modifier(InspectorToggle(isShown: $showsInspector))
-            .inspector(isPresented: $showsInspector) {
+            .modifier(InspectorToggle(isShown: Bindable(model.reading).showsInspector))
+            .inspector(isPresented: Bindable(model.reading).showsInspector) {
                 NewTranscriptionSettings(
                     model: model, editingGlossaries: $editingGlossaries
                 )
@@ -65,12 +64,13 @@ struct NewTranscriptionView: View {
                 VStack(spacing: 24) {
                     dropHere
                     // What runs while nothing waits, under the empty state.
-                    StartBar(model: model, showsSettings: !showsInspector)
+                    StartBar(model: model, showsSettings: !model.reading.showsInspector)
                 }
                 .padding(.bottom, Spacing.page)
             } else {
                 RecordingsQueue(
-                    model: model, showsSettings: !showsInspector, choose: chooseRecordings)
+                    model: model, showsSettings: !model.reading.showsInspector,
+                    choose: chooseRecordings)
             }
         }
         .frame(maxWidth: 720)

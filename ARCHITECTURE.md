@@ -118,7 +118,9 @@ one decision it makes for a recording.
   shortcuts. Its timeline (`PlayerTimeline`) draws the played part as glass on macOS 26 (`PlayedGlass`). The inspector beside
   the text (`EntryInspector`) holds the video, above a grouped form so that it takes the
   width, then export, the warnings about the text and the transcript's details in
-  the form. Each folds by its title (`FoldingSection`), and `ReadingSettings` remembers which.
+  the form. Each folds by its title (`FoldingSection`), and `ReadingSettings` remembers which, as it
+  does whether the library and the inspector show and which folders are open.
+  `AppModel+Pane` reopens the transcript left open.
 * `NowPlaying` connects the player to the media keys and Control Center.
   `PlaybackInterruptions` pauses it when the Mac sleeps or the output it plays
   through goes away.
