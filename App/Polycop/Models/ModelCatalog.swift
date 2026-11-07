@@ -95,6 +95,9 @@ nonisolated enum Engine: CaseIterable, Sendable {
         }
     }
 
+    /// It works the language out itself, so being told one changes nothing.
+    var detectsLanguage: Bool { audioCpp?.setsLanguage == false }
+
     /// Silence removal runs inside whisper.cpp, and so does the repair of
     /// repeats, which depends on it.
     var skipsSilence: Bool { self == .whisper }

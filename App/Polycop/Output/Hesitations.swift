@@ -17,7 +17,7 @@ nonisolated enum Hesitations {
     /// a model detected it or the text was imported, `language` is just the
     /// setting of the day, so the language is not known and the option stays.
     static func cover(_ entry: Entry) -> Bool {
-        let detects = ModelCatalog.model(entry.modelFile)?.engine.audioCpp?.setsLanguage == false
+        let detects = ModelCatalog.model(entry.modelFile)?.engine.detectsLanguage == true
         return entry.importSource != nil || detects || cover(entry.language)
     }
 

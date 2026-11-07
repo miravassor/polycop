@@ -28,7 +28,7 @@ struct EntryDetails: View {
         if let elapsed = entry.transcribedIn {
             LabeledContent("Transcribed in", value: formattedDuration(elapsed))
         }
-        if engine?.audioCpp?.setsLanguage == false {
+        if engine?.detectsLanguage == true {
             LabeledContent("Language", value: "Detected automatically")
         } else if entry.importSource == nil, let code = entry.language,
             let language = DecodingSettings.languages.first(where: { $0.code == code })
