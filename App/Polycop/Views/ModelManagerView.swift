@@ -7,7 +7,7 @@ import UniformTypeIdentifiers
 struct ModelManagerView: View {
     let model: AppModel
     @Environment(\.dismiss) private var dismiss
-    @Binding var importingModel: Bool
+    @State private var importing = false
     @State private var removingModel: Model?
     @State private var removingImported: ModelStore.Imported?
 
@@ -30,7 +30,7 @@ struct ModelManagerView: View {
                     .padding(.top, Spacing.block)
             }
             HStack {
-                Button("Import Downloaded Model…") { importingModel = true }
+                Button("Import Downloaded Model…") { importing = true }
                     .disabled(model.stage.isBusy)
                     .help(
                         "Only unchanged catalogue models are accepted; their SHA-256 is verified before use."
@@ -64,7 +64,7 @@ struct ModelManagerView: View {
                 "Existing transcripts are kept. You will need to download or import the model again to use it."
             )
         }
-        .fileImporter(isPresented: $importingModel, allowedContentTypes: [.data]) { result in
+        .fileImporter(isPresented: $importing, allowedContentTypes: [.data]) { result in
             switch result {
             case .success(let file): model.importModel(file)
             case .failure(let error): model.modelsFailure = error.localizedDescription

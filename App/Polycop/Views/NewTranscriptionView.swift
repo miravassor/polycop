@@ -12,7 +12,6 @@ struct NewTranscriptionView: View {
     @Binding var showsInspector: Bool
     @Binding var inspectorWidth: Double
     @State private var importing = false
-    @State private var importingModel = false
     @State private var editingGlossaries = false
     @State private var isTargeted = false
 
@@ -28,9 +27,7 @@ struct NewTranscriptionView: View {
                 .modifier(InspectorColumn(width: $inspectorWidth))
             }
             .sheet(isPresented: $editingGlossaries) { GlossaryEditor(model: model) }
-            .sheet(isPresented: $model.isManagingModels) {
-                ModelManagerView(model: model, importingModel: $importingModel)
-            }
+            .sheet(isPresented: $model.isManagingModels) { ModelManagerView(model: model) }
             .task(id: model.recordingsRequest) {
                 guard model.recordingsRequest != nil else { return }
                 model.recordingsRequest = nil
@@ -95,7 +92,6 @@ struct NewTranscriptionView: View {
     }
 
     private func chooseRecordings() {
-        importingModel = false
         importing = true
     }
 
