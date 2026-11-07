@@ -79,6 +79,10 @@ nonisolated struct Entry: Identifiable, Equatable, Codable, Sendable {
     var isPartial = false
     var isEdited = false
     var glossaryWarning: String?
+    /// The warnings about this text the reader dismissed, until new text is
+    /// written. By name rather than `Warning`, so that one from a later version
+    /// does not stop this one reading the record.
+    var dismissedWarnings: Set<String>?
     /// Seconds of audio in the recording, once decoded.
     var duration: TimeInterval?
     /// How long transcribing it took, converting and loading the model
@@ -176,6 +180,7 @@ nonisolated struct Entry: Identifiable, Equatable, Codable, Sendable {
         originalParagraphs = nil
         courseCorrections = nil
         reviewMarks = nil
+        dismissedWarnings = nil
         showsCredits = false
         isPartial = false
         isEdited = false
@@ -277,35 +282,11 @@ nonisolated struct Entry: Identifiable, Equatable, Codable, Sendable {
     var shown: [Segment] { showsCredits ? decoded : cleaned.speech }
 
     /// Segments with credit lines removed and loops shortened, until put back.
-    private var cleaned: (speech: [Segment], credits: [Segment], looped: [Segment]) {
+    var cleaned: (speech: [Segment], credits: [Segment], looped: [Segment]) {
         let (heard, credits) = Credits.separate(decoded)
         let (speech, looped) = Degeneration.shortenLoops(heard)
         return (speech, credits, looped)
     }
-
-    /// What the notices above a transcript report. Each reads the whole
-    /// transcript, and typing changes none of them, so a page works them out
-    /// once per change of the segments rather than at each key.
-    struct Findings: Equatable {
-        let repetitionWarning: String?
-        let repeats: [ClosedRange<Int>]
-        let hiddenCredits: [Segment]
-        let shortenedLoops: [Segment]
-    }
-
-    var findings: Findings {
-        let cleaned = cleaned
-        return Findings(
-            repetitionWarning: Degeneration.check(showsCredits ? decoded : cleaned.speech)
-                .map(Degeneration.warning),
-            repeats: repeats,
-            hiddenCredits: showsCredits ? [] : cleaned.credits,
-            shortenedLoops: showsCredits ? [] : cleaned.looped)
-    }
-
-    /// Stretches where one phrase repeats in a row, which can be transcribed
-    /// again. Read from the raw segments, which is what a repair replaces.
-    var repeats: [ClosedRange<Int>] { Degeneration.repeats(in: decoded) }
 
     /// The paragraphs holding a point where transcription resumed.
     var resumedParagraphs: Set<Int> {
@@ -322,10 +303,16 @@ nonisolated struct Entry: Identifiable, Equatable, Codable, Sendable {
     mutating func publish(_ result: [Segment], partial: Bool) {
         decoded = result.sorted { $0.start < $1.start }
         isPartial = partial
+        writeNewText()
+    }
+
+    private mutating func writeNewText() {
         paragraphs = Transcript.paragraphs(shown)
         originalParagraphs = paragraphs
         isEdited = false
         isSaved = false
+        // A warning of the same kind can now be about something new.
+        dismissedWarnings = nil
         apply(courseCorrections ?? [])
     }
 
@@ -388,11 +375,7 @@ nonisolated struct Entry: Identifiable, Equatable, Codable, Sendable {
     mutating func putBackCredits() -> Bool {
         guard hasOnlyCourseCorrections, !showsCredits else { return false }
         showsCredits = true
-        paragraphs = Transcript.paragraphs(shown)
-        originalParagraphs = paragraphs
-        isEdited = false
-        isSaved = false
-        apply(courseCorrections ?? [])
+        writeNewText()
         return true
     }
 }

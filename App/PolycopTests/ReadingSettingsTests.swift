@@ -11,6 +11,7 @@ import Testing
     #expect(settings.textSize == ReadingSettings.defaultTextSize)
     #expect(!settings.isComparing)
     #expect(settings.showsUncertainWords)
+    #expect(settings.showsWarnings)
 }
 
 /// The keys are written out: changing one would lose what readers chose.
@@ -33,8 +34,10 @@ import Testing
     settings.textSize = 20
     settings.isComparing = true
     settings.showsUncertainWords = false
+    settings.showsWarnings = false
     let next = ReadingSettings(defaults: defaults)
     #expect(next.textSize == 20)
     #expect(next.isComparing)
     #expect(!next.showsUncertainWords)
+    #expect(!next.showsWarnings)
 }

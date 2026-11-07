@@ -13,6 +13,7 @@ final class ReadingSettings {
     static let textSizeKey = "transcriptTextSize"
     static let isComparingKey = "comparesOriginal"
     static let showsUncertainWordsKey = "showsUncertainWords"
+    static let showsWarningsKey = "showsWarnings"
 
     var textSize: Double {
         didSet { defaults.set(textSize, forKey: Self.textSizeKey) }
@@ -24,6 +25,10 @@ final class ReadingSettings {
     var showsUncertainWords: Bool {
         didSet { defaults.set(showsUncertainWords, forKey: Self.showsUncertainWordsKey) }
     }
+    /// Whether the inspector's Warnings section is unfolded.
+    var showsWarnings: Bool {
+        didSet { defaults.set(showsWarnings, forKey: Self.showsWarningsKey) }
+    }
 
     @ObservationIgnored private let defaults: UserDefaults
 
@@ -32,5 +37,6 @@ final class ReadingSettings {
         textSize = defaults.object(forKey: Self.textSizeKey) as? Double ?? Self.defaultTextSize
         isComparing = defaults.bool(forKey: Self.isComparingKey)
         showsUncertainWords = defaults.object(forKey: Self.showsUncertainWordsKey) as? Bool ?? true
+        showsWarnings = defaults.object(forKey: Self.showsWarningsKey) as? Bool ?? true
     }
 }

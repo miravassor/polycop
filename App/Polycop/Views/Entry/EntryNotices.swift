@@ -4,42 +4,23 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// One thing to check about a transcript's text: what it says, where to listen,
-/// and what can be done about it.
-struct TextCheck: Identifiable {
-    struct Time: Identifiable {
-        let title: String
-        let help: LocalizedStringKey
-        let listen: () -> Void
-        var id: String { title }
-    }
-
-    struct Action {
-        let title: LocalizedStringKey
-        let help: Text?
-        let isDisabled: Bool
-        let perform: () -> Void
-    }
-
-    let symbol: String
-    let text: String
-    var times: [Time] = []
-    var action: Action?
-    var id: String { text }
-}
-
 /// What is wrong with a transcript, above its text, on the surface of the work
 /// under way. The recording and failures always show, since something does not
-/// work until they are dealt with. The checks show as one, or as how many.
+/// work until they are dealt with. The checks show as one, or as how many,
+/// less those dismissed, which stay in the inspector.
 struct EntryNotices: View {
     let entry: Entry
     let findings: Entry.Findings
+    let canRebuild: Bool
     let model: AppModel
     let isRunning: Bool
     let engine: Engine?
 
     var body: some View {
-        let checks = checks
+        let checks = TextChecks(
+            entry: entry, findings: findings, canRebuild: canRebuild, model: model,
+            isRunning: isRunning, engine: engine
+        ).aboveText
         if !entry.hasRecording || !checks.isEmpty {
             // Side by side when they fit, for the height of the text.
             ViewThatFits(in: .horizontal) {
@@ -62,7 +43,9 @@ struct EntryNotices: View {
         if checks.count == 1, let check = checks.first {
             TextCheckRow(check: check).statusCapsule()
         } else if !checks.isEmpty {
-            TextChecksButton(checks: checks)
+            TextChecksButton(checks: checks) {
+                model.setDismissed(checks.map(\.warning), true, on: entry.id)
+            }
         }
     }
 
@@ -80,102 +63,6 @@ struct EntryNotices: View {
         .statusCapsule()
     }
 
-    /// In the order they matter to reading the text. Internal for its tests.
-    var checks: [TextCheck] {
-        // Asked once, and only when a check offers to rebuild: the answer runs
-        // the course corrections over the whole text.
-        let offersRebuild =
-            !findings.repeats.isEmpty || !findings.hiddenCredits.isEmpty
-            || !findings.shortenedLoops.isEmpty
-        let canRebuild = offersRebuild && model.canRebuildParagraphs(of: entry)
-        var checks: [TextCheck] = []
-        if let warning = entry.glossaryWarning {
-            checks.append(TextCheck(symbol: NoticeState.warning.symbol, text: warning))
-        }
-        if let warning = findings.repetitionWarning {
-            checks.append(repetition(warning, canRebuild: canRebuild))
-        }
-        if let times = entry.resumedAt, !times.isEmpty {
-            checks.append(
-                TextCheck(
-                    symbol: "arrow.clockwise",
-                    text: String(
-                        localized:
-                            "Resumed part way. Words near these points can be missing or repeated:"
-                    ),
-                    times: times.map { time in
-                        TextCheck.Time(
-                            title: Transcript.clock(Int(time * 1000)),
-                            help: "Listen from ten seconds before",
-                            listen: { model.replay(entry.id, from: max(0, time - 10)) })
-                    }))
-        }
-        let gaps = entry.textGaps
-        if !gaps.isEmpty {
-            checks.append(
-                TextCheck(
-                    symbol: "text.badge.xmark",
-                    text: String(
-                        localized:
-                            "No text for a minute or more from these points. A long pause, or speech the model missed: listen to check, or transcribe again with another model."
-                    ),
-                    times: gaps.map { gap in
-                        TextCheck.Time(
-                            title:
-                                "\(Transcript.clock(Int(gap.lowerBound * 1000))) to \(Transcript.clock(Int(gap.upperBound * 1000)))",
-                            help: "Listen from the start of this stretch",
-                            listen: { model.replay(entry.id, from: gap.lowerBound) })
-                    }))
-        }
-        if let leftOut = entry.leftOut, let duration = entry.duration {
-            let (left, whole) = (formattedDuration(leftOut), formattedDuration(duration))
-            checks.append(
-                TextCheck(
-                    symbol: "waveform",
-                    text: entry.skipsSilence
-                        ? String(
-                            localized:
-                                "Skip silences left \(left) of this \(whole) recording out of the transcript. Some of it may have been speech."
-                        )
-                        : String(
-                            localized:
-                                "Repairing the repeats left \(left) of this \(whole) recording out of the transcript. Some of it may have been speech."
-                        )))
-        }
-        let hidden = [
-            Credits.notice(findings.hiddenCredits),
-            Degeneration.loopNotice(findings.shortenedLoops),
-        ]
-        for text in hidden.compactMap({ $0 }) {
-            checks.append(
-                TextCheck(
-                    symbol: "eye.slash", text: text,
-                    action: TextCheck.Action(
-                        title: "Put Back",
-                        help: canRebuild
-                            ? nil : Text("Putting the lines back would undo your corrections."),
-                        isDisabled: !canRebuild,
-                        perform: { model.putBackCredits(entry.id) })))
-        }
-        return checks
-    }
-
-    /// The repeats and the engine are checked here, so only the corrections
-    /// decide whether they can be transcribed again.
-    private func repetition(_ warning: String, canRebuild: Bool) -> TextCheck {
-        var check = TextCheck(symbol: NoticeState.warning.symbol, text: warning)
-        if !findings.repeats.isEmpty, engine?.skipsSilence == true {
-            check.action = TextCheck.Action(
-                title: "Transcribe the Repeats Again",
-                help: canRebuild
-                    ? Text("Skips the silences over those passages only.")
-                    : Text("Transcribing them again would undo your corrections."),
-                isDisabled: isRunning || !canRebuild || model.stage.isBusy,
-                perform: { model.repairRepeats(entry.id) })
-        }
-        return check
-    }
-
     /// Where the recording went. Nothing is transcribed again: the transcript
     /// only needs its audio back to be listened to.
     private func locateRecording() {
@@ -190,30 +77,37 @@ struct EntryNotices: View {
     }
 }
 
-/// How many checks there are, opening the list of them.
+/// How many warnings there are, opening the list of them, with the way to
+/// dismiss them all.
 struct TextChecksButton: View {
     let checks: [TextCheck]
+    let dismissAll: () -> Void
     @State private var isOpen = false
 
     var body: some View {
-        Button {
-            isOpen.toggle()
-        } label: {
-            HStack(spacing: Spacing.icon) {
-                Label("\(checks.count) Things to Check", systemImage: NoticeState.warning.symbol)
-                    .notice(NoticeState.warning.tint)
-                Image(systemName: "chevron.down")
-                    .imageScale(.small)
-                    .foregroundStyle(.secondary)
-                    .accessibilityHidden(true)
+        HStack(spacing: 12) {
+            Button {
+                isOpen.toggle()
+            } label: {
+                HStack(spacing: Spacing.icon) {
+                    Label("\(checks.count) Warnings", systemImage: NoticeState.warning.symbol)
+                        .notice(NoticeState.warning.tint)
+                    Image(systemName: "chevron.down")
+                        .imageScale(.small)
+                        .foregroundStyle(.secondary)
+                        .accessibilityHidden(true)
+                }
+                .contentShape(.rect)
             }
-            .contentShape(.rect)
+            .buttonStyle(.plain)
+            .popover(isPresented: $isOpen, arrowEdge: .bottom) {
+                TextChecksList(checks: checks)
+            }
+            DismissalButton(
+                title: "Dismiss All", symbol: "xmark",
+                isEnabled: checks.allSatisfy(\.canChangeDismissal), action: dismissAll)
         }
-        .buttonStyle(.plain)
         .statusCapsule()
-        .popover(isPresented: $isOpen, arrowEdge: .bottom) {
-            TextChecksList(checks: checks)
-        }
     }
 }
 
@@ -235,6 +129,7 @@ struct TextChecksList: View {
                         .gridColumnAlignment(.center)
                     TextCheckContent(check: check)
                         .frame(maxWidth: .infinity, alignment: .leading)
+                    DismissalButton(check: check)
                 }
             }
         }
@@ -255,28 +150,96 @@ struct TextCheckRow: View {
         HStack(alignment: .firstTextBaseline, spacing: Spacing.icon) {
             Image(systemName: check.symbol).foregroundStyle(NoticeState.warning.tint)
             TextCheckContent(check: check)
+            DismissalButton(check: check)
         }
     }
 }
 
-/// A check's text with its button right after it, and the times to listen from.
+/// Every warning about the text once, in the inspector, those dismissed with
+/// the way to bring them back above it.
+struct WarningsSection: View {
+    let checks: [TextCheck]
+    @Bindable var reading: ReadingSettings
+
+    var body: some View {
+        if !checks.isEmpty {
+            Section("Warnings", isExpanded: $reading.showsWarnings) {
+                ForEach(checks) { check in
+                    HStack(alignment: .firstTextBaseline, spacing: Spacing.icon) {
+                        Image(systemName: check.symbol)
+                            .foregroundStyle(
+                                check.isDismissed
+                                    ? AnyShapeStyle(.secondary)
+                                    : AnyShapeStyle(NoticeState.warning.tint))
+                        TextCheckContent(check: check, actionIsBelow: true)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        DismissalButton(check: check)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Takes warnings off the text, or brings one back.
+private struct DismissalButton: View {
+    let title: LocalizedStringKey
+    let symbol: String
+    let isEnabled: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Label(title, systemImage: symbol).labelStyle(.iconOnly)
+        }
+        .buttonStyle(.borderless)
+        .disabled(!isEnabled)
+        .help(title)
+    }
+}
+
+extension DismissalButton {
+    init(check: TextCheck) {
+        self.init(
+            title: check.isDismissed ? "Show Above Text" : "Dismiss",
+            symbol: check.isDismissed ? "arrow.up.to.line" : "xmark",
+            isEnabled: check.canChangeDismissal,
+            action: { check.setDismissed(!check.isDismissed) })
+    }
+}
+
+/// A check's text with its button right after it, or under it where the column
+/// is narrow, and the times to listen from.
 private struct TextCheckContent: View {
     let check: TextCheck
+    var actionIsBelow = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                Text(check.text)
-                    .textSelection(.enabled)
-                if let action = check.action {
-                    Button(action.title, action: action.perform)
-                        .disabled(action.isDisabled)
-                        .help(action.help ?? Text(""))
+            if actionIsBelow {
+                text
+                action
+            } else {
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    text
+                    action
                 }
             }
             if !check.times.isEmpty {
                 NoticeTimes(times: check.times)
             }
+        }
+    }
+
+    private var text: some View {
+        Text(check.text).textSelection(.enabled)
+    }
+
+    @ViewBuilder private var action: some View {
+        if let action = check.action {
+            Button(action.title, action: action.perform)
+                .disabled(action.isDisabled)
+                .help(action.help ?? Text(""))
         }
     }
 }
@@ -304,10 +267,15 @@ private struct NoticeTimes: View {
 }
 
 private let previewChecks = [
-    TextCheck(symbol: "exclamationmark.triangle", text: "The glossary could not be read."),
     TextCheck(
-        symbol: "eye.slash", text: "2 lines that look like credits were set aside.",
-        action: TextCheck.Action(title: "Put Back", help: nil, isDisabled: false, perform: {})),
+        warning: .glossary, symbol: "exclamationmark.triangle",
+        text: "The glossary could not be read.", isDismissed: false, canChangeDismissal: true,
+        setDismissed: { _ in }),
+    TextCheck(
+        warning: .credits, symbol: "eye.slash",
+        text: "2 lines that look like credits were set aside.",
+        action: TextCheck.Action(title: "Put Back", help: nil, isDisabled: false, perform: {}),
+        isDismissed: true, canChangeDismissal: true, setDismissed: { _ in }),
 ]
 
 #Preview("List") {
@@ -317,7 +285,15 @@ private let previewChecks = [
 #Preview("Capsules") {
     VStack {
         TextCheckRow(check: previewChecks[1]).statusCapsule()
-        TextChecksButton(checks: previewChecks)
+        TextChecksButton(checks: previewChecks, dismissAll: {})
     }
     .padding()
+}
+
+#Preview("Inspector") {
+    Form {
+        WarningsSection(checks: previewChecks, reading: ReadingSettings(defaults: MemoryDefaults()))
+    }
+    .formStyle(.grouped)
+    .frame(width: 360)
 }
