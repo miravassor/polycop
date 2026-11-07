@@ -517,7 +517,7 @@ func automaticIsADetectedLanguage(chosen: Model) {
     let entry = Entry(
         recording: URL(filePath: "/made/up.wav"), modelFile: chosen.id, glossary: nil,
         skipsSilence: false, subtitles: false, language: DecodingSettings.automaticLanguage)
-    #expect(entry.detectsLanguage)
+    #expect(entry.isLanguageDetected)
     #expect(entry.toldLanguage == nil)
     #expect(Hesitations.cover(entry))
 }

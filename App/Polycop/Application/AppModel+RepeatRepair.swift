@@ -64,7 +64,7 @@ extension AppModel {
                 guard isCurrent(number) else { return }
 
                 await limitContextToGlossary(&settings, of: id, on: engine)
-                settings.language = try await engine.language(in: samples, settings: settings)
+                settings.language = try await language(of: samples, as: entry, on: engine, settings)
                 // A stop during that wait has already set the stage.
                 try Task.checkCancellation()
                 guard isCurrent(number) else { return }
@@ -114,6 +114,16 @@ extension AppModel {
                 finish()
             }
         }
+    }
+
+    /// Asked as the run that wrote the text asked, whatever the repair skips.
+    private func language(
+        of samples: [Float], as entry: Entry, on engine: any TranscriptionEngine,
+        _ settings: DecodingSettings
+    ) async throws -> String {
+        var asked = settings
+        asked.voiceActivityDetection = entry.skipsSilence
+        return try await engine.language(in: samples, settings: asked)
     }
 
     /// A looped stretch transcribed again, and the stretches its silence

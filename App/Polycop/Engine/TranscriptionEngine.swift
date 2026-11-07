@@ -18,9 +18,10 @@ nonisolated protocol TranscriptionEngine: AnyObject, Sendable {
         onSegment: @escaping @Sendable (Segment) -> Void
     ) async throws -> [Segment]
 
-    /// The language to read part of a recording in, given all its samples. An
-    /// engine that decides once for a recording decides here as it did on the
-    /// whole, rather than on a part that may be a quotation or a loop.
+    /// The language to read part of a recording in, given all its samples and
+    /// the settings its run had. An engine that decides once for a recording
+    /// decides here as it did then, rather than on a part that may be a
+    /// quotation or a loop.
     func language(in samples: [Float], settings: DecodingSettings) async throws -> String
 
     /// Returns once every call already queued has ended and let go of the

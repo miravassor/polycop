@@ -217,7 +217,8 @@ Every page speaks the same visual language. The shared pieces live in
   others. A version from 0.5.0 on then lists those records without opening or writing
   them (`UnavailableRecord`); earlier ones still strip them. `dismissedWarnings` is the
   exception: losing it only brings a warning back, which is no reason to close the whole
-  record to an earlier version. Folders and course corrections have no such
+  record to an earlier version, and neither does `auto` in `language`, which earlier
+  versions pass on to the engine, which detects. Folders and course corrections have no such
   number: what they cannot lose goes in a new file, which earlier versions never open.
 * The library is also kept in `Snapshots/` (`LibrarySnapshots`). Code that deletes a
   file of the library for good takes it out of the copies with `LibrarySnapshots.remove`,

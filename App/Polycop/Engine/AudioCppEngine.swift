@@ -213,7 +213,9 @@ nonisolated final class AudioCppEngine: TranscriptionEngine, @unchecked Sendable
 
     /// Told no language, Qwen can write text it names none for, which its aligner
     /// refuses (`run_single`, qwen3_asr/session.cpp). The window then keeps its
-    /// text without word times, since a retry would stop at the same place.
+    /// text without word times, since a retry would stop at the same place. The
+    /// library gives this failure no code of its own, so any failure tries once
+    /// more, and one that is not this one fails again.
     private func runWhole(
         _ request: OpaquePointer, language: String, into result: inout OpaquePointer?
     ) throws {

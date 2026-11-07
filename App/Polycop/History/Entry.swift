@@ -274,7 +274,7 @@ nonisolated struct Entry: Identifiable, Equatable, Codable, Sendable {
     }
 
     /// Whether its model worked the language out rather than being told it.
-    var detectsLanguage: Bool {
+    var isLanguageDetected: Bool {
         guard importSource == nil else { return false }
         return language == DecodingSettings.automaticLanguage
             || ModelCatalog.model(modelFile)?.engine.detectsLanguage == true
@@ -283,7 +283,7 @@ nonisolated struct Entry: Identifiable, Equatable, Codable, Sendable {
     /// The language spoken, as far as the app knows. Where a model detected it
     /// or the text was imported, `language` says nothing about what was spoken.
     var toldLanguage: String? {
-        importSource != nil || detectsLanguage ? nil : language
+        importSource != nil || isLanguageDetected ? nil : language
     }
 
     /// Whether segments are sentence length, which subtitles require.

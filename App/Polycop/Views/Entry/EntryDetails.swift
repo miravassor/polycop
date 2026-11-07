@@ -27,7 +27,7 @@ struct EntryDetails: View {
         if let elapsed = entry.transcribedIn {
             LabeledContent("Transcribed in", value: formattedDuration(elapsed))
         }
-        if entry.detectsLanguage {
+        if entry.isLanguageDetected {
             LabeledContent("Language", value: "Detected automatically")
         } else if let code = entry.toldLanguage, let language = DecodingSettings.name(of: code) {
             LabeledContent("Language") { Text(LocalizedStringKey(language)) }

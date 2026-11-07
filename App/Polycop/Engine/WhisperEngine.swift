@@ -130,12 +130,17 @@ nonisolated final class WhisperEngine: TranscriptionEngine, @unchecked Sendable 
         guard settings.language == DecodingSettings.automaticLanguage, !samples.isEmpty else {
             return settings.language
         }
+        // Detection has no abort callback, so a stop is honoured before it starts.
+        try Task.checkCancellation()
         return try await queue.run { try self.detectLanguage(samples, settings) }
     }
 
     /// The decision a run makes first, on what that run hears, silences skipped
     /// or not. Told to detect, whisper.cpp stops there (`whisper_full_with_state`,
-    /// v1.9.4).
+    /// v1.9.4). It scales its spectrogram by the loudest of it, so a run's answer
+    /// takes all the samples of that run. Where the detector hears no speech
+    /// whisper.cpp decides nothing, and nothing will be written in the language
+    /// returned.
     private func detectLanguage(_ samples: [Float], _ settings: DecodingSettings) throws -> String {
         guard isUsable else { throw TranscriptionError.failed(Self.cacheAllocationFailed) }
         var parameters = whisper_full_default_params(WHISPER_SAMPLING_GREEDY)
@@ -145,16 +150,11 @@ nonisolated final class WhisperEngine: TranscriptionEngine, @unchecked Sendable 
             strdup($0.path(percentEncoded: false))
         }
         defer { voiceActivityModel.map { free($0) } }
-        parameters.vad = settings.voiceActivityDetection
-        parameters.vad_model_path = voiceActivityModel.flatMap { UnsafePointer($0) }
-        parameters.vad_params.threshold = settings.voiceActivityThreshold
+        parameters.skipSilences(as: settings, model: voiceActivityModel)
         let code = samples.withUnsafeBufferPointer {
             whisper_full(context, parameters, $0.baseAddress, Int32($0.count))
         }
-        guard code == 0 else {
-            if code == Self.cacheAllocationFailed { isBroken.withLock { $0 = true } }
-            throw TranscriptionError.failed(code)
-        }
+        guard code == 0 else { throw TranscriptionError.failed(code) }
         return whisper_lang_str(whisper_full_lang_id(context)).map { String(cString: $0) }
             ?? settings.language
     }
@@ -194,10 +194,7 @@ nonisolated final class WhisperEngine: TranscriptionEngine, @unchecked Sendable 
         parameters.n_max_text_ctx = settings.textContext
         parameters.initial_prompt = prompt.flatMap { UnsafePointer($0) }
         parameters.carry_initial_prompt = prompt != nil
-        parameters.vad = settings.voiceActivityDetection
-        parameters.vad_model_path = voiceActivityModel.flatMap { UnsafePointer($0) }
-        // Without this the toggle would silently use the library default of 0.5.
-        parameters.vad_params.threshold = settings.voiceActivityThreshold
+        parameters.skipSilences(as: settings, model: voiceActivityModel)
 
         // whisper.cpp prints to standard output otherwise; the app uses the callbacks.
         parameters.print_progress = false
@@ -348,5 +345,17 @@ nonisolated final class WhisperEngine: TranscriptionEngine, @unchecked Sendable 
             self.segment = segment
             self.cancelled = cancelled
         }
+    }
+}
+
+nonisolated extension whisper_full_params {
+    /// `model` must outlive the call these parameters are given to.
+    fileprivate mutating func skipSilences(
+        as settings: DecodingSettings, model: UnsafeMutablePointer<CChar>??
+    ) {
+        vad = settings.voiceActivityDetection
+        vad_model_path = model.flatMap { UnsafePointer($0) }
+        // Without this the toggle would silently use the library default of 0.5.
+        vad_params.threshold = settings.voiceActivityThreshold
     }
 }

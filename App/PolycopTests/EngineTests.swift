@@ -88,6 +88,9 @@ extension LoadingAModel {
         let segments = try await engine.transcribe(samples: clip, settings: settings)
         #expect(segments.map(\.text).joined().contains("Freud"))
 
+        settings.voiceActivityDetection = true
+        #expect(try await engine.language(in: clip, settings: settings) == "fr")
+
         settings.language = "en"
         #expect(try await engine.language(in: clip, settings: settings) == "en")
     }
