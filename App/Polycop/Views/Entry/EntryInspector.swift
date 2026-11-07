@@ -20,17 +20,22 @@ struct EntryInspector: View {
     @State private var picture: CGSize?
     /// Where the recording is, found once rather than at each redraw.
     @State private var source: URL?
+    @State private var height: CGFloat?
+    /// How much of the inspector's height the picture may take, to leave the
+    /// settings room at the smallest window, an upright video included.
+    private static let pictureShare = 0.55
 
     var body: some View {
         VStack(spacing: 0) {
             if let picture, let source {
                 VideoSection(
                     model: model, id: entry.id, source: source, picture: picture,
-                    resume: entry.playbackPosition ?? 0)
+                    resume: entry.playbackPosition ?? 0,
+                    tallest: height.map { $0 * Self.pictureShare })
             }
             Form {
                 if !entry.paragraphs.isEmpty {
-                    FoldingSection("Playback", section: .playback, reading: model.reading) {
+                    FoldingSection(.playback, reading: model.reading) {
                         follow
                     }
                 }
@@ -44,6 +49,11 @@ struct EntryInspector: View {
                 EntryDetails(entry: entry, reading: model.reading)
             }
             .formStyle(.grouped)
+        }
+        .onGeometryChange(for: CGFloat.self) {
+            $0.size.height
+        } action: {
+            height = $0
         }
         .task(id: entry.recording) {
             let recording = model.recording(of: entry)

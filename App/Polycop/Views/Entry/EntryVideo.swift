@@ -16,20 +16,29 @@ struct VideoSection: View {
     /// Where the reader left off, played from when nothing is open yet.
     let resume: TimeInterval
 
-    /// How far in a grouped form sets its sections, and the rows in them: the
-    /// picture lines up with the sections' edges, its title with their titles.
+    /// The most height the picture may take.
+    let tallest: CGFloat?
+
+    // What a grouped form draws, measured on macOS 26, since none of it can be
+    // asked: how far in it sets its sections, and the rows in them; the top of
+    // its first title; the gap under a title. The picture lines up with the
+    // sections' edges unless its height stops it first, the title with theirs.
     private static let formMargin: CGFloat = 10
+    private static let firstTitleTop: CGFloat = 10
+    private static let underTitle: CGFloat = 7
 
     var body: some View {
-        VStack(spacing: 7) {
-            FoldTitle("Video", section: .video, reading: model.reading)
+        VStack(spacing: Self.underTitle) {
+            FoldTitle(.video, reading: model.reading)
                 .padding(.horizontal, Self.formMargin)
             if !model.reading.foldedSections.contains(.video) {
-                EntryVideo(model: model, id: id, source: source, picture: picture, resume: resume)
+                EntryVideo(
+                    model: model, id: id, source: source, picture: picture, resume: resume,
+                    tallest: tallest)
             }
         }
         .padding(.horizontal, Self.formMargin)
-        .padding(.top, 10)
+        .padding(.top, Self.firstTitleTop)
     }
 }
 
@@ -41,11 +50,8 @@ struct EntryVideo: View {
     let source: URL
     let picture: CGSize
     let resume: TimeInterval
+    let tallest: CGFloat?
     @State private var isHovering = false
-
-    /// Short enough for an upright phone video to leave the settings under it
-    /// room, in the smallest window.
-    static let tallest: CGFloat = 320
 
     var body: some View {
         // As wide as the inspector lets it be, never setting its width: a
@@ -54,7 +60,7 @@ struct EntryVideo: View {
             if model.video.isInPictureInPicture { floating } else { shown }
         }
         .aspectRatio(picture.width / picture.height, contentMode: .fit)
-        .frame(maxWidth: Self.tallest * picture.width / picture.height)
+        .frame(maxWidth: tallest.map { $0 * picture.width / picture.height })
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .overlay(alignment: .bottomTrailing) { buttons }
         .onHover { isHovering = $0 }

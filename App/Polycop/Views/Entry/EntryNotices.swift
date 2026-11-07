@@ -163,7 +163,7 @@ struct WarningsSection: View {
 
     var body: some View {
         if !checks.isEmpty {
-            FoldingSection("Warnings", section: .warnings, reading: reading) {
+            FoldingSection(.warnings, reading: reading) {
                 ForEach(checks) { check in
                     HStack(alignment: .firstTextBaseline, spacing: Spacing.icon) {
                         Image(systemName: check.symbol)

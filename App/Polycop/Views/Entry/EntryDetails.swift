@@ -11,7 +11,8 @@ struct EntryDetails: View {
     let reading: ReadingSettings
 
     var body: some View {
-        FoldingSection("Details", section: .details, reading: reading) {
+        // Selection on the rows only: the title is a button.
+        FoldingSection(.details, reading: reading) {
             rows.textSelection(.enabled)
         }
     }

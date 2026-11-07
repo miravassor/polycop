@@ -45,10 +45,15 @@ import Testing
     #expect(next.foldedSections == [.warnings, .video])
 }
 
-/// The key is written out, as above; a section a later version removes is ignored.
+/// The key and the names are written out, as above; a section a later version
+/// removes is ignored.
 @MainActor
-@Test func readingSettingsIgnoreASectionTheyDoNotKnow() {
+@Test func readingSettingsReadTheFoldedSections() {
     let defaults = MemoryDefaults()
-    defaults.set(["video", "gone"], forKey: "foldedInspectorSections")
-    #expect(ReadingSettings(defaults: defaults).foldedSections == [.video])
+    defaults.set(
+        ["video", "playback", "export", "warnings", "details", "gone"],
+        forKey: "foldedInspectorSections")
+    #expect(
+        ReadingSettings(defaults: defaults).foldedSections
+            == [.video, .playback, .export, .warnings, .details])
 }

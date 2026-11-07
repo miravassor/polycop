@@ -14,7 +14,7 @@ struct EntryExportSection: View {
 
     var body: some View {
         if !isRunning && !entry.paragraphs.isEmpty {
-            FoldingSection("Export", section: .export, reading: model.reading) {
+            FoldingSection(.export, reading: model.reading) {
                 Picker(
                     "Format",
                     selection: Binding(
