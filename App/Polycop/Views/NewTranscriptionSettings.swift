@@ -50,7 +50,6 @@ struct NewTranscriptionSettings: View {
     /// The language spoken, for a model that is told it.
     @ViewBuilder private var language: some View {
         if model.languageApplies {
-            let current = DecodingSettings.languages.first { $0.code == model.language }
             LabeledContent {
                 // A menu as the rows beside it, which end with Manage….
                 Menu {
@@ -64,12 +63,14 @@ struct NewTranscriptionSettings: View {
                     .pickerStyle(.inline)
                     .labelsHidden()
                 } label: {
-                    Text(current.map { LocalizedStringKey($0.name) } ?? "Automatic")
+                    Text(
+                        DecodingSettings.name(of: model.language).map { LocalizedStringKey($0) }
+                            ?? "Automatic")
                 }
                 .fixedSize()
             } label: {
                 Text("Language")
-                if !Hesitations.cover(model.language) {
+                if !Hesitations.cover(model.toldLanguage) {
                     Text("Some automatic cleaning covers only French and English.")
                 }
             }

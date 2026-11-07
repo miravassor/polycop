@@ -318,7 +318,7 @@ extension AppModel {
                 let total = Double(transcription.samples.count) / Double(AudioDecoder.sampleRate)
                 let from = kept.last?.end ?? 0
                 if !kept.isEmpty {
-                    updateEntry(id) { $0.resumedAt = ($0.resumedAt ?? []) + [from] }
+                    try await markResume(of: id, at: from, in: samples, on: engine, &settings)
                 }
                 stage = .transcribing(total > 0 ? from / total : 0)
                 let saving = saveProgress(of: id, job: number) { kept + collected.withLock { $0 } }
@@ -375,6 +375,16 @@ extension AppModel {
                 finish()
             }
         }
+    }
+
+    /// Says where the transcript resumes. What is left is read in the language
+    /// the engine decides for the whole recording, not for that part of it.
+    private func markResume(
+        of id: Entry.ID, at from: TimeInterval, in samples: [Float],
+        on engine: any TranscriptionEngine, _ settings: inout DecodingSettings
+    ) async throws {
+        updateEntry(id) { $0.resumedAt = ($0.resumedAt ?? []) + [from] }
+        settings.language = try await engine.language(in: samples, settings: settings)
     }
 
     /// Adds what this run took to the time already spent on the entry, so a

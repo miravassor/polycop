@@ -126,65 +126,37 @@ nonisolated final class WhisperEngine: TranscriptionEngine, @unchecked Sendable 
         }
     }
 
-    /// The stretches of speech the detector hears, in seconds. Asked of the
-    /// detector rather than read from the context, which keeps the previous
-    /// recording's stretches when it finds none (`whisper_vad`, v1.9.4).
-    ///
-    /// An empty result means it heard no speech. A detector that cannot run
-    /// throws instead of reporting silence, since silence would wrongly claim
-    /// the whole recording was left out of the transcript.
-    static func speech(in samples: [Float], settings: DecodingSettings) async throws
-        -> [ClosedRange<TimeInterval>]
-    {
-        // The detector has no abort callback, so a stop is honoured before it starts.
-        try Task.checkCancellation()
-        return try await detectingQueue.run { try detectSpeech(samples, settings) }
+    func language(in samples: [Float], settings: DecodingSettings) async throws -> String {
+        guard settings.language == DecodingSettings.automaticLanguage, !samples.isEmpty else {
+            return settings.language
+        }
+        return try await queue.run { try self.detectLanguage(samples, settings) }
     }
 
-    private static let detectingQueue = DispatchQueue(
-        label: "io.github.miravassor.Polycop.detector", qos: .userInitiated)
-
-    private static func detectSpeech(_ samples: [Float], _ settings: DecodingSettings)
-        throws -> [ClosedRange<TimeInterval>]
-    {
-        // One thread: the detector reads the audio in small steps, each
-        // waiting on the last, so more threads mostly spin while they wait,
-        // which costs most when other work holds the cores. The stretches
-        // found are the same.
-        var context = whisper_vad_default_context_params()
-        context.n_threads = 1
-        guard let model = settings.voiceActivityModel,
-            let detector = whisper_vad_init_from_file_with_params(
-                model.path(percentEncoded: false), context)
-        else {
-            Log.transcription.error("the silence detector could not be opened")
-            throw TranscriptionError.detectorUnavailable
+    /// The decision a run makes first, on what that run hears, silences skipped
+    /// or not. Told to detect, whisper.cpp stops there (`whisper_full_with_state`,
+    /// v1.9.4).
+    private func detectLanguage(_ samples: [Float], _ settings: DecodingSettings) throws -> String {
+        guard isUsable else { throw TranscriptionError.failed(Self.cacheAllocationFailed) }
+        var parameters = whisper_full_default_params(WHISPER_SAMPLING_GREEDY)
+        parameters.detect_language = true
+        parameters.n_threads = settings.threads
+        let voiceActivityModel = settings.voiceActivityModel.map {
+            strdup($0.path(percentEncoded: false))
         }
-        defer { whisper_vad_free(detector) }
-
-        var parameters = whisper_vad_default_params()
-        parameters.threshold = settings.voiceActivityThreshold
-        guard
-            let found = samples.withUnsafeBufferPointer({
-                whisper_vad_segments_from_samples(
-                    detector, parameters, $0.baseAddress, Int32($0.count))
-            })
-        else {
-            Log.transcription.error("the silence detector failed on this recording")
-            throw TranscriptionError.detectorUnavailable
+        defer { voiceActivityModel.map { free($0) } }
+        parameters.vad = settings.voiceActivityDetection
+        parameters.vad_model_path = voiceActivityModel.flatMap { UnsafePointer($0) }
+        parameters.vad_params.threshold = settings.voiceActivityThreshold
+        let code = samples.withUnsafeBufferPointer {
+            whisper_full(context, parameters, $0.baseAddress, Int32($0.count))
         }
-        defer { whisper_vad_free_segments(found) }
-
-        // Counted in hundredths of a second, like segment times. The model also
-        // hears `samples_overlap` past each stretch but the last, which
-        // whisper.cpp adds when joining them.
-        let count = whisper_vad_segments_n_segments(found)
-        let overlap = TimeInterval(parameters.samples_overlap)
-        return (0..<count).map { index in
-            let start = TimeInterval(whisper_vad_segments_get_segment_t0(found, index)) / 100
-            let end = TimeInterval(whisper_vad_segments_get_segment_t1(found, index)) / 100
-            return start...max(start, end + (index < count - 1 ? overlap : 0))
+        guard code == 0 else {
+            if code == Self.cacheAllocationFailed { isBroken.withLock { $0 = true } }
+            throw TranscriptionError.failed(code)
         }
+        return whisper_lang_str(whisper_full_lang_id(context)).map { String(cString: $0) }
+            ?? settings.language
     }
 
     /// The blocking call, on the queue. Handlers reach the C callbacks through

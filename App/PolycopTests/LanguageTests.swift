@@ -2,8 +2,113 @@
 
 import Foundation
 import Testing
+import os
 
 @testable import Polycop
+
+private let clip = URL(filePath: #filePath)
+    .deletingLastPathComponent()
+    .appending(path: "Fixtures/formats/clip.wav")
+
+/// Decides on German when asked to detect, and keeps the language of each call.
+private nonisolated final class DetectingEngine: TranscriptionEngine {
+    private let asked = OSAllocatedUnfairLock(initialState: [String]())
+    var languages: [String] { asked.withLock { $0 } }
+
+    func language(in samples: [Float], settings: DecodingSettings) async throws -> String {
+        settings.language == DecodingSettings.automaticLanguage ? "de" : settings.language
+    }
+
+    func transcribe(
+        samples: [Float], settings: DecodingSettings, from start: TimeInterval,
+        onProgress: @escaping @Sendable (Double) -> Void,
+        onSegment: @escaping @Sendable (Segment) -> Void
+    ) async throws -> [Segment] {
+        asked.withLock { $0.append(settings.language) }
+        let segment = Segment(start: start, end: start + 0.25, text: "Guten Tag.")
+        onSegment(segment)
+        return [segment]
+    }
+
+    func drain() async {}
+}
+
+/// A model and a recording's transcript on Automatic, stopped with `segments`.
+@MainActor
+private func automatic(
+    with segments: [Segment], on engine: DetectingEngine, in folder: URL
+) throws -> (model: AppModel, id: Entry.ID) {
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    let recording = folder.appending(path: "lecture.wav")
+    try FileManager.default.copyItem(at: clip, to: recording)
+    var entry = Entry(
+        recording: recording, modelFile: ModelCatalog.recommended.id, glossary: nil,
+        skipsSilence: false, subtitles: false, language: DecodingSettings.automaticLanguage)
+    entry.publish(segments, partial: true)
+    entry.state = .stopped
+    let history = folder.appending(path: "History")
+    try HistoryStore.write(entry, in: history)
+    let engines = Engines(
+        installed: { [ModelCatalog.recommended.id] }, open: { _, _ in engine },
+        speech: { samples, _ in [0...Double(samples.count) / Double(AudioDecoder.sampleRate)] })
+    return (AppModel(history: history, engines: engines), entry.id)
+}
+
+@MainActor
+private func until(_ condition: () -> Bool) async throws {
+    for _ in 0..<2000 where !condition() {
+        try await Task.sleep(for: .milliseconds(5))
+    }
+    #expect(condition())
+}
+
+/// A part of a recording on Automatic is read in the language decided for the
+/// whole, and the transcript keeps saying Automatic.
+@Test @MainActor func aResumeOnAutomaticKeepsTheDecisionForTheWhole() async throws {
+    let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let engine = DetectingEngine()
+    let first = Segment(start: 0, end: 0.25, text: "Guten Morgen.")
+    let (model, id) = try automatic(with: [first], on: engine, in: folder)
+
+    model.resumeStopped(id)
+    try await until { !model.hasWork && !model.stage.isBusy }
+
+    #expect(engine.languages == ["de"])
+    #expect(model.entry(id)?.language == DecodingSettings.automaticLanguage)
+    await model.shutDown()
+}
+
+@Test @MainActor func aRepairOnAutomaticKeepsTheDecisionForTheWhole() async throws {
+    let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let engine = DetectingEngine()
+    let loop = (0..<12).map {
+        Segment(start: Double($0) * 0.25, end: Double($0 + 1) * 0.25, text: "Danke.")
+    }
+    let (model, id) = try automatic(with: loop, on: engine, in: folder)
+
+    model.repairRepeats(id)
+    try await until { !model.stage.isBusy }
+
+    #expect(engine.languages == ["de"])
+    await model.shutDown()
+}
+
+/// A run from the start leaves the decision to the run itself.
+@Test @MainActor func aRunFromTheStartOnAutomaticAsksTheModelToDetect() async throws {
+    let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let engine = DetectingEngine()
+    let (model, id) = try automatic(with: [], on: engine, in: folder)
+
+    model.retry(id)
+    model.start()
+    try await until { !model.hasWork && !model.stage.isBusy }
+
+    #expect(engine.languages == [DecodingSettings.automaticLanguage])
+    await model.shutDown()
+}
 
 /// A language shows only beside a model told it, before a start and after.
 @Test(arguments: [

@@ -18,6 +18,11 @@ nonisolated protocol TranscriptionEngine: AnyObject, Sendable {
         onSegment: @escaping @Sendable (Segment) -> Void
     ) async throws -> [Segment]
 
+    /// The language to read part of a recording in, given all its samples. An
+    /// engine that decides once for a recording decides here as it did on the
+    /// whole, rather than on a part that may be a quotation or a loop.
+    func language(in samples: [Float], settings: DecodingSettings) async throws -> String
+
     /// Returns once every call already queued has ended and let go of the
     /// engine, so that releasing the caller's reference frees it at once.
     func drain() async
@@ -29,6 +34,10 @@ nonisolated protocol TranscriptionEngine: AnyObject, Sendable {
 
 nonisolated extension TranscriptionEngine {
     func promptTokenCount(of prompt: String) async -> Int? { nil }
+
+    func language(in samples: [Float], settings: DecodingSettings) async throws -> String {
+        settings.language
+    }
 
     static func firstSample(at start: TimeInterval, count: Int) throws -> Int {
         guard start.isFinite else { throw TranscriptionError.invalidStart }

@@ -12,8 +12,10 @@ nonisolated struct DecodingSettings: Equatable, Sendable {
     var language = "fr"
 
     /// The model detects the language. This is the word whisper.cpp takes for it
-    /// (`whisper_full_with_state`, v1.9.4): it decides once, from the first 30
-    /// seconds it is given. Qwen is told nothing, and decides for each window.
+    /// (`whisper_full_with_state`, v1.9.4): it decides from the first 30 seconds
+    /// it is given, so `TranscriptionEngine.language` keeps that one decision
+    /// across a resume or a repair. Qwen is told nothing, and decides for each
+    /// window.
     static let automaticLanguage = "auto"
 
     /// What the window offers beside automatic. These are the languages on
@@ -26,6 +28,11 @@ nonisolated struct DecodingSettings: Equatable, Sendable {
         ("ja", "Japanese"), ("ko", "Korean"), ("pt", "Portuguese"), ("ru", "Russian"),
         ("es", "Spanish"),
     ]
+
+    /// The word for a code on the list, which automatic is not.
+    static func name(of code: String) -> String? {
+        languages.first { $0.code == code }?.name
+    }
 
     static func offers(_ code: String) -> Bool {
         code == automaticLanguage || languages.contains { $0.code == code }

@@ -127,8 +127,8 @@ struct StartBar: View {
     }
 
     private static func name(ofLanguage code: String) -> String {
-        DecodingSettings.languages.first { $0.code == code }
-            .map { String(localized: String.LocalizationValue($0.name)) } ?? code
+        DecodingSettings.name(of: code).map { String(localized: String.LocalizationValue($0)) }
+            ?? code
     }
 
     @ViewBuilder private var button: some View {

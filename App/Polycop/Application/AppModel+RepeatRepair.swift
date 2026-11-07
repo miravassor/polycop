@@ -64,19 +64,19 @@ extension AppModel {
                 guard isCurrent(number) else { return }
 
                 await limitContextToGlossary(&settings, of: id, on: engine)
+                settings.language = try await engine.language(in: samples, settings: settings)
                 // A stop during that wait has already set the stage.
                 try Task.checkCancellation()
                 guard isCurrent(number) else { return }
                 var repaired = segments
                 var speech = entry.speech
-                let duration =
-                    entry.duration ?? Double(samples.count) / Double(AudioDecoder.sampleRate)
+                let rate = Double(AudioDecoder.sampleRate)
+                let duration = entry.duration ?? Double(samples.count) / rate
                 stage = .repairing(0)
                 // From the end, so the ranges still ahead keep their indices.
                 for (done, range) in ranges.reversed().enumerated() {
                     let from = segments[range.lowerBound].start
                     let to = segments[range.upperBound].end
-                    let rate = Double(AudioDecoder.sampleRate)
                     let firstSample = max(0, min(samples.count, Int(from * rate)))
                     let lastSample = min(samples.count, Int(to * rate))
                     guard firstSample < lastSample else { continue }

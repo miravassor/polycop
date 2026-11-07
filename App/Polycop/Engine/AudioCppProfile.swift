@@ -26,7 +26,7 @@ nonisolated struct AudioCppProfile: Sendable {
     /// than exactly at it.
     let cutsAtSilence: Bool
     let feed: Feed
-    /// Qwen is told the language. The others detect it, and MOSS refuses an
+    /// Qwen can be told the language. The others detect it, and MOSS refuses an
     /// option it does not declare.
     let setsLanguage: Bool
     /// MOSS reads the glossary as hotwords appended to its own instruction.

@@ -113,7 +113,8 @@ final class AppModel {
     var skipsSilence = false {
         didSet { defaults.set(skipsSilence, forKey: Self.skipsSilenceKey) }
     }
-    /// The language spoken in the recordings that have not started.
+    /// The language spoken in the recordings that have not started, or
+    /// `DecodingSettings.automaticLanguage`.
     var language = "fr" {
         didSet { defaults.set(language, forKey: Self.languageKey) }
     }

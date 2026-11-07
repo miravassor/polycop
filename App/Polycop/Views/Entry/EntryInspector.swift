@@ -41,7 +41,7 @@ struct EntryInspector: View {
                     isRunning: isRunning, engine: engine
                 ).all,
                 reading: model.reading)
-            EntryDetails(entry: entry, engine: engine)
+            EntryDetails(entry: entry)
         }
         .formStyle(.grouped)
         .task(id: entry.recording) {
