@@ -311,6 +311,24 @@ final class WordTextView: NSTextView {
         return super.canBecomeKeyView
     }
 
+    /// Whether AppKit is resizing this view, which is when it scrolls to keep the
+    /// selection in view, on its own.
+    private var isResizing = false
+
+    override func setFrameSize(_ size: NSSize) {
+        isResizing = true
+        defer { isResizing = false }
+        super.setFrameSize(size)
+    }
+
+    /// Resizing only scrolls the paragraph being edited. Any other at the foot of
+    /// the page, made wider or narrower by the window or the scroll bar, pulled
+    /// the whole text up by a few points to show a cursor nobody uses.
+    override func scrollToVisible(_ rect: NSRect) -> Bool {
+        guard !isResizing || window?.firstResponder === self else { return false }
+        return super.scrollToVisible(rect)
+    }
+
     /// Plays from the word at a character index; false when no word is there.
     var playFromCharacter: ((Int) -> Bool)?
 
