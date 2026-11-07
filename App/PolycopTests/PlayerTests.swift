@@ -2,6 +2,7 @@
 
 import AppKit
 import Foundation
+import SwiftUI
 import Testing
 
 @testable import Polycop
@@ -359,4 +360,30 @@ func onlyAVideoAVFoundationPlaysHasAPicture(name: String, hasPicture: Bool) asyn
     }
     #expect(player.isPlaying)
     #expect(playing.defaultRate == 1.5)
+}
+
+/// The page stops following only while a recording is open, since otherwise
+/// the way back would lead nowhere and Play would leave the page behind.
+@MainActor
+@Test func thePageStopsFollowingOnlyWhileARecordingIsOpen() async throws {
+    let player = Player(defaults: Settings())
+    defer { player.stop() }
+    var isSuspended = false
+    func page(following: Following) -> PageNavigation {
+        PageNavigation(
+            activeParagraph: .constant(nil), jump: .constant(nil),
+            isFollowSuspended: Binding(
+                get: { isSuspended },
+                set: { isSuspended = $0 }),
+            following: following, player: player)
+    }
+
+    page(following: .page).suspendFollowing()
+    #expect(!isSuspended)
+
+    try await open(player)
+    page(following: .off).suspendFollowing()
+    #expect(!isSuspended)
+    page(following: .page).suspendFollowing()
+    #expect(isSuspended)
 }

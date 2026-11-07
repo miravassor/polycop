@@ -25,7 +25,6 @@ struct PolycopApp: App {
         if let version = Bundle.main.shortVersion {
             LibrarySnapshots.take(before: version, in: Self.library.deletingLastPathComponent())
         }
-        Following.adoptEarlierSetting(in: Self.settings)
         _model = State(
             initialValue: AppModel(
                 history: Self.library, glossaries: Self.glossaries,
@@ -161,7 +160,7 @@ struct PolycopApp: App {
                     .keyboardShortcut("s")
                     .disabled(openTranscript == nil)
             }
-            PlaybackCommands()
+            PlaybackCommands(reading: model.reading)
             // Show and hide the library, with Control-Command-S, and the
             // inspector, with Control-Command-I.
             SidebarCommands()
@@ -327,7 +326,8 @@ private struct UpdateSettings: View {
 }
 
 /// How playback helps correcting: a step back on resume, a pause while typing
-/// and a resume once typing stops. Following is chosen beside the player.
+/// and a resume once typing stops. Following is chosen in the Text and
+/// Playback menus.
 private struct PlaybackSettings: View {
     @AppStorage(Player.resumeRewindKey) private var resumeRewind = Player.defaultResumeRewind
     @AppStorage(Player.pausesWhileTypingKey) private var pausesWhileTyping = true

@@ -11,6 +11,7 @@ import Testing
     #expect(settings.textSize == ReadingSettings.defaultTextSize)
     #expect(!settings.isComparing)
     #expect(settings.showsUncertainWords)
+    #expect(settings.following == .page)
     #expect(settings.foldedSections.isEmpty)
 }
 
@@ -21,10 +22,30 @@ import Testing
     defaults.set(18.0, forKey: "transcriptTextSize")
     defaults.set(true, forKey: "comparesOriginal")
     defaults.set(false, forKey: "showsUncertainWords")
+    defaults.set("off", forKey: "followPlayback")
     let settings = ReadingSettings(defaults: defaults)
     #expect(settings.textSize == 18)
     #expect(settings.isComparing)
     #expect(!settings.showsUncertainWords)
+    #expect(settings.following == .off)
+}
+
+/// The cursor setting of 0.4.0, when it was on, becomes the cursor choice, and
+/// a choice made since is kept.
+@MainActor
+@Test func followingStartsFromTheEarlierCursorSetting() {
+    let earlier = MemoryDefaults()
+    earlier.set(true, forKey: "cursorFollowsPlayback")
+    #expect(ReadingSettings(defaults: earlier).following == .cursor)
+
+    let chosen = MemoryDefaults()
+    chosen.set(true, forKey: "cursorFollowsPlayback")
+    chosen.set("off", forKey: "followPlayback")
+    #expect(ReadingSettings(defaults: chosen).following == .off)
+
+    let left = MemoryDefaults()
+    left.set(false, forKey: "cursorFollowsPlayback")
+    #expect(ReadingSettings(defaults: left).following == .page)
 }
 
 @MainActor
@@ -34,6 +55,7 @@ import Testing
     settings.textSize = 20
     settings.isComparing = true
     settings.showsUncertainWords = false
+    settings.following = .cursor
     settings.toggleFold(of: .warnings)
     settings.toggleFold(of: .video)
     settings.toggleFold(of: .details)
@@ -42,6 +64,7 @@ import Testing
     #expect(next.textSize == 20)
     #expect(next.isComparing)
     #expect(!next.showsUncertainWords)
+    #expect(next.following == .cursor)
     #expect(next.foldedSections == [.warnings, .video])
 }
 
@@ -51,9 +74,9 @@ import Testing
 @Test func readingSettingsReadTheFoldedSections() {
     let defaults = MemoryDefaults()
     defaults.set(
-        ["video", "playback", "export", "warnings", "details", "gone"],
+        ["video", "export", "warnings", "details", "gone"],
         forKey: "foldedInspectorSections")
     #expect(
         ReadingSettings(defaults: defaults).foldedSections
-            == [.video, .playback, .export, .warnings, .details])
+            == [.video, .export, .warnings, .details])
 }

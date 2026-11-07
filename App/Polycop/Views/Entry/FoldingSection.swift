@@ -48,7 +48,6 @@ extension InspectorSection {
     fileprivate var title: LocalizedStringKey {
         switch self {
         case .video: "Video"
-        case .playback: "Playback"
         case .export: "Export"
         case .warnings: "Warnings"
         case .details: "Details"

@@ -32,6 +32,8 @@ struct TranscriptView: View {
     let suspendForEditing: () -> Void
     /// A paragraph to show at once, chosen on the timeline below.
     @Binding var jump: Int?
+    /// A paragraph to bring to the top, even if it is in view.
+    @Binding var showAtTop: Int?
     /// The paragraph to open on, where the reader left the transcript.
     let start: Int?
     /// Told which paragraph is at the top of the page as the reader scrolls.
@@ -48,6 +50,7 @@ struct TranscriptView: View {
     /// The timed words of each paragraph, empty for an engine that times none.
     let words: [[Segment.Word]]
     let showsUncertainWords: Bool
+    let cursorFollows: Bool
 
     /// The width of the column of times, shared with the headers above, so
     /// that each heading sits over its own text.
@@ -115,6 +118,11 @@ struct TranscriptView: View {
                         scroll(to: paragraph, in: view, height: visibleHeight(viewport))
                         jump = nil
                     }
+                    .onChange(of: showAtTop) { _, paragraph in
+                        guard let paragraph else { return }
+                        scrollToTop(paragraph, in: view)
+                        showAtTop = nil
+                    }
                 }
             }
         }
@@ -128,6 +136,10 @@ struct TranscriptView: View {
     private func scroll(to paragraph: Int, in view: ScrollViewProxy, height: CGFloat) {
         let frame = frames.values[paragraph]
         guard TranscriptNavigation.needsScroll(frame: frame, height: height) else { return }
+        scrollToTop(paragraph, in: view)
+    }
+
+    private func scrollToTop(_ paragraph: Int, in view: ScrollViewProxy) {
         withAnimation(reducesMotion ? nil : .easeInOut(duration: 0.24)) {
             view.scrollTo(paragraph, anchor: .top)
         }
@@ -163,7 +175,8 @@ struct TranscriptView: View {
             matches: matches.filter { $0.paragraph == index }.map(\.range),
             currentMatch: currentMatch?.paragraph == index ? currentMatch?.range : nil,
             words: index < words.count ? words[index] : [],
-            showsUncertainWords: showsUncertainWords, timeColumnWidth: timeColumnWidth,
+            showsUncertainWords: showsUncertainWords, cursorFollows: cursorFollows,
+            timeColumnWidth: timeColumnWidth,
             play: play, edit: edit, typing: typing, hover: hover, activate: activate,
             suspendForEditing: suspendForEditing, toggleReview: toggleReview)
     }

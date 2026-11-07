@@ -10,7 +10,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 * A class recorded as a video, such as a Zoom or Teams recording in MP4 or MOV, shows its picture beside the transcript and plays with the same player and shortcuts. A click on the picture plays or pauses. A video that macOS cannot play, such as WebM or MKV, still plays its sound.
 * Picture in Picture and full screen, from the buttons on the picture's corner or its menu. A double click fills the screen, and Esc leaves it.
 * Copy Frame, in the video's menu, copies the picture on screen, to paste a slide into notes.
-* An inspector beside the transcript holds the video, Follow, the export settings and the transcription details. Each section folds by its title, and stays as you left it. Control-Command-I shows and hides it, and Control-Command-S the library.
+* An inspector beside the transcript holds the video, the export settings and the transcription details. Each section folds by its title, and stays as you left it. Control-Command-I shows and hides it, and Control-Command-S the library.
 * A transcript that cannot be opened, because it needs a newer Polycop or its file is damaged, stays in the library with a warning beside its name, and nothing can change it. Its page says what to do. So opening your library with an earlier version no longer risks what a later one stored, from this version on.
 * Pause Transcription and Stop Transcription in the File menu, and Replay Passage and Stop in the Playback menu.
 * More languages to transcribe: Arabic, Chinese, Dutch, German, Hindi, Italian, Japanese, Korean, Portuguese, Russian and Spanish. Remove filler words stays with French and English, since "um" is a word in German and Portuguese.
@@ -33,7 +33,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 * Models, Glossaries and Find Terms in Documents, formerly Terms from Documents, are laid out like the rest of the app. Find Terms starts as soon as documents are chosen.
 * A transcript being transcribed shows its progress above its text, with Pause, Resume and Stop. A transcript with no text yet says why and offers the button that moves it on.
 * Recordings added while another is transcribed no longer wait for the whole queue: Add to Queue puts them behind the one running.
-* Follow, in the inspector, offers Off, Page, or Page and Cursor, and Page is on from the start. With Page and Cursor, clicking or typing in the text no longer stops the page from following. It needs a transcript with word timings.
+* Follow, in the toolbar's Text menu and the Playback menu, offers Off, Page, or Page and Cursor, and Page is on from the start. With Page and Cursor, clicking or typing in the text no longer stops the page from following. It needs a transcript with word timings. Once you scroll away, Return to Playback (⌥⌘L), above the player and in the Playback menu, brings the paragraph playing to the top.
 * Export… (⌘S) makes a new file each time and always asks where. The format and its options are set in the inspector, and a new transcript starts from the format chosen last. Subtitles (SRT) is a format of its own, for a model that times its sentences, rather than a file beside the text.
 * The page's tools are in the toolbar, in one group with no title beside them, so they fit above the text of a split screen window. The window is named after the open transcript in the Window menu.
 * The text keeps a reading width of about 75 characters a line, so a wide window adds margins.
@@ -43,7 +43,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 ### Removed
 
 * Update Export and "needs updating". Corrections are saved in the library, so an export is a copy made when you need one.
-* The Follow playback checkbox and the cursor setting in Settings, replaced by Follow in the inspector.
+* The Follow playback checkbox and the cursor setting in Settings, replaced by Follow in the Text and Playback menus.
 * The export options popover, replaced by the inspector's Export section.
 
 ### Fixed

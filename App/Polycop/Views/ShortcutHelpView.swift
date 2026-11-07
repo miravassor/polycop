@@ -18,6 +18,7 @@ struct ShortcutHelpView: View {
                 shortcut("Play previous paragraph", "⌥⌘↑")
                 shortcut("Play from a word", "⌥ Click")
                 shortcut("Play from the text cursor", "⌥⌘P")
+                shortcut("Return to playback", "⌥⌘L")
                 shortcut("Undo typing in the active paragraph", "⌘Z")
                 shortcut("Smaller text", "⌘−")
                 shortcut("Larger text", "⌘+")
