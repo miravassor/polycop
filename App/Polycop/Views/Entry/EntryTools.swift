@@ -29,6 +29,8 @@ struct EntryTools: View {
         var canUndo: Bool
         var isEdited: Bool
         var hasRecording: Bool
+        /// Whether any word has a time, which the cursor needs to follow.
+        var hasTimedWords: Bool
         var hasExport: Bool
         var isRunning: Bool
 
@@ -107,7 +109,7 @@ private struct FindToggle: View {
     }
 }
 
-/// Finding, the text's size and the last correction.
+/// Finding, the text's size, following and the last correction.
 private struct TextMenu: View {
     let model: AppModel
     let id: Entry.ID
@@ -139,10 +141,12 @@ private struct TextMenu: View {
             Button("Larger Text") { reading.textSize = min(28, reading.textSize + 1) }
                 .keyboardShortcut("+")
                 .disabled(reading.textSize >= 28)
+            Divider()
+            FollowChoice(reading: reading, hasTimedWords: facts.hasTimedWords)
         } label: {
             Label("Text", systemImage: "textformat.size")
         }
         .menuIndicator(.hidden)
-        .help("Text size and correction history")
+        .help("Text size, following and correction history")
     }
 }

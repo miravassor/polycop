@@ -16,14 +16,14 @@ nonisolated enum Following: String, CaseIterable {
     /// The cursor setting of 0.4.0, which Settings held on its own.
     static let cursorKey = "cursorFollowsPlayback"
 
-    /// Starts from the cursor setting of 0.4.0 when it was on.
-    static func adoptEarlierSetting(in defaults: UserDefaults) {
-        guard defaults.object(forKey: key) == nil,
-            defaults.object(forKey: cursorKey) as? Bool == true
-        else {
-            return
+    /// What the reader chose, which starts from the cursor setting of 0.4.0
+    /// when it was on.
+    init(stored defaults: UserDefaults) {
+        if let chosen = defaults.string(forKey: Self.key).flatMap(Following.init(rawValue:)) {
+            self = chosen
+        } else {
+            self = defaults.bool(forKey: Self.cursorKey) ? .cursor : .page
         }
-        defaults.set(Following.cursor.rawValue, forKey: key)
     }
 
     /// Whether a click or typing in the text stops the scrolling. With the
@@ -45,7 +45,10 @@ struct Follow: View {
     let starts: [TimeInterval]
     let isEnabled: Bool
     let update: (Int?) -> Void
+    /// Keeps the paragraph playing in view as playback reaches it.
     let scroll: (Int) -> Void
+    /// Brings it to the top when following starts again, even if it was in view.
+    let resume: (Int) -> Void
 
     var body: some View {
         Color.clear
@@ -58,7 +61,7 @@ struct Follow: View {
             }
             .onChange(of: isEnabled) { _, on in
                 guard on, let paragraph = playing else { return }
-                scroll(paragraph)
+                resume(paragraph)
             }
     }
 

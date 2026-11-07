@@ -77,23 +77,19 @@ import Testing
         #expect(TranscriptNavigation.isAtTop(row(0, 100), spacing: 20))
     }
 
-    /// The cursor setting of 0.4.0, when it was on, becomes the cursor choice,
-    /// and a choice made since is kept.
-    @Test func followingStartsFromTheEarlierCursorSetting() {
-        let earlier = MemoryDefaults()
-        earlier.set(true, forKey: Following.cursorKey)
-        Following.adoptEarlierSetting(in: earlier)
-        #expect(earlier.object(forKey: Following.key) as? String == Following.cursor.rawValue)
-
-        let chosen = MemoryDefaults()
-        chosen.set(true, forKey: Following.cursorKey)
-        chosen.set(Following.off.rawValue, forKey: Following.key)
-        Following.adoptEarlierSetting(in: chosen)
-        #expect(chosen.object(forKey: Following.key) as? String == Following.off.rawValue)
-
-        let fresh = MemoryDefaults()
-        Following.adoptEarlierSetting(in: fresh)
-        #expect(fresh.object(forKey: Following.key) == nil)
+    /// Follow and the way back stay in reach with the toolbar hidden; with
+    /// nothing open, as in the test host, the way back leads nowhere.
+    @MainActor
+    @Test func thePlaybackMenuHoldsFollowAndTheWayBack() throws {
+        let menu = try #require(NSApp.mainMenu?.item(withTitle: "Playback")?.submenu)
+        menu.update()
+        for choice in Following.allCases {
+            #expect(menu.item(withTitle: choice.name) != nil)
+        }
+        let back = try #require(menu.item(withTitle: "Return to Playback"))
+        #expect(!back.isEnabled)
+        #expect(back.keyEquivalent == "l")
+        #expect(back.keyEquivalentModifierMask == [.command, .option])
     }
 
     /// Following the cursor is for editing, so a click in the text no longer

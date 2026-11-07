@@ -48,6 +48,7 @@ struct TranscriptView: View {
     /// The timed words of each paragraph, empty for an engine that times none.
     let words: [[Segment.Word]]
     let showsUncertainWords: Bool
+    let cursorFollows: Bool
 
     /// The width of the column of times, shared with the headers above, so
     /// that each heading sits over its own text.
@@ -97,10 +98,12 @@ struct TranscriptView: View {
                                 // A click holds the cursor in its paragraph,
                                 // not for the rest of the recording.
                                 WordTextView.holdsCursor = false
-                            }
-                        ) { paragraph in
-                            scroll(to: paragraph, in: view, height: visibleHeight(viewport))
-                        }
+                            },
+                            scroll: { paragraph in
+                                scroll(to: paragraph, in: view, height: visibleHeight(viewport))
+                            },
+                            resume: { showAtTop($0, in: view) }
+                        )
                     }
                     .onAppear {
                         // A cursor lost on another transcript's page is not
@@ -128,6 +131,10 @@ struct TranscriptView: View {
     private func scroll(to paragraph: Int, in view: ScrollViewProxy, height: CGFloat) {
         let frame = frames.values[paragraph]
         guard TranscriptNavigation.needsScroll(frame: frame, height: height) else { return }
+        showAtTop(paragraph, in: view)
+    }
+
+    private func showAtTop(_ paragraph: Int, in view: ScrollViewProxy) {
         withAnimation(reducesMotion ? nil : .easeInOut(duration: 0.24)) {
             view.scrollTo(paragraph, anchor: .top)
         }
@@ -163,7 +170,8 @@ struct TranscriptView: View {
             matches: matches.filter { $0.paragraph == index }.map(\.range),
             currentMatch: currentMatch?.paragraph == index ? currentMatch?.range : nil,
             words: index < words.count ? words[index] : [],
-            showsUncertainWords: showsUncertainWords, timeColumnWidth: timeColumnWidth,
+            showsUncertainWords: showsUncertainWords, cursorFollows: cursorFollows,
+            timeColumnWidth: timeColumnWidth,
             play: play, edit: edit, typing: typing, hover: hover, activate: activate,
             suspendForEditing: suspendForEditing, toggleReview: toggleReview)
     }

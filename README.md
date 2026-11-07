@@ -71,12 +71,13 @@ unless they agree to more.
 * **Audio player** made for proofreading, floating at the foot of the text:
   the previous and next paragraph either side of 5 seconds back and on, a
   timeline with the paragraphs, and playback speed. The inspector beside the
-  text (Control-Command-I, resizable by its edge) holds the video, Follow and
-  export, each folding by its title. Follow scrolls the page with playback
-  (Page), or also takes the text cursor along with the word heard (Page and
-  Cursor), so the next
-  correction is typed where the audio is. Scrolling away pauses it until
-  Return to playback. Space plays and pauses when you are
+  text (Control-Command-I, resizable by its edge) holds the video and export,
+  each folding by its title. Follow, in the Text and Playback menus, scrolls
+  the page with playback (Page), or also takes the text cursor along with the
+  word heard (Page and Cursor), so the next correction is typed where the audio
+  is. Scrolling away pauses it until Return to Playback (Option-Command-L),
+  above the player and in the Playback menu, brings the paragraph playing to the
+  top. Space plays and pauses when you are
   not typing, and Esc leaves the text. The keyboard media keys, Control Center
   and headphone buttons control it too. It pauses when the Mac goes to sleep or
   when the headphones it plays through disconnect.
