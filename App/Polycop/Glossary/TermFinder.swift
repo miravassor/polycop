@@ -19,6 +19,7 @@ struct TermFinder: View {
     @State private var searching = false
     @State private var search: Task<Void, Never>?
     @State private var problem: String?
+    @State private var foundNothing = false
 
     private var terms: [String] { Glossary.terms(in: found) }
 
@@ -53,10 +54,12 @@ struct TermFinder: View {
                     .disabled(searching || (files.isEmpty && pasted.isEmpty))
                 if searching { ProgressView().controlSize(.small) }
                 if let problem {
-                    Label(problem, systemImage: "exclamationmark.circle")
+                    Notice(problem, .failure)
                         .font(.callout)
-                        .notice(.orange)
                         .lineLimit(2)
+                } else if foundNothing {
+                    Notice("No names or specialist terms were found.", .warning)
+                        .font(.callout)
                 }
                 Spacer()
                 Button("Cancel", role: .cancel) { dismiss() }
@@ -149,6 +152,7 @@ struct TermFinder: View {
         search?.cancel()
         searching = true
         problem = nil
+        foundNothing = false
         let chosen = files
         let text = pasted
         search = Task {
@@ -173,9 +177,7 @@ struct TermFinder: View {
                 let candidates = await Terms.candidates(in: pages, attested: attested)
                 try Task.checkCancellation()
                 found = candidates.joined(separator: "\n")
-                if candidates.isEmpty {
-                    problem = String(localized: "No names or specialist terms were found.")
-                }
+                foundNothing = candidates.isEmpty
             } catch is CancellationError {
                 return
             } catch {

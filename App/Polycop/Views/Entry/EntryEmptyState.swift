@@ -44,7 +44,8 @@ struct EntryEmptyState: View {
                     Label {
                         Text("Transcription Failed")
                     } icon: {
-                        Image(systemName: "xmark.octagon").foregroundStyle(.red)
+                        Image(systemName: NoticeState.failure.symbol)
+                            .foregroundStyle(NoticeState.failure.tint)
                     }
                 } description: {
                     Text(message)

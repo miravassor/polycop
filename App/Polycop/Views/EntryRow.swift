@@ -33,7 +33,7 @@ struct EntryRow: View {
         case .stopped:
             Text("Stopped before the end")
         case .failed:
-            Label("Failed", systemImage: "exclamationmark.circle")
+            Notice("Failed", .failure)
         }
     }
 }
