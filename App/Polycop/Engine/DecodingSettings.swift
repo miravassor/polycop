@@ -8,12 +8,17 @@ import Foundation
 /// detection were chosen by measurement; nothing else here departs from the
 /// library.
 nonisolated struct DecodingSettings: Equatable, Sendable {
-    /// Language of the lecture, forced rather than detected.
+    /// Language of the recording, or `automaticLanguage`.
     var language = "fr"
 
-    /// What the window offers: a wrong automatic guess is worse than a short
-    /// list to choose from. These are the languages on Voxtral's model card, the
-    /// shortest list of the models, and each was tried on Whisper, Qwen and MOSS.
+    /// The model detects the language. This is the word whisper.cpp takes for it
+    /// (`whisper_full_with_state`, v1.9.4): it decides once, from the first 30
+    /// seconds it is given. Qwen is told nothing, and decides for each window.
+    static let automaticLanguage = "auto"
+
+    /// What the window offers beside automatic. These are the languages on
+    /// Voxtral's model card, the shortest list of the models, and each was tried
+    /// on Whisper, Qwen and MOSS.
     /// A code is Whisper's, and a name is the word Qwen is told.
     static let languages: [(code: String, name: String)] = [
         ("ar", "Arabic"), ("zh", "Chinese"), ("nl", "Dutch"), ("en", "English"),
@@ -21,6 +26,10 @@ nonisolated struct DecodingSettings: Equatable, Sendable {
         ("ja", "Japanese"), ("ko", "Korean"), ("pt", "Portuguese"), ("ru", "Russian"),
         ("es", "Spanish"),
     ]
+
+    static func offers(_ code: String) -> Bool {
+        code == automaticLanguage || languages.contains { $0.code == code }
+    }
 
     /// Beam search width, and the candidates kept when a window is decoded
     /// again at a higher temperature. Both are live. Under beam search

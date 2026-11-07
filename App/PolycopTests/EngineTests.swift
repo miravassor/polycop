@@ -225,4 +225,5 @@ extension LoadingAModel {
     let told = DecodingSettings.languages.map { AudioCppEngine.qwenLanguage(for: $0.code) }
     #expect(Set(told) == known)
     #expect(AudioCppEngine.qwenLanguage(for: "xx").isEmpty)
+    #expect(AudioCppEngine.qwenLanguage(for: DecodingSettings.automaticLanguage).isEmpty)
 }

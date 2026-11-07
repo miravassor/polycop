@@ -103,8 +103,9 @@ unless they agree to more.
 | Voxtral Mini 4B Realtime | 5.1 GB | 6.0 GB | streamed; takes about as long as the recording |
 
 The optional Qwen3 Forced Aligner (1.1 GB) times each word of a Qwen3-ASR
-transcript, which gives it timed sentences, subtitles and word timings. Qwen3-ASR and Whisper are told the
-language; MOSS and Voxtral detect it. Hiding invented credits and removing filler words cover
+transcript, which gives it timed sentences, subtitles and word timings. Whisper and Qwen3-ASR are told the
+language or, on Automatic, detect it: Whisper once, from the start of the recording, and Qwen3-ASR
+for each 30 seconds. MOSS and Voxtral always detect it. Hiding invented credits and removing filler words cover
 French and English, and Find Terms expects French. In Chinese and Japanese, written without
 spaces, a correction or the highlighted word covers a whole sentence or more. Every model has
 its own licence, shown before you download it.

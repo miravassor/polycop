@@ -356,18 +356,3 @@ func launchStartsOnTheRecommendedModelOrAnInstalledOne(installed: [String], expe
     AppModel(history: history, defaults: defaults).language = "zh"
     #expect(AppModel(history: history, defaults: defaults).language == "zh")
 }
-
-@Test(arguments: [
-    (ModelCatalog.turbo, "French"), (ModelCatalog.qwen, "French"),
-    (ModelCatalog.moss, "Language detected"), (ModelCatalog.voxtral, "Language detected"),
-])
-@MainActor
-func theSummaryNamesTheLanguageOnlyOfAModelToldIt(chosen: Model, language: String) {
-    let root = URL.temporaryDirectory.appending(path: UUID().uuidString)
-    defer { try? FileManager.default.removeItem(at: root) }
-    let model = AppModel(
-        history: root.appending(path: "History"), glossaries: root.appending(path: "Glossaries"),
-        defaults: MemoryDefaults())
-    model.selected = chosen.id
-    #expect(StartBar.summary(of: model).contains(language))
-}

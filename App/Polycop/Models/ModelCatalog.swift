@@ -70,8 +70,10 @@ nonisolated enum Engine: CaseIterable, Sendable {
         switch self {
         case .qwen: "30-second timestamps · No glossary, subtitles or word timings"
         case .whisper: "Glossaries · Sentence timestamps · Subtitles · Word timings"
-        case .moss: "Glossaries · Sentence timestamps · Subtitles · Speakers · No word timings"
-        case .voxtral: "30-second timestamps · No glossary, subtitles or word timings"
+        case .moss:
+            "Glossaries · Sentence timestamps · Subtitles · Speakers · No word timings · Detects the language"
+        case .voxtral:
+            "30-second timestamps · No glossary, subtitles or word timings · Detects the language"
         }
     }
 
@@ -95,7 +97,7 @@ nonisolated enum Engine: CaseIterable, Sendable {
         }
     }
 
-    /// It works the language out itself, so being told one changes nothing.
+    /// It always works the language out itself, and is never told one.
     var detectsLanguage: Bool { audioCpp?.setsLanguage == false }
 
     /// Silence removal runs inside whisper.cpp, and so does the repair of

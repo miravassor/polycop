@@ -34,9 +34,7 @@ struct NewTranscriptionSettings: View {
                 } else if !model.isInstalled(chosen.id) {
                     download
                 }
-                if model.languageApplies {
-                    language
-                }
+                language
                 glossary
                 if model.silenceApplies {
                     Toggle(isOn: $model.skipsSilence) {
@@ -49,27 +47,31 @@ struct NewTranscriptionSettings: View {
         .formStyle(.grouped)
     }
 
-    /// The language spoken.
-    private var language: some View {
-        let current = DecodingSettings.languages.first { $0.code == model.language }
-        return LabeledContent {
-            // A menu as the rows beside it, which end with Manage….
-            Menu {
-                Picker("Language", selection: $model.language) {
-                    ForEach(DecodingSettings.languages, id: \.code) { language in
-                        Text(LocalizedStringKey(language.name)).tag(language.code)
+    /// The language spoken, for a model that is told it.
+    @ViewBuilder private var language: some View {
+        if model.languageApplies {
+            let current = DecodingSettings.languages.first { $0.code == model.language }
+            LabeledContent {
+                // A menu as the rows beside it, which end with Manage….
+                Menu {
+                    Picker("Language", selection: $model.language) {
+                        Text("Automatic").tag(DecodingSettings.automaticLanguage)
+                        Divider()
+                        ForEach(DecodingSettings.languages, id: \.code) { language in
+                            Text(LocalizedStringKey(language.name)).tag(language.code)
+                        }
                     }
+                    .pickerStyle(.inline)
+                    .labelsHidden()
+                } label: {
+                    Text(current.map { LocalizedStringKey($0.name) } ?? "Automatic")
                 }
-                .pickerStyle(.inline)
-                .labelsHidden()
+                .fixedSize()
             } label: {
-                Text(LocalizedStringKey(current?.name ?? model.language))
-            }
-            .fixedSize()
-        } label: {
-            Text("Language")
-            if !Hesitations.cover(model.language) {
-                Text("Some automatic cleaning covers only French and English.")
+                Text("Language")
+                if !Hesitations.cover(model.language) {
+                    Text("Some automatic cleaning covers only French and English.")
+                }
             }
         }
     }

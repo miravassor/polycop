@@ -257,7 +257,7 @@ final class AppModel {
         keepAwake = defaults.object(forKey: Self.keepAwakeKey) as? Bool ?? true
         skipsSilence = defaults.object(forKey: Self.skipsSilenceKey) as? Bool ?? false
         if let remembered = defaults.object(forKey: Self.languageKey) as? String,
-            DecodingSettings.languages.contains(where: { $0.code == remembered })
+            DecodingSettings.offers(remembered)
         {
             language = remembered
         }
