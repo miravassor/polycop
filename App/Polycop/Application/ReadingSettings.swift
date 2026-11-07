@@ -3,6 +3,11 @@
 import Foundation
 import Observation
 
+/// A section of a transcript's inspector, which the reader can fold.
+nonisolated enum InspectorSection: String {
+    case video, playback, export, warnings, details
+}
+
 /// How the reader has a transcript shown, remembered across launches. Here
 /// rather than in `@AppStorage`: SwiftUI redoes a view that holds a setting, or
 /// is given a binding made from one, at every update of its parent, while a
@@ -13,7 +18,7 @@ final class ReadingSettings {
     static let textSizeKey = "transcriptTextSize"
     static let isComparingKey = "comparesOriginal"
     static let showsUncertainWordsKey = "showsUncertainWords"
-    static let showsWarningsKey = "showsWarnings"
+    static let foldedSectionsKey = "foldedInspectorSections"
 
     var textSize: Double {
         didSet { defaults.set(textSize, forKey: Self.textSizeKey) }
@@ -25,9 +30,8 @@ final class ReadingSettings {
     var showsUncertainWords: Bool {
         didSet { defaults.set(showsUncertainWords, forKey: Self.showsUncertainWordsKey) }
     }
-    /// Whether the inspector's Warnings section is unfolded.
-    var showsWarnings: Bool {
-        didSet { defaults.set(showsWarnings, forKey: Self.showsWarningsKey) }
+    private(set) var foldedSections: Set<InspectorSection> {
+        didSet { defaults.set(foldedSections.map(\.rawValue), forKey: Self.foldedSectionsKey) }
     }
 
     @ObservationIgnored private let defaults: UserDefaults
@@ -37,6 +41,12 @@ final class ReadingSettings {
         textSize = defaults.object(forKey: Self.textSizeKey) as? Double ?? Self.defaultTextSize
         isComparing = defaults.bool(forKey: Self.isComparingKey)
         showsUncertainWords = defaults.object(forKey: Self.showsUncertainWordsKey) as? Bool ?? true
-        showsWarnings = defaults.object(forKey: Self.showsWarningsKey) as? Bool ?? true
+        foldedSections = Set(
+            (defaults.stringArray(forKey: Self.foldedSectionsKey) ?? [])
+                .compactMap(InspectorSection.init(rawValue:)))
+    }
+
+    func toggleFold(of section: InspectorSection) {
+        foldedSections.formSymmetricDifference([section])
     }
 }

@@ -11,7 +11,7 @@ import Testing
     #expect(settings.textSize == ReadingSettings.defaultTextSize)
     #expect(!settings.isComparing)
     #expect(settings.showsUncertainWords)
-    #expect(settings.showsWarnings)
+    #expect(settings.foldedSections.isEmpty)
 }
 
 /// The keys are written out: changing one would lose what readers chose.
@@ -34,10 +34,26 @@ import Testing
     settings.textSize = 20
     settings.isComparing = true
     settings.showsUncertainWords = false
-    settings.showsWarnings = false
+    settings.toggleFold(of: .warnings)
+    settings.toggleFold(of: .video)
+    settings.toggleFold(of: .details)
+    settings.toggleFold(of: .details)
     let next = ReadingSettings(defaults: defaults)
     #expect(next.textSize == 20)
     #expect(next.isComparing)
     #expect(!next.showsUncertainWords)
-    #expect(!next.showsWarnings)
+    #expect(next.foldedSections == [.warnings, .video])
+}
+
+/// The key and the names are written out, as above; a section a later version
+/// removes is ignored.
+@MainActor
+@Test func readingSettingsReadTheFoldedSections() {
+    let defaults = MemoryDefaults()
+    defaults.set(
+        ["video", "playback", "export", "warnings", "details", "gone"],
+        forKey: "foldedInspectorSections")
+    #expect(
+        ReadingSettings(defaults: defaults).foldedSections
+            == [.video, .playback, .export, .warnings, .details])
 }

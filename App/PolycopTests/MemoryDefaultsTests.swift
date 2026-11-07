@@ -22,14 +22,14 @@ private final class Observer: NSObject {
 /// `@AppStorage`, so settings in memory serve both as the user's would.
 @Test func settingsInMemoryReadBackThroughEveryGetter() {
     let settings = MemoryDefaults()
-    let shown = AppStorage(wrappedValue: true, "showsVideo", store: settings)
+    let shown = AppStorage(wrappedValue: true, "someSetting", store: settings)
     shown.wrappedValue = false
     settings.set(2, forKey: "launches")
     settings.set(1.5, forKey: "speed")
     settings.set("Word", forKey: "format")
 
-    #expect(settings.object(forKey: "showsVideo") as? Bool == false)
-    #expect(!settings.bool(forKey: "showsVideo"))
+    #expect(settings.object(forKey: "someSetting") as? Bool == false)
+    #expect(!settings.bool(forKey: "someSetting"))
     #expect(settings.integer(forKey: "launches") == 2)
     #expect(settings.double(forKey: "speed") == 1.5)
     #expect(settings.string(forKey: "format") == "Word")

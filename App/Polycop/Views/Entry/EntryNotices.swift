@@ -159,11 +159,11 @@ struct TextCheckRow: View {
 /// the way to bring them back above it.
 struct WarningsSection: View {
     let checks: [TextCheck]
-    @Bindable var reading: ReadingSettings
+    let reading: ReadingSettings
 
     var body: some View {
         if !checks.isEmpty {
-            Section("Warnings", isExpanded: $reading.showsWarnings) {
+            FoldingSection(.warnings, reading: reading) {
                 ForEach(checks) { check in
                     HStack(alignment: .firstTextBaseline, spacing: Spacing.icon) {
                         Image(systemName: check.symbol)

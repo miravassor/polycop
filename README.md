@@ -72,8 +72,9 @@ unless they agree to more.
   the previous and next paragraph either side of 5 seconds back and on, a
   timeline with the paragraphs, and playback speed. The inspector beside the
   text (Control-Command-I, resizable by its edge) holds the video, Follow and
-  export. Follow scrolls the page with playback (Page), or also takes the
-  text cursor along with the word heard (Page and Cursor), so the next
+  export, each folding by its title. Follow scrolls the page with playback
+  (Page), or also takes the text cursor along with the word heard (Page and
+  Cursor), so the next
   correction is typed where the audio is. Scrolling away pauses it until
   Return to playback. Space plays and pauses when you are
   not typing, and Esc leaves the text. The keyboard media keys, Control Center

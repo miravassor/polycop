@@ -5,10 +5,9 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// The video's section of the inspector, which folds to keep the sound alone.
-/// Only this view reads that setting, and only a video has it: a view that
-/// reads a setting is drawn again at each correction handed over, which the
-/// inspector of every transcript should not be.
+/// The video's section of the inspector, above its form rather than in it: a
+/// form keeps its margins around a row whatever the row asks, and the picture
+/// should take the width. It stays in view while the settings scroll.
 struct VideoSection: View {
     let model: AppModel
     let id: Entry.ID
@@ -16,12 +15,30 @@ struct VideoSection: View {
     let picture: CGSize
     /// Where the reader left off, played from when nothing is open yet.
     let resume: TimeInterval
-    @AppStorage("showsVideo") private var isShown = true
+
+    /// The most height the picture may take.
+    let tallest: CGFloat?
+
+    // What a grouped form draws, measured on macOS 26, since none of it can be
+    // asked: how far in it sets its sections, and the rows in them; the top of
+    // its first title; the gap under a title. The picture lines up with the
+    // sections' edges unless its height stops it first, the title with theirs.
+    private static let formMargin: CGFloat = 10
+    private static let firstTitleTop: CGFloat = 10
+    private static let underTitle: CGFloat = 7
 
     var body: some View {
-        Section("Video", isExpanded: $isShown) {
-            EntryVideo(model: model, id: id, source: source, picture: picture, resume: resume)
+        VStack(spacing: Self.underTitle) {
+            FoldTitle(.video, reading: model.reading)
+                .padding(.horizontal, Self.formMargin)
+            if !model.reading.foldedSections.contains(.video) {
+                EntryVideo(
+                    model: model, id: id, source: source, picture: picture, resume: resume,
+                    tallest: tallest)
+            }
         }
+        .padding(.horizontal, Self.formMargin)
+        .padding(.top, Self.firstTitleTop)
     }
 }
 
@@ -33,10 +50,8 @@ struct EntryVideo: View {
     let source: URL
     let picture: CGSize
     let resume: TimeInterval
+    let tallest: CGFloat?
     @State private var isHovering = false
-
-    /// Tall enough for an upright phone video to leave the inspector room.
-    static let tallest: CGFloat = 480
 
     var body: some View {
         // As wide as the inspector lets it be, never setting its width: a
@@ -45,7 +60,7 @@ struct EntryVideo: View {
             if model.video.isInPictureInPicture { floating } else { shown }
         }
         .aspectRatio(picture.width / picture.height, contentMode: .fit)
-        .frame(maxWidth: Self.tallest * picture.width / picture.height)
+        .frame(maxWidth: tallest.map { $0 * picture.width / picture.height })
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .overlay(alignment: .bottomTrailing) { buttons }
         .onHover { isHovering = $0 }

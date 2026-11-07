@@ -126,7 +126,8 @@ Every page speaks the same visual language. The shared pieces live in
 * Settings and choices are the system's grouped form (`Form` with `.formStyle(.grouped)`),
   one setting a row: a page's in the system inspector
   (`InspectorColumn` gives every page the same width, `InspectorToggle` the same button), a sheet's in the
-  sheet. No tinted cards or hand drawn boxes.
+  sheet. No tinted cards or hand drawn boxes. A section of the transcript's inspector
+  is a `FoldingSection`.
 * An empty page is the system's empty state (`ContentUnavailableView`), with the way
   to fill it.
 * A page's main action is one `ActionButton`: a large capsule with an SF Symbol, glass
@@ -144,8 +145,9 @@ Every page speaks the same visual language. The shared pieces live in
   inside the foot of its edge. Managing a choice ("Manage Models…") is the last item
   of that choice's menu.
 * A page's tools are window toolbar items, drawn by the system, each also a menu
-  command. Controls are the system's, never drawn by hand. The player's timeline is
-  the one exception: no system slider marks where each paragraph opens.
+  command. Controls are the system's, never drawn by hand. Two exceptions: the player's
+  timeline, since no system slider marks where each paragraph opens, and the fold of an
+  inspector's section, since the form's own hangs its arrow outside the titles.
 * Text editors: `editorBorder()`, with the corners of a control.
 * Warnings and failures: a `Notice`, `.warning` or `.failure`, each with one symbol
   and colour; a notice with a symbol of its own is a `Label` with `notice(_:)`. Colour
