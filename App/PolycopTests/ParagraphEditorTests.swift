@@ -236,3 +236,21 @@ private final class FocusableControl: NSControl {
     library.isHidden = true
     #expect(window.firstResponder !== text)
 }
+
+/// A paragraph that resizes must not scroll the page, which AppKit does only in
+/// the real window, checked there. A jump to a match still has to scroll a
+/// paragraph not being edited.
+@MainActor
+@Test func aParagraphNotBeingEditedStillScrollsWhenAsked() {
+    let scroll = NSScrollView(frame: NSRect(x: 0, y: 0, width: 300, height: 100))
+    let page = FlippedPage(frame: NSRect(x: 0, y: 0, width: 300, height: 600))
+    let text = WordTextView(frame: NSRect(x: 0, y: 200, width: 300, height: 60))
+    page.addSubview(text)
+    scroll.documentView = page
+    #expect(text.scrollToVisible(NSRect(x: 0, y: 0, width: 10, height: 20)))
+    #expect(scroll.contentView.bounds.origin.y > 0)
+}
+
+private final class FlippedPage: NSView {
+    override var isFlipped: Bool { true }
+}
