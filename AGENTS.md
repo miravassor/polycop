@@ -137,7 +137,8 @@ Every page speaks the same visual language. The shared pieces live in
   then the timeline and times, centred on one line, on `FloatingSurface` (glass on
   macOS 26, the system's material before). Find opens at the top, away from it.
   Work under way on a transcript is one capsule on the same surface, centred above
-  the text, in the words of its row in the library.
+  the text, in the words of its row in the library. Return to Playback, once the page
+  stops following, is one above the player, pressed as a whole.
 * `FloatingSurface` keeps its glass in a `GlassEffectContainer`: glass placed in
   plain glass turns the floating player dark in a light window.
 * A list's Add and Clear sit on its title line at the trailing edge, aligned with the

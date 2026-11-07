@@ -10,6 +10,7 @@ struct ParagraphSteps {
     let entry: Entry
     @Binding var activeParagraph: Int?
     @Binding var jump: Int?
+    @Binding var showAtTop: Int?
     @Binding var isFollowSuspended: Bool
     /// Whether any word has a time, which the highlight and the cursor need.
     let hasTimedWords: Bool
@@ -21,8 +22,16 @@ struct ParagraphSteps {
     func stop() { model.player.stop() }
     var canStep: Bool { entry.hasRecording && !entry.paragraphs.isEmpty }
 
-    /// Follows playback again after the reader looked elsewhere.
-    func returnToPlayback() { isFollowSuspended = false }
+    /// Whether the text is there but no word has a time, which Follow's choice says.
+    var lacksTimedWords: Bool { !entry.paragraphs.isEmpty && !hasTimedWords }
+
+    /// Follows playback again after the reader looked elsewhere, with the
+    /// paragraph playing at the top even if it was in view.
+    func returnToPlayback() {
+        isFollowSuspended = false
+        showAtTop = TranscriptNavigation.paragraph(
+            returningTo: model.player.position, starts: entry.paragraphs.map(\.seconds))
+    }
 
     /// Replays the active paragraph with two seconds of context.
     func replay() {
@@ -81,35 +90,14 @@ struct PlaybackCommands: Commands {
                 .keyboardShortcut(.downArrow, modifiers: [.command, .option])
                 .disabled(steps?.canStep != true)
             Divider()
-            FollowChoice(reading: reading, hasTimedWords: steps?.hasTimedWords == true)
-                .disabled(steps == nil)
+            FollowChoice(reading: reading, lacksTimedWords: steps?.lacksTimedWords == true)
+                .disabled(steps?.entry.paragraphs.isEmpty != false)
             Button("Return to Playback") { steps?.returnToPlayback() }
                 .keyboardShortcut("l", modifiers: [.command, .option])
                 .disabled(steps?.isFollowSuspended != true)
             Divider()
             Button("Stop") { steps?.stop() }
                 .disabled(steps?.canStop != true)
-        }
-    }
-}
-
-/// Follow's choice, inside a menu: the Text menu above the page and the Playback
-/// menu both hold it.
-struct FollowChoice: View {
-    @Bindable var reading: ReadingSettings
-    let hasTimedWords: Bool
-
-    var body: some View {
-        Picker("Follow", selection: $reading.following) {
-            ForEach(Following.allCases, id: \.self) { choice in
-                Text(choice.name)
-                    .tag(choice)
-                    .selectionDisabled(choice == .cursor && !hasTimedWords)
-            }
-        }
-        .pickerStyle(.inline)
-        if !hasTimedWords {
-            Text("Page and Cursor needs word timings.")
         }
     }
 }

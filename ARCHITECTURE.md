@@ -114,8 +114,8 @@ one decision it makes for a recording.
   in the background.
 * The player bar, floating over the foot of the text, and `SpaceToPlay` drive
   `Player`. The bar's paragraph steps and the way back to playback
-  (`ParagraphSteps`) also reach the Playback menu as a focused value, with their shortcuts. Its timeline (`PlayerTimeline`)
-  draws the played part as glass on macOS 26 (`PlayedGlass`). The inspector beside
+  (`ParagraphSteps`) also reach the Playback menu as a focused value, with their
+  shortcuts. Its timeline (`PlayerTimeline`) draws the played part as glass on macOS 26 (`PlayedGlass`). The inspector beside
   the text (`EntryInspector`) holds the video, above a grouped form so that it takes the
   width, then export, the warnings about the text and the transcript's details in
   the form. Each folds by its title (`FoldingSection`), and `ReadingSettings` remembers which.

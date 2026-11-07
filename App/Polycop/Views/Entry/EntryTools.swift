@@ -142,7 +142,7 @@ private struct TextMenu: View {
                 .keyboardShortcut("+")
                 .disabled(reading.textSize >= 28)
             Divider()
-            FollowChoice(reading: reading, hasTimedWords: facts.hasTimedWords)
+            FollowChoice(reading: reading, lacksTimedWords: !facts.hasTimedWords)
         } label: {
             Label("Text", systemImage: "textformat.size")
         }

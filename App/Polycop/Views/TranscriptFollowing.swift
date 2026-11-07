@@ -30,6 +30,12 @@ nonisolated enum Following: String, CaseIterable {
     /// cursor following, editing is what following is for.
     var stopsWhenEditing: Bool { self != .cursor }
 
+    /// What applies to a transcript: with no word timings the cursor has nothing
+    /// to follow, so the page alone does, and a click stops it as usual.
+    func effective(hasTimedWords: Bool) -> Following {
+        self == .cursor && !hasTimedWords ? .page : self
+    }
+
     var name: String {
         switch self {
         case .off: String(localized: "Off")
@@ -39,16 +45,41 @@ nonisolated enum Following: String, CaseIterable {
     }
 }
 
+/// Follow's choice, inside a menu: the Text menu above the page and the Playback
+/// menu both hold it.
+struct FollowChoice: View {
+    @Bindable var reading: ReadingSettings
+    let lacksTimedWords: Bool
+
+    var body: some View {
+        Picker("Follow", selection: $reading.following) {
+            ForEach(Following.allCases, id: \.self) { choice in
+                Text(choice.name)
+                    .tag(choice)
+                    .selectionDisabled(choice == .cursor && lacksTimedWords)
+            }
+        }
+        .pickerStyle(.inline)
+        if lacksTimedWords {
+            Text("Page and Cursor needs word timings.")
+        }
+    }
+}
+
+#Preview("Follow's choice") {
+    Menu("Text") {
+        FollowChoice(reading: ReadingSettings(defaults: MemoryDefaults()), lacksTimedWords: true)
+    }
+    .padding(Spacing.sheet)
+}
+
 /// Reads playback away from the rows so only a change of paragraph updates them.
 struct Follow: View {
     let player: Player
     let starts: [TimeInterval]
     let isEnabled: Bool
     let update: (Int?) -> Void
-    /// Keeps the paragraph playing in view as playback reaches it.
     let scroll: (Int) -> Void
-    /// Brings it to the top when following starts again, even if it was in view.
-    let resume: (Int) -> Void
 
     var body: some View {
         Color.clear
@@ -61,7 +92,7 @@ struct Follow: View {
             }
             .onChange(of: isEnabled) { _, on in
                 guard on, let paragraph = playing else { return }
-                resume(paragraph)
+                scroll(paragraph)
             }
     }
 
@@ -88,6 +119,12 @@ nonisolated enum TranscriptNavigation {
     /// The paragraph playing at `position`, with the half second of slack a jump takes.
     static func paragraph(playingAt position: TimeInterval, starts: [TimeInterval]) -> Int? {
         starts.lastIndex { $0 <= position + 0.5 }
+    }
+
+    /// The paragraph to bring back to: before the first one opens, as a late
+    /// start can leave it, the first one, so that coming back always moves the page.
+    static func paragraph(returningTo position: TimeInterval, starts: [TimeInterval]) -> Int? {
+        paragraph(playingAt: position, starts: starts) ?? (starts.isEmpty ? nil : 0)
     }
 
     /// The paragraph `offset` places away, kept inside the transcript. With no
@@ -150,9 +187,17 @@ struct ManualScroll: NSViewRepresentable {
             monitor = nil
         }
 
-        /// Fingers resting on the trackpad send events that move nothing.
+        /// Whether a wheel or trackpad event is the reader scrolling. Fingers
+        /// resting on the trackpad send events that move nothing, and a flick
+        /// coasts on after they lift: its first events said so already, and
+        /// the rest would undo Return to Playback pressed during the coast.
+        static func isReaderScrolling(_ event: NSEvent) -> Bool {
+            (event.scrollingDeltaX != 0 || event.scrollingDeltaY != 0)
+                && event.momentumPhase.isEmpty
+        }
+
         private func wheeled(_ event: NSEvent) {
-            guard event.scrollingDeltaX != 0 || event.scrollingDeltaY != 0,
+            guard Self.isReaderScrolling(event),
                 event.window === window, let scroll = enclosingScrollView,
                 scroll.bounds.contains(scroll.convert(event.locationInWindow, from: nil))
             else { return }

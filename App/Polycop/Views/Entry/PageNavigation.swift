@@ -14,8 +14,9 @@ struct PageNavigation: DynamicProperty {
     let player: Player
 
     /// Stops following while the reader looks elsewhere, and offers the way
-    /// back. With nothing open there is no playback to come back to, so a
-    /// recording opened later is followed from the start.
+    /// back, to where the recording stands, paused or not. With none open
+    /// there is nowhere to come back to, so one opened later is followed from
+    /// the start.
     func suspendFollowing() {
         guard following != .off, player.isOpen, !isFollowSuspended else { return }
         isFollowSuspended = true

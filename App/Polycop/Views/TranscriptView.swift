@@ -32,6 +32,8 @@ struct TranscriptView: View {
     let suspendForEditing: () -> Void
     /// A paragraph to show at once, chosen on the timeline below.
     @Binding var jump: Int?
+    /// A paragraph to bring to the top, even if it is in view.
+    @Binding var showAtTop: Int?
     /// The paragraph to open on, where the reader left the transcript.
     let start: Int?
     /// Told which paragraph is at the top of the page as the reader scrolls.
@@ -98,12 +100,10 @@ struct TranscriptView: View {
                                 // A click holds the cursor in its paragraph,
                                 // not for the rest of the recording.
                                 WordTextView.holdsCursor = false
-                            },
-                            scroll: { paragraph in
-                                scroll(to: paragraph, in: view, height: visibleHeight(viewport))
-                            },
-                            resume: { showAtTop($0, in: view) }
-                        )
+                            }
+                        ) { paragraph in
+                            scroll(to: paragraph, in: view, height: visibleHeight(viewport))
+                        }
                     }
                     .onAppear {
                         // A cursor lost on another transcript's page is not
@@ -118,6 +118,11 @@ struct TranscriptView: View {
                         scroll(to: paragraph, in: view, height: visibleHeight(viewport))
                         jump = nil
                     }
+                    .onChange(of: showAtTop) { _, paragraph in
+                        guard let paragraph else { return }
+                        scrollToTop(paragraph, in: view)
+                        showAtTop = nil
+                    }
                 }
             }
         }
@@ -131,10 +136,10 @@ struct TranscriptView: View {
     private func scroll(to paragraph: Int, in view: ScrollViewProxy, height: CGFloat) {
         let frame = frames.values[paragraph]
         guard TranscriptNavigation.needsScroll(frame: frame, height: height) else { return }
-        showAtTop(paragraph, in: view)
+        scrollToTop(paragraph, in: view)
     }
 
-    private func showAtTop(_ paragraph: Int, in view: ScrollViewProxy) {
+    private func scrollToTop(_ paragraph: Int, in view: ScrollViewProxy) {
         withAnimation(reducesMotion ? nil : .easeInOut(duration: 0.24)) {
             view.scrollTo(paragraph, anchor: .top)
         }

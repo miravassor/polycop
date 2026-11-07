@@ -18,6 +18,7 @@ struct EntryView: View {
     @FocusState private var isSearchFocused: Bool
     @State private var isFollowSuspended = false
     @State private var jump: Int?
+    @State private var showAtTop: Int?
     /// The timed words of each paragraph, grouped when the paragraphs change
     /// rather than on every update of the page.
     @State private var words: [[Segment.Word]] = []
@@ -128,12 +129,12 @@ struct EntryView: View {
                 typing: { model.player.pauseForTyping() },
                 hover: { focused = $0 },
                 original: original, isComparing: reading.isComparing,
-                isFollowing: reading.following != .off && !isFollowSuspended,
+                isFollowing: following != .off && !isFollowSuspended,
                 suspendFollowing: page.suspendFollowing,
                 suspendForEditing: {
-                    if reading.following.stopsWhenEditing { page.suspendFollowing() }
+                    if following.stopsWhenEditing { page.suspendFollowing() }
                 },
-                jump: $jump, start: entry.readingParagraph,
+                jump: $jump, showAtTop: $showAtTop, start: entry.readingParagraph,
                 scrolled: { model.readingParagraph = $0 }, focused: focused, size: reading.textSize,
                 active: activeParagraph,
                 activate: { if activeParagraph != $0 { activeParagraph = $0 } },
@@ -142,7 +143,7 @@ struct EntryView: View {
                 matches: find.matches, currentMatch: find.current,
                 words: words,
                 showsUncertainWords: reading.showsUncertainWords,
-                cursorFollows: reading.following == .cursor
+                cursorFollows: following == .cursor
             )
             // As in Music, the player floats at the foot of the text, which
             // scrolls under it; Find stays at the top, away from it.
@@ -285,18 +286,21 @@ extension EntryView {
     }
 
     private var hasTimedWords: Bool { words.contains { !$0.isEmpty } }
+    private var following: Following {
+        reading.following.effective(hasTimedWords: hasTimedWords)
+    }
 
     private var page: PageNavigation {
         PageNavigation(
             activeParagraph: $activeParagraph, jump: $jump,
-            isFollowSuspended: $isFollowSuspended, following: reading.following,
+            isFollowSuspended: $isFollowSuspended, following: following,
             player: model.player)
     }
 
     private var steps: ParagraphSteps {
         ParagraphSteps(
             model: model, entry: entry, activeParagraph: $activeParagraph, jump: $jump,
-            isFollowSuspended: $isFollowSuspended, hasTimedWords: hasTimedWords)
+            showAtTop: $showAtTop, isFollowSuspended: $isFollowSuspended, hasTimedWords: hasTimedWords)
     }
 }
 

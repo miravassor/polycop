@@ -77,6 +77,39 @@ import Testing
         #expect(TranscriptNavigation.isAtTop(row(0, 100), spacing: 20))
     }
 
+    /// Coming back always has somewhere to go, even before the first paragraph
+    /// opens, where nothing is playing yet.
+    @Test func returningGoesToThePlayingParagraphOrTheFirst() {
+        let starts: [TimeInterval] = [40, 80, 120]
+        #expect(TranscriptNavigation.paragraph(returningTo: 90, starts: starts) == 1)
+        #expect(TranscriptNavigation.paragraph(returningTo: 0, starts: starts) == 0)
+        #expect(TranscriptNavigation.paragraph(returningTo: 0, starts: []) == nil)
+    }
+
+    /// A transcript with no word timings gives the cursor nothing to follow, so
+    /// a click must stop the page, or it would scroll away from the correction.
+    @Test func withoutWordTimingsThePageFollowsAlone() {
+        #expect(Following.cursor.effective(hasTimedWords: true) == .cursor)
+        #expect(Following.cursor.effective(hasTimedWords: false) == .page)
+        #expect(Following.off.effective(hasTimedWords: false) == .off)
+    }
+
+    /// A flick coasts on after the fingers lift: that is not the reader
+    /// scrolling again, and would stop the page they just brought back.
+    @MainActor
+    @Test func aFlickCoastingIsNotTheReaderScrolling() throws {
+        func event(momentum: Int64) throws -> NSEvent {
+            let scroll = try #require(
+                CGEvent(
+                    scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 1, wheel1: 10,
+                    wheel2: 0, wheel3: 0))
+            scroll.setIntegerValueField(.scrollWheelEventMomentumPhase, value: momentum)
+            return try #require(NSEvent(cgEvent: scroll))
+        }
+        #expect(ManualScroll.Observer.isReaderScrolling(try event(momentum: 0)))
+        #expect(!ManualScroll.Observer.isReaderScrolling(try event(momentum: 2)))
+    }
+
     /// Follow and the way back stay in reach with the toolbar hidden; with
     /// nothing open, as in the test host, the way back leads nowhere.
     @MainActor
