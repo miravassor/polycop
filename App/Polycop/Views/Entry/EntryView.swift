@@ -7,11 +7,6 @@ import SwiftUI
 struct EntryView: View {
     let model: AppModel
     let entry: Entry
-    /// Whether the inspector beside the text shows, kept by the window.
-    @Binding var showsInspector: Bool
-    /// How wide the reader made the inspector, which the window's minimum
-    /// width makes room for.
-    @Binding var inspectorWidth: Double
     @State private var focused: Int?
     @State private var activeParagraph: Int?
     @State private var find = TranscriptFind()
@@ -59,8 +54,8 @@ struct EntryView: View {
         .libraryWarnings(model)
         .navigationTitle(entry.name)
         .toolbar { pageTools }
-        .modifier(InspectorToggle(isShown: $showsInspector))
-        .inspector(isPresented: $showsInspector) { inspector }
+        .modifier(InspectorToggle(isShown: Bindable(model.layout).showsInspector))
+        .inspector(isPresented: Bindable(model.layout).showsInspector) { inspector }
         // The Playback menu's steps, which work with the inspector hidden.
         .focusedSceneValue(\.paragraphSteps, steps)
         .focusedSceneValue(\.comparesOriginal, Bindable(reading).isComparing)
@@ -282,7 +277,7 @@ extension EntryView {
             model: model, entry: entry, findings: findings ?? entry.findings,
             canRebuild: canRebuild, isRunning: isRunning, engine: engine
         )
-        .modifier(InspectorColumn(width: $inspectorWidth))
+        .modifier(InspectorColumn(layout: model.layout))
     }
 
     private var hasTimedWords: Bool { words.contains { !$0.isEmpty } }

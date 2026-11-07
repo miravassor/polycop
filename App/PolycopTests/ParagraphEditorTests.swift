@@ -212,3 +212,27 @@ private final class FocusableControl: NSControl {
 
     #expect(played == [8])
 }
+
+/// Hiding the library with the focus on it, as a window opening with the library
+/// hidden does, must not put the cursor in the text: Space would type there.
+@MainActor
+@Test func hidingTheFocusedViewLeavesTheTextAlone() throws {
+    final class Focusable: NSView {
+        override var acceptsFirstResponder: Bool { true }
+    }
+    let window = NSWindow(
+        contentRect: NSRect(x: 0, y: 0, width: 200, height: 200), styleMask: [.titled],
+        backing: .buffered, defer: false)
+    window.isReleasedWhenClosed = false
+    defer { window.close() }
+    let library = Focusable(frame: NSRect(x: 0, y: 0, width: 50, height: 200))
+    let text = WordTextView(frame: NSRect(x: 50, y: 0, width: 150, height: 200))
+    window.contentView?.addSubview(library)
+    window.contentView?.addSubview(text)
+    library.nextKeyView = text
+    text.nextKeyView = library
+    window.orderBack(nil)
+    try #require(window.makeFirstResponder(library))
+    library.isHidden = true
+    #expect(window.firstResponder !== text)
+}

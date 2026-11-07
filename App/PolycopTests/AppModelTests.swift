@@ -693,3 +693,76 @@ extension LoadingAModel {
         #expect(opener.opened == 1)
     }
 }
+
+/// The window opens on the transcript left open, as long as the library still
+/// has it, with its row in view. Anything else opens on New Transcription.
+@MainActor
+@Test func theWindowOpensOnTheTranscriptLeftOpen() async throws {
+    let history = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: history) }
+    let defaults = MemoryDefaults()
+    let folder = UUID()
+    var kept = Entry(
+        recording: clip, modelFile: ModelCatalog.recommended.id, glossary: nil,
+        skipsSilence: false, subtitles: false)
+    kept.publish([Segment(start: 0, end: 3, text: "Made up.")], partial: false)
+    kept.state = .finished
+    kept.folderID = folder
+    try HistoryStore.write(kept, in: history)
+
+    func reopened() async -> AppModel.Pane {
+        let model = AppModel(history: history, defaults: defaults)
+        let pane = model.pane
+        await model.shutDown()
+        return pane
+    }
+
+    #expect(await reopened() == .new)
+
+    let model = AppModel(history: history, defaults: defaults)
+    model.pane = .entry(kept.id)
+    await model.finishWrites()
+    #expect(await reopened() == .entry(kept.id))
+    #expect(WindowLayout(defaults: defaults).openFolders == [folder])
+
+    // Only a transcript is opened again.
+    model.pane = .unidentifiedFiles
+    #expect(await reopened() == .new)
+    model.pane = .new
+    #expect(await reopened() == .new)
+
+    // A library that cannot show it now does not forget it for the next launch.
+    model.pane = .entry(kept.id)
+    await model.finishWrites()
+    let elsewhere = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: elsewhere) }
+    let empty = AppModel(history: elsewhere, defaults: defaults)
+    #expect(empty.pane == .new)
+    await empty.shutDown()
+    #expect(await reopened() == .entry(kept.id))
+
+    // In Recently Deleted, it is not in the library.
+    model.removeEntries([kept.id])
+    await model.finishWrites()
+    #expect(model.recentlyDeleted.map(\.id) == [kept.id])
+    #expect(await reopened() == .new)
+
+    for stored in [UUID().uuidString, "not one"] {
+        defaults.set(stored, forKey: "openTranscript")
+        #expect(await reopened() == .new)
+    }
+    await model.shutDown()
+}
+
+/// A folder removed for good leaves nothing behind in the preferences.
+@MainActor
+@Test func removingAFolderForgetsItWasOpen() async throws {
+    let history = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: history) }
+    let model = AppModel(history: history, defaults: MemoryDefaults())
+    let folder = try model.createFolder(named: "Made up")
+    model.layout.openFolders.insert(folder)
+    try model.removeFolder(folder)
+    #expect(model.layout.openFolders.isEmpty)
+    await model.shutDown()
+}

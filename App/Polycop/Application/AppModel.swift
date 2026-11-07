@@ -13,7 +13,7 @@ import os
 ///
 /// Holds the stored state and the helpers shared by the AppModel+*.swift
 /// extensions, one file per concern: models, glossaries, the transcription
-/// queue, repeat repair, editing, export, the library, failures.
+/// queue, repeat repair, editing, export, the library, the pane, failures.
 @Observable
 final class AppModel {
     enum Stage: Equatable {
@@ -35,16 +35,6 @@ final class AppModel {
             case .downloading, .loading, .decoding, .transcribing, .repairing, .stopping: true
             }
         }
-    }
-
-    /// What the window shows: the pane for new transcriptions, or one entry.
-    enum Pane: Hashable {
-        case new
-        case entry(Entry.ID)
-        /// A record this version cannot read, which has a page saying so.
-        case unavailable(UnavailableRecord.ID)
-        /// Every file nothing identifies, together.
-        case unidentifiedFiles
     }
 
     // The setter of these is internal rather than private: extensions in the
@@ -70,6 +60,7 @@ final class AppModel {
     var pane = Pane.new {
         didSet {
             guard pane != oldValue else { return }
+            rememberOpenTranscript()
             rememberPlace(in: oldValue)
             // Leaving a transcript writes what was typed in it, and where it was left.
             savePending()
@@ -142,6 +133,7 @@ final class AppModel {
     /// Where the preferences are kept; tests give settings of their own.
     @ObservationIgnored let defaults: UserDefaults
     let reading: ReadingSettings
+    let layout: WindowLayout
     /// What went wrong, shown by the page on screen until it changes. A sheet
     /// keeps its failures to itself, or the page behind would show them too.
     var failure: String?
@@ -255,6 +247,7 @@ final class AppModel {
     ) {
         self.defaults = defaults
         reading = ReadingSettings(defaults: defaults)
+        layout = WindowLayout(defaults: defaults)
         keepAwake = defaults.object(forKey: Self.keepAwakeKey) as? Bool ?? true
         skipsSilence = defaults.object(forKey: Self.skipsSilenceKey) as? Bool ?? false
         if let remembered = defaults.object(forKey: Self.languageKey) as? String,
@@ -288,6 +281,7 @@ final class AppModel {
             glossaryName = remembered
         }
         readLibrary()
+        reopenTranscript()
     }
 
     /// What is on disk, at launch.
