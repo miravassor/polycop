@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+import AppKit
 import Foundation
+import SwiftUI
 import Testing
 
 @testable import Polycop
@@ -196,5 +198,59 @@ private struct Page {
 
         #expect(try checks().aboveText.isEmpty)
         #expect(try checks().all.map(\.warning) == [.glossary, .resumed])
+    }
+}
+
+@MainActor
+@Suite struct TimesOfACheck {
+    private func check(times count: Int) -> TextCheck {
+        TextCheck(
+            warning: .resumed, symbol: "arrow.clockwise", text: "Resumed part way.",
+            times: (0..<count).map {
+                TextCheck.Time(title: "time \($0)", help: "Listen", listen: {})
+            },
+            isDismissed: false, canChangeDismissal: true, setDismissed: { _ in })
+    }
+
+    @Test func aShortListStaysWhole() {
+        #expect(check(times: 4).shortenedTimes.count == 4)
+    }
+
+    /// "and 1 more" would take as much room as the time it hides.
+    @Test func oneOverTheLimitStillShows() {
+        #expect(check(times: 5).shortenedTimes.count == 5)
+    }
+
+    @Test func aLongListStopsAtItsFirstTimes() {
+        let shortened = check(times: 12).shortenedTimes
+        #expect(shortened.map(\.title) == ["time 0", "time 1", "time 2", "time 3"])
+    }
+}
+
+/// Measured as a window would: the height at a given width.
+@MainActor
+@Suite struct WrappingRows {
+    private func size(_ count: Int, within width: CGFloat?) -> CGSize {
+        let layout = WrappingLayout {
+            ForEach(0..<count, id: \.self) { _ in
+                Color.clear.frame(width: 40, height: 10)
+            }
+        }
+        return NSHostingController(rootView: layout)
+            .sizeThatFits(in: CGSize(width: width ?? .infinity, height: .infinity))
+    }
+
+    @Test func staysOnOneRowWithTheRoom() {
+        #expect(size(3, within: nil) == CGSize(width: 136, height: 10))
+        #expect(size(3, within: 136) == CGSize(width: 136, height: 10))
+    }
+
+    @Test func startsANewRowWhereTheNextDoesNotFit() {
+        #expect(size(3, within: 135) == CGSize(width: 88, height: 24))
+        #expect(size(5, within: 100) == CGSize(width: 88, height: 38))
+    }
+
+    @Test func oneTooWideKeepsItsOwnRow() {
+        #expect(size(2, within: 30) == CGSize(width: 40, height: 24))
     }
 }

@@ -29,6 +29,13 @@ struct TextCheck: Identifiable {
     let canChangeDismissal: Bool
     let setDismissed: (Bool) -> Void
     var id: Entry.Warning { warning }
+
+    /// The times where room is short. One over the limit still shows, since
+    /// "and 1 more" would take its place.
+    var shortenedTimes: [Time] {
+        let limit = 4
+        return times.count > limit + 1 ? Array(times.prefix(limit)) : times
+    }
 }
 
 /// The checks on a transcript's text, which the page shows above it and the

@@ -149,7 +149,7 @@ struct TextCheckRow: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: Spacing.icon) {
             Image(systemName: check.symbol).foregroundStyle(NoticeState.warning.tint)
-            TextCheckContent(check: check)
+            TextCheckContent(check: check, shortensTimes: true)
             DismissalButton(check: check)
         }
     }
@@ -213,6 +213,7 @@ extension DismissalButton {
 private struct TextCheckContent: View {
     let check: TextCheck
     var actionIsBelow = false
+    var shortensTimes = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -226,7 +227,7 @@ private struct TextCheckContent: View {
                 }
             }
             if !check.times.isEmpty {
-                NoticeTimes(times: check.times)
+                NoticeTimes(check: check, isShortened: shortensTimes)
             }
         }
     }
@@ -244,25 +245,44 @@ private struct TextCheckContent: View {
     }
 }
 
-/// The times a check offers to listen from, on one line that scrolls only when
-/// they do not fit.
+/// The times a check offers to listen from, in as many rows as they take. Above
+/// the text, where each row takes room from the reading, a long list stops at
+/// "and N more", which opens all of them.
 private struct NoticeTimes: View {
-    let times: [TextCheck.Time]
+    let check: TextCheck
+    let isShortened: Bool
 
     var body: some View {
-        let row = HStack {
+        let times = isShortened ? check.shortenedTimes : check.times
+        WrappingLayout {
             ForEach(times) { time in
                 Button(time.title, action: time.listen)
                     .buttonStyle(.plain)
                     .foregroundStyle(.tint)
                     .help(time.help)
             }
+            if times.count < check.times.count {
+                MoreTimesButton(check: check, hidden: check.times.count - times.count)
+            }
         }
         .font(.callout.monospacedDigit())
-        ViewThatFits(in: .horizontal) {
-            row
-            ScrollView(.horizontal) { row }
-        }
+    }
+}
+
+/// How many times a shortened list leaves out, opening the check with all of them.
+private struct MoreTimesButton: View {
+    let check: TextCheck
+    let hidden: Int
+    @State private var showsAll = false
+
+    var body: some View {
+        Button("and \(hidden) more") { showsAll = true }
+            .buttonStyle(.plain)
+            .foregroundStyle(.tint)
+            .help("Show every time")
+            .popover(isPresented: $showsAll, arrowEdge: .bottom) {
+                TextChecksList(checks: [check])
+            }
     }
 }
 
@@ -276,6 +296,12 @@ private let previewChecks = [
         text: "2 lines that look like credits were set aside.",
         action: TextCheck.Action(title: "Put Back", help: nil, isDisabled: false, perform: {}),
         isDismissed: true, canChangeDismissal: true, setDismissed: { _ in }),
+    TextCheck(
+        warning: .resumed, symbol: "arrow.clockwise", text: "Resumed part way.",
+        times: (1...12).map {
+            TextCheck.Time(title: "00:\($0 + 10):00", help: "Listen from here", listen: {})
+        },
+        isDismissed: false, canChangeDismissal: true, setDismissed: { _ in }),
 ]
 
 #Preview("List") {
@@ -285,6 +311,7 @@ private let previewChecks = [
 #Preview("Capsules") {
     VStack {
         TextCheckRow(check: previewChecks[1]).statusCapsule()
+        TextCheckRow(check: previewChecks[2]).statusCapsule()
         TextChecksButton(checks: previewChecks, dismissAll: {})
     }
     .padding()
