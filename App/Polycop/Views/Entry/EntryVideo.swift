@@ -60,11 +60,13 @@ struct EntryVideo: View {
             if model.video.isInPictureInPicture { floating } else { shown }
         }
         .aspectRatio(picture.width / picture.height, contentMode: .fit)
-        .frame(maxWidth: tallest.map { $0 * picture.width / picture.height })
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .overlay(alignment: .bottomTrailing) { buttons }
         .onHover { isHovering = $0 }
         .animation(.easeOut(duration: 0.15), value: isHovering)
+        // After the corners and the buttons: a frame takes all the width it is
+        // offered up to its maximum, wider than a picture its height holds back.
+        .frame(maxWidth: tallest.map { $0 * picture.width / picture.height })
         .frame(maxWidth: .infinity)
     }
 
