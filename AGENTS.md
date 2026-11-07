@@ -154,7 +154,9 @@ Every page speaks the same visual language. The shared pieces live in
   (underline, strikethrough). A message is centred in what holds it, on a line with
   its button if it has one; several lines centre as a block, their text aligned left.
   On the transcript page each is a `statusCapsule`, and checks on the text gather
-  into one that opens their list, so that the text stays in place.
+  into one that opens their list, so that the text stays in place. A warning about the
+  text can be dismissed for its transcript; the inspector's Warnings section lists them
+  all and brings one back.
   A sheet shows its own failures, never through `AppModel.failure`, which the page
   behind it would show too.
 * Spacing comes from its role in `Spacing`: `page` (28 points) around a page,
@@ -212,7 +214,9 @@ Every page speaks the same visual language. The shared pieces live in
   lost. A stored property an earlier version would lose or misread raises
   `HistoryStore.knownFormat` and sets `requires` on the records that hold it, and no
   others. A version from 0.5.0 on then lists those records without opening or writing
-  them (`UnavailableRecord`); earlier ones still strip them. Folders and course corrections have no such
+  them (`UnavailableRecord`); earlier ones still strip them. `dismissedWarnings` is the
+  exception: losing it only brings a warning back, which is no reason to close the whole
+  record to an earlier version. Folders and course corrections have no such
   number: what they cannot lose goes in a new file, which earlier versions never open.
 * The library is also kept in `Snapshots/` (`LibrarySnapshots`). Code that deletes a
   file of the library for good takes it out of the copies with `LibrarySnapshots.remove`,

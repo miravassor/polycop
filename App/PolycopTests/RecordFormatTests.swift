@@ -48,6 +48,7 @@ func aTranscriptWrittenByAnEarlierReleaseStillLoads(release: String) throws {
     #expect((entry.exportsWord == true) == (release == "0.4.0"))
     #expect((entry.keepsSettings == true) == (release == "0.4.0"))
     #expect((entry.removed != nil) == (release == "0.4.0"))
+    #expect(entry.dismissedWarnings == nil)
     switch release {
     case "0.2.0": #expect(entry.state == .stopped)
     case "0.3.0": #expect(entry.state == .failed("The model could not be read."))
@@ -310,4 +311,21 @@ func aNewerRecordIsNotTakenForADamagedOneWhenAPropertyChangedShape(key: String) 
 
     #expect(model.libraryWarning?.contains("could not be opened") == true)
     #expect(model.entries.isEmpty)
+}
+
+/// The name of the key and of each warning are what a record holds. A name from
+/// a later version does not stop it opening, and a dismissal does not raise the
+/// format: an earlier version that loses it only shows the warning again.
+@Test func aDismissalIsReadFromWhatARecordHolds() throws {
+    let name = "entry-0.4.0.json"
+    var record = try #require(
+        JSONSerialization.jsonObject(with: Data(contentsOf: records.appending(path: name)))
+            as? [String: Any])
+    record["dismissedWarnings"] = ["gaps", "later"]
+    let entry = try JSONDecoder().decode(
+        Entry.self, from: JSONSerialization.data(withJSONObject: record))
+    #expect(entry.isDismissed(.gaps))
+    #expect(!entry.isDismissed(.resumed))
+    #expect(entry.dismissedWarnings == ["gaps", "later"])
+    #expect(entry.requires == nil)
 }

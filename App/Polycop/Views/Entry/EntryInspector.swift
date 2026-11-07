@@ -3,14 +3,16 @@
 import SwiftUI
 
 /// Beside the text, in the system's inspector: the picture of a video, how the
-/// page follows playback, the export, and the settings the transcript was made
-/// with. A grouped form as in Settings, so every control sits on a row of its
-/// own section, label at the leading edge and control at the trailing one. The
-/// player itself, with its paragraph steps, stays under the text, inspector or
-/// not.
+/// page follows playback, the export, the warnings about the text, and the
+/// settings the transcript was made with. A grouped form as in Settings, so every
+/// control sits on a row of its own section, label at the leading edge and control
+/// at the trailing one. The player itself, with its paragraph steps, stays under
+/// the text, inspector or not.
 struct EntryInspector: View {
     let model: AppModel
     let entry: Entry
+    let findings: Entry.Findings
+    let canRebuild: Bool
     @Binding var following: Following
     @Binding var isFollowSuspended: Bool
     /// Whether any word has a time, which the highlight and the cursor need.
@@ -33,6 +35,12 @@ struct EntryInspector: View {
                 Section("Playback") { follow }
             }
             EntryExportSection(model: model, entry: entry, isRunning: isRunning)
+            WarningsSection(
+                checks: TextChecks(
+                    entry: entry, findings: findings, canRebuild: canRebuild, model: model,
+                    isRunning: isRunning, engine: engine
+                ).all,
+                reading: model.reading)
             EntryDetails(entry: entry, engine: engine)
         }
         .formStyle(.grouped)

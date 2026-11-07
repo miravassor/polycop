@@ -24,6 +24,10 @@ struct EntryView: View {
     @State private var words: [[Segment.Word]] = []
     /// The notices' findings, worked out when the segments change.
     @State private var findings: Entry.Findings?
+    /// Whether what a warning offers to rebuild can be. Worked out as what it
+    /// hangs on changes, since the answer can run the course corrections over
+    /// the whole text, which neither hovering nor the warnings' two views repeat.
+    @State private var canRebuild = false
 
     private var original: [Transcript.Paragraph] { entry.original }
     @State private var confirmingRemoval = false
@@ -39,8 +43,8 @@ struct EntryView: View {
             Group {
                 EntryProgress(model: model, entry: entry, isRunning: isRunning)
                 EntryNotices(
-                    entry: entry, findings: findings ?? entry.findings, model: model,
-                    isRunning: isRunning, engine: engine)
+                    entry: entry, findings: findings ?? entry.findings, canRebuild: canRebuild,
+                    model: model, isRunning: isRunning, engine: engine)
                 unsaved
             }
             .frame(maxWidth: .infinity)
@@ -77,6 +81,9 @@ struct EntryView: View {
         .onChange(of: entry.showsCredits) {
             regroupWords()
             findings = entry.findings
+        }
+        .onChange(of: rebuildFacts, initial: true) {
+            canRebuild = rebuildFacts.offersRebuild && model.canRebuildParagraphs(of: entry)
         }
         .onChange(of: entry.paragraphs) {
             // Nothing to find: left as it is, so that typing does not update
@@ -226,11 +233,30 @@ struct EntryView: View {
 }
 
 extension EntryView {
-    /// The recording and the export, beside the text in the system's inspector,
-    /// which the reader hides or shows.
+    /// All that `AppModel.canRebuildParagraphs` and offering a rebuild read.
+    private struct RebuildFacts: Equatable {
+        let paragraphs: [Transcript.Paragraph]
+        let original: [Transcript.Paragraph]
+        let isEdited: Bool
+        let courseCorrections: [CourseCorrection]?
+        let canUndo: Bool
+        let isRunning: Bool
+        let offersRebuild: Bool
+    }
+
+    private var rebuildFacts: RebuildFacts {
+        RebuildFacts(
+            paragraphs: entry.paragraphs, original: original, isEdited: entry.isEdited,
+            courseCorrections: entry.courseCorrections, canUndo: model.canUndo(entry.id),
+            isRunning: isRunning, offersRebuild: findings?.offersRebuild ?? false)
+    }
+
+    /// The recording, the warnings and the export, beside the text in the
+    /// system's inspector, which the reader hides or shows.
     private var inspector: some View {
         EntryInspector(
-            model: model, entry: entry, following: $following,
+            model: model, entry: entry, findings: findings ?? entry.findings,
+            canRebuild: canRebuild, following: $following,
             isFollowSuspended: $isFollowSuspended,
             hasTimedWords: words.contains { !$0.isEmpty }, isRunning: isRunning, engine: engine
         )

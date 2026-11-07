@@ -138,6 +138,13 @@ extension AppModel {
         entry.id != busyEntry && !canUndo(entry.id) && entry.hasOnlyCourseCorrections
     }
 
+    func setDismissed(_ warnings: [Entry.Warning], _ isDismissed: Bool, on id: Entry.ID) {
+        guard !isShuttingDown, id != busyEntry else { return }
+        updateEntry(id) { entry in
+            for warning in warnings { entry.setDismissed(warning, isDismissed) }
+        }
+    }
+
     func putBackCredits(_ id: Entry.ID) {
         guard !isShuttingDown, let entry = entry(id), canRebuildParagraphs(of: entry) else {
             return
