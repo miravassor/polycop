@@ -291,8 +291,8 @@ extension AppModel {
                 }
                 guard isCurrent(number) else { return }
                 let samples = transcription.samples
-                let duration = Double(samples.count) / Double(AudioDecoder.sampleRate)
-                updateEntry(id) { $0.duration = duration }
+                let total = Double(samples.count) / Double(AudioDecoder.sampleRate)
+                updateEntry(id) { $0.duration = total }
                 // Every transcription that skips silences says how much of the
                 // recording it left out, since some of it was speech.
                 if settings.voiceActivityDetection, entry.speech == nil {
@@ -312,10 +312,10 @@ extension AppModel {
                 if let whisper = engine as? WhisperEngine {
                     await limitContextToGlossary(&settings, of: id, on: whisper)
                 }
+                settings.language = try await language(of: samples, after: kept, engine, settings)
                 try Task.checkCancellation()
                 guard isCurrent(number) else { return }
 
-                let total = Double(transcription.samples.count) / Double(AudioDecoder.sampleRate)
                 let from = kept.last?.end ?? 0
                 if !kept.isEmpty {
                     updateEntry(id) { $0.resumedAt = ($0.resumedAt ?? []) + [from] }
@@ -375,6 +375,16 @@ extension AppModel {
                 finish()
             }
         }
+    }
+
+    /// What is left of a recording is read in the language the engine decides for
+    /// all of it, not for that part.
+    private func language(
+        of samples: [Float], after kept: [Segment], _ engine: any TranscriptionEngine,
+        _ settings: DecodingSettings
+    ) async throws -> String {
+        guard !kept.isEmpty else { return settings.language }
+        return try await engine.language(in: samples, settings: settings)
     }
 
     /// Adds what this run took to the time already spent on the entry, so a

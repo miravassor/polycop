@@ -127,13 +127,7 @@ struct EntryEmptyState: View {
     /// What it is transcribed with: its own settings once scheduled, which a
     /// start keeps, otherwise those on New Transcription, which a start gives it.
     private var settings: String {
-        guard model.isScheduled(entry.id) else { return StartBar.summary(of: model) }
-        let name = ModelCatalog.model(entry.modelFile)?.name ?? entry.modelFile
-        let language = entry.language.flatMap { code in
-            DecodingSettings.languages.first { $0.code == code }
-        }
-        return [name, language.map { String(localized: String.LocalizationValue($0.name)) }]
-            .compactMap { $0 }.joined(separator: " · ")
+        model.isScheduled(entry.id) ? StartBar.summary(of: entry) : StartBar.summary(of: model)
     }
 
     private var retry: some View {

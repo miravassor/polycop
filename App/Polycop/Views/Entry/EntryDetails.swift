@@ -8,7 +8,6 @@ import UniformTypeIdentifiers
 /// a section of the inspector, which shows the details of what is open.
 struct EntryDetails: View {
     let entry: Entry
-    let engine: Engine?
 
     var body: some View {
         // Selection on the rows only: on the section it also reached the
@@ -28,12 +27,10 @@ struct EntryDetails: View {
         if let elapsed = entry.transcribedIn {
             LabeledContent("Transcribed in", value: formattedDuration(elapsed))
         }
-        if engine?.audioCpp?.setsLanguage == false {
+        if entry.isLanguageDetected {
             LabeledContent("Language", value: "Detected automatically")
-        } else if entry.importSource == nil, let code = entry.language,
-            let language = DecodingSettings.languages.first(where: { $0.code == code })
-        {
-            LabeledContent("Language") { Text(LocalizedStringKey(language.name)) }
+        } else if let code = entry.toldLanguage, let language = DecodingSettings.name(of: code) {
+            LabeledContent("Language") { Text(LocalizedStringKey(language)) }
         }
         if let glossary = entry.glossary {
             LabeledContent("Glossary", value: glossary)

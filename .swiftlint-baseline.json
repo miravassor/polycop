@@ -113,7 +113,7 @@
                 "character": 13
             },
             "ruleIdentifier": "function_body_length",
-            "reason": "Function body should span 50 lines or less excluding comments and whitespace: currently spans 73 lines",
+            "reason": "Function body should span 50 lines or less excluding comments and whitespace: currently spans 71 lines",
             "ruleDescription": "Function bodies should not span too many lines",
             "ruleName": "Function Body Length",
             "severity": "warning"

@@ -75,6 +75,26 @@ private func words(_ text: String) -> [String] {
 @Suite(.serialized) struct LoadingAModel {}
 
 extension LoadingAModel {
+    /// The decision a run on Automatic makes, asked apart from it, which leaves
+    /// the engine able to transcribe.
+    @Test(.enabled(if: modelInstalled))
+    func detectsTheLanguageOfARecording() async throws {
+        let engine = try await WhisperEngine.load(model: model)
+        let clip = try samples(of: fixture)
+        var settings = DecodingSettings()
+        settings.language = DecodingSettings.automaticLanguage
+
+        #expect(try await engine.language(in: clip, settings: settings) == "fr")
+        let segments = try await engine.transcribe(samples: clip, settings: settings)
+        #expect(segments.map(\.text).joined().contains("Freud"))
+
+        settings.voiceActivityDetection = true
+        #expect(try await engine.language(in: clip, settings: settings) == "fr")
+
+        settings.language = "en"
+        #expect(try await engine.language(in: clip, settings: settings) == "en")
+    }
+
     @Test(.enabled(if: modelInstalled))
     func transcribesFrenchWithTheGlossary() async throws {
         let engine = try await WhisperEngine.load(model: model)
@@ -225,4 +245,5 @@ extension LoadingAModel {
     let told = DecodingSettings.languages.map { AudioCppEngine.qwenLanguage(for: $0.code) }
     #expect(Set(told) == known)
     #expect(AudioCppEngine.qwenLanguage(for: "xx").isEmpty)
+    #expect(AudioCppEngine.qwenLanguage(for: DecodingSettings.automaticLanguage).isEmpty)
 }

@@ -193,7 +193,7 @@ nonisolated final class AudioCppEngine: TranscriptionEngine, @unchecked Sendable
         defer { audiocpp_result_free(result) }
         switch profile.feed {
         case .whole:
-            try Self.check(audiocpp_session_run(session, request, &result))
+            try runWhole(request, language: language, into: &result)
         case .text:
             return try transcribeMoss(
                 window, request, until: stopIfAsked, progress: progress
@@ -209,6 +209,23 @@ nonisolated final class AudioCppEngine: TranscriptionEngine, @unchecked Sendable
                 until: stopIfAsked, progress: progress)
         }
         return try Self.qwenSegments(of: result, in: window)
+    }
+
+    /// Told no language, Qwen can write text it names none for, which its aligner
+    /// refuses (`run_single`, qwen3_asr/session.cpp). The window then keeps its
+    /// text without word times, since a retry would stop at the same place. The
+    /// library gives this failure no code of its own, so any failure tries once
+    /// more, and one that is not this one fails again.
+    private func runWhole(
+        _ request: OpaquePointer, language: String, into result: inout OpaquePointer?
+    ) throws {
+        do {
+            try Self.check(audiocpp_session_run(session, request, &result))
+        } catch {
+            guard aligns, language.isEmpty else { throw error }
+            try Self.check(audiocpp_request_set_option(request, "return_timestamps", "false"))
+            try Self.check(audiocpp_session_run(session, request, &result))
+        }
     }
 
     /// A MOSS window. When its token limit stopped it, `again` reads the rest

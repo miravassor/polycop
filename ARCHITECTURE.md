@@ -97,7 +97,9 @@ request. A paused job comes back stopped, since its samples lived in memory.
 A crash or a dead battery leaves a record still running, which the next launch
 stops with what it had saved as its text. Resuming a stopped transcript
 (`resumeStopped`) converts the recording again and continues from the end of its
-segments.
+segments. On Automatic, a resume and a repair first ask the engine for its language
+on the whole recording (`TranscriptionEngine.language`), so that Whisper keeps the
+one decision it makes for a recording.
 
 ## Editing and playback
 

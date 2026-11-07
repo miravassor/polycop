@@ -166,7 +166,8 @@ extension AppModel {
         defaults.set(times, forKey: Self.exportTimecodesKey)
     }
 
-    /// A new transcript starts with the export chosen last.
+    /// A new transcript starts with the export chosen last. Filler words stay,
+    /// where the language is not known, since some are words elsewhere.
     func adoptingLastExport(_ entry: Entry) -> Entry {
         var entry = entry
         if let name = defaults.string(forKey: Self.exportFormatKey),
@@ -175,7 +176,9 @@ extension AppModel {
             entry.chooseExport(
                 format, times: defaults.object(forKey: Self.exportTimecodesKey) as? Bool ?? true)
         }
-        if defaults.bool(forKey: Self.removesHesitationsKey) { entry.removesHesitations = true }
+        if defaults.bool(forKey: Self.removesHesitationsKey), entry.toldLanguage != nil {
+            entry.removesHesitations = true
+        }
         return entry
     }
 

@@ -510,6 +510,18 @@ private func entry(_ name: String, in folder: URL, added: Date = .now) -> Entry 
     #expect(Hesitations.cover(detected))
 }
 
+/// Automatic on a model that can be told a language counts as detected, and the
+/// word stored is never taken for a language.
+@Test(arguments: [ModelCatalog.turbo, ModelCatalog.qwen, ModelCatalog.voxtral])
+func automaticIsADetectedLanguage(chosen: Model) {
+    let entry = Entry(
+        recording: URL(filePath: "/made/up.wav"), modelFile: chosen.id, glossary: nil,
+        skipsSilence: false, subtitles: false, language: DecodingSettings.automaticLanguage)
+    #expect(entry.isLanguageDetected)
+    #expect(entry.toldLanguage == nil)
+    #expect(Hesitations.cover(entry))
+}
+
 /// Typing is written after a pause rather than at each key, and what is left
 /// is written before quitting.
 @MainActor

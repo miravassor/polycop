@@ -113,7 +113,8 @@ final class AppModel {
     var skipsSilence = false {
         didSet { defaults.set(skipsSilence, forKey: Self.skipsSilenceKey) }
     }
-    /// The language spoken in the recordings that have not started.
+    /// The language spoken in the recordings that have not started, or
+    /// `DecodingSettings.automaticLanguage`.
     var language = "fr" {
         didSet { defaults.set(language, forKey: Self.languageKey) }
     }
@@ -189,6 +190,8 @@ final class AppModel {
     var selectedCatalogue: Model? { ModelCatalog.model(selected) }
     /// A glossary only applies to a model that reads one.
     var glossaryApplies: Bool { selectedCatalogue?.readsGlossary ?? true }
+    /// A language only applies to a model that is told it; the others detect it.
+    var languageApplies: Bool { selectedCatalogue?.engine.detectsLanguage != true }
     /// Silence removal only applies to an engine that does it.
     var silenceApplies: Bool { selectedCatalogue?.engine.skipsSilence ?? true }
 
@@ -255,7 +258,7 @@ final class AppModel {
         keepAwake = defaults.object(forKey: Self.keepAwakeKey) as? Bool ?? true
         skipsSilence = defaults.object(forKey: Self.skipsSilenceKey) as? Bool ?? false
         if let remembered = defaults.object(forKey: Self.languageKey) as? String,
-            DecodingSettings.languages.contains(where: { $0.code == remembered })
+            DecodingSettings.offers(remembered)
         {
             language = remembered
         }

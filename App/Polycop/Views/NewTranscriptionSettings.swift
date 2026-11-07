@@ -47,16 +47,15 @@ struct NewTranscriptionSettings: View {
         .formStyle(.grouped)
     }
 
-    /// The language spoken, or what the model does instead of asking.
+    /// The language spoken, for a model that is told it.
     @ViewBuilder private var language: some View {
-        if chosen.engine.audioCpp?.setsLanguage == false {
-            LabeledContent("Language", value: String(localized: "Detected automatically"))
-        } else {
-            let current = DecodingSettings.languages.first { $0.code == model.language }
+        if model.languageApplies {
             LabeledContent {
                 // A menu as the rows beside it, which end with Manage….
                 Menu {
                     Picker("Language", selection: $model.language) {
+                        Text("Automatic").tag(DecodingSettings.automaticLanguage)
+                        Divider()
                         ForEach(DecodingSettings.languages, id: \.code) { language in
                             Text(LocalizedStringKey(language.name)).tag(language.code)
                         }
@@ -64,12 +63,14 @@ struct NewTranscriptionSettings: View {
                     .pickerStyle(.inline)
                     .labelsHidden()
                 } label: {
-                    Text(LocalizedStringKey(current?.name ?? model.language))
+                    Text(
+                        DecodingSettings.name(of: model.language).map { LocalizedStringKey($0) }
+                            ?? "Automatic")
                 }
                 .fixedSize()
             } label: {
                 Text("Language")
-                if !Hesitations.cover(model.language) {
+                if !Hesitations.cover(model.toldLanguage) {
                     Text("Some automatic cleaning covers only French and English.")
                 }
             }

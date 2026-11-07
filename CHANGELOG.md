@@ -6,6 +6,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ### Added
 
+* Automatic, in the Language menu for Whisper and Qwen3-ASR: the model detects the language. Where the language is not known, Remove filler words starts off, since some filler sounds are words in other languages.
 * A class recorded as a video, such as a Zoom or Teams recording in MP4 or MOV, shows its picture beside the transcript and plays with the same player and shortcuts. A click on the picture plays or pauses. A video that macOS cannot play, such as WebM or MKV, still plays its sound.
 * Picture in Picture and full screen, from the buttons on the picture's corner or its menu. A double click fills the screen, and Esc leaves it.
 * Copy Frame, in the video's menu, copies the picture on screen, to paste a slide into notes.
@@ -20,6 +21,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ### Changed
 
+* New Transcription no longer shows a Language row for MOSS and Voxtral, which detect the language themselves, and a recording waiting its turn no longer names a language its model ignores.
 * Warnings and failures are centred, closer to their icon, and take less room. On a transcript each sits in a capsule above the text, and several warnings gather into one capsule that opens their list, so the text stays in place.
 * A failure has the same red symbol wherever it shows, in the library too.
 * A paragraph's flag lines up under its time, with the mark of a resumed transcription beside it.

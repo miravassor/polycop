@@ -9,7 +9,7 @@ nonisolated extension AudioCppEngine {
     /// Qwen names languages in the English words the menu shows, where the app
     /// keeps codes. Told nothing, it detects the language.
     static func qwenLanguage(for code: String) -> String {
-        DecodingSettings.languages.first { $0.code == code }?.name ?? ""
+        DecodingSettings.name(of: code) ?? ""
     }
 
     /// Qwen's text as the sentences the aligner timed, placed on the

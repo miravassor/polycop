@@ -74,6 +74,12 @@ extension AppModel {
     /// Recordings added and not yet asked for.
     var unscheduled: [Entry] { waiting.filter { !isScheduled($0.id) } }
 
+    /// The language recordings not started yet will be transcribed in, if it is
+    /// known before they run.
+    var toldLanguage: String? {
+        languageApplies && language != DecodingSettings.automaticLanguage ? language : nil
+    }
+
     var startAction: StartAction {
         if canStart { return .start(count: waiting.count) }
         if !isShuttingDown, stage.isBusy || busyEntry != nil, !unscheduled.isEmpty {

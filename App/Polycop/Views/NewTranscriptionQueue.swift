@@ -108,12 +108,8 @@ struct StartBar: View {
     /// The settings the recordings will be transcribed with, in one line.
     static func summary(of model: AppModel) -> String {
         let chosen = model.selectedCatalogue ?? ModelCatalog.recommended
-        let language =
-            chosen.engine.audioCpp?.setsLanguage == false
-            ? String(localized: "Language detected")
-            : DecodingSettings.languages.first { $0.code == model.language }
-                .map { String(localized: String.LocalizationValue($0.name)) } ?? model.language
-        var parts = [chosen.name, language]
+        var parts = [chosen.name]
+        if let language = model.toldLanguage { parts.append(name(ofLanguage: language)) }
         if model.glossaryApplies, let glossary = model.glossaryName {
             parts.append(String(localized: "Glossary \(glossary)"))
         }
@@ -121,6 +117,18 @@ struct StartBar: View {
             parts.append(String(localized: "Downloads \(formattedFileSize(chosen.bytes)) first"))
         }
         return parts.joined(separator: " · ")
+    }
+
+    /// The settings a scheduled recording keeps, in one line.
+    static func summary(of entry: Entry) -> String {
+        let model = ModelCatalog.model(entry.modelFile)?.name ?? entry.modelFile
+        return ([model] + (entry.toldLanguage.map { [name(ofLanguage: $0)] } ?? []))
+            .joined(separator: " · ")
+    }
+
+    private static func name(ofLanguage code: String) -> String {
+        DecodingSettings.name(of: code).map { String(localized: String.LocalizationValue($0)) }
+            ?? code
     }
 
     @ViewBuilder private var button: some View {

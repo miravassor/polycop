@@ -13,12 +13,9 @@ nonisolated enum Hesitations {
         language == nil || language == "fr" || language == "en"
     }
 
-    /// A transcript's own language counts only if its model was told it. Where
-    /// a model detected it or the text was imported, `language` is just the
-    /// setting of the day, so the language is not known and the option stays.
+    /// A transcript whose language is not known keeps the option.
     static func cover(_ entry: Entry) -> Bool {
-        let detects = ModelCatalog.model(entry.modelFile)?.engine.audioCpp?.setsLanguage == false
-        return entry.importSource != nil || detects || cover(entry.language)
+        cover(entry.toldLanguage)
     }
 
     /// Built where it is used, since a Regex is not Sendable.
