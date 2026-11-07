@@ -91,8 +91,8 @@ extension View {
         labelStyle(NoticeLabelStyle(tint: tint))
     }
 
-    /// What is happening to a transcript, above its text, on the surface of
-    /// the player below it.
+    /// What is happening to a transcript, above its text, or the way back to
+    /// playback above the player, on the surface of the player.
     func statusCapsule() -> some View {
         font(.callout)
             .padding(.horizontal, 16)

@@ -16,9 +16,9 @@ struct EntryView: View {
     @State private var activeParagraph: Int?
     @State private var find = TranscriptFind()
     @FocusState private var isSearchFocused: Bool
-    @AppStorage(Following.key) private var following = Following.page
     @State private var isFollowSuspended = false
     @State private var jump: Int?
+    @State private var showAtTop: Int?
     /// The timed words of each paragraph, grouped when the paragraphs change
     /// rather than on every update of the page.
     @State private var words: [[Segment.Word]] = []
@@ -71,6 +71,8 @@ struct EntryView: View {
         .onChange(of: model.player.isOpen) { _, isOpen in
             if !isOpen { isFollowSuspended = false }
         }
+        // A choice made while the page stood still is a request to follow.
+        .onChange(of: reading.following) { isFollowSuspended = false }
         // Words hang on the segments and on where paragraphs open, which
         // typing leaves alone, so they are not regrouped at each key.
         .onChange(of: entry.paragraphs.map(\.start), initial: true) { regroupWords() }
@@ -132,7 +134,7 @@ struct EntryView: View {
                 suspendForEditing: {
                     if following.stopsWhenEditing { page.suspendFollowing() }
                 },
-                jump: $jump, start: entry.readingParagraph,
+                jump: $jump, showAtTop: $showAtTop, start: entry.readingParagraph,
                 scrolled: { model.readingParagraph = $0 }, focused: focused, size: reading.textSize,
                 active: activeParagraph,
                 activate: { if activeParagraph != $0 { activeParagraph = $0 } },
@@ -140,12 +142,33 @@ struct EntryView: View {
                 toggleReview: { model.toggleReview(entry.id, paragraphAt: $0) },
                 matches: find.matches, currentMatch: find.current,
                 words: words,
-                showsUncertainWords: reading.showsUncertainWords
+                showsUncertainWords: reading.showsUncertainWords,
+                cursorFollows: following == .cursor
             )
             // As in Music, the player floats at the foot of the text, which
             // scrolls under it; Find stays at the top, away from it.
-            .floatingBar { playerBar.padding(.bottom, PlayerBar.foot) }
+            .floatingBar {
+                VStack(spacing: 8) {
+                    if isFollowSuspended { returnToPlayback }
+                    playerBar
+                }
+                .padding(.bottom, PlayerBar.foot)
+            }
         }
+    }
+
+    /// Above the player, so that the text stays in place, and only once the
+    /// page has stopped following.
+    private var returnToPlayback: some View {
+        Button {
+            steps.returnToPlayback()
+        } label: {
+            Label("Return to Playback", systemImage: "arrow.uturn.backward")
+                .statusCapsule()
+                .contentShape(.capsule)
+        }
+        .buttonStyle(.plain)
+        .help("Bring the paragraph playing to the top, and follow it again (Option-Command-L)")
     }
 
     private var playerBar: some View {
@@ -204,7 +227,8 @@ struct EntryView: View {
         EntryTools.Facts(
             paragraphCount: entry.paragraphs.count, flagged: entry.reviewParagraphs.sorted(),
             canUndo: model.canUndo(entry.id), isEdited: entry.isEdited,
-            hasRecording: entry.hasRecording, hasExport: model.lastExport(of: entry) != nil,
+            hasRecording: entry.hasRecording, hasTimedWords: hasTimedWords,
+            hasExport: model.lastExport(of: entry) != nil,
             isRunning: isRunning)
     }
 
@@ -256,21 +280,28 @@ extension EntryView {
     private var inspector: some View {
         EntryInspector(
             model: model, entry: entry, findings: findings ?? entry.findings,
-            canRebuild: canRebuild, following: $following,
-            isFollowSuspended: $isFollowSuspended,
-            hasTimedWords: words.contains { !$0.isEmpty }, isRunning: isRunning, engine: engine
+            canRebuild: canRebuild, isRunning: isRunning, engine: engine
         )
         .modifier(InspectorColumn(width: $inspectorWidth))
+    }
+
+    private var hasTimedWords: Bool { words.contains { !$0.isEmpty } }
+    private var following: Following {
+        reading.following.effective(hasTimedWords: hasTimedWords)
     }
 
     private var page: PageNavigation {
         PageNavigation(
             activeParagraph: $activeParagraph, jump: $jump,
-            isFollowSuspended: $isFollowSuspended, following: following)
+            isFollowSuspended: $isFollowSuspended, following: following,
+            player: model.player)
     }
 
     private var steps: ParagraphSteps {
-        ParagraphSteps(model: model, entry: entry, activeParagraph: $activeParagraph, jump: $jump)
+        ParagraphSteps(
+            model: model, entry: entry, activeParagraph: $activeParagraph, jump: $jump,
+            showAtTop: $showAtTop, isFollowSuspended: $isFollowSuspended,
+            hasTimedWords: hasTimedWords)
     }
 }
 

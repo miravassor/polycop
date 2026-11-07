@@ -3,13 +3,17 @@
 import SwiftUI
 
 /// Moving through a transcript while listening: replaying the active
-/// paragraph, or playing the one before or after. The inspector's buttons and
-/// the Playback menu share it, so the shortcuts work with the inspector hidden.
+/// paragraph, playing the one before or after, or taking the page back to what
+/// plays. The player, the page and the Playback menu share it.
 struct ParagraphSteps {
     let model: AppModel
     let entry: Entry
     @Binding var activeParagraph: Int?
     @Binding var jump: Int?
+    @Binding var showAtTop: Int?
+    @Binding var isFollowSuspended: Bool
+    /// Whether any word has a time, which the highlight and the cursor need.
+    let hasTimedWords: Bool
 
     var canReplay: Bool { activeParagraph != nil && entry.hasRecording }
     var canStop: Bool { model.player.isOpen || model.player.isPreparing }
@@ -17,6 +21,17 @@ struct ParagraphSteps {
     /// Stops and closes the recording.
     func stop() { model.player.stop() }
     var canStep: Bool { entry.hasRecording && !entry.paragraphs.isEmpty }
+
+    /// Whether the text is there but no word has a time, which Follow's choice says.
+    var lacksTimedWords: Bool { !entry.paragraphs.isEmpty && !hasTimedWords }
+
+    /// Follows playback again after the reader looked elsewhere, with the
+    /// paragraph playing at the top even if it was in view.
+    func returnToPlayback() {
+        isFollowSuspended = false
+        showAtTop = TranscriptNavigation.paragraph(
+            returningTo: model.player.position, starts: entry.paragraphs.map(\.seconds))
+    }
 
     /// Replays the active paragraph with two seconds of context.
     func replay() {
@@ -50,8 +65,10 @@ extension FocusedValues {
 }
 
 /// The Playback menu: playing from the text cursor, replaying the active
-/// paragraph, playing the one before or after, and stopping.
+/// paragraph, playing the one before or after, how the page follows, and
+/// stopping.
 struct PlaybackCommands: Commands {
+    let reading: ReadingSettings
     @FocusedValue(\.paragraphSteps) private var steps
 
     var body: some Commands {
@@ -72,6 +89,12 @@ struct PlaybackCommands: Commands {
             Button("Next Paragraph") { steps?.step(by: 1) }
                 .keyboardShortcut(.downArrow, modifiers: [.command, .option])
                 .disabled(steps?.canStep != true)
+            Divider()
+            FollowChoice(reading: reading, lacksTimedWords: steps?.lacksTimedWords == true)
+                .disabled(steps?.entry.paragraphs.isEmpty != false)
+            Button("Return to Playback") { steps?.returnToPlayback() }
+                .keyboardShortcut("l", modifiers: [.command, .option])
+                .disabled(steps?.isFollowSuspended != true)
             Divider()
             Button("Stop") { steps?.stop() }
                 .disabled(steps?.canStop != true)

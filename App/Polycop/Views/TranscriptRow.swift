@@ -24,6 +24,8 @@ struct TranscriptRow: View, Equatable {
     let currentMatch: NSRange?
     let words: [Segment.Word]
     let showsUncertainWords: Bool
+    /// Whether the text cursor goes along with the word heard.
+    let cursorFollows: Bool
     let timeColumnWidth: CGFloat
     let play: (TimeInterval) -> Void
     let edit: (Int, String) -> Void
@@ -43,6 +45,7 @@ struct TranscriptRow: View, Equatable {
             && lhs.isResumed == rhs.isResumed && lhs.matches == rhs.matches
             && lhs.currentMatch == rhs.currentMatch && lhs.words == rhs.words
             && lhs.showsUncertainWords == rhs.showsUncertainWords
+            && lhs.cursorFollows == rhs.cursorFollows
             && lhs.timeColumnWidth == rhs.timeColumnWidth
     }
 
@@ -103,6 +106,7 @@ struct TranscriptRow: View, Equatable {
             ParagraphText(
                 player: player, isCurrent: isPlaying,
                 words: WordLayout.place(words, in: paragraph.text),
+                cursorFollows: cursorFollows,
                 editor: ParagraphEditor(
                     text: paragraph.text,
                     original: written,
@@ -158,14 +162,14 @@ private struct ParagraphText: View {
     let player: Player
     let isCurrent: Bool
     let words: [WordLayout.Placed]
+    let cursorFollows: Bool
     let editor: ParagraphEditor
-    @AppStorage(Following.key) private var following = Following.page
 
     var body: some View {
         var editor = editor
         editor.words = words
         editor.playingWord = isCurrent ? WordLayout.playing(words, at: player.position) : nil
-        editor.movesCursor = isCurrent && player.isPlaying && following == .cursor
+        editor.movesCursor = isCurrent && player.isPlaying && cursorFollows
         return editor
     }
 }

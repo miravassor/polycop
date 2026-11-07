@@ -11,10 +11,14 @@ struct PageNavigation: DynamicProperty {
     @Binding var jump: Int?
     @Binding var isFollowSuspended: Bool
     let following: Following
+    let player: Player
 
-    /// Stops following while the reader looks elsewhere, and offers the way back.
+    /// Stops following while the reader looks elsewhere, and offers the way
+    /// back, to where the recording stands, paused or not. With none open
+    /// there is nowhere to come back to, so one opened later is followed from
+    /// the start.
     func suspendFollowing() {
-        guard following != .off, !isFollowSuspended else { return }
+        guard following != .off, player.isOpen, !isFollowSuspended else { return }
         isFollowSuspended = true
     }
 
