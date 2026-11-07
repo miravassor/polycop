@@ -300,7 +300,8 @@ extension EntryView {
     private var steps: ParagraphSteps {
         ParagraphSteps(
             model: model, entry: entry, activeParagraph: $activeParagraph, jump: $jump,
-            showAtTop: $showAtTop, isFollowSuspended: $isFollowSuspended, hasTimedWords: hasTimedWords)
+            showAtTop: $showAtTop, isFollowSuspended: $isFollowSuspended,
+            hasTimedWords: hasTimedWords)
     }
 }
 
