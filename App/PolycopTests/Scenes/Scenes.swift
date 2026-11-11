@@ -11,14 +11,14 @@ extension Scene {
         Scene(name: "new-transcription") { $0.model.pane = .new },
         Scene(name: "transcript") { stage in
             stage.finish(stage.first)
-            stage.change(stage.first) { $0.playbackPosition = 2268 }
+            stage.change(stage.first) { $0.playbackPosition = 700 }
             stage.model.pane = .entry(stage.first)
         },
         Scene(name: "transcribing") { stage in
             stage.model.running = stage.first
             stage.change(stage.first) {
                 $0.state = .running
-                $0.duration = 5400
+                $0.duration = Scene.length
                 $0.paragraphs = Array(Scene.text.prefix(12))
             }
             stage.model.stage = .transcribing(0.42)
@@ -28,7 +28,7 @@ extension Scene {
             stage.model.running = stage.first
             stage.change(stage.first) {
                 $0.state = .running
-                $0.duration = 5400
+                $0.duration = Scene.length
                 $0.paragraphs = Array(Scene.text.prefix(12))
             }
             stage.model.stage = .paused(0.42)
@@ -43,7 +43,7 @@ extension Scene {
         Scene(name: "stopped") { stage in
             stage.change(stage.first) {
                 $0.state = .stopped
-                $0.duration = 5400
+                $0.duration = Scene.length
                 $0.paragraphs = Array(Scene.text.prefix(2))
             }
             stage.model.pane = .entry(stage.first)
@@ -56,7 +56,7 @@ extension Scene {
             stage.finish(stage.first)
             stage.change(stage.first) {
                 $0.glossaryWarning = "The glossary of this course could not be read."
-                $0.resumedAt = [612, 1840]
+                $0.resumedAt = [612, 1240]
             }
             stage.model.pane = .entry(stage.first)
         },

@@ -30,7 +30,8 @@ struct Scene {
         func finish(_ id: Entry.ID) {
             change(id) {
                 $0.state = .finished
-                $0.duration = 5400
+                $0.duration = Scene.length
+                $0.decoded = Scene.segments
                 $0.paragraphs = Scene.text
             }
         }
@@ -44,8 +45,17 @@ struct Scene {
         "The first experiments used lists of letters, read once, then a delay filled with counting backwards.",
     ]
 
-    static let text = (0..<40).map {
-        Transcript.Paragraph(
-            start: $0 * 135_000, text: String(repeating: sentences[$0 % 4] + " ", count: 3))
+    /// What the engine wrote, with no silence for a check to find.
+    static let segments = (0..<40).map {
+        Segment(
+            start: Double($0) * 41, end: Double($0 + 1) * 41,
+            text: String(repeating: sentences[$0 % 4] + " ", count: 3))
     }
+
+    static let text = segments.map {
+        Transcript.Paragraph(start: Int($0.start * 1000), text: $0.text)
+    }
+
+    /// The length of the recording `segments` cover.
+    static let length: TimeInterval = 1640
 }
