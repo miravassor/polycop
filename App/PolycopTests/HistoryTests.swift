@@ -582,11 +582,14 @@ func automaticIsADetectedLanguage(chosen: Model) {
         try await Task.sleep(for: .milliseconds(50))
     }
     try #require(model.player.isOpen)
+    // A place asked of the player, which shows it at once: how far the audio
+    // has played by now depends on how busy the machine is.
+    model.player.seek(to: 2.5)
     model.pane = .new
 
     let left = try #require(model.entry(entry.id))
     #expect(left.readingParagraph == 1)
-    #expect((left.playbackPosition ?? 0) >= 2 && (left.playbackPosition ?? 0) < 3)
+    #expect(left.playbackPosition == 2.5)
     await model.finishWrites()
     #expect(AppModel(history: history).entry(entry.id)?.readingParagraph == 1)
 
