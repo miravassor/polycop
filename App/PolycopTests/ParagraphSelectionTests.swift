@@ -5,6 +5,35 @@ import Testing
 
 @testable import Polycop
 
+/// Two paragraphs of a page in `window`, each the text view the editor makes.
+@MainActor
+private func twoParagraphs(in window: NSWindow) -> (WordTextView, WordTextView) {
+    let first = ParagraphEditor.makeTextView()
+    let second = ParagraphEditor.makeTextView()
+    first.frame = NSRect(x: 0, y: 0, width: 300, height: 100)
+    second.frame = NSRect(x: 0, y: 150, width: 300, height: 100)
+    first.string = "Bonjour à tous."
+    second.string = "Le cours commence."
+    for view in [first, second] { window.contentView?.addSubview(view) }
+    return (first, second)
+}
+
+/// An editor's coordinator for `view`, counting the times it says the reader
+/// is in its paragraph.
+@MainActor
+private final class Activations {
+    private(set) var count = 0
+    private var coordinator: ParagraphEditor.Coordinator?
+
+    init(of view: WordTextView) {
+        coordinator = ParagraphEditor(
+            text: view.string, original: view.string, size: 13, isEditable: true, edit: { _ in },
+            activate: { [unowned self] in count += 1 }
+        ).makeCoordinator()
+        view.delegate = coordinator
+    }
+}
+
 /// The page reads as one text with one selection, in the paragraph being
 /// edited: clicking into another, leaving the text or a row being hidden leaves
 /// none behind. And dropping it is not the reader moving the cursor there.
@@ -13,24 +42,15 @@ import Testing
     let window = NSWindow(
         contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled],
         backing: .buffered, defer: false)
-    let first = WordTextView(frame: NSRect(x: 0, y: 0, width: 300, height: 100))
-    let second = WordTextView(frame: NSRect(x: 0, y: 150, width: 300, height: 100))
-    first.string = "Bonjour à tous."
-    second.string = "Le cours commence."
-    for view in [first, second] { window.contentView?.addSubview(view) }
-    var activations = 0
-    let coordinator = ParagraphEditor(
-        text: first.string, original: first.string, size: 13, isEditable: true, edit: { _ in },
-        activate: { activations += 1 }
-    ).makeCoordinator()
-    first.delegate = coordinator
+    let (first, second) = twoParagraphs(in: window)
+    let activations = Activations(of: first)
 
     window.makeFirstResponder(first)
     first.setSelectedRange(NSRange(location: 0, length: 7))
-    #expect(activations == 1)
+    #expect(activations.count == 1)
     window.makeFirstResponder(second)
     #expect(first.selectedRange() == NSRange(location: 0, length: 0))
-    #expect(activations == 1)
+    #expect(activations.count == 1)
 
     second.setSelectedRange(NSRange(location: 3, length: 5))
     window.makeFirstResponder(nil)
@@ -40,11 +60,32 @@ import Testing
     defer { WordTextView.lostCursor = false }
     window.makeFirstResponder(first)
     first.setSelectedRange(NSRange(location: 8, length: 1))
-    #expect(activations == 2)
+    #expect(activations.count == 2)
     first.isHidden = true
     #expect(window.firstResponder !== first)
     #expect(first.selectedRange() == NSRange(location: 8, length: 0))
-    #expect(activations == 2)
+    #expect(activations.count == 2)
+}
+
+/// Text a drag moves to another paragraph is taken out of the one it left as
+/// the drag ends, which is not the reader editing there: the cursor is where
+/// the text landed.
+@MainActor
+@Test func textTakenOutOfAParagraphLeftIsNotTheReaderEditingIt() {
+    let window = NSWindow(
+        contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled],
+        backing: .buffered, defer: false)
+    let (first, second) = twoParagraphs(in: window)
+    let activations = Activations(of: first)
+    window.makeFirstResponder(first)
+    #expect(activations.count == 1)
+    window.makeFirstResponder(second)
+
+    // As AppKit does at the end of a drag that moved the selection away.
+    first.setSelectedRange(NSRange(location: 0, length: 8))
+    first.delete(nil)
+    #expect(first.string == "à tous.")
+    #expect(activations.count == 1)
 }
 
 /// A window that reads as the key one, the only one where AppKit shows a
@@ -71,11 +112,7 @@ private func showsCursor(_ view: NSView) -> Bool {
         backing: .buffered, defer: false)
     window.isReleasedWhenClosed = false
     defer { window.close() }
-    let first = WordTextView(frame: NSRect(x: 0, y: 0, width: 300, height: 100))
-    let second = WordTextView(frame: NSRect(x: 0, y: 150, width: 300, height: 100))
-    first.string = "Bonjour à tous."
-    second.string = "Le cours commence."
-    for view in [first, second] { window.contentView?.addSubview(view) }
+    let (first, second) = twoParagraphs(in: window)
 
     window.makeFirstResponder(first)
     #expect(showsCursor(first))
@@ -131,11 +168,7 @@ private final class Drop: NSObject, NSDraggingInfo {
     let window = NSWindow(
         contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled],
         backing: .buffered, defer: false)
-    let first = WordTextView(frame: NSRect(x: 0, y: 0, width: 300, height: 100))
-    let second = WordTextView(frame: NSRect(x: 0, y: 150, width: 300, height: 100))
-    first.string = "Bonjour à tous."
-    second.string = "Le cours commence."
-    for view in [first, second] { window.contentView?.addSubview(view) }
+    let (first, second) = twoParagraphs(in: window)
     window.makeFirstResponder(first)
     first.setSelectedRange(NSRange(location: 0, length: 7))
 

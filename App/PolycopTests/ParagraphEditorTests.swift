@@ -170,12 +170,7 @@ private final class FocusableControl: NSControl {
     let coordinator = editor.makeCoordinator()
     // On TextKit 1, as the editor is: reaching the layout manager of a
     // TextKit 2 view switches it over and drops the marked text.
-    let storage = NSTextStorage()
-    let manager = NSLayoutManager()
-    let container = NSTextContainer()
-    manager.addTextContainer(container)
-    storage.addLayoutManager(manager)
-    let view = WordTextView(frame: .zero, textContainer: container)
+    let view = ParagraphEditor.makeTextView()
     view.string = "pr"
     view.setSelectedRange(NSRange(location: 2, length: 0))
     let changed = Notification(name: NSText.didChangeNotification, object: view)

@@ -98,7 +98,9 @@ final class WordTextView: NSTextView {
     /// It drops it before AppKit takes the focus away, which hides the cursor:
     /// a change of selection after that shows the cursor again, since the
     /// window still names this view as the one with the focus, which AppKit
-    /// does not document, and nothing hides it afterwards.
+    /// does not document, and nothing hides it afterwards. Nothing here
+    /// refuses to end editing: a delegate that did would keep the focus with
+    /// the selection gone.
     override func resignFirstResponder() -> Bool {
         if !isDraggingSelection { dropSelection() }
         guard super.resignFirstResponder() else { return false }
@@ -111,6 +113,9 @@ final class WordTextView: NSTextView {
     private(set) var isDroppingSelection = false
 
     private func dropSelection() {
+        // Text being composed, such as an accent waiting for its letter, is
+        // AppKit's to end.
+        guard selectedRange().length > 0, !hasMarkedText() else { return }
         isDroppingSelection = true
         defer { isDroppingSelection = false }
         setSelectedRange(NSRange(location: selectedRange().location, length: 0))

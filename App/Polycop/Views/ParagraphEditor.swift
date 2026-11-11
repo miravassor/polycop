@@ -34,6 +34,15 @@ struct ParagraphEditor: NSViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
     func makeNSView(context: Context) -> WordTextView {
+        let view = Self.makeTextView()
+        view.delegate = context.coordinator
+        return view
+    }
+
+    /// The text view of a paragraph, before it has an editor. Apart from
+    /// `makeNSView`, which takes SwiftUI's context, so that tests check the
+    /// view the app shows.
+    static func makeTextView() -> WordTextView {
         // TextKit 1 on purpose: the height of the laid out text, which decides
         // the height of the row, is read from its layout manager.
         let storage = NSTextStorage()
@@ -45,7 +54,6 @@ struct ParagraphEditor: NSViewRepresentable {
         manager.addTextContainer(container)
         storage.addLayoutManager(manager)
         let view = WordTextView(frame: .zero, textContainer: container)
-        view.delegate = context.coordinator
         view.isRichText = false
         view.drawsBackground = false
         view.textContainerInset = .zero
@@ -235,16 +243,20 @@ struct ParagraphEditor: NSViewRepresentable {
 
         func undoManager(for view: NSTextView) -> UndoManager? { undo }
 
+        /// Whether a change in a text view is the reader at work in it: not
+        /// this editor updating the view, a paragraph left dropping its
+        /// selection, or text a drag takes out of a paragraph left.
+        private func readerIsIn(_ view: Any?) -> Bool {
+            guard !updating, let view = view as? WordTextView else { return false }
+            return !view.isDroppingSelection && view.window?.firstResponder === view
+        }
+
         func textViewDidChangeSelection(_ notification: Notification) {
-            guard !updating, let view = notification.object as? WordTextView,
-                !view.isDroppingSelection, view.window?.firstResponder === view
-            else { return }
-            parent.activate()
+            if readerIsIn(notification.object) { parent.activate() }
         }
 
         func textDidBeginEditing(_ notification: Notification) {
-            guard !updating else { return }
-            parent.activate()
+            if readerIsIn(notification.object) { parent.activate() }
         }
 
         func textDidChange(_ notification: Notification) {
