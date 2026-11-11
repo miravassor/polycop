@@ -591,7 +591,9 @@ func automaticIsADetectedLanguage(chosen: Model) {
     #expect(left.readingParagraph == 1)
     #expect(left.playbackPosition == 2.5)
     await model.finishWrites()
-    #expect(AppModel(history: history).entry(entry.id)?.readingParagraph == 1)
+    let written = AppModel(history: history).entry(entry.id)
+    #expect(written?.readingParagraph == 1)
+    #expect(written?.playbackPosition == 2.5)
 
     model.pane = .entry(entry.id)
     model.pane = .new
