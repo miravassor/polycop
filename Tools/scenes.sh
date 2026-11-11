@@ -2,9 +2,10 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # Captures the app's scenes, the states listed in App/PolycopTests/Scenes, each
-# in a window of its own on a made-up library: the smallest window and a full
-# screen, light and dark. For looking at, and for the screenshots a pull
-# request that changes the interface needs; nothing is compared.
+# in a window of its own on a made-up library: the smallest window and one that
+# fills a 13 inch screen, light and dark. For looking at, and for the
+# screenshots a pull request that changes the interface needs; nothing is
+# compared.
 #
 # Usage: Tools/scenes.sh [scene ...]
 #   Tools/scenes.sh                      every scene
@@ -33,7 +34,8 @@ capture() {
             [ -e "$announced" ] || continue
             name="${announced%.window}"
             [ -e "$name.done" ] && continue
-            screencapture -x -o -l "$(cat "$announced")" "$name.png" 2> /dev/null || true
+            screencapture -x -o -l "$(cat "$announced")" "$name.png" 2> /dev/null ||
+                touch "$name.failed"
             touch "$name.done"
         done
         sleep 0.2
@@ -41,7 +43,10 @@ capture() {
 }
 capture &
 watcher=$!
+# The bash that ships with macOS leaves the loop running when interrupted,
+# unless the interruption is made an exit.
 trap 'kill "$watcher" 2>/dev/null || true' EXIT
+trap 'exit 130' INT TERM
 
 status=0
 TEST_RUNNER_SCENE_DIR="$ROOT/build/scenes" TEST_RUNNER_SCENES="$*" xcodebuild test \
@@ -50,8 +55,11 @@ TEST_RUNNER_SCENE_DIR="$ROOT/build/scenes" TEST_RUNNER_SCENES="$*" xcodebuild te
     -destination 'platform=macOS,arch=arm64' \
     -derivedDataPath build/tests \
     -only-testing:PolycopTests/SceneShots > build/scenes/test.log 2>&1 || status=$?
-grep -E '^/.*: error: |^✘ ' build/scenes/test.log | awk '!seen[$0]++' || true
-find build/scenes \( -name '*.window' -o -name '*.done' \) -delete
+# What failed, each with the reason the test gave on the line after it.
+awk '/^\/.*: error: / || /^✘ / { if (!seen[$0]++) print; said = /recorded an issue/; next }
+    said && /^↳ / { print } { said = 0 }' build/scenes/test.log
+failed="$(find build/scenes -name '*.failed' | wc -l | tr -d ' ')"
+find build/scenes \( -name '*.window' -o -name '*.done' -o -name '*.failed' \) -delete
 
 count=0
 {
@@ -65,9 +73,9 @@ count=0
     done
 } > build/scenes/index.html
 
-if [ "$count" -eq 0 ] && grep -q '^✘ .*was not captured' build/scenes/test.log; then
-    echo "No window could be captured. That takes a screen that is neither locked nor" >&2
-    echo "asleep, and the Screen Recording permission for the terminal." >&2
+if [ "$failed" -ne 0 ]; then
+    echo "$failed windows could not be captured. That takes a screen that is neither locked" >&2
+    echo "nor asleep, and the Screen Recording permission for the terminal." >&2
     exit 1
 fi
 if [ "$status" -ne 0 ] || [ "$count" -eq 0 ]; then

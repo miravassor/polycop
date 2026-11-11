@@ -12,20 +12,26 @@ import Testing
 @MainActor
 @Suite(.serialized, .enabled(if: ProcessInfo.processInfo.environment["SCENE_DIR"] != nil))
 struct SceneShots {
-    /// The sizes worth checking: the smallest window, where the library is
-    /// hidden as a reader with so little room hides it, and a full screen.
-    static let sizes: [(name: String, size: NSSize)] = [
-        ("smallest", NSSize(width: 860, height: 600)),
-        ("full", NSSize(width: 1470, height: 956)),
+    /// The sizes worth checking: the smallest the window allows, with the
+    /// library hidden as a reader with so little room hides it, and one that
+    /// fills a 13 inch screen under its menu bar. Not full screen itself,
+    /// which a window behind the others cannot enter.
+    static let sizes: [(name: String, size: NSSize?)] = [
+        ("smallest", nil),
+        ("wide", NSSize(width: 1440, height: 900)),
     ]
+
+    private static let clip = URL(filePath: #filePath)
+        .deletingLastPathComponent().deletingLastPathComponent()
+        .appending(path: "Fixtures/formats/clip.m4a")
 
     @Test func shows() async throws {
         let folder = try #require(ProcessInfo.processInfo.environment["SCENE_DIR"])
         let wanted = (ProcessInfo.processInfo.environment["SCENES"] ?? "")
             .split(separator: " ").map(String.init)
-        let scenes = Scene.all.filter { wanted.isEmpty || wanted.contains($0.name) }
-        #expect(!scenes.isEmpty, "No scene is named \(wanted)")
-        for scene in scenes {
+        let unknown = Set(wanted).subtracting(AppScene.all.map(\.name)).sorted()
+        try #require(unknown.isEmpty, "No scene is named \(unknown.joined(separator: ", "))")
+        for scene in AppScene.all where wanted.isEmpty || wanted.contains(scene.name) {
             for size in Self.sizes {
                 for isLight in [true, false] {
                     let name = "\(scene.name)-\(size.name)-\(isLight ? "light" : "dark")"
@@ -35,48 +41,62 @@ struct SceneShots {
         }
     }
 
+    /// Shows a scene on a library of its own, at `size` or the smallest the
+    /// window allows, until the script has captured it.
     private func show(
-        _ scene: Scene, as name: String, size: NSSize, isLight: Bool, in folder: String
+        _ scene: AppScene, as name: String, size: NSSize?, isLight: Bool, in folder: String
     ) async throws {
         let root = URL.temporaryDirectory.appending(path: UUID().uuidString)
-        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
-        let history = root.appending(path: "History")
-        var ids: [Entry.ID] = []
-        for (index, title) in ["Example recording 1.m4a", "Example recording 2.m4a"].enumerated() {
-            let recording = root.appending(path: title)
-            try FileManager.default.copyItem(
-                at: URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-                    .appending(path: "Fixtures/formats/clip.m4a"), to: recording)
-            var entry = Entry(
-                recording: recording, modelFile: ModelCatalog.recommended.id, glossary: nil,
-                skipsSilence: false, subtitles: false)
-            entry.added = Date(timeIntervalSinceReferenceDate: 800_000_000 + Double(index))
-            try HistoryStore.write(entry, in: history)
-            ids.append(entry.id)
-        }
+        let model = ModelCatalog.recommended.id
+        let ids = try addWaitingRecordings(
+            [("Example recording 1.m4a", model), ("Example recording 2.m4a", model)],
+            copying: Self.clip, to: root)
         let defaults = MemoryDefaults()
-        defaults.set(size.width > 1000, forKey: WindowLayout.showsLibraryKey)
-        let model = AppModel(
-            history: history, glossaries: root.appending(path: "Glossaries"),
+        defaults.set(size != nil, forKey: WindowLayout.showsLibraryKey)
+        let engines = Opener(ScriptedEngine())
+        let app = AppModel(
+            history: root.appending(path: "History"),
+            glossaries: root.appending(path: "Glossaries"),
             models: root.appending(path: "Models"), playbackCopies: root.appending(path: "Copies"),
-            defaults: defaults)
-        scene.arrange(Scene.Stage(model: model, first: ids[0], second: ids[1]))
+            engines: engines.engines, defaults: defaults)
+        scene.arrange(AppScene.Stage(model: app, engines: engines, first: ids[0], second: ids[1]))
 
         let window = NSWindow(
-            contentRect: NSRect(origin: .zero, size: size),
+            contentRect: NSRect(origin: .zero, size: size ?? NSSize(width: 1000, height: 700)),
             styleMask: [.titled, .closable, .resizable, .miniaturizable, .fullSizeContentView],
             backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
+        defer { window.close() }
+        // As `PolycopApp` asks of its window: the tools with no title beside them.
+        window.toolbarStyle = .unified
+        window.titleVisibility = .hidden
         window.contentView = NSHostingView(
-            rootView: ContentView(model: model).defaultAppStorage(defaults))
+            rootView: ContentView(model: app).defaultAppStorage(defaults))
         window.appearance = NSAppearance(named: isLight ? .aqua : .darkAqua)
-        window.setContentSize(size)
+        do {
+            try await capture(scene, in: window, as: name, size: size, folder: folder)
+        } catch {
+            await app.shutDown()
+            throw error
+        }
+        await app.shutDown()
+    }
+
+    private func capture(
+        _ scene: AppScene, in window: NSWindow, as name: String, size: NSSize?, folder: String
+    ) async throws {
         window.makeKeyAndOrderFront(nil)
-        // The page settles over a few turns: the sidebar, the scroll bar, the player.
+        // The page settles over a few turns, the sidebar, the scroll bar and
+        // the player, and says nowhere that it has: nothing to wait for but time.
         try await Task.sleep(for: .seconds(2))
+        // The smallest size is the page's own, known once it is laid out.
+        window.setContentSize(size ?? window.contentMinSize)
         try await scene.act(window)
         try await Task.sleep(for: .milliseconds(500))
+        // A screen too small for the size asked would give a picture of another.
+        let shown = try #require(window.contentView).frame.size
+        if let size { #expect(shown == size, "\(name) is \(shown), not the \(size) asked") }
 
         // The script captures the window it is told of, then says so.
         let announced = "\(folder)/\(name).window"
@@ -87,7 +107,5 @@ struct SceneShots {
         #expect(
             FileManager.default.fileExists(atPath: "\(folder)/\(name).png"),
             "\(name) was not captured")
-        window.close()
-        await model.shutDown()
     }
 }

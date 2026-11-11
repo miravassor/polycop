@@ -195,7 +195,8 @@ Every page speaks the same visual language. The shared pieces live in
   and respect Reduce Motion.
 * A new view has a `#Preview` with made-up data. A state of a page that a reader can
   meet has a scene in `App/PolycopTests/Scenes`, so that `Tools/scenes.sh` shows it in
-  the whole window.
+  the whole window. It captures that window alone: not what opens over it, a sheet, an
+  alert or a menu.
 * Text keeps a reading width, about 75 characters at the reader's size, centred:
   a wide window adds margins rather than longer lines, and the inspector can take
   the width. Check a change from the smallest window to full screen, in light and
@@ -291,7 +292,7 @@ Every page speaks the same visual language. The shared pieces live in
   |---|---|
   | behaviour | a test, as Tests and data says |
   | what the user sees or does | a line under Unreleased in `CHANGELOG.md`, in the user's words |
-  | the interface | screenshots at the smallest window and full screen, light and dark, with no real course name: `Tools/scenes.sh` takes them |
+  | the interface | screenshots at the smallest window and full screen, light and dark, with no real course name: `Tools/scenes.sh` takes them, the large one in a window that fills a 13 inch screen |
   | `Engine/`, `Audio/`, unsafe pointers or `Tools/versions.sh` | the suite run locally under both sanitizers, as Commands says, and a second reading |
   | what is stored, or `.github/workflows/` | a second reading |
   | a dependency | a pull request of its own, as `CONTRIBUTING.md` says |

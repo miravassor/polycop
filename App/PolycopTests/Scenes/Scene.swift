@@ -8,16 +8,22 @@ import Foundation
 /// A state of the app worth looking at: a name, what it sets on a made-up
 /// library, and what it does in the window once shown, such as selecting text.
 /// `Tools/scenes.sh` captures each one at every size, light and dark.
+///
+/// A scene sets the state a page reads rather than run an engine to reach it.
+/// Nothing compares the pictures: when a page comes to read something else,
+/// its scene shows the wrong page until someone looks.
 @MainActor
-struct Scene {
+struct AppScene {
     let name: String
     let arrange: @MainActor (Stage) -> Void
     var act: @MainActor (NSWindow) async throws -> Void = { _ in }
 
-    /// A model on a library of its own, with two recordings waiting.
+    /// A model on a library of its own, with two recordings waiting and the
+    /// recommended model installed, as `engines` says.
     @MainActor
     struct Stage {
         let model: AppModel
+        let engines: Opener
         let first: Entry.ID
         let second: Entry.ID
 
@@ -30,9 +36,9 @@ struct Scene {
         func finish(_ id: Entry.ID) {
             change(id) {
                 $0.state = .finished
-                $0.duration = Scene.length
-                $0.decoded = Scene.segments
-                $0.paragraphs = Scene.text
+                $0.duration = AppScene.length
+                $0.decoded = AppScene.segments
+                $0.paragraphs = AppScene.text
             }
         }
     }
@@ -57,5 +63,5 @@ struct Scene {
     }
 
     /// The length of the recording `segments` cover.
-    static let length: TimeInterval = 1640
+    static let length = segments.last?.end ?? 0
 }

@@ -6,53 +6,60 @@ import AppKit
 
 /// The scenes `Tools/scenes.sh` can capture. A pull request that adds a state
 /// a reader can meet adds its scene here.
-extension Scene {
-    static let all: [Scene] = [
-        Scene(name: "new-transcription") { $0.model.pane = .new },
-        Scene(name: "transcript") { stage in
+extension AppScene {
+    static let all: [AppScene] = [
+        AppScene(name: "new-transcription") { $0.model.pane = .new },
+        AppScene(name: "no-model") { stage in
+            stage.engines.installed = []
+            stage.model.refreshInstalled()
+            stage.model.pane = .new
+        },
+        AppScene(name: "transcript") { stage in
             stage.finish(stage.first)
             stage.change(stage.first) { $0.playbackPosition = 700 }
             stage.model.pane = .entry(stage.first)
         },
-        Scene(name: "transcribing") { stage in
+        AppScene(name: "transcribing") { stage in
             stage.model.running = stage.first
             stage.change(stage.first) {
                 $0.state = .running
-                $0.duration = Scene.length
-                $0.paragraphs = Array(Scene.text.prefix(12))
+                $0.duration = AppScene.length
+                $0.paragraphs = Array(AppScene.text.prefix(12))
             }
             stage.model.stage = .transcribing(0.42)
             stage.model.pane = .entry(stage.first)
         },
-        Scene(name: "paused") { stage in
+        AppScene(name: "paused") { stage in
             stage.model.running = stage.first
             stage.change(stage.first) {
                 $0.state = .running
-                $0.duration = Scene.length
-                $0.paragraphs = Array(Scene.text.prefix(12))
+                $0.duration = AppScene.length
+                $0.paragraphs = Array(AppScene.text.prefix(12))
             }
             stage.model.stage = .paused(0.42)
             stage.model.pane = .entry(stage.first)
         },
-        Scene(name: "waiting-its-turn") { stage in
+        AppScene(name: "waiting-its-turn") { stage in
             stage.model.running = stage.first
+            stage.model.scheduled = [stage.second]
             stage.change(stage.first) { $0.state = .running }
             stage.model.stage = .transcribing(0.42)
             stage.model.pane = .entry(stage.second)
         },
-        Scene(name: "stopped") { stage in
+        AppScene(name: "stopped") { stage in
             stage.change(stage.first) {
                 $0.state = .stopped
-                $0.duration = Scene.length
-                $0.paragraphs = Array(Scene.text.prefix(2))
+                $0.duration = AppScene.length
+                $0.decoded = Array(AppScene.segments.prefix(2))
+                $0.paragraphs = Array(AppScene.text.prefix(2))
             }
             stage.model.pane = .entry(stage.first)
         },
-        Scene(name: "failed") { stage in
+        AppScene(name: "failed") { stage in
             stage.change(stage.first) { $0.state = .failed("The recording could not be read.") }
             stage.model.pane = .entry(stage.first)
         },
-        Scene(name: "warnings") { stage in
+        AppScene(name: "warnings") { stage in
             stage.finish(stage.first)
             stage.change(stage.first) {
                 $0.glossaryWarning = "The glossary of this course could not be read."
@@ -60,18 +67,17 @@ extension Scene {
             }
             stage.model.pane = .entry(stage.first)
         },
-        Scene(
+        AppScene(
             name: "selection",
             arrange: { stage in
                 stage.finish(stage.first)
                 stage.model.pane = .entry(stage.first)
             },
             act: { window in
-                guard let page = window.contentView else { return }
-                for (paragraph, range) in zip(paragraphs(in: page), [8..<30, 31..<55]) {
-                    window.makeFirstResponder(paragraph)
-                    paragraph.setSelectedRange(NSRange(range))
-                }
+                guard let page = window.contentView, let paragraph = paragraphs(in: page).first
+                else { return }
+                window.makeFirstResponder(paragraph)
+                paragraph.setSelectedRange(NSRange(8..<30))
             }),
     ]
 
