@@ -21,7 +21,8 @@ Tools/build-ffmpeg.sh      # once: LGPL ffmpeg helper into build/ffmpeg (needs G
 Tools/build-audiocpp.sh    # once: audio.cpp framework into Packages/AudioCppFramework (needs CMake)
 Tools/lint.sh              # swift-format for style, SwiftLint (pinned, downloaded once) for size
 Tools/lint-workflows.sh    # actionlint and zizmor on .github, after changing anything in it
-xcodebuild test -project App/Polycop.xcodeproj -scheme Polycop -destination 'platform=macOS,arch=arm64'
+Tools/test.sh              # the test suite, or the tests named; --thread or --address under a sanitizer
+Tools/preflight.sh         # before a pull request: the lint, the suite and what the table below asks of the branch
 Tools/package.sh           # locally signed app and zip with its sources, in build/releases/
 ```
 
@@ -33,8 +34,8 @@ Tools/package.sh           # locally signed app and zip with its sources, in bui
 * CI runs the suite under the thread and address sanitizers, but has no model, so it
   never reaches the engines. After changing `Engine/`, `Audio/`, a version in
   `Tools/versions.sh` or any code that uses unsafe pointers, run the suite locally
-  with the models installed, once with `-enableThreadSanitizer YES` and once with
-  `-enableAddressSanitizer YES`.
+  with the models installed, once with `Tools/test.sh --thread` and once with
+  `Tools/test.sh --address`.
 * In `.github/workflows/release.yml`, only the job that drafts the release may write
   to the repository.
 
@@ -312,4 +313,5 @@ Every page speaks the same visual language. The shared pieces live in
   * a test checks what the user would see, not a state on the way such as "not
     busy", and an API added to production code for a test says so in its comment;
   * a fact in the documentation is stated in one place, and the others link to it.
-* The lint and the test suite pass before a pull request is opened.
+* The lint and the test suite pass before a pull request is opened: `Tools/preflight.sh`
+  runs both.
