@@ -231,7 +231,7 @@ struct PlayerBar: View, @MainActor Equatable {
 
     /// Bounded, so that a position read from a damaged record cannot trap in
     /// the conversion.
-    static func clock(_ time: TimeInterval) -> String {
+    nonisolated static func clock(_ time: TimeInterval) -> String {
         Transcript.clock(Int(min(max(0, time), AudioDecoder.longestRecording + 60) * 1000))
     }
 }
