@@ -78,6 +78,7 @@ private final class Activations {
     let (first, second) = twoParagraphs(in: window)
     let activations = Activations(of: first)
     window.makeFirstResponder(first)
+    first.setSelectedRange(NSRange(location: 0, length: 8))
     #expect(activations.count == 1)
     window.makeFirstResponder(second)
 
