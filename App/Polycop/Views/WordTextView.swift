@@ -90,21 +90,46 @@ final class WordTextView: NSTextView {
     /// rows far from playback are after a jump. The reader is still editing.
     static var lostCursor = false
 
-    /// Within the selection dropped as the reader leaves this paragraph, which
-    /// is not them moving the cursor in it.
-    private(set) var isLeaving = false
-
     /// The page reads as one text, with one selection, in the paragraph being
     /// edited. A text view keeps its own when it loses the focus, so the one
-    /// left drops it here.
+    /// left drops it here, and so does a row hidden with the cursor in it.
     override func resignFirstResponder() -> Bool {
         let resigned = super.resignFirstResponder()
         guard resigned else { return false }
         if isHiddenOrHasHiddenAncestor { Self.lostCursor = true }
+        if !isDraggingSelection { dropSelection() }
+        return true
+    }
+
+    /// Within the selection being dropped. The window still names this view as
+    /// the one with the focus while it resigns, so the change would read as the
+    /// reader moving the cursor here.
+    private(set) var isLeaving = false
+
+    private func dropSelection() {
         isLeaving = true
         defer { isLeaving = false }
         setSelectedRange(NSRange(location: selectedRange().location, length: 0))
-        return true
+    }
+
+    /// Within a drag of this paragraph's selection. Dropped in another
+    /// paragraph, the text is taken out of this one as the drag ends, and only
+    /// while it is still selected here: the selection stays until then.
+    private var isDraggingSelection = false
+
+    override func dragSelection(with event: NSEvent, offset: NSSize, slideBack: Bool) -> Bool {
+        isDraggingSelection = true
+        let began = super.dragSelection(with: event, offset: offset, slideBack: slideBack)
+        if !began { isDraggingSelection = false }
+        return began
+    }
+
+    override func draggingSession(
+        _ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation
+    ) {
+        super.draggingSession(session, endedAt: screenPoint, operation: operation)
+        isDraggingSelection = false
+        if window?.firstResponder !== self { dropSelection() }
     }
 
     override func becomeFirstResponder() -> Bool {

@@ -149,8 +149,8 @@ private final class FocusableControl: NSControl {
 }
 
 /// The page reads as one text with one selection, in the paragraph being
-/// edited: clicking into another, or leaving the text, leaves none behind. And
-/// dropping it is not the reader moving the cursor there.
+/// edited: clicking into another, leaving the text or a row being hidden leaves
+/// none behind. And dropping it is not the reader moving the cursor there.
 @MainActor
 @Test func leavingAParagraphLeavesNothingSelectedInIt() {
     let window = NSWindow(
@@ -178,6 +178,14 @@ private final class FocusableControl: NSControl {
     second.setSelectedRange(NSRange(location: 3, length: 5))
     window.makeFirstResponder(nil)
     #expect(second.selectedRange() == NSRange(location: 3, length: 0))
+
+    // A row the list hides, as after a jump, was left as well.
+    defer { WordTextView.lostCursor = false }
+    window.makeFirstResponder(first)
+    first.setSelectedRange(NSRange(location: 8, length: 1))
+    first.isHidden = true
+    #expect(window.firstResponder !== first)
+    #expect(first.selectedRange() == NSRange(location: 8, length: 0))
 }
 
 /// What is typed stays as typed, whatever the system's text input settings:
