@@ -95,17 +95,19 @@ final class WordTextView: NSTextView {
     /// The page reads as one text, with one selection, in the paragraph being
     /// edited. A text view keeps its own when it loses the focus, so the one
     /// left drops it here, and so does a row hidden with the cursor in it.
+    /// It drops it before AppKit takes the focus away, which hides the cursor:
+    /// a change of selection after that shows the cursor again, since the
+    /// window still names this view as the one with the focus, which AppKit
+    /// does not document, and nothing hides it afterwards.
     override func resignFirstResponder() -> Bool {
-        let resigned = super.resignFirstResponder()
-        guard resigned else { return false }
-        if isHiddenOrHasHiddenAncestor { Self.lostCursor = true }
         if !isDraggingSelection { dropSelection() }
+        guard super.resignFirstResponder() else { return false }
+        if isHiddenOrHasHiddenAncestor { Self.lostCursor = true }
         return true
     }
 
-    /// True while this view drops its selection. The window still names it as
-    /// the one with the focus while it resigns, which AppKit does not document,
-    /// so the change would read as the reader moving the cursor here.
+    /// True while this view drops its selection, which is not the reader
+    /// moving the cursor here.
     private(set) var isDroppingSelection = false
 
     private func dropSelection() {
