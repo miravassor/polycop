@@ -66,9 +66,10 @@ lines="$(git diff --numstat "$base...HEAD" -- . ':!App/PolycopTests' |
     awk '{ sum += $1 + $2 } END { print sum + 0 }')"
 echo
 echo "This branch changes $lines lines outside the tests, in:"
-# A folder of the app, or else the first folder or the file itself.
+# A folder of the app, the tests, or else the first folder or the file itself.
 awk -F/ 'NF {
-    place = ($1 == "App" && $2 == "Polycop" && NF > 3) ? $1 "/" $2 "/" $3 : (NF > 1 ? $1 : $0)
+    place = NF == 1 ? $0 : $1
+    if ($1 == "App" && NF > 2) place = (NF > 3 && $2 == "Polycop") ? $1 "/" $2 "/" $3 : $1 "/" $2
     count[place]++
 } END { for (place in count) printf "  %s (%d)\n", place, count[place] }' <<< "$files" | sort
 echo
