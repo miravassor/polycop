@@ -148,6 +148,38 @@ private final class FocusableControl: NSControl {
     #expect(window.firstResponder === window)
 }
 
+/// The page reads as one text with one selection, in the paragraph being
+/// edited: clicking into another, or leaving the text, leaves none behind. And
+/// dropping it is not the reader moving the cursor there.
+@MainActor
+@Test func leavingAParagraphLeavesNothingSelectedInIt() {
+    let window = NSWindow(
+        contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled],
+        backing: .buffered, defer: false)
+    let first = WordTextView(frame: NSRect(x: 0, y: 0, width: 300, height: 100))
+    let second = WordTextView(frame: NSRect(x: 0, y: 150, width: 300, height: 100))
+    first.string = "Bonjour à tous."
+    second.string = "Le cours commence."
+    for view in [first, second] { window.contentView?.addSubview(view) }
+    var activations = 0
+    let coordinator = ParagraphEditor(
+        text: first.string, original: first.string, size: 13, isEditable: true, edit: { _ in },
+        activate: { activations += 1 }
+    ).makeCoordinator()
+    first.delegate = coordinator
+
+    window.makeFirstResponder(first)
+    first.setSelectedRange(NSRange(location: 0, length: 7))
+    #expect(activations == 1)
+    window.makeFirstResponder(second)
+    #expect(first.selectedRange() == NSRange(location: 0, length: 0))
+    #expect(activations == 1)
+
+    second.setSelectedRange(NSRange(location: 3, length: 5))
+    window.makeFirstResponder(nil)
+    #expect(second.selectedRange() == NSRange(location: 3, length: 0))
+}
+
 /// What is typed stays as typed, whatever the system's text input settings:
 /// a curly apostrophe would hide a word from Find and course corrections.
 @MainActor

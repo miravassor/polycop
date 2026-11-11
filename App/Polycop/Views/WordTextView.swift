@@ -90,10 +90,21 @@ final class WordTextView: NSTextView {
     /// rows far from playback are after a jump. The reader is still editing.
     static var lostCursor = false
 
+    /// Within the selection dropped as the reader leaves this paragraph, which
+    /// is not them moving the cursor in it.
+    private(set) var isLeaving = false
+
+    /// The page reads as one text, with one selection, in the paragraph being
+    /// edited. A text view keeps its own when it loses the focus, so the one
+    /// left drops it here.
     override func resignFirstResponder() -> Bool {
         let resigned = super.resignFirstResponder()
-        if resigned, isHiddenOrHasHiddenAncestor { Self.lostCursor = true }
-        return resigned
+        guard resigned else { return false }
+        if isHiddenOrHasHiddenAncestor { Self.lostCursor = true }
+        isLeaving = true
+        defer { isLeaving = false }
+        setSelectedRange(NSRange(location: selectedRange().location, length: 0))
+        return true
     }
 
     override func becomeFirstResponder() -> Bool {

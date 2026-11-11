@@ -236,7 +236,7 @@ struct ParagraphEditor: NSViewRepresentable {
         func undoManager(for view: NSTextView) -> UndoManager? { undo }
 
         func textViewDidChangeSelection(_ notification: Notification) {
-            guard !updating, let view = notification.object as? NSTextView,
+            guard !updating, let view = notification.object as? WordTextView, !view.isLeaving,
                 view.window?.firstResponder === view
             else { return }
             parent.activate()
