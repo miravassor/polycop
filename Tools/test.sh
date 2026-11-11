@@ -5,12 +5,15 @@
 # them. Prints what failed and how many tests ran, and keeps the whole log.
 #
 # Usage: Tools/test.sh [--thread | --address] [name ...]
-#   Tools/test.sh                              the whole suite
-#   Tools/test.sh PlayerTests 'opensAFile()'   one suite and one test
-#   Tools/test.sh --thread                     the suite under the thread sanitizer
-# A name is a suite or a test function of PolycopTests. Each sanitizer builds
-# into a folder of its own, so that switching does not build everything again.
-# Fails when the build or a test fails, and when no test ran.
+#   Tools/test.sh                                the whole suite
+#   Tools/test.sh InterruptionTests              one suite
+#   Tools/test.sh 'spacePlaysOutsideTheText()'   one test that belongs to no suite
+#   Tools/test.sh --thread                       the suite under the thread sanitizer
+# A name is a suite, or a test function with its parentheses: most tests are
+# functions of their own, outside any suite. Each sanitizer builds into a folder
+# of its own, so that switching does not build everything again.
+# Fails when the build, a test or the test host fails, when Swift warns about
+# the project's code, and when no test ran.
 
 set -euo pipefail
 
@@ -48,14 +51,22 @@ xcodebuild test \
     ${options[@]+"${options[@]}"} \
     SWIFT_TREAT_WARNINGS_AS_ERRORS=YES > "$log" 2>&1 || status=$?
 
-# Compiler messages open with the file's path; the app's own log lines, which
-# also say "error", open with a date.
-grep -E '^/.*: (error|warning): |^(error|ld): |^✘ |SUMMARY: ' "$log" | awk '!seen[$0]++' || true
-ran="$(sed -nE 's/^(✔|✘) Test run with ([0-9]+) tests? in .*/\2/p' "$log" | tail -1)"
+# What the compiler says opens with a file's path, or with "macro expansion"
+# inside #expect; the app's own log lines, which also say "error", open with
+# a date.
+said='^(/.*|macro expansion .*): (error|warning): '
+grep -E "$said|^(error|ld|xcodebuild): |^✘ |SUMMARY: |Fatal error|crashed" "$log" |
+    awk '!seen[$0]++' || true
 if [ "$status" -ne 0 ]; then
     echo "Failed: see $log" >&2
     exit "$status"
 fi
+# A warning inside a macro's expansion is not made an error by the compiler.
+if grep -qE "${said/(error|warning)/warning}" "$log"; then
+    echo "The build has a warning: see $log" >&2
+    exit 1
+fi
+ran="$(sed -nE 's/^(✔|✘) Test run with ([0-9]+) tests? in .*/\2/p' "$log" | tail -1)"
 if [ -z "$ran" ] || [ "$ran" -eq 0 ]; then
     echo "No test ran: check the names given. See $log" >&2
     exit 1
