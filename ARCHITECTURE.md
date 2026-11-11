@@ -108,7 +108,9 @@ one decision it makes for a recording.
 
 * A paragraph is an `NSTextView` (`ParagraphEditor`) inside a lazy list
   (`TranscriptView`). Word times come from `WordLayout`, which places the
-  engine's timed words on the corrected text with a word diff (`Edits`).
+  engine's timed words on the corrected text with a word diff (`Edits`). The
+  page has one selection, in the paragraph with the focus: a paragraph the
+  reader leaves drops its own (`WordTextView`).
 * Undo has two histories. Each paragraph's text view keeps its own
   `UndoManager`, which ⌘Z uses while typing in it. Every edit that reaches the
   model also becomes a step in `AppModel.undoSteps`, per transcript, which Undo

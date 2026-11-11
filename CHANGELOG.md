@@ -50,7 +50,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ### Fixed
 
-* Selecting text in a paragraph no longer leaves the selection made in another one showing.
+* Selecting text in a paragraph no longer leaves the selection made in another one showing, and text dropped in a paragraph takes the cursor there.
 * Hiding the library no longer puts the cursor in the text, where the next Space typed instead of playing.
 * A transcript's text no longer opens or shifts a little too high, with the first time out of view, when the window or the scroll bar changes its width, unless the cursor is in a paragraph that has to stay in view.
 * Pasting too much text into Find Terms no longer freezes the window: the text is refused as it arrives, and Find Terms says why.

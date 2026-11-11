@@ -183,9 +183,73 @@ private final class FocusableControl: NSControl {
     defer { WordTextView.lostCursor = false }
     window.makeFirstResponder(first)
     first.setSelectedRange(NSRange(location: 8, length: 1))
+    #expect(activations == 2)
     first.isHidden = true
     #expect(window.firstResponder !== first)
     #expect(first.selectedRange() == NSRange(location: 8, length: 0))
+    #expect(activations == 2)
+}
+
+/// A drop as AppKit describes it to the view under the pointer.
+@MainActor
+private final class Drop: NSObject, NSDraggingInfo {
+    let draggingDestinationWindow: NSWindow?
+    let draggingSource: Any?
+    let draggingLocation: NSPoint
+    let draggingPasteboard = NSPasteboard(name: NSPasteboard.Name(UUID().uuidString))
+    let draggingSourceOperationMask: NSDragOperation = [.copy, .move, .generic]
+    var draggedImageLocation: NSPoint { draggingLocation }
+    let draggedImage: NSImage? = nil
+    let draggingSequenceNumber = 1
+    var draggingFormation = NSDraggingFormation.default
+    var animatesToDestination = false
+    var numberOfValidItemsForDrop = 1
+    let springLoadingHighlight = NSSpringLoadingHighlight.none
+
+    init(of text: String, from source: NSView, at location: NSPoint, in window: NSWindow) {
+        draggingDestinationWindow = window
+        draggingSource = source
+        draggingLocation = location
+        draggingPasteboard.clearContents()
+        draggingPasteboard.setString(text, forType: .string)
+    }
+
+    func slideDraggedImage(to screenPoint: NSPoint) {}
+    func resetSpringLoading() {}
+    func enumerateDraggingItems(
+        options: NSDraggingItemEnumerationOptions, for view: NSView?, classes: [AnyClass],
+        searchOptions: [NSPasteboard.ReadingOptionKey: Any],
+        using block: @escaping (NSDraggingItem, Int, UnsafeMutablePointer<ObjCBool>) -> Void
+    ) {}
+}
+
+/// Text dragged from a paragraph and dropped in another is selected where it
+/// lands, with the focus, and nothing stays selected where it came from.
+@MainActor
+@Test func textDroppedInAParagraphTakesTheFocusThere() {
+    let window = NSWindow(
+        contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled],
+        backing: .buffered, defer: false)
+    let first = WordTextView(frame: NSRect(x: 0, y: 0, width: 300, height: 100))
+    let second = WordTextView(frame: NSRect(x: 0, y: 150, width: 300, height: 100))
+    first.string = "Bonjour à tous."
+    second.string = "Le cours commence."
+    for view in [first, second] { window.contentView?.addSubview(view) }
+    window.makeFirstResponder(first)
+    first.setSelectedRange(NSRange(location: 0, length: 7))
+
+    let drop = Drop(
+        of: "Bonjour", from: first, at: second.convert(NSPoint(x: 2, y: 2), to: nil), in: window)
+    defer { drop.draggingPasteboard.releaseGlobally() }
+    #expect(second.draggingEntered(drop) == .copy)
+    #expect(second.prepareForDragOperation(drop))
+    #expect(second.performDragOperation(drop))
+    second.concludeDragOperation(drop)
+
+    #expect(second.string == "BonjourLe cours commence.")
+    #expect(window.firstResponder === second)
+    #expect(second.selectedRange() == NSRange(location: 0, length: 7))
+    #expect(first.selectedRange().length == 0)
 }
 
 /// What is typed stays as typed, whatever the system's text input settings:

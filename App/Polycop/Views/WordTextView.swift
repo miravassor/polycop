@@ -83,6 +83,8 @@ final class WordTextView: NSTextView {
             if playFromCharacter(index) { return }
         }
         Self.holdsCursor = true
+        // No drag from this view is under way once it is clicked again.
+        isDraggingSelection = false
         super.mouseDown(with: event)
     }
 
@@ -101,20 +103,21 @@ final class WordTextView: NSTextView {
         return true
     }
 
-    /// Within the selection being dropped. The window still names this view as
-    /// the one with the focus while it resigns, so the change would read as the
-    /// reader moving the cursor here.
-    private(set) var isLeaving = false
+    /// True while this view drops its selection. The window still names it as
+    /// the one with the focus while it resigns, which AppKit does not document,
+    /// so the change would read as the reader moving the cursor here.
+    private(set) var isDroppingSelection = false
 
     private func dropSelection() {
-        isLeaving = true
-        defer { isLeaving = false }
+        isDroppingSelection = true
+        defer { isDroppingSelection = false }
         setSelectedRange(NSRange(location: selectedRange().location, length: 0))
     }
 
-    /// Within a drag of this paragraph's selection. Dropped in another
-    /// paragraph, the text is taken out of this one as the drag ends, and only
-    /// while it is still selected here: the selection stays until then.
+    /// True during a drag of this paragraph's selection. As the drag ends,
+    /// AppKit takes text moved to another paragraph, or to the Trash, out of this
+    /// one, and only what is still selected here, which it does not document:
+    /// the selection stays until then.
     private var isDraggingSelection = false
 
     override func dragSelection(with event: NSEvent, offset: NSSize, slideBack: Bool) -> Bool {
@@ -130,6 +133,14 @@ final class WordTextView: NSTextView {
         super.draggingSession(session, endedAt: screenPoint, operation: operation)
         isDraggingSelection = false
         if window?.firstResponder !== self { dropSelection() }
+    }
+
+    /// Text dropped here is selected here, so the focus comes with it: a text
+    /// view takes a drop without it, and the paragraph the reader was in would
+    /// keep a selection of its own.
+    override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
+        window?.makeFirstResponder(self)
+        return super.performDragOperation(sender)
     }
 
     override func becomeFirstResponder() -> Bool {
