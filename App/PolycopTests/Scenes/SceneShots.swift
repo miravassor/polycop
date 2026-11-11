@@ -12,7 +12,6 @@ import Testing
 @MainActor
 @Suite(.serialized, .enabled(if: ProcessInfo.processInfo.environment["SCENE_DIR"] != nil))
 struct SceneShots {
-
     /// The sizes worth checking: the smallest window, where the library is
     /// hidden as a reader with so little room hides it, and a full screen.
     static let sizes: [(name: String, size: NSSize)] = [
@@ -27,9 +26,11 @@ struct SceneShots {
         let scenes = Scene.all.filter { wanted.isEmpty || wanted.contains($0.name) }
         #expect(!scenes.isEmpty, "No scene is named \(wanted)")
         for scene in scenes {
-            for (size, isLight) in Self.sizes.flatMap({ size in [true, false].map { (size, $0) } }) {
-                let name = "\(scene.name)-\(size.name)-\(isLight ? "light" : "dark")"
-                try await show(scene, as: name, size: size.size, isLight: isLight, in: folder)
+            for size in Self.sizes {
+                for isLight in [true, false] {
+                    let name = "\(scene.name)-\(size.name)-\(isLight ? "light" : "dark")"
+                    try await show(scene, as: name, size: size.size, isLight: isLight, in: folder)
+                }
             }
         }
     }
