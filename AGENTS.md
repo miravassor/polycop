@@ -73,7 +73,9 @@ Tools/                 build, fixture and packaging scripts
   function, or on a queue through `DispatchQueue.run` for a long C call.
 * `@unchecked Sendable` only where a serial queue or a lock guards the state, with a comment
   saying which. Prefer checked `Sendable`.
-* The build has no warnings: CI compiles with `SWIFT_TREAT_WARNINGS_AS_ERRORS=YES`.
+* The build has no warnings: `Tools/test.sh`, which CI runs too, compiles with warnings
+  as errors, and fails on a warning inside the expansion of a macro, which the
+  compiler leaves as one.
 * Comments are English, short, and say why, not what. No dates, no measurement stories,
   and no comparison with another app in place of the reason.
 * Every Swift file, script and workflow starts with

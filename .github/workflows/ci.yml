@@ -43,11 +43,11 @@ jobs:
       matrix:
         include:
           - check: tests
-            options: -enableCodeCoverage YES -resultBundlePath build/Tests.xcresult
+            option: --coverage
           - check: thread sanitizer
-            options: -enableThreadSanitizer YES
+            option: --thread
           - check: address sanitizer
-            options: -enableAddressSanitizer YES
+            option: --address
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -98,19 +98,20 @@ jobs:
         if: matrix.check == 'tests'
         run: Tools/lint.sh
 
-      # Through the environment rather than expanded into the script, then
-      # split into words.
+      # The script a pull request's branch is checked with before it is opened,
+      # so that the two cannot differ. It also fails on a warning inside the
+      # expansion of a macro, which the compiler does not make an error. The
+      # option goes through the environment rather than expanded into the script.
       - name: Test
+        id: test
         env:
-          OPTIONS: ${{ matrix.options }}
-        run: |
-          read -ra options <<< "$OPTIONS"
-          xcodebuild test \
-            -project App/Polycop.xcodeproj \
-            -scheme Polycop \
-            -destination 'platform=macOS,arch=arm64' \
-            "${options[@]}" \
-            SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
+          OPTION: ${{ matrix.option }}
+        run: Tools/test.sh "$OPTION"
+
+      # The script prints what failed and keeps the rest.
+      - name: Show the whole log
+        if: failure() && steps.test.outcome == 'failure'
+        run: cat build/tests*.log
 
       - name: Coverage
         if: matrix.check == 'tests'

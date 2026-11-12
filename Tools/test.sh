@@ -4,14 +4,16 @@
 # Runs the test suite, or the tests named, with warnings as errors as CI has
 # them. Prints what failed and how many tests ran, and keeps the whole log.
 #
-# Usage: Tools/test.sh [--thread | --address] [name ...]
+# Usage: Tools/test.sh [--thread | --address | --coverage] [name ...]
 #   Tools/test.sh                                the whole suite
 #   Tools/test.sh InterruptionTests              one suite
 #   Tools/test.sh 'spacePlaysOutsideTheText()'   one test that belongs to no suite
 #   Tools/test.sh --thread                       the suite under the thread sanitizer
+#   Tools/test.sh --coverage                     the suite, with what it covers in build/Tests.xcresult
 # A name is a suite, or a test function with its parentheses: most tests are
-# functions of their own, outside any suite. Each sanitizer builds into a folder
-# of its own, so that switching does not build everything again.
+# functions of their own, outside any suite. Each sanitizer, and the coverage,
+# builds into a folder of its own, so that switching does not build everything
+# again.
 # Fails when the build, a test or the test host fails, when Swift warns about
 # the project's code, and when no test ran.
 
@@ -31,6 +33,13 @@ case "${1:-}" in
     --address)
         build="tests-address"
         options+=(-enableAddressSanitizer YES)
+        shift
+        ;;
+    --coverage)
+        build="tests-coverage"
+        options+=(-enableCodeCoverage YES -resultBundlePath build/Tests.xcresult)
+        # xcodebuild refuses to write over the results of an earlier run.
+        rm -rf "$ROOT/build/Tests.xcresult"
         shift
         ;;
 esac
