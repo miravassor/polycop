@@ -6,11 +6,10 @@ import SwiftUI
 /// The player at the foot of a transcript, whether or not a file is open.
 ///
 /// The length is known from the transcription, so the timeline exists before
-/// anything plays and a point chosen on it opens the recording there. Each
-/// paragraph is a mark, stronger under the pointer, so a passage can be found
-/// by eye before it is heard.
+/// anything plays and a point chosen on it opens the recording there. It runs
+/// across the bar, on a line of its own, so that a long lecture has room on it.
 struct PlayerBar: View, @MainActor Equatable {
-    /// The bar's width at its narrowest, with its controls on one line.
+    /// The bar's width at its narrowest, which holds the line under the timeline.
     static let narrowest: CGFloat = 410
     /// Its distance from the window's foot, level with the foot of the
     /// library, which floats 8 points in on macOS 26.
@@ -35,7 +34,13 @@ struct PlayerBar: View, @MainActor Equatable {
     let step: (Int) -> Void
 
     @State private var scrubbed: TimeInterval?
-    @State private var width: CGFloat = 0
+
+    /// The height of the line under the timeline, and of its buttons.
+    private static let row: CGFloat = 30
+    private static let padding = EdgeInsets(top: 4, leading: 18, bottom: 6, trailing: 18)
+    /// Half the bar's height, which makes it a capsule.
+    private static let corner =
+        (padding.top + PlayerTimeline.height + row + padding.bottom) / 2
 
     /// Compared without its actions, which stay the same for a page: a
     /// correction handed over gives the page a new transcript, not the player
@@ -53,67 +58,47 @@ struct PlayerBar: View, @MainActor Equatable {
     }
 
     var body: some View {
-        // As the Music player: the transport, the timeline between the time
-        // played and the time left, then the speed, all centred on one line;
-        // the timeline takes a line of its own when the column is narrow,
-        // under the transport centred. Its own width only changes as the
-        // window does.
-        Group {
-            if width >= Self.oneLine {
+        // The timeline across the bar. Under it the time played, the one
+        // number that moves, the transport centred, then the length and the
+        // speed: the same at every width.
+        VStack(spacing: 0) {
+            timeline
+            HStack(spacing: 10) {
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 6) {
+                        played
+                        preparing
+                    }
+                    played
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                transport
                 HStack(spacing: 10) {
-                    transport
-                    timed
-                    preparing
+                    Text(Self.clock(duration, of: duration))
+                        .font(.subheadline.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .fixedSize()
                     speed
                 }
-            } else {
-                VStack(spacing: 2) {
-                    HStack(spacing: 10) {
-                        HStack { preparing }.frame(maxWidth: .infinity, alignment: .leading)
-                        transport
-                        speed.frame(maxWidth: .infinity, alignment: .trailing)
-                    }
-                    timed
-                }
+                .frame(maxWidth: .infinity, alignment: .trailing)
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .modifier(FloatingSurface(cornerRadius: width >= Self.oneLine ? 26 : 18))
-        .onGeometryChange(for: CGFloat.self) {
-            $0.size.width
-        } action: {
-            width = $0
-        }
+        .padding(Self.padding)
+        .modifier(FloatingSurface(cornerRadius: Self.corner))
         .background(SpaceToPlay(isEnabled: !player.isPreparing, action: playOrPause))
     }
 
-    /// The timeline between the time played and the time left, on its line.
-    private var timed: some View {
-        HStack(spacing: 6) {
-            time(Self.clock(position))
-            timeline
-            time("-\(Self.clock(max(0, duration - position)))")
-        }
-    }
-
-    private func time(_ text: String) -> some View {
-        Text(text)
-            .font(.subheadline.monospacedDigit())
-            .foregroundStyle(.secondary)
+    /// The time played, larger than the length and in the label colour: it
+    /// is what says where we are.
+    private var played: some View {
+        Text(Self.clock(position, of: duration))
+            .font(.body.monospacedDigit().weight(.medium))
             .fixedSize()
     }
-
-    /// The width from which the player fits on one line.
-    private static let oneLine: CGFloat = 580
 
     private var timeline: some View {
         PlayerTimeline(
             duration: duration, position: position, marks: marks, highlighted: highlighted,
-            current: player.isOpen
-                ? TranscriptNavigation.paragraph(playingAt: player.position, starts: marks)
-                : nil,
-            rate: player.isPlaying ? Double(player.speed) : 0,
             hover: hover, jump: jump,
             scrub: { scrubbed = $0 },
             reach: seek
@@ -122,16 +107,17 @@ struct PlayerBar: View, @MainActor Equatable {
 
     /// Five seconds back, play, five seconds forward, as plain symbols as in
     /// the Music player, between the previous and the next paragraph, where
-    /// Music has the previous and next song. Stop is in the Playback menu, as
-    /// a transport keeps to what is pressed while listening.
+    /// Music has the previous and next song, each a size under the one it
+    /// surrounds. Stop is in the Playback menu, as a transport keeps to what
+    /// is pressed while listening.
     private var transport: some View {
         HStack(spacing: 4) {
             paragraph(by: -1)
             skip(by: -5)
             Button(action: playOrPause) {
                 Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
-                    .font(.largeTitle)
-                    .frame(width: 32, height: 36)
+                    .font(.title)
+                    .frame(width: 32, height: Self.row)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.borderless)
@@ -150,8 +136,8 @@ struct PlayerBar: View, @MainActor Equatable {
             step(offset)
         } label: {
             Image(systemName: offset < 0 ? "backward.end.fill" : "forward.end.fill")
-                .font(.title3)
-                .frame(width: 26, height: 36)
+                .font(.body)
+                .frame(width: 26, height: Self.row)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.borderless)
@@ -169,8 +155,8 @@ struct PlayerBar: View, @MainActor Equatable {
             seek(min(duration, max(0, position + seconds)))
         } label: {
             Image(systemName: seconds < 0 ? "gobackward.5" : "goforward.5")
-                .font(.title2)
-                .frame(width: 26, height: 36)
+                .font(.title3)
+                .frame(width: 26, height: Self.row)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.borderless)
@@ -229,9 +215,12 @@ struct PlayerBar: View, @MainActor Equatable {
         "\(Double(speed).formatted(.number.precision(.fractionLength(0...2))))×"
     }
 
-    /// Bounded, so that a position read from a damaged record cannot trap in
-    /// the conversion.
-    nonisolated static func clock(_ time: TimeInterval) -> String {
-        Transcript.clock(Int(min(max(0, time), AudioDecoder.longestRecording + 60) * 1000))
+    /// Minutes and seconds, with the hours only in a recording that has any,
+    /// so that its two times read alike. Bounded, so that a position read from
+    /// a damaged record cannot trap in the conversion.
+    nonisolated static func clock(_ time: TimeInterval, of length: TimeInterval) -> String {
+        let seconds = Int(min(max(0, time), AudioDecoder.longestRecording + 60))
+        return Duration.seconds(seconds).formatted(
+            .time(pattern: length >= 3600 ? .hourMinuteSecond : .minuteSecond))
     }
 }

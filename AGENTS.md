@@ -136,9 +136,11 @@ Every page speaks the same visual language. The shared pieces live in
 * A page's main action is one `ActionButton`: a large capsule with an SF Symbol, glass
   in the accent colour on macOS 26, centred right under what it acts on. The player
   is a capsule too, floating at the foot of the text, which scrolls under it: the
-  previous and next paragraph either side of 5 seconds back, play and 5 seconds on,
-  then the timeline and times, centred on one line, on `FloatingSurface` (glass on
-  macOS 26, the system's material before). Find opens at the top, away from it.
+  timeline across it, and under it the time played, the previous and next paragraph
+  either side of 5 seconds back, play and 5 seconds on, centred, then the length and
+  the speed, on `FloatingSurface` (glass on macOS 26, the system's material before).
+  The timeline is a plain line at rest: paragraphs show on it around the pointer.
+  Find opens at the top, away from it.
   Work under way on a transcript is one capsule on the same surface, centred above
   the text, in the words of its row in the library. Return to Playback, once the page
   stops following, is one above the player, pressed as a whole.
@@ -150,7 +152,7 @@ Every page speaks the same visual language. The shared pieces live in
   of that choice's menu.
 * A page's tools are window toolbar items, drawn by the system, each also a menu
   command. Controls are the system's, never drawn by hand. Two exceptions: the player's
-  timeline, since no system slider marks where each paragraph opens, and the fold of an
+  timeline, since the system's slider has tick marks only from macOS 26, and the fold of an
   inspector's section, since the form's own hangs its arrow outside the titles.
 * Text editors: `editorBorder()`, with the corners of a control.
 * Warnings and failures: a `Notice`, `.warning` or `.failure`, each with one symbol

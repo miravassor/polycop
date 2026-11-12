@@ -19,6 +19,29 @@ extension AppScene {
             stage.change(stage.first) { $0.playbackPosition = 700 }
             stage.model.pane = .entry(stage.first)
         },
+        // A lecture of an hour and a half, with a paragraph every few points
+        // of the player's timeline.
+        AppScene(name: "long-lecture") { stage in
+            let lengths: [Double] = [18, 42, 27, 65, 33, 51, 22, 74, 38, 46]
+            var segments: [Segment] = []
+            while (segments.last?.end ?? 0) < 5400 {
+                let start = segments.last?.end ?? 0
+                segments.append(
+                    Segment(
+                        start: start, end: start + lengths[segments.count % lengths.count],
+                        text: AppScene.sentences[segments.count % 4]))
+            }
+            stage.change(stage.first) {
+                $0.state = .finished
+                $0.duration = segments.last?.end
+                $0.decoded = segments
+                $0.paragraphs = segments.map {
+                    Transcript.Paragraph(start: Int($0.start * 1000), text: $0.text)
+                }
+                $0.playbackPosition = 2000
+            }
+            stage.model.pane = .entry(stage.first)
+        },
         AppScene(name: "transcribing") { stage in
             stage.model.running = stage.first
             stage.change(stage.first) {
