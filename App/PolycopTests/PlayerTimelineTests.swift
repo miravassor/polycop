@@ -19,6 +19,32 @@ import Testing
     #expect(scale.paragraph(at: scale.offset(for: 10), among: [50, 100]) == 0)
 }
 
+// The paragraph under the pointer is the one spoken there, wherever in its
+// stretch the pointer is, and that stretch is what the timeline shows for it.
+
+@Test func thePointerIsOnTheParagraphSpokenThere() {
+    let scale = TimelineScale(width: 404, duration: 400)
+    let marks: [TimeInterval] = [0, 100, 200, 300]
+    #expect(scale.paragraph(spokenAt: scale.offset(for: 197), among: marks) == 1)
+    #expect(scale.paragraph(spokenAt: scale.offset(for: 203), among: marks) == 2)
+    #expect(scale.paragraph(spokenAt: 10, among: []) == nil)
+    #expect(scale.stretch(of: 1, among: marks) == scale.offset(for: 100)...scale.offset(for: 200))
+    #expect(scale.stretch(of: 3, among: marks) == scale.offset(for: 300)...scale.offset(for: 400))
+    #expect(scale.stretch(of: nil, among: marks) == nil)
+    #expect(scale.stretch(of: 4, among: marks) == nil)
+}
+
+// The marks grow around the pointer and nowhere else.
+
+@Test func aMarkGrowsTheNearerThePointerIs() {
+    #expect(TimelineScale.nearness(of: 200, to: 200) == 1)
+    let near = TimelineScale.nearness(of: 210, to: 200)
+    let far = TimelineScale.nearness(of: 230, to: 200)
+    #expect(near < 1 && far < near)
+    #expect(TimelineScale.nearness(of: 280, to: 200) < 0.001)
+    #expect(TimelineScale.nearness(of: 190, to: 200) == near)
+}
+
 @Test func aPointOfTheTimelineIsTheTimeItIsDrawnAt() {
     let scale = TimelineScale(width: 404, duration: 400)
     #expect(scale.time(at: scale.offset(for: 150)) == 150)

@@ -39,7 +39,7 @@ struct TranscriptView: View {
     /// Told which paragraph is at the top of the page as the reader scrolls.
     let scrolled: (Int) -> Void
     /// The paragraph under the pointer, here or on the timeline.
-    let focused: Int?
+    let pointer: ParagraphPointer
     let size: CGFloat
     let active: Int?
     let activate: (Int) -> Void
@@ -170,7 +170,7 @@ struct TranscriptView: View {
         TranscriptRow(
             index: index, paragraph: paragraphs[index], written: written(at: index),
             player: player, isEditable: isEditable, isComparing: isComparing, size: size,
-            isPlaying: playing == index, isFocused: focused == index, isActive: active == index,
+            isPlaying: playing == index, pointer: pointer, isActive: active == index,
             isFlagged: review.contains(index), isResumed: resumed.contains(index),
             matches: matches.filter { $0.paragraph == index }.map(\.range),
             currentMatch: currentMatch?.paragraph == index ? currentMatch?.range : nil,

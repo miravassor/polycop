@@ -18,8 +18,8 @@ struct PlayerBar: View, @MainActor Equatable {
     @Bindable var player: Player
     /// The opening second of each paragraph.
     let marks: [TimeInterval]
-    /// The paragraph whose time the pointer is over, if any.
-    let highlighted: Int?
+    /// The paragraph under the pointer, in the text or on the timeline.
+    let pointer: ParagraphPointer
     /// The length the transcription measured, used until a file is open.
     let length: TimeInterval
     /// Where playback stood when the transcript was last left, until a file is open.
@@ -44,7 +44,7 @@ struct PlayerBar: View, @MainActor Equatable {
     /// observes of the player still redraws it.
     static func == (lhs: PlayerBar, rhs: PlayerBar) -> Bool {
         lhs.player === rhs.player && lhs.marks == rhs.marks
-            && lhs.highlighted == rhs.highlighted && lhs.length == rhs.length
+            && lhs.pointer === rhs.pointer && lhs.length == rhs.length
             && lhs.resume == rhs.resume
     }
 
@@ -54,35 +54,15 @@ struct PlayerBar: View, @MainActor Equatable {
     }
 
     var body: some View {
-        // The timeline across the bar. Under it the time played, the
-        // transport centred, then the time left and the speed: the same at
-        // every width.
+        // The timeline across the bar. Under it the time played at one
+        // end and the time left at the other, and between them the transport
+        // with the speed: the same at every width. The words of a recording
+        // being prepared go where the bar is too narrow for them.
         VStack(spacing: 0) {
             timeline
-            HStack(spacing: 10) {
-                // The words go where the bar is too narrow for them; the
-                // spinner stays.
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 6) {
-                        time(Self.clock(position, of: duration)).foregroundStyle(.primary)
-                        preparing(inWords: true)
-                    }
-                    HStack(spacing: 6) {
-                        time(Self.clock(position, of: duration)).foregroundStyle(.primary)
-                        preparing(inWords: false)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                transport
-                HStack(spacing: 10) {
-                    // Unknown until the recording is decoded or opened.
-                    if duration > 0 {
-                        time("-\(Self.clock(max(0, duration - position), of: duration))")
-                            .foregroundStyle(.secondary)
-                    }
-                    speed
-                }
-                .frame(maxWidth: .infinity, alignment: .trailing)
+            ViewThatFits(in: .horizontal) {
+                controls(preparingInWords: true)
+                controls(preparingInWords: false)
             }
         }
         .padding(Self.padding)
@@ -90,19 +70,35 @@ struct PlayerBar: View, @MainActor Equatable {
         .background(SpaceToPlay(isEnabled: !player.isPreparing, action: playOrPause))
     }
 
+    private func controls(preparingInWords: Bool) -> some View {
+        HStack(spacing: 10) {
+            time(Self.clock(position, of: duration)).foregroundStyle(.primary)
+            preparing(inWords: preparingInWords)
+            Spacer(minLength: 0)
+            transport
+            speed
+            Spacer(minLength: 0)
+            // Unknown until the recording is decoded or opened.
+            if duration > 0 {
+                time("-\(Self.clock(max(0, duration - position), of: duration))")
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
     /// The time played or the time left, alike but for their colour: the
     /// time played, in the label colour, is what says where we are.
     /// VoiceOver hears both from the timeline.
     private func time(_ text: String) -> some View {
         Text(text)
-            .font(.body.monospacedDigit().weight(.medium))
+            .font(.callout.monospacedDigit().weight(.medium))
             .fixedSize()
             .accessibilityHidden(true)
     }
 
     private var timeline: some View {
         PlayerTimeline(
-            duration: duration, position: position, marks: marks, highlighted: highlighted,
+            duration: duration, position: position, marks: marks, pointer: pointer,
             jump: jump,
             scrub: { scrubbed = $0 },
             reach: seek
@@ -211,7 +207,7 @@ struct PlayerBar: View, @MainActor Equatable {
             .pickerStyle(.inline)
         } label: {
             Text(label(player.speed))
-                .font(.body.monospacedDigit())
+                .font(.callout.monospacedDigit())
         }
         .menuStyle(.borderlessButton)
         .fixedSize()

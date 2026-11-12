@@ -16,7 +16,8 @@ struct TranscriptRow: View, Equatable {
     let isComparing: Bool
     let size: CGFloat
     let isPlaying: Bool
-    let isFocused: Bool
+    /// The paragraph under the pointer, on this page.
+    let pointer: ParagraphPointer
     let isActive: Bool
     let isFlagged: Bool
     let isResumed: Bool
@@ -40,7 +41,7 @@ struct TranscriptRow: View, Equatable {
         lhs.index == rhs.index && lhs.paragraph == rhs.paragraph && lhs.written == rhs.written
             && lhs.player === rhs.player && lhs.isEditable == rhs.isEditable
             && lhs.isComparing == rhs.isComparing && lhs.size == rhs.size
-            && lhs.isPlaying == rhs.isPlaying && lhs.isFocused == rhs.isFocused
+            && lhs.isPlaying == rhs.isPlaying && lhs.pointer === rhs.pointer
             && lhs.isActive == rhs.isActive && lhs.isFlagged == rhs.isFlagged
             && lhs.isResumed == rhs.isResumed && lhs.matches == rhs.matches
             && lhs.currentMatch == rhs.currentMatch && lhs.words == rhs.words
@@ -142,10 +143,10 @@ struct TranscriptRow: View, Equatable {
                 RoundedRectangle(cornerRadius: 1).fill(.tint).frame(width: 2)
             }
         }
+        // Playing and pointed at each have a layer, so a row can show both.
+        .background(PointedBackground(pointer: pointer, index: index))
         .background(
-            isPlaying
-                ? Color.accentColor.opacity(0.08)
-                : isFocused ? Color.primary.opacity(0.04) : .clear,
+            isPlaying ? Color.accentColor.opacity(0.08) : .clear,
             in: RoundedRectangle(cornerRadius: 6)
         )
         .overlay {
@@ -210,5 +211,17 @@ private struct ParagraphTime: View {
         .accessibilityValue(isCurrent ? (player.isPlaying ? "Playing" : "Paused") : "")
         .help("Play from here")
         .onHover(perform: hover)
+    }
+}
+
+/// The grey of the row the pointer is on, by its time or on the timeline. It
+/// reads the pointer itself, so a move redraws this and not the row.
+private struct PointedBackground: View {
+    let pointer: ParagraphPointer
+    let index: Int
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 6)
+            .fill(pointer.paragraph == index ? Color.primary.opacity(0.06) : .clear)
     }
 }

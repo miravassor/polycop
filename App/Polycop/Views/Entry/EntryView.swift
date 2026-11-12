@@ -7,7 +7,7 @@ import SwiftUI
 struct EntryView: View {
     let model: AppModel
     let entry: Entry
-    @State private var focused: Int?
+    @State private var pointer = ParagraphPointer()
     @State private var activeParagraph: Int?
     @State private var find = TranscriptFind()
     @FocusState private var isSearchFocused: Bool
@@ -122,7 +122,7 @@ struct EntryView: View {
                 play: { model.replay(entry.id, from: $0) },
                 edit: { model.edit(entry.id, paragraphAt: $0, text: $1) },
                 typing: { model.player.pauseForTyping() },
-                hover: { focused = $0 },
+                hover: pointer.point(at:),
                 original: original, isComparing: reading.isComparing,
                 isFollowing: following != .off && !isFollowSuspended,
                 suspendFollowing: page.suspendFollowing,
@@ -130,7 +130,7 @@ struct EntryView: View {
                     if following.stopsWhenEditing { page.suspendFollowing() }
                 },
                 jump: $jump, showAtTop: $showAtTop, start: entry.readingParagraph,
-                scrolled: { model.readingParagraph = $0 }, focused: focused, size: reading.textSize,
+                scrolled: { model.readingParagraph = $0 }, pointer: pointer, size: reading.textSize,
                 active: activeParagraph,
                 activate: { if activeParagraph != $0 { activeParagraph = $0 } },
                 review: entry.reviewParagraphs,
@@ -170,7 +170,7 @@ struct EntryView: View {
         PlayerBar(
             player: model.player,
             marks: entry.paragraphs.map(\.seconds),
-            highlighted: focused,
+            pointer: pointer,
             length: entry.duration ?? 0,
             resume: entry.playbackPosition ?? 0,
             play: { model.replay(entry.id, from: $0, leadIn: 0) },

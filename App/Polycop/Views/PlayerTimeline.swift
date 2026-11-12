@@ -2,10 +2,10 @@
 
 import SwiftUI
 
-/// Where the recording is, and where a click lands: a thin line, played in
-/// the accent colour up to a narrow upright playhead. It carries no mark for
-/// each paragraph, which a lecture has every few points of it: only the one
-/// the pointer is on in the text.
+/// Where the recording is, where its paragraphs open, and where a click
+/// lands: a thin line, played in the accent colour up to a narrow upright
+/// playhead. A lecture has a paragraph every few points of it, so their marks
+/// keep quiet until the pointer comes, and grow around it as under a lens.
 struct PlayerTimeline: View {
     /// The height that takes clicks and holds the playhead at its tallest.
     static let height: CGFloat = 20
@@ -13,10 +13,13 @@ struct PlayerTimeline: View {
     let duration: TimeInterval
     let position: TimeInterval
     let marks: [TimeInterval]
-    let highlighted: Int?
+    /// The paragraph under the pointer, in the text or here.
+    let pointer: ParagraphPointer
     let jump: (Int) -> Void
     let scrub: (TimeInterval) -> Void
     let reach: (TimeInterval) -> Void
+    /// Where the pointer is or last was, so the lens closes where it stood.
+    @State private var aim: CGFloat = 0
     @State private var isHovering = false
     @State private var isDragging = false
     @Environment(\.accessibilityReduceMotion) private var reducesMotion
@@ -40,10 +43,15 @@ struct PlayerTimeline: View {
                     DragGesture(minimumDistance: 0)
                         .onChanged { drag in
                             isDragging = true
+                            point(at: drag.location.x, on: scale)
                             scrub(scale.time(at: drag.location.x))
                         }
                         .onEnded { drag in
                             isDragging = false
+                            // Released past an end, the pointer is on no paragraph.
+                            if !(0...scale.width).contains(drag.location.x) {
+                                pointer.point(at: nil)
+                            }
                             reach(scale.time(at: drag.location.x))
                         }
                 )
@@ -56,7 +64,17 @@ struct PlayerTimeline: View {
                             }
                         }
                 )
-                .onHover { isHovering = $0 }
+                .onContinuousHover(coordinateSpace: .local) { phase in
+                    switch phase {
+                    case .active(let location):
+                        isHovering = true
+                        point(at: location.x, on: scale)
+                    case .ended:
+                        isHovering = false
+                        // A drag goes on past the timeline's edge.
+                        if !isDragging { pointer.point(at: nil) }
+                    }
+                }
                 .allowsHitTesting(duration > 0)
                 .accessibilityElement()
                 .accessibilityLabel("Timeline")
@@ -80,21 +98,29 @@ struct PlayerTimeline: View {
             : formattedDuration(position)
     }
 
-    /// The line, its played part, the paragraph pointed at and the playhead.
+    /// Where the pointer is, and the paragraph spoken there, which the text
+    /// shows too.
+    private func point(at x: CGFloat, on scale: TimelineScale) {
+        aim = x
+        pointer.point(at: scale.paragraph(spokenAt: x, among: marks))
+    }
+
+    /// The paragraph marks, behind the line and its played part, the stretch
+    /// of the paragraph under the pointer, and the playhead over them.
     private func track(on scale: TimelineScale) -> some View {
         let played = scale.offset(for: position)
         return ZStack(alignment: .leading) {
+            ParagraphMarks(
+                offsets: marks.map(scale.offset(for:)), highlighted: pointer.paragraph,
+                playhead: played, pointer: aim, lens: stage == .resting ? 0 : 1
+            )
+            .animation(growth, value: stage)
             line(.quaternary, width: scale.trackWidth, from: scale.inset)
             line(.tint, width: max(0, played - scale.inset), from: scale.inset)
-            // Where the paragraph under the pointer, in the text, opens; the
-            // playhead says it alone when it is there.
-            if let highlighted, marks.indices.contains(highlighted),
-                abs(scale.offset(for: marks[highlighted]) - played) >= 3
-            {
-                Capsule()
-                    .fill(.primary)
-                    .frame(width: 2, height: 12)
-                    .position(x: scale.offset(for: marks[highlighted]), y: Self.height / 2)
+            if let stretch = scale.stretch(of: pointer.paragraph, among: marks) {
+                line(
+                    .primary.opacity(0.3), width: stretch.upperBound - stretch.lowerBound,
+                    from: stretch.lowerBound)
             }
             Capsule()
                 .fill(.tint)
@@ -118,6 +144,41 @@ struct PlayerTimeline: View {
     }
 }
 
+/// A line where each paragraph opens: short and faint at rest, taller and
+/// clearer around the pointer, and whole for the paragraph the pointer is on
+/// in the text. None is drawn under the playhead, which stays the one strong
+/// thing on the line. One drawing for all of them: a lecture has hundreds.
+private struct ParagraphMarks: View, Animatable {
+    let offsets: [CGFloat]
+    let highlighted: Int?
+    let playhead: CGFloat
+    let pointer: CGFloat
+    /// How far the lens is out: 0 at rest, 1 under the pointer.
+    var lens: CGFloat
+
+    var animatableData: CGFloat {
+        get { lens }
+        set { lens = newValue }
+    }
+
+    var body: some View {
+        Canvas { context, size in
+            for (index, x) in offsets.enumerated() where abs(x - playhead) >= 3 {
+                let near =
+                    index == highlighted ? 1 : lens * TimelineScale.nearness(of: x, to: pointer)
+                let width = 1 + 0.5 * near
+                let height = 5 + 9 * near
+                let mark = CGRect(
+                    x: x - width / 2, y: (size.height - height) / 2, width: width, height: height)
+                context.opacity = 0.16 + 0.44 * near
+                context.fill(
+                    Path(roundedRect: mark, cornerRadius: width / 2), with: .style(.primary))
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
 /// Drawing and hit testing share the inset that keeps the playhead inside the line.
 nonisolated struct TimelineScale {
     let width: CGFloat
@@ -136,6 +197,13 @@ nonisolated struct TimelineScale {
         return min(1, max(0, (x - inset) / trackWidth)) * duration
     }
 
+    /// How much a mark is under the pointer's lens, from 1 at the pointer
+    /// down to nothing some forty points away.
+    static func nearness(of x: CGFloat, to pointer: CGFloat) -> CGFloat {
+        let distance = (x - pointer) / 18
+        return exp(-distance * distance)
+    }
+
     /// The paragraph a point of the timeline belongs to: the one that opens
     /// within a few points of it, otherwise the one being spoken there.
     func paragraph(at x: CGFloat, among marks: [TimeInterval]) -> Int? {
@@ -144,7 +212,23 @@ nonisolated struct TimelineScale {
             abs(offset(for: marks[$0]) - x) < abs(offset(for: marks[$1]) - x)
         }
         if let nearest, abs(offset(for: marks[nearest]) - x) <= 5 { return nearest }
+        return paragraph(spokenAt: x, among: marks)
+    }
+
+    /// The paragraph being spoken at a point of the timeline.
+    func paragraph(spokenAt x: CGFloat, among marks: [TimeInterval]) -> Int? {
+        guard width > 0, duration > 0, !marks.isEmpty else { return nil }
         let moment = time(at: x)
         return marks.lastIndex { $0 <= moment } ?? 0
+    }
+
+    /// The stretch of the line a paragraph covers, from where it opens to
+    /// where the next one does.
+    func stretch(of paragraph: Int?, among marks: [TimeInterval]) -> ClosedRange<CGFloat>? {
+        guard let paragraph, marks.indices.contains(paragraph) else { return nil }
+        let start = offset(for: marks[paragraph])
+        let end =
+            paragraph + 1 < marks.count ? offset(for: marks[paragraph + 1]) : inset + trackWidth
+        return start...max(start, end)
     }
 }
