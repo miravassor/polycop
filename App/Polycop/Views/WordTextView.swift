@@ -83,6 +83,8 @@ final class WordTextView: NSTextView {
             if playFromCharacter(index) { return }
         }
         Self.holdsCursor = true
+        // No drag from this view is under way once it is clicked again.
+        isDraggingSelection = false
         super.mouseDown(with: event)
     }
 
@@ -90,10 +92,62 @@ final class WordTextView: NSTextView {
     /// rows far from playback are after a jump. The reader is still editing.
     static var lostCursor = false
 
+    /// The page reads as one text, with one selection, in the paragraph being
+    /// edited. A text view keeps its own when it loses the focus, so the one
+    /// left drops it here, and so does a row hidden with the cursor in it.
+    /// It drops it before AppKit takes the focus away, which hides the cursor:
+    /// a change of selection after that shows the cursor again, since the
+    /// window still names this view as the one with the focus, which AppKit
+    /// does not document, and nothing hides it afterwards. Nothing here
+    /// refuses to end editing: a delegate that did would keep the focus with
+    /// the selection gone.
     override func resignFirstResponder() -> Bool {
-        let resigned = super.resignFirstResponder()
-        if resigned, isHiddenOrHasHiddenAncestor { Self.lostCursor = true }
-        return resigned
+        if !isDraggingSelection { dropSelection() }
+        guard super.resignFirstResponder() else { return false }
+        if isHiddenOrHasHiddenAncestor { Self.lostCursor = true }
+        return true
+    }
+
+    /// True while this view drops its selection, which is not the reader
+    /// moving the cursor here.
+    private(set) var isDroppingSelection = false
+
+    private func dropSelection() {
+        // Text being composed, such as an accent waiting for its letter, is
+        // AppKit's to end.
+        guard selectedRange().length > 0, !hasMarkedText() else { return }
+        isDroppingSelection = true
+        defer { isDroppingSelection = false }
+        setSelectedRange(NSRange(location: selectedRange().location, length: 0))
+    }
+
+    /// True during a drag of this paragraph's selection. As the drag ends,
+    /// AppKit takes text moved to another paragraph, or to the Trash, out of this
+    /// one, and only what is still selected here, which it does not document:
+    /// the selection stays until then.
+    private var isDraggingSelection = false
+
+    override func dragSelection(with event: NSEvent, offset: NSSize, slideBack: Bool) -> Bool {
+        isDraggingSelection = true
+        let began = super.dragSelection(with: event, offset: offset, slideBack: slideBack)
+        if !began { isDraggingSelection = false }
+        return began
+    }
+
+    override func draggingSession(
+        _ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation
+    ) {
+        super.draggingSession(session, endedAt: screenPoint, operation: operation)
+        isDraggingSelection = false
+        if window?.firstResponder !== self { dropSelection() }
+    }
+
+    /// Text dropped here is selected here, so the focus comes with it: a text
+    /// view takes a drop without it, and the paragraph the reader was in would
+    /// keep a selection of its own.
+    override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
+        window?.makeFirstResponder(self)
+        return super.performDragOperation(sender)
     }
 
     override func becomeFirstResponder() -> Bool {
