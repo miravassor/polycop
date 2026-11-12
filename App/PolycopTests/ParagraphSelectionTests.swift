@@ -187,33 +187,12 @@ private final class Drop: NSObject, NSDraggingInfo {
     #expect(first.selectedRange().length == 0)
 }
 
-/// What the list does to a row scrolled far away during a drag: hides it.
-/// Then the button is released.
-@MainActor
-private final class HideDuringDrag: NSObject {
-    let view: NSView
-    let point: NSPoint
-
-    init(_ view: NSView, releasingAt point: NSPoint) {
-        self.view = view
-        self.point = point
-    }
-
-    @objc func fire() {
-        view.isHidden = true
-        let release = NSEvent.mouseEvent(
-            with: .leftMouseUp, location: point, modifierFlags: [], timestamp: 0,
-            windowNumber: view.window?.windowNumber ?? 0, context: nil, eventNumber: 0,
-            clickCount: 2, pressure: 0)
-        if let release { NSApp.postEvent(release, atStart: false) }
-    }
-}
-
 /// A drag that scrolls its paragraph far out of sight hides that paragraph,
-/// which takes the focus from it while AppKit goes on selecting in it: nothing
-/// stays selected there for when the paragraph comes back.
+/// which takes the focus from it while AppKit goes on selecting in it. Hidden
+/// at the release, it keeps nothing selected for when it comes back; back in
+/// sight, it has the focus again with what the reader selected.
 @MainActor
-@Test func aParagraphHiddenDuringADragKeepsNoSelection() {
+@Test func aParagraphLeftDuringADragKeepsItsSelectionOnlyInSight() {
     let window = NSWindow(
         contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled],
         backing: .buffered, defer: false)
@@ -221,23 +200,19 @@ private final class HideDuringDrag: NSObject {
     defer { window.close() }
     defer { WordTextView.lostCursor = false }
     let (first, _) = twoParagraphs(in: window)
-    window.makeFirstResponder(first)
-    let point = first.convert(NSPoint(x: 5, y: 5), to: nil)
-    // A double click selects a word, so the release, wherever it lands,
-    // leaves a selection.
-    let press = NSEvent.mouseEvent(
-        with: .leftMouseDown, location: point, modifierFlags: [], timestamp: 0,
-        windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 2,
-        pressure: 1)
-    // AppKit's tracking loop runs this timer, in its own run loop mode.
-    let scroll = Timer(
-        timeInterval: 0.05, target: HideDuringDrag(first, releasingAt: point),
-        selector: #selector(HideDuringDrag.fire),
-        userInfo: nil, repeats: false)
-    RunLoop.main.add(scroll, forMode: .common)
-    guard let press else { return }
-    first.mouseDown(with: press)
+    let selected = NSRange(location: 0, length: 7)
 
+    window.makeFirstResponder(first)
+    first.isHidden = true
+    first.setSelectedRange(selected)
+    first.pressEnded()
     #expect(window.firstResponder !== first)
     #expect(first.selectedRange().length == 0)
+
+    first.isHidden = false
+    first.setSelectedRange(selected)
+    first.pressEnded()
+    #expect(window.firstResponder === first)
+    #expect(first.selectedRange() == selected)
+    #expect(!WordTextView.lostCursor)
 }

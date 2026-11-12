@@ -86,10 +86,23 @@ final class WordTextView: NSTextView {
         // No drag from this view is under way once it is clicked again.
         isDraggingSelection = false
         super.mouseDown(with: event)
-        // A drag that scrolls this paragraph far out of sight hides it, which
-        // takes the focus from it, and AppKit's tracking goes on selecting in
-        // it: the paragraph would show that selection when it comes back.
-        if window?.firstResponder !== self, !isDraggingSelection { dropSelection() }
+        pressEnded()
+    }
+
+    /// Called once AppKit's tracking of a press here ends; internal so that
+    /// tests call it. A drag that scrolls this paragraph far out of sight
+    /// hides it, which takes the focus from it, and the tracking goes on
+    /// selecting in it (tried on macOS 26). Hidden at the release, the
+    /// paragraph keeps nothing selected, which it would show when it comes
+    /// back; back in sight, it takes the focus again with what the reader
+    /// selected.
+    func pressEnded() {
+        guard let window, window.firstResponder !== self, !isDraggingSelection else { return }
+        if isHiddenOrHasHiddenAncestor {
+            dropSelection()
+        } else {
+            window.makeFirstResponder(self)
+        }
     }
 
     /// Whether the paragraph being edited was hidden with the cursor in it, as
