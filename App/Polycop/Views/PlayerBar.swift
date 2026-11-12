@@ -26,8 +26,6 @@ struct PlayerBar: View, @MainActor Equatable {
     let resume: TimeInterval
     /// Opens the recording at a point and plays from there.
     let play: (TimeInterval) -> Void
-    /// The mark the pointer is over, so the text can show which paragraph it is.
-    let hover: (Int?) -> Void
     /// A paragraph chosen on the timeline, to be shown in the text above.
     let jump: (Int) -> Void
     /// Plays the paragraph before or after, as the Playback menu does.
@@ -36,8 +34,9 @@ struct PlayerBar: View, @MainActor Equatable {
     @State private var scrubbed: TimeInterval?
 
     /// The height of the line under the timeline, and of its buttons.
-    private static let row: CGFloat = 30
-    private static let padding = EdgeInsets(top: 4, leading: 18, bottom: 6, trailing: 18)
+    private static let row: CGFloat = 28
+    /// More at the top, where the playhead rises above its line.
+    private static let padding = EdgeInsets(top: 8, leading: 18, bottom: 6, trailing: 18)
 
     /// Compared without its actions, which stay the same for a page: a
     /// correction handed over gives the page a new transcript, not the player
@@ -55,9 +54,9 @@ struct PlayerBar: View, @MainActor Equatable {
     }
 
     var body: some View {
-        // The timeline across the bar. Under it the time played, the one
-        // number that moves, the transport centred, then the length and the
-        // speed: the same at every width.
+        // The timeline across the bar. Under it the time played, the
+        // transport centred, then the time left and the speed: the same at
+        // every width.
         VStack(spacing: 0) {
             timeline
             HStack(spacing: 10) {
@@ -65,11 +64,11 @@ struct PlayerBar: View, @MainActor Equatable {
                 // spinner stays.
                 ViewThatFits(in: .horizontal) {
                     HStack(spacing: 6) {
-                        played
+                        time(Self.clock(position, of: duration)).foregroundStyle(.primary)
                         preparing(inWords: true)
                     }
                     HStack(spacing: 6) {
-                        played
+                        time(Self.clock(position, of: duration)).foregroundStyle(.primary)
                         preparing(inWords: false)
                     }
                 }
@@ -78,11 +77,8 @@ struct PlayerBar: View, @MainActor Equatable {
                 HStack(spacing: 10) {
                     // Unknown until the recording is decoded or opened.
                     if duration > 0 {
-                        Text(Self.clock(duration, of: duration))
-                            .font(.subheadline.monospacedDigit())
+                        time("-\(Self.clock(max(0, duration - position), of: duration))")
                             .foregroundStyle(.secondary)
-                            .fixedSize()
-                            .accessibilityHidden(true)
                     }
                     speed
                 }
@@ -94,10 +90,11 @@ struct PlayerBar: View, @MainActor Equatable {
         .background(SpaceToPlay(isEnabled: !player.isPreparing, action: playOrPause))
     }
 
-    /// The time played, larger than the length and in the label colour: it
-    /// is what says where we are. VoiceOver hears both from the timeline.
-    private var played: some View {
-        Text(Self.clock(position, of: duration))
+    /// The time played or the time left, alike but for their colour: the
+    /// time played, in the label colour, is what says where we are.
+    /// VoiceOver hears both from the timeline.
+    private func time(_ text: String) -> some View {
+        Text(text)
             .font(.body.monospacedDigit().weight(.medium))
             .fixedSize()
             .accessibilityHidden(true)
@@ -106,7 +103,7 @@ struct PlayerBar: View, @MainActor Equatable {
     private var timeline: some View {
         PlayerTimeline(
             duration: duration, position: position, marks: marks, highlighted: highlighted,
-            hover: hover, jump: jump,
+            jump: jump,
             scrub: { scrubbed = $0 },
             reach: seek
         )

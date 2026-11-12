@@ -5,50 +5,18 @@ import Testing
 
 @testable import Polycop
 
-// The timeline stays a plain line until the pointer reaches for it: a lecture
-// has a paragraph every few points of it.
+// A double click on the timeline shows the passage there: the paragraph that
+// opens within a few points of it, otherwise the one being spoken.
 
-@Test func noParagraphShowsOnTheTimelineAtRest() {
-    let scale = TimelineScale(width: 400, duration: 5400)
-    for x in stride(from: CGFloat(0), through: 400, by: 20) {
-        #expect(scale.clarity(ofMarkAt: x, pointer: nil) == 0)
-    }
-}
-
-@Test func paragraphsShowAroundThePointerAndFadeWithTheDistance() {
-    let scale = TimelineScale(width: 400, duration: 5400)
-    #expect(scale.clarity(ofMarkAt: 200, pointer: 200) == 1)
-    let near = scale.clarity(ofMarkAt: 210, pointer: 200)
-    let far = scale.clarity(ofMarkAt: 230, pointer: 200)
-    #expect(near < 1 && far < near && far > 0)
-    #expect(scale.clarity(ofMarkAt: 200 + TimelineScale.reach, pointer: 200) == 0)
-    #expect(scale.clarity(ofMarkAt: 200 - TimelineScale.reach - 1, pointer: 200) == 0)
-}
-
-@Test func theParagraphThePagePointsAtShowsWithoutThePointer() {
+@Test func aPointOfTheTimelineBelongsToTheParagraphOpeningOrSpokenThere() {
     let scale = TimelineScale(width: 404, duration: 400)
     let marks: [TimeInterval] = [0, 100, 200, 300]
-    let played = scale.offset(for: 150)
-    #expect(scale.marksShown(among: marks, pointer: nil, highlighted: nil, clearOf: played) == [])
-    #expect(scale.marksShown(among: marks, pointer: nil, highlighted: 3, clearOf: played) == [3])
-    let near = scale.offset(for: 210)
-    let shown = scale.marksShown(among: marks, pointer: near, highlighted: 0, clearOf: played)
-    #expect(shown == [0, 2])
-}
-
-@Test func noParagraphShowsUnderThePlayhead() {
-    let scale = TimelineScale(width: 404, duration: 400)
-    let marks: [TimeInterval] = [0, 100, 200, 300]
-    let played = scale.offset(for: 200)
-    #expect(scale.marksShown(among: marks, pointer: played, highlighted: 2, clearOf: played) == [])
-}
-
-@Test func thePointerChoosesTheParagraphWhoseMarkItIsOn() {
-    let scale = TimelineScale(width: 404, duration: 400)
-    let marks: [TimeInterval] = [0, 100, 200, 300]
-    #expect(scale.mark(near: scale.offset(for: 200) + 3, among: marks) == 2)
-    #expect(scale.mark(near: scale.offset(for: 200) + 30, among: marks) == nil)
-    #expect(scale.mark(near: 10, among: []) == nil)
+    #expect(scale.paragraph(at: scale.offset(for: 200) - 3, among: marks) == 2)
+    #expect(scale.paragraph(at: scale.offset(for: 250), among: marks) == 2)
+    #expect(scale.paragraph(at: scale.offset(for: 399), among: marks) == 3)
+    #expect(scale.paragraph(at: 10, among: []) == nil)
+    // Before the first paragraph opens, it is still the first.
+    #expect(scale.paragraph(at: scale.offset(for: 10), among: [50, 100]) == 0)
 }
 
 @Test func aPointOfTheTimelineIsTheTimeItIsDrawnAt() {

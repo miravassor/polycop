@@ -137,9 +137,9 @@ Every page speaks the same visual language. The shared pieces live in
   in the accent colour on macOS 26, centred right under what it acts on. The player
   is a capsule too, floating at the foot of the text, which scrolls under it: the
   timeline across it, and under it the time played, the previous and next paragraph
-  either side of 5 seconds back, play and 5 seconds on, centred, then the length and
+  either side of 5 seconds back, play and 5 seconds on, centred, then the time left and
   the speed, on `FloatingSurface` (glass on macOS 26, the system's material before).
-  The timeline is a plain line at rest: paragraphs show on it around the pointer.
+  The timeline is a plain line, with no mark for each paragraph.
   Find opens at the top, away from it.
   Work under way on a transcript is one capsule on the same surface, centred above
   the text, in the words of its row in the library. Return to Playback, once the page
@@ -152,9 +152,9 @@ Every page speaks the same visual language. The shared pieces live in
   of that choice's menu.
 * A page's tools are window toolbar items, drawn by the system, each also a menu
   command. Controls are the system's, never drawn by hand. Two exceptions: the player's
-  timeline, since no system slider shows the paragraphs around the pointer or opens one
-  on a double click, and the fold of an inspector's section, since the form's own hangs
-  its arrow outside the titles.
+  timeline, since no system slider opens a passage on a double click or shows where a
+  paragraph of the text is, and the fold of an inspector's section, since the form's own
+  hangs its arrow outside the titles.
 * Text editors: `editorBorder()`, with the corners of a control.
 * Warnings and failures: a `Notice`, `.warning` or `.failure`, each with one symbol
   and colour; a notice with a symbol of its own is a `Label` with `notice(_:)`. Colour

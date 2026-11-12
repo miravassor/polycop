@@ -174,7 +174,6 @@ struct EntryView: View {
             length: entry.duration ?? 0,
             resume: entry.playbackPosition ?? 0,
             play: { model.replay(entry.id, from: $0, leadIn: 0) },
-            hover: { focused = $0 },
             jump: { jump = $0 },
             // Steps read the paragraph starts, which the player compares, so
             // one kept from an earlier draw steps through the same paragraphs.

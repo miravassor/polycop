@@ -29,7 +29,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 * A paragraph's flag lines up under its time, with the mark of a resumed transcription beside it.
 * The times a warning offers to listen from wrap rather than scroll sideways. Above the text, a long list stops at "and N more", which opens all of them.
 * A failed download, import or deletion of a model says which model or file it was about. It shows in the list of models while that is open, and goes when it closes.
-* The player floats at the foot of the text. Its timeline runs across it, a thin line with a narrow playhead, so a long lecture has room on it; under it are the time played, previous and next paragraph, 5 seconds back and on, the length of the recording and the speed. The paragraphs show on the timeline around the pointer. Find opens at the top.
+* The player floats at the foot of the text. Its timeline runs across it, a thin line with a narrow playhead, so a long lecture has room on it; under it are the time played, previous and next paragraph, 5 seconds back and on, the time left and the speed. The timeline no longer has a mark for each paragraph, only for the one the pointer is on in the text. Find opens at the top.
 * New Transcription has the recordings in the middle and their settings in the inspector, where a model not downloaded yet can be downloaded.
 * Models, Glossaries and Find Terms in Documents, formerly Terms from Documents, are laid out like the rest of the app. Find Terms starts as soon as documents are chosen.
 * A transcript being transcribed shows its progress above its text, with Pause, Resume and Stop. A transcript with no text yet says why and offers the button that moves it on.
