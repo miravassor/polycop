@@ -18,33 +18,40 @@ struct PlayerTimeline: View {
     let jump: (Int) -> Void
     let scrub: (TimeInterval) -> Void
     let reach: (TimeInterval) -> Void
-    /// Where the pointer is over the timeline, and where it drags the playhead.
-    @State private var hovered: CGFloat?
-    @State private var dragged: CGFloat?
+    /// Where the pointer is over the timeline, hovering or dragging.
+    @State private var pointer: CGFloat?
+    @State private var isDragging = false
+    @Environment(\.accessibilityReduceMotion) private var reducesMotion
 
     /// What the reader is doing with the timeline, which its sizes follow.
     private enum Stage { case resting, hovered, dragged }
 
     private var stage: Stage {
-        dragged != nil ? .dragged : hovered != nil ? .hovered : .resting
+        isDragging ? .dragged : pointer != nil ? .hovered : .resting
     }
+
+    /// The line and the playhead grow under the pointer; where they are
+    /// never animates, so a point chosen is shown at once.
+    private var growth: Animation? { reducesMotion ? nil : .default }
 
     var body: some View {
         GeometryReader { geometry in
             let scale = TimelineScale(width: geometry.size.width, duration: duration)
             track(on: scale)
                 .frame(height: Self.height)
-                .animation(.default, value: stage)
                 .contentShape(Rectangle())
                 .gesture(
                     DragGesture(minimumDistance: 0)
                         .onChanged { drag in
-                            dragged = drag.location.x
+                            isDragging = true
+                            point(at: drag.location.x, on: scale)
                             scrub(scale.time(at: drag.location.x))
                         }
                         .onEnded { drag in
-                            dragged = nil
-                            reach(scale.time(at: drag.location.x))
+                            isDragging = false
+                            let x = drag.location.x
+                            point(at: (0...scale.width).contains(x) ? x : nil, on: scale)
+                            reach(scale.time(at: x))
                         }
                 )
                 // A double click asks to read that passage, not only to hear it.
@@ -58,18 +65,17 @@ struct PlayerTimeline: View {
                 )
                 .onContinuousHover(coordinateSpace: .local) { phase in
                     switch phase {
-                    case .active(let point):
-                        hovered = point.x
-                        hover(scale.mark(near: point.x, among: marks))
+                    case .active(let location):
+                        point(at: location.x, on: scale)
                     case .ended:
-                        hovered = nil
-                        hover(nil)
+                        // A drag goes on past the timeline's edge.
+                        if !isDragging { point(at: nil, on: scale) }
                     }
                 }
                 .allowsHitTesting(duration > 0)
                 .accessibilityElement()
                 .accessibilityLabel("Timeline")
-                .accessibilityValue(PlayerBar.clock(position, of: duration))
+                .accessibilityValue(spoken)
                 .accessibilityAdjustableAction { direction in
                     switch direction {
                     case .increment: reach(min(duration, position + 5))
@@ -81,19 +87,27 @@ struct PlayerTimeline: View {
         .frame(height: Self.height)
     }
 
+    /// The time played and the length, as VoiceOver says them in place of
+    /// the two numbers under the timeline.
+    private var spoken: String {
+        duration > 0
+            ? "\(formattedDuration(position)) of \(formattedDuration(duration))"
+            : formattedDuration(position)
+    }
+
+    /// Where the pointer is, for the marks here and for the page, which shows
+    /// the paragraph in the text.
+    private func point(at x: CGFloat?, on scale: TimelineScale) {
+        pointer = x
+        hover(x.flatMap { scale.mark(near: $0, among: marks) })
+    }
+
     /// The line, its played part, the marks around the pointer and the playhead.
     private func track(on scale: TimelineScale) -> some View {
         let played = scale.offset(for: position)
-        let line: CGFloat = stage == .resting ? 3 : 5
         return ZStack(alignment: .leading) {
-            Capsule()
-                .fill(.quaternary)
-                .frame(width: scale.trackWidth, height: line)
-                .offset(x: scale.inset)
-            Capsule()
-                .fill(.tint)
-                .frame(width: max(0, played - scale.inset), height: line)
-                .offset(x: scale.inset)
+            line(.quaternary, width: scale.trackWidth, from: scale.inset)
+            line(.tint, width: max(0, played - scale.inset), from: scale.inset)
             paragraphMarks(on: scale, clearOf: played)
             Capsule()
                 .fill(.tint)
@@ -101,8 +115,19 @@ struct PlayerTimeline: View {
                     width: stage == .resting ? 3 : 4,
                     height: stage == .dragged ? 18 : stage == .hovered ? 16 : 14
                 )
+                .animation(growth, value: stage)
                 .position(x: played, y: Self.height / 2)
         }
+    }
+
+    /// A stretch of the line, thicker under the pointer.
+    private func line(_ style: some ShapeStyle, width: CGFloat, from start: CGFloat) -> some View {
+        Capsule()
+            .fill(style)
+            .frame(height: stage == .resting ? 3 : 5)
+            .animation(growth, value: stage)
+            .frame(width: width)
+            .offset(x: start)
     }
 
     /// A line where each paragraph near the pointer opens, fainter with the
@@ -110,12 +135,8 @@ struct PlayerTimeline: View {
     /// the text or here. None shows under the playhead, which stays the one
     /// strong thing on the line.
     private func paragraphMarks(on scale: TimelineScale, clearOf played: CGFloat) -> some View {
-        let pointer = dragged ?? hovered
-        let shown = marks.indices.filter { index in
-            let x = scale.offset(for: marks[index])
-            return abs(x - played) >= 3
-                && (index == highlighted || scale.clarity(ofMarkAt: x, pointer: pointer) > 0)
-        }
+        let shown = scale.marksShown(
+            among: marks, pointer: pointer, highlighted: highlighted, clearOf: played)
         return ForEach(shown, id: \.self) { index in
             let x = scale.offset(for: marks[index])
             let strong = index == highlighted
@@ -162,6 +183,18 @@ nonisolated struct TimelineScale {
     func clarity(ofMarkAt x: CGFloat, pointer: CGFloat?) -> Double {
         guard let pointer else { return 0 }
         return max(0, 1 - abs(x - pointer) / Self.reach)
+    }
+
+    /// The paragraphs whose marks show: those around the pointer and the one
+    /// the page points at, but none under the playhead.
+    func marksShown(
+        among marks: [TimeInterval], pointer: CGFloat?, highlighted: Int?, clearOf played: CGFloat
+    ) -> [Int] {
+        marks.indices.filter { index in
+            let x = offset(for: marks[index])
+            return abs(x - played) >= 3
+                && (index == highlighted || clarity(ofMarkAt: x, pointer: pointer) > 0)
+        }
     }
 
     /// The paragraph whose mark a point is on, within a few points of it.

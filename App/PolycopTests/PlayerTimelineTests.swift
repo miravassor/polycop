@@ -25,6 +25,24 @@ import Testing
     #expect(scale.clarity(ofMarkAt: 200 - TimelineScale.reach - 1, pointer: 200) == 0)
 }
 
+@Test func theParagraphThePagePointsAtShowsWithoutThePointer() {
+    let scale = TimelineScale(width: 404, duration: 400)
+    let marks: [TimeInterval] = [0, 100, 200, 300]
+    let played = scale.offset(for: 150)
+    #expect(scale.marksShown(among: marks, pointer: nil, highlighted: nil, clearOf: played) == [])
+    #expect(scale.marksShown(among: marks, pointer: nil, highlighted: 3, clearOf: played) == [3])
+    let near = scale.offset(for: 210)
+    let shown = scale.marksShown(among: marks, pointer: near, highlighted: 0, clearOf: played)
+    #expect(shown == [0, 2])
+}
+
+@Test func noParagraphShowsUnderThePlayhead() {
+    let scale = TimelineScale(width: 404, duration: 400)
+    let marks: [TimeInterval] = [0, 100, 200, 300]
+    let played = scale.offset(for: 200)
+    #expect(scale.marksShown(among: marks, pointer: played, highlighted: 2, clearOf: played) == [])
+}
+
 @Test func thePointerChoosesTheParagraphWhoseMarkItIsOn() {
     let scale = TimelineScale(width: 404, duration: 400)
     let marks: [TimeInterval] = [0, 100, 200, 300]
@@ -49,4 +67,6 @@ import Testing
     #expect(PlayerBar.clock(2000, of: 5450) == "0:33:20")
     #expect(PlayerBar.clock(5450, of: 5450) == "1:30:50")
     #expect(PlayerBar.clock(-5, of: 1640) == "0:00")
+    // A position past an hour in a recording whose length is not known yet.
+    #expect(PlayerBar.clock(4000, of: 0) == "1:06:40")
 }

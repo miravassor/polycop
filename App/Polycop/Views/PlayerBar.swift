@@ -38,9 +38,6 @@ struct PlayerBar: View, @MainActor Equatable {
     /// The height of the line under the timeline, and of its buttons.
     private static let row: CGFloat = 30
     private static let padding = EdgeInsets(top: 4, leading: 18, bottom: 6, trailing: 18)
-    /// Half the bar's height, which makes it a capsule.
-    private static let corner =
-        (padding.top + PlayerTimeline.height + row + padding.bottom) / 2
 
     /// Compared without its actions, which stay the same for a page: a
     /// correction handed over gives the page a new transcript, not the player
@@ -64,36 +61,46 @@ struct PlayerBar: View, @MainActor Equatable {
         VStack(spacing: 0) {
             timeline
             HStack(spacing: 10) {
+                // The words go where the bar is too narrow for them; the
+                // spinner stays.
                 ViewThatFits(in: .horizontal) {
                     HStack(spacing: 6) {
                         played
-                        preparing
+                        preparing(inWords: true)
                     }
-                    played
+                    HStack(spacing: 6) {
+                        played
+                        preparing(inWords: false)
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 transport
                 HStack(spacing: 10) {
-                    Text(Self.clock(duration, of: duration))
-                        .font(.subheadline.monospacedDigit())
-                        .foregroundStyle(.secondary)
-                        .fixedSize()
+                    // Unknown until the recording is decoded or opened.
+                    if duration > 0 {
+                        Text(Self.clock(duration, of: duration))
+                            .font(.subheadline.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                            .fixedSize()
+                            .accessibilityHidden(true)
+                    }
                     speed
                 }
                 .frame(maxWidth: .infinity, alignment: .trailing)
             }
         }
         .padding(Self.padding)
-        .modifier(FloatingSurface(cornerRadius: Self.corner))
+        .modifier(FloatingSurface(shape: Capsule()))
         .background(SpaceToPlay(isEnabled: !player.isPreparing, action: playOrPause))
     }
 
     /// The time played, larger than the length and in the label colour: it
-    /// is what says where we are.
+    /// is what says where we are. VoiceOver hears both from the timeline.
     private var played: some View {
         Text(Self.clock(position, of: duration))
             .font(.body.monospacedDigit().weight(.medium))
             .fixedSize()
+            .accessibilityHidden(true)
     }
 
     private var timeline: some View {
@@ -165,10 +172,15 @@ struct PlayerBar: View, @MainActor Equatable {
         .accessibilityLabel(seconds < 0 ? "Back five seconds" : "Forward five seconds")
     }
 
-    @ViewBuilder private var preparing: some View {
+    @ViewBuilder private func preparing(inWords: Bool) -> some View {
         if player.isPreparing {
-            ProgressView().controlSize(.small)
-            Text("Preparing playback").font(.caption).foregroundStyle(.secondary).lineLimit(1)
+            ProgressView()
+                .controlSize(.small)
+                .help("Preparing playback")
+                .accessibilityLabel("Preparing playback")
+            if inWords {
+                Text("Preparing playback").font(.caption).foregroundStyle(.secondary).fixedSize()
+            }
         }
     }
 
@@ -215,12 +227,11 @@ struct PlayerBar: View, @MainActor Equatable {
         "\(Double(speed).formatted(.number.precision(.fractionLength(0...2))))×"
     }
 
-    /// Minutes and seconds, with the hours only in a recording that has any,
-    /// so that its two times read alike. Bounded, so that a position read from
-    /// a damaged record cannot trap in the conversion.
+    /// A time of a recording, with the hours only where it has any, so that
+    /// its two times read alike. Bounded, so that a position read from a
+    /// damaged record cannot trap in the conversion.
     nonisolated static func clock(_ time: TimeInterval, of length: TimeInterval) -> String {
         let seconds = Int(min(max(0, time), AudioDecoder.longestRecording + 60))
-        return Duration.seconds(seconds).formatted(
-            .time(pattern: length >= 3600 ? .hourMinuteSecond : .minuteSecond))
+        return Transcript.shortClock(seconds, withHours: max(time, length) >= 3600)
     }
 }

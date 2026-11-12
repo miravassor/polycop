@@ -145,15 +145,16 @@ Every page speaks the same visual language. The shared pieces live in
   the text, in the words of its row in the library. Return to Playback, once the page
   stops following, is one above the player, pressed as a whole.
 * `FloatingSurface` keeps its glass in a `GlassEffectContainer`: glass placed in
-  plain glass turns the floating player dark in a light window.
+  plain glass, such as a glass button, turns the surface dark in a light window.
 * A list's Add and Clear sit on its title line at the trailing edge, aligned with the
   rows, removal last. A list of things kept, such as courses, has the Mac's + and −
   inside the foot of its edge. Managing a choice ("Manage Models…") is the last item
   of that choice's menu.
 * A page's tools are window toolbar items, drawn by the system, each also a menu
   command. Controls are the system's, never drawn by hand. Two exceptions: the player's
-  timeline, since the system's slider has tick marks only from macOS 26, and the fold of an
-  inspector's section, since the form's own hangs its arrow outside the titles.
+  timeline, since no system slider shows the paragraphs around the pointer or opens one
+  on a double click, and the fold of an inspector's section, since the form's own hangs
+  its arrow outside the titles.
 * Text editors: `editorBorder()`, with the corners of a control.
 * Warnings and failures: a `Notice`, `.warning` or `.failure`, each with one symbol
   and colour; a notice with a symbol of its own is a `Label` with `notice(_:)`. Colour
