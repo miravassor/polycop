@@ -98,20 +98,13 @@ jobs:
         if: matrix.check == 'tests'
         run: Tools/lint.sh
 
-      # The script a pull request's branch is checked with before it is opened,
-      # so that the two cannot differ. It also fails on a warning inside the
-      # expansion of a macro, which the compiler does not make an error. The
-      # option goes through the environment rather than expanded into the script.
+      # Through the script a branch is checked with before its pull request,
+      # which says what it fails on. The option goes through the environment
+      # rather than expanded into the script.
       - name: Test
-        id: test
         env:
           OPTION: ${{ matrix.option }}
         run: Tools/test.sh "$OPTION"
-
-      # The script prints what failed and keeps the rest.
-      - name: Show the whole log
-        if: failure() && steps.test.outcome == 'failure'
-        run: cat build/tests*.log
 
       - name: Coverage
         if: matrix.check == 'tests'

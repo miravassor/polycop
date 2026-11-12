@@ -88,12 +88,7 @@ jobs:
           Tools/build-audiocpp.sh
 
       - name: Test
-        id: test
         run: Tools/test.sh
-
-      - name: Show the whole log
-        if: failure() && steps.test.outcome == 'failure'
-        run: cat build/tests*.log
 
       - name: Package
         run: |
