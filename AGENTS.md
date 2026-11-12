@@ -23,6 +23,7 @@ Tools/lint.sh              # swift-format for style, SwiftLint (pinned, download
 Tools/lint-workflows.sh    # actionlint and zizmor on .github, after changing anything in it
 Tools/test.sh              # the test suite, or the tests named; --thread or --address under a sanitizer, --coverage as CI
 Tools/preflight.sh         # before a pull request: the lint, the suite and what the table below asks of the branch
+Tools/scenes.sh            # pictures of the app's states, each in a window, into build/scenes
 Tools/package.sh           # locally signed app and zip with its sources, in build/releases/
 ```
 
@@ -55,7 +56,8 @@ App/Polycop/
   Support/             small helpers shared across folders: text decoding, file digests,
                        blocking work run on a queue
   Resources/Licenses/  licence texts shipped in the app
-App/PolycopTests/      Swift Testing suites; Fixtures/ holds synthetic data only
+App/PolycopTests/      Swift Testing suites; Fixtures/ holds synthetic data only, Scenes/ the
+                       states of the app that Tools/scenes.sh captures
 Packages/              local packages wrapping the whisper.cpp and audio.cpp binaries
 Tools/                 build, fixture and packaging scripts
 ```
@@ -191,7 +193,10 @@ Every page speaks the same visual language. The shared pieces live in
   such as paused, stopped or failed keeps one colour and one symbol wherever it shows.
 * Hover, focus and disabled states are the system's; animations use its defaults
   and respect Reduce Motion.
-* A new view has a `#Preview` with made-up data.
+* A new view has a `#Preview` with made-up data. A state of a page that a reader can
+  meet has a scene in `App/PolycopTests/Scenes`, so that `Tools/scenes.sh` shows it in
+  the whole window. It captures that window alone: not what opens over it, a sheet, an
+  alert or a menu.
 * Text keeps a reading width, about 75 characters at the reader's size, centred:
   a wide window adds margins rather than longer lines, and the inspector can take
   the width. Check a change from the smallest window to full screen, in light and
@@ -287,7 +292,7 @@ Every page speaks the same visual language. The shared pieces live in
   |---|---|
   | behaviour | a test, as Tests and data says |
   | what the user sees or does | a line under Unreleased in `CHANGELOG.md`, in the user's words |
-  | the interface | screenshots at the smallest window and full screen, light and dark, with no real course name |
+  | the interface | screenshots at the smallest window and full screen, light and dark, with no real course name: `Tools/scenes.sh` takes them, the large one in a window that fills a 13 inch screen |
   | `Engine/`, `Audio/`, unsafe pointers or `Tools/versions.sh` | the suite run locally under both sanitizers, as Commands says, and a second reading |
   | what is stored, or `.github/workflows/` | a second reading |
   | a dependency | a pull request of its own, as `CONTRIBUTING.md` says |

@@ -22,20 +22,11 @@ private func withWaiting(
     _ models: [String], _ body: (AppModel, [Entry.ID]) async throws -> Void
 ) async throws {
     let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
-    let history = folder.appending(path: "History")
-    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: folder) }
-    var ids: [Entry.ID] = []
-    for (index, modelFile) in models.enumerated() {
-        let recording = folder.appending(path: "lecture-\(index + 1).wav")
-        try FileManager.default.copyItem(at: clip, to: recording)
-        let entry = Entry(
-            recording: recording, modelFile: modelFile, glossary: nil, skipsSilence: false,
-            subtitles: false, added: Date(timeIntervalSince1970: Double(index)))
-        try HistoryStore.write(entry, in: history)
-        ids.append(entry.id)
-    }
-    let model = AppModel(history: history, engines: Opener(ScriptedEngine()).engines)
+    let ids = try addWaitingRecordings(
+        models.enumerated().map { ("lecture-\($0 + 1).wav", $1) }, copying: clip, to: folder)
+    let model = AppModel(
+        history: folder.appending(path: "History"), engines: Opener(ScriptedEngine()).engines)
     try await body(model, ids)
     model.stage = .waiting
     model.running = nil
