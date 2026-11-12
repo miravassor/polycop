@@ -42,17 +42,22 @@ struct ParagraphSteps {
             entry.id, from: max(0, entry.paragraphs[activeParagraph].seconds - 2), leadIn: 0)
     }
 
-    /// Plays the next or previous paragraph, counted from the one playing.
+    /// Plays the next or previous paragraph, counted from the one playing. A
+    /// step back while one plays first goes to its start.
     func step(by offset: Int) {
         let starts = entry.paragraphs.map(\.seconds)
-        let current =
-            model.player.isOpen
-            ? TranscriptNavigation.paragraph(playingAt: model.player.position, starts: starts)
-            : activeParagraph
-        guard
-            let next = TranscriptNavigation.paragraph(
-                from: current, offset: offset, count: starts.count)
-        else { return }
+        let player = model.player
+        let next =
+            if offset < 0, player.isOpen {
+                TranscriptNavigation.paragraph(steppingBackAt: player.position, starts: starts)
+            } else {
+                TranscriptNavigation.paragraph(
+                    from: player.isOpen
+                        ? TranscriptNavigation.paragraph(playingAt: player.position, starts: starts)
+                        : activeParagraph,
+                    offset: offset, count: starts.count)
+            }
+        guard let next else { return }
         activeParagraph = next
         jump = next
         model.replay(entry.id, from: starts[next])

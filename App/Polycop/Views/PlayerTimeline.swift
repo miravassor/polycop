@@ -5,7 +5,8 @@ import SwiftUI
 /// Where the recording is, where its paragraphs open, and where a click
 /// lands: a thin line, played in the accent colour up to a narrow upright
 /// playhead. A lecture has a paragraph every few points of it, so their marks
-/// keep quiet until the pointer comes, and grow around it as under a lens.
+/// keep quiet until the pointer comes, and grow around it as under a lens. A
+/// small bead marks where the pointer is, and glides after it.
 struct PlayerTimeline: View {
     /// The height that takes clicks and holds the playhead at its tallest.
     static let height: CGFloat = 20
@@ -32,6 +33,12 @@ struct PlayerTimeline: View {
     /// The line and the playhead grow under the pointer; where they are
     /// never animates, so a point chosen is shown at once.
     private var growth: Animation? { reducesMotion ? nil : .default }
+
+    /// The bead and the lens glide after the pointer rather than jump to it.
+    private var glide: Animation? { reducesMotion ? nil : .snappy }
+
+    /// The bead's diameter.
+    private static let bead: CGFloat = 10
 
     var body: some View {
         GeometryReader { geometry in
@@ -67,8 +74,11 @@ struct PlayerTimeline: View {
                 .onContinuousHover(coordinateSpace: .local) { phase in
                     switch phase {
                     case .active(let location):
+                        // Arriving, the bead and the lens open where the
+                        // pointer is; they glide from there on.
+                        let glides = isHovering
                         isHovering = true
-                        point(at: location.x, on: scale)
+                        withAnimation(glides ? glide : nil) { point(at: location.x, on: scale) }
                     case .ended:
                         isHovering = false
                         // A drag goes on past the timeline's edge.
@@ -122,6 +132,11 @@ struct PlayerTimeline: View {
                     .primary.opacity(0.3), width: stretch.upperBound - stretch.lowerBound,
                     from: stretch.lowerBound)
             }
+            // Not while it would cover the playhead, nor during a drag, when
+            // the playhead is what the pointer holds.
+            if stage == .hovered, abs(aim - played) > Self.bead {
+                bead.position(x: aim, y: Self.height / 2).transition(.opacity)
+            }
             Capsule()
                 .fill(.tint)
                 .frame(
@@ -130,6 +145,18 @@ struct PlayerTimeline: View {
                 )
                 .animation(growth, value: stage)
                 .position(x: played, y: Self.height / 2)
+        }
+    }
+
+    /// Where the pointer is: a drop of glass in the accent colour on macOS 26,
+    /// which the player's own glass takes in, and a translucent one before.
+    @ViewBuilder private var bead: some View {
+        if #available(macOS 26, *) {
+            Color.clear
+                .frame(width: Self.bead, height: Self.bead)
+                .glassEffect(.regular.tint(.accentColor.opacity(0.5)), in: Circle())
+        } else {
+            Circle().fill(.tint.opacity(0.4)).frame(width: Self.bead, height: Self.bead)
         }
     }
 
@@ -152,13 +179,14 @@ private struct ParagraphMarks: View, Animatable {
     let offsets: [CGFloat]
     let highlighted: Int?
     let playhead: CGFloat
-    let pointer: CGFloat
+    /// Where the lens is, which glides after the pointer.
+    var pointer: CGFloat
     /// How far the lens is out: 0 at rest, 1 under the pointer.
     var lens: CGFloat
 
-    var animatableData: CGFloat {
-        get { lens }
-        set { lens = newValue }
+    var animatableData: AnimatablePair<CGFloat, CGFloat> {
+        get { AnimatablePair(pointer, lens) }
+        set { (pointer, lens) = (newValue.first, newValue.second) }
     }
 
     var body: some View {

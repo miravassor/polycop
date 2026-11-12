@@ -142,28 +142,8 @@ struct EntryView: View {
             )
             // As in Music, the player floats at the foot of the text, which
             // scrolls under it; Find stays at the top, away from it.
-            .floatingBar {
-                VStack(spacing: 8) {
-                    if isFollowSuspended { returnToPlayback }
-                    playerBar
-                }
-                .padding(.bottom, PlayerBar.foot)
-            }
+            .floatingBar { playerBar.padding(.bottom, PlayerBar.foot) }
         }
-    }
-
-    /// Above the player, so that the text stays in place, and only once the
-    /// page has stopped following.
-    private var returnToPlayback: some View {
-        Button {
-            steps.returnToPlayback()
-        } label: {
-            Label("Return to Playback", systemImage: "arrow.uturn.backward")
-                .statusCapsule()
-                .contentShape(.capsule)
-        }
-        .buttonStyle(.plain)
-        .help("Bring the paragraph playing to the top, and follow it again (Option-Command-L)")
     }
 
     private var playerBar: some View {
@@ -171,13 +151,15 @@ struct EntryView: View {
             player: model.player,
             marks: entry.paragraphs.map(\.seconds),
             pointer: pointer,
+            isFollowSuspended: isFollowSuspended,
             length: entry.duration ?? 0,
             resume: entry.playbackPosition ?? 0,
             play: { model.replay(entry.id, from: $0, leadIn: 0) },
             jump: { jump = $0 },
             // Steps read the paragraph starts, which the player compares, so
             // one kept from an earlier draw steps through the same paragraphs.
-            step: { steps.step(by: $0) }
+            step: { steps.step(by: $0) },
+            returnToPlayback: { steps.returnToPlayback() }
         )
         .equatable()
     }

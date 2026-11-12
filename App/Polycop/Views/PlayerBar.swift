@@ -9,8 +9,9 @@ import SwiftUI
 /// anything plays and a point chosen on it opens the recording there. It runs
 /// across the bar, on a line of its own, so that a long lecture has room on it.
 struct PlayerBar: View, @MainActor Equatable {
-    /// The bar's width at its narrowest, which holds the line under the timeline.
-    static let narrowest: CGFloat = 410
+    /// The bar's width at its narrowest, which holds the line under the
+    /// timeline with the times of a recording of hours and the widest speed.
+    static let narrowest: CGFloat = 450
     /// Its distance from the window's foot, level with the foot of the
     /// library, which floats 8 points in on macOS 26.
     static let foot: CGFloat = 8
@@ -20,6 +21,8 @@ struct PlayerBar: View, @MainActor Equatable {
     let marks: [TimeInterval]
     /// The paragraph under the pointer, in the text or on the timeline.
     let pointer: ParagraphPointer
+    /// Whether the reader has scrolled away from what plays.
+    let isFollowSuspended: Bool
     /// The length the transcription measured, used until a file is open.
     let length: TimeInterval
     /// Where playback stood when the transcript was last left, until a file is open.
@@ -30,6 +33,8 @@ struct PlayerBar: View, @MainActor Equatable {
     let jump: (Int) -> Void
     /// Plays the paragraph before or after, as the Playback menu does.
     let step: (Int) -> Void
+    /// Shows the paragraph playing and follows it again.
+    let returnToPlayback: () -> Void
 
     @State private var scrubbed: TimeInterval?
 
@@ -44,7 +49,8 @@ struct PlayerBar: View, @MainActor Equatable {
     /// observes of the player still redraws it.
     static func == (lhs: PlayerBar, rhs: PlayerBar) -> Bool {
         lhs.player === rhs.player && lhs.marks == rhs.marks
-            && lhs.pointer === rhs.pointer && lhs.length == rhs.length
+            && lhs.pointer === rhs.pointer && lhs.isFollowSuspended == rhs.isFollowSuspended
+            && lhs.length == rhs.length
             && lhs.resume == rhs.resume
     }
 
@@ -70,20 +76,50 @@ struct PlayerBar: View, @MainActor Equatable {
         .background(SpaceToPlay(isEnabled: !player.isPreparing, action: playOrPause))
     }
 
+    /// The time played and the way back to playback on one side of the
+    /// transport, the speed and the time left on the other. The sides share
+    /// what room is left, which keeps Play at the centre of the bar.
     private func controls(preparingInWords: Bool) -> some View {
         HStack(spacing: 10) {
-            time(Self.clock(position, of: duration)).foregroundStyle(.primary)
-            preparing(inWords: preparingInWords)
-            Spacer(minLength: 0)
-            transport
-            speed
-            Spacer(minLength: 0)
-            // Unknown until the recording is decoded or opened.
-            if duration > 0 {
-                time("-\(Self.clock(max(0, duration - position), of: duration))")
-                    .foregroundStyle(.secondary)
+            HStack(spacing: 10) {
+                time(Self.clock(position, of: duration)).foregroundStyle(.primary)
+                Spacer(minLength: 0)
+                // A recording being prepared has no playback to return to.
+                if player.isPreparing {
+                    preparing(inWords: preparingInWords)
+                } else {
+                    returning
+                }
             }
+            .frame(maxWidth: .infinity)
+            transport
+            HStack(spacing: 10) {
+                speed
+                Spacer(minLength: 0)
+                // Unknown until the recording is decoded or opened.
+                if duration > 0 {
+                    time("-\(Self.clock(max(0, duration - position), of: duration))")
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .frame(maxWidth: .infinity)
         }
+    }
+
+    /// Lit once the reader has scrolled away from what plays, and dim while
+    /// the page follows, as the arrow of a map is.
+    private var returning: some View {
+        Button(action: returnToPlayback) {
+            Image(systemName: "text.line.first.and.arrowtriangle.forward")
+                .font(.body)
+                .frame(width: 26, height: Self.row)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.borderless)
+        .foregroundStyle(isFollowSuspended ? AnyShapeStyle(.tint) : AnyShapeStyle(.tertiary))
+        .disabled(!isFollowSuspended)
+        .help("Return to Playback (Option-Command-L)")
+        .accessibilityLabel("Return to Playback")
     }
 
     /// The time played or the time left, alike but for their colour: the
@@ -144,7 +180,7 @@ struct PlayerBar: View, @MainActor Equatable {
         .disabled(player.isPreparing || marks.isEmpty)
         .help(
             offset < 0
-                ? "Previous paragraph (Option-Command-Up Arrow)"
+                ? "Start of this paragraph, or the one before in its first seconds (Option-Command-Up Arrow)"
                 : "Next paragraph (Option-Command-Down Arrow)"
         )
         .accessibilityLabel(offset < 0 ? "Previous paragraph" : "Next paragraph")
@@ -167,13 +203,14 @@ struct PlayerBar: View, @MainActor Equatable {
 
     @ViewBuilder private func preparing(inWords: Bool) -> some View {
         if player.isPreparing {
-            ProgressView()
-                .controlSize(.small)
-                .help("Preparing playback")
-                .accessibilityLabel("Preparing playback")
             if inWords {
                 Text("Preparing playback").font(.caption).foregroundStyle(.secondary).fixedSize()
             }
+            ProgressView()
+                .controlSize(.small)
+                .frame(width: 26, height: Self.row)
+                .help("Preparing playback")
+                .accessibilityLabel("Preparing playback")
         }
     }
 
