@@ -62,14 +62,13 @@ struct PlayerBar: View, @MainActor Equatable {
     var body: some View {
         // The timeline across the bar. Under it the time played at one
         // end and the time left at the other, and between them the transport
-        // with the speed: the same at every width. The words of a recording
-        // being prepared go where the bar is too narrow for them.
+        // with the speed: the same at every width, in one layout. The
+        // window asks for its smallest size after every change, which
+        // measures this bar: a choice between two rows would be measured
+        // twice each time.
         VStack(spacing: 0) {
             timeline
-            ViewThatFits(in: .horizontal) {
-                controls(preparingInWords: true)
-                controls(preparingInWords: false)
-            }
+            controls
         }
         .padding(Self.padding)
         .modifier(FloatingSurface(shape: Capsule()))
@@ -79,14 +78,14 @@ struct PlayerBar: View, @MainActor Equatable {
     /// The time played and the way back to playback on one side of the
     /// transport, the speed and the time left on the other. The sides share
     /// what room is left, which keeps Play at the centre of the bar.
-    private func controls(preparingInWords: Bool) -> some View {
+    private var controls: some View {
         HStack(spacing: 10) {
             HStack(spacing: 10) {
                 time(Self.clock(position, of: duration)).foregroundStyle(.primary)
                 Spacer(minLength: 0)
                 // A recording being prepared has no playback to return to.
                 if player.isPreparing {
-                    preparing(inWords: preparingInWords)
+                    preparing
                 } else {
                     returning
                 }
@@ -207,17 +206,14 @@ struct PlayerBar: View, @MainActor Equatable {
         .accessibilityLabel(seconds < 0 ? "Back five seconds" : "Forward five seconds")
     }
 
-    @ViewBuilder private func preparing(inWords: Bool) -> some View {
-        if player.isPreparing {
-            if inWords {
-                Text("Preparing playback").font(.caption).foregroundStyle(.secondary).fixedSize()
-            }
-            ProgressView()
-                .controlSize(.small)
-                .frame(width: 26, height: Self.row)
-                .help("Preparing playback")
-                .accessibilityLabel("Preparing playback")
-        }
+    /// In the place of Return to Playback, beside the transport it holds
+    /// back: a recording being decoded before it can play.
+    private var preparing: some View {
+        ProgressView()
+            .controlSize(.small)
+            .frame(width: 26, height: Self.row)
+            .help("Preparing playback")
+            .accessibilityLabel("Preparing playback")
     }
 
     private func playOrPause() {
