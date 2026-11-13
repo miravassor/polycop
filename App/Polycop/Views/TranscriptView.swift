@@ -18,8 +18,6 @@ struct TranscriptView: View {
     let edit: (Int, String) -> Void
     /// Called at each key typed in a paragraph.
     let typing: () -> Void
-    /// The paragraph under the pointer, for the timeline below.
-    let hover: (Int?) -> Void
     /// The transcript as the engine wrote it, to show what was corrected.
     let original: [Transcript.Paragraph]
     /// Shows that text beside the corrected one, in the same rows.
@@ -39,7 +37,7 @@ struct TranscriptView: View {
     /// Told which paragraph is at the top of the page as the reader scrolls.
     let scrolled: (Int) -> Void
     /// The paragraph under the pointer, here or on the timeline.
-    let focused: Int?
+    let pointer: ParagraphPointer
     let size: CGFloat
     let active: Int?
     let activate: (Int) -> Void
@@ -170,14 +168,14 @@ struct TranscriptView: View {
         TranscriptRow(
             index: index, paragraph: paragraphs[index], written: written(at: index),
             player: player, isEditable: isEditable, isComparing: isComparing, size: size,
-            isPlaying: playing == index, isFocused: focused == index, isActive: active == index,
+            isPlaying: playing == index, pointer: pointer, isActive: active == index,
             isFlagged: review.contains(index), isResumed: resumed.contains(index),
             matches: matches.filter { $0.paragraph == index }.map(\.range),
             currentMatch: currentMatch?.paragraph == index ? currentMatch?.range : nil,
             words: index < words.count ? words[index] : [],
             showsUncertainWords: showsUncertainWords, cursorFollows: cursorFollows,
             timeColumnWidth: timeColumnWidth,
-            play: play, edit: edit, typing: typing, hover: hover, activate: activate,
+            play: play, edit: edit, typing: typing, activate: activate,
             suspendForEditing: suspendForEditing, toggleReview: toggleReview)
     }
 

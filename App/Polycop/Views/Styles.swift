@@ -97,7 +97,7 @@ extension View {
         font(.callout)
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
-            .modifier(FloatingSurface(cornerRadius: 22))
+            .modifier(FloatingSurface(shape: RoundedRectangle(cornerRadius: 22)))
     }
 
     /// The edge of a text editor, with the corners of a control.
@@ -113,16 +113,15 @@ extension View {
 
 /// The surface of what floats at the foot of a page, the player or Start:
 /// glass on macOS 26, blurring what scrolls under it; the system's material
-/// before. A capsule on one line, rounder corners on two.
-struct FloatingSurface: ViewModifier {
-    let cornerRadius: CGFloat
+/// before.
+struct FloatingSurface<Outline: InsettableShape>: ViewModifier {
+    let shape: Outline
 
     func body(content: Content) -> some View {
-        let shape = RoundedRectangle(cornerRadius: cornerRadius)
         if #available(macOS 26, *) {
-            // Glass placed in it, as the player's timeline, would turn it
-            // dark in a light window while it floats over the text; in a
-            // container the glass shapes render together.
+            // Glass placed in it would turn it dark in a light window while
+            // it floats over the text; in a container the glass shapes render
+            // together.
             GlassEffectContainer { content.glassEffect(.regular, in: shape) }
         } else {
             content.background(.regularMaterial, in: shape)

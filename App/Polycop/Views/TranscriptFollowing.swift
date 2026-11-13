@@ -127,6 +127,17 @@ nonisolated enum TranscriptNavigation {
         paragraph(playingAt: position, starts: starts) ?? (starts.isEmpty ? nil : 0)
     }
 
+    /// The paragraph a step back plays: the one playing, from its start, once
+    /// it has played a few seconds, and the one before until then, as the
+    /// previous button of a music player does. So one press hears a paragraph
+    /// again and two go back one.
+    static func paragraph(steppingBackAt position: TimeInterval, starts: [TimeInterval]) -> Int? {
+        guard let current = paragraph(playingAt: position, starts: starts) else {
+            return starts.isEmpty ? nil : 0
+        }
+        return position - starts[current] > 3 ? current : max(0, current - 1)
+    }
+
     /// The paragraph `offset` places away, kept inside the transcript. With no
     /// current paragraph, as before the first one, both directions start at
     /// the first one.

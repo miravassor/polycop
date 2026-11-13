@@ -7,7 +7,7 @@ import SwiftUI
 struct EntryView: View {
     let model: AppModel
     let entry: Entry
-    @State private var focused: Int?
+    @State private var pointer = ParagraphPointer()
     @State private var activeParagraph: Int?
     @State private var find = TranscriptFind()
     @FocusState private var isSearchFocused: Bool
@@ -122,7 +122,6 @@ struct EntryView: View {
                 play: { model.replay(entry.id, from: $0) },
                 edit: { model.edit(entry.id, paragraphAt: $0, text: $1) },
                 typing: { model.player.pauseForTyping() },
-                hover: { focused = $0 },
                 original: original, isComparing: reading.isComparing,
                 isFollowing: following != .off && !isFollowSuspended,
                 suspendFollowing: page.suspendFollowing,
@@ -130,7 +129,7 @@ struct EntryView: View {
                     if following.stopsWhenEditing { page.suspendFollowing() }
                 },
                 jump: $jump, showAtTop: $showAtTop, start: entry.readingParagraph,
-                scrolled: { model.readingParagraph = $0 }, focused: focused, size: reading.textSize,
+                scrolled: { model.readingParagraph = $0 }, pointer: pointer, size: reading.textSize,
                 active: activeParagraph,
                 activate: { if activeParagraph != $0 { activeParagraph = $0 } },
                 review: entry.reviewParagraphs,
@@ -142,43 +141,24 @@ struct EntryView: View {
             )
             // As in Music, the player floats at the foot of the text, which
             // scrolls under it; Find stays at the top, away from it.
-            .floatingBar {
-                VStack(spacing: 8) {
-                    if isFollowSuspended { returnToPlayback }
-                    playerBar
-                }
-                .padding(.bottom, PlayerBar.foot)
-            }
+            .floatingBar { playerBar.padding(.bottom, PlayerBar.foot) }
         }
-    }
-
-    /// Above the player, so that the text stays in place, and only once the
-    /// page has stopped following.
-    private var returnToPlayback: some View {
-        Button {
-            steps.returnToPlayback()
-        } label: {
-            Label("Return to Playback", systemImage: "arrow.uturn.backward")
-                .statusCapsule()
-                .contentShape(.capsule)
-        }
-        .buttonStyle(.plain)
-        .help("Bring the paragraph playing to the top, and follow it again (Option-Command-L)")
     }
 
     private var playerBar: some View {
         PlayerBar(
             player: model.player,
             marks: entry.paragraphs.map(\.seconds),
-            highlighted: focused,
+            pointer: pointer,
+            isFollowSuspended: isFollowSuspended,
             length: entry.duration ?? 0,
             resume: entry.playbackPosition ?? 0,
             play: { model.replay(entry.id, from: $0, leadIn: 0) },
-            hover: { focused = $0 },
             jump: { jump = $0 },
             // Steps read the paragraph starts, which the player compares, so
             // one kept from an earlier draw steps through the same paragraphs.
-            step: { steps.step(by: $0) }
+            step: { steps.step(by: $0) },
+            returnToPlayback: { steps.returnToPlayback() }
         )
         .equatable()
     }

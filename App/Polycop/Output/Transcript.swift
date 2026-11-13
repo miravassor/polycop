@@ -271,6 +271,14 @@ nonisolated enum Transcript {
         return String(format: "%02d:%02d:%02d", seconds / 3600, seconds / 60 % 60, seconds % 60)
     }
 
+    /// A time read alone, as a player shows it: no leading zero, and the
+    /// hours only when asked, where `clock` fills a column of times.
+    static func shortClock(_ seconds: Int, withHours: Bool) -> String {
+        withHours
+            ? String(format: "%d:%02d:%02d", seconds / 3600, seconds / 60 % 60, seconds % 60)
+            : String(format: "%d:%02d", seconds / 60, seconds % 60)
+    }
+
     private static func subRipClock(_ time: TimeInterval) -> String {
         let total = milliseconds(time)
         return clock(total) + String(format: ",%03d", total % 1000)

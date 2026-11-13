@@ -76,7 +76,7 @@ unless they agree to more.
   the page with playback (Page), or also takes the text cursor along with the
   word heard (Page and Cursor), so the next correction is typed where the audio
   is. Scrolling away pauses it until Return to Playback (Option-Command-L),
-  above the player and in the Playback menu, brings the paragraph playing to the
+  in the player and in the Playback menu, brings the paragraph playing to the
   top. Space plays and pauses when you are
   not typing, and Esc leaves the text. The keyboard media keys, Control Center
   and headphone buttons control it too. It pauses when the Mac goes to sleep or
