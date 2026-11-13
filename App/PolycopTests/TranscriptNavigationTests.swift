@@ -77,8 +77,6 @@ import Testing
         #expect(TranscriptNavigation.isAtTop(row(0, 100), spacing: 20))
     }
 
-    /// Coming back always has somewhere to go, even before the first paragraph
-    /// opens, where nothing is playing yet.
     @Test func aStepBackHearsTheParagraphAgainThenGoesBackOne() {
         let starts: [TimeInterval] = [0, 40, 90]
         // Well into the second paragraph: from its start.
@@ -92,6 +90,8 @@ import Testing
         #expect(TranscriptNavigation.paragraph(steppingBackAt: 5, starts: []) == nil)
     }
 
+    /// Coming back always has somewhere to go, even before the first paragraph
+    /// opens, where nothing is playing yet.
     @Test func returningGoesToThePlayingParagraphOrTheFirst() {
         let starts: [TimeInterval] = [40, 80, 120]
         #expect(TranscriptNavigation.paragraph(returningTo: 90, starts: starts) == 1)

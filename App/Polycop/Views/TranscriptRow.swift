@@ -31,7 +31,6 @@ struct TranscriptRow: View, Equatable {
     let play: (TimeInterval) -> Void
     let edit: (Int, String) -> Void
     let typing: () -> Void
-    let hover: (Int?) -> Void
     let activate: (Int) -> Void
     /// Called when the reader clicks or types in the text.
     let suspendForEditing: () -> Void
@@ -87,7 +86,7 @@ struct TranscriptRow: View, Equatable {
                         activate(index)
                         play(paragraph.seconds)
                     },
-                    hover: { hover($0 ? index : nil) }
+                    hover: { pointer.point(at: $0 ? index : nil) }
                 )
                 .frame(width: timeColumnWidth, alignment: .leading)
                 marks

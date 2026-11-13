@@ -18,8 +18,6 @@ struct TranscriptView: View {
     let edit: (Int, String) -> Void
     /// Called at each key typed in a paragraph.
     let typing: () -> Void
-    /// The paragraph under the pointer, for the timeline below.
-    let hover: (Int?) -> Void
     /// The transcript as the engine wrote it, to show what was corrected.
     let original: [Transcript.Paragraph]
     /// Shows that text beside the corrected one, in the same rows.
@@ -177,7 +175,7 @@ struct TranscriptView: View {
             words: index < words.count ? words[index] : [],
             showsUncertainWords: showsUncertainWords, cursorFollows: cursorFollows,
             timeColumnWidth: timeColumnWidth,
-            play: play, edit: edit, typing: typing, hover: hover, activate: activate,
+            play: play, edit: edit, typing: typing, activate: activate,
             suspendForEditing: suspendForEditing, toggleReview: toggleReview)
     }
 

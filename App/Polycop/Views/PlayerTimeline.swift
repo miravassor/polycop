@@ -23,6 +23,10 @@ struct PlayerTimeline: View {
     @State private var aim: CGFloat = 0
     @State private var isHovering = false
     @State private var isDragging = false
+    /// Whether the lens of marks is out. It opens an update after the pointer
+    /// arrives, once its place is set, so that it opens there and does not
+    /// slide in from where the pointer last left.
+    @State private var isLensOut = false
     @Environment(\.accessibilityReduceMotion) private var reducesMotion
 
     /// What the reader is doing with the timeline, which its sizes follow.
@@ -50,15 +54,14 @@ struct PlayerTimeline: View {
                     DragGesture(minimumDistance: 0)
                         .onChanged { drag in
                             isDragging = true
-                            point(at: drag.location.x, on: scale)
+                            aim = drag.location.x
+                            pointer.point(at: scale.paragraph(spokenAt: aim, among: marks))
                             scrub(scale.time(at: drag.location.x))
                         }
                         .onEnded { drag in
                             isDragging = false
-                            // Released past an end, the pointer is on no paragraph.
-                            if !(0...scale.width).contains(drag.location.x) {
-                                pointer.point(at: nil)
-                            }
+                            // Released off the timeline, the pointer is on no paragraph.
+                            if !isHovering { pointer.point(at: nil) }
                             reach(scale.time(at: drag.location.x))
                         }
                 )
@@ -75,15 +78,23 @@ struct PlayerTimeline: View {
                     switch phase {
                     case .active(let location):
                         // Arriving, the bead and the lens open where the
-                        // pointer is; they glide from there on.
-                        let glides = isHovering
-                        isHovering = true
-                        withAnimation(glides ? glide : nil) { point(at: location.x, on: scale) }
+                        // pointer is; they glide from there on. What the
+                        // text shows of it does not animate.
+                        if isHovering {
+                            withAnimation(glide) { aim = location.x }
+                        } else {
+                            aim = location.x
+                            isHovering = true
+                        }
+                        pointer.point(at: scale.paragraph(spokenAt: location.x, among: marks))
                     case .ended:
                         isHovering = false
                         // A drag goes on past the timeline's edge.
                         if !isDragging { pointer.point(at: nil) }
                     }
+                }
+                .onChange(of: stage != .resting) { _, isActive in
+                    withAnimation(growth) { isLensOut = isActive }
                 }
                 .allowsHitTesting(duration > 0)
                 .accessibilityElement()
@@ -108,13 +119,6 @@ struct PlayerTimeline: View {
             : formattedDuration(position)
     }
 
-    /// Where the pointer is, and the paragraph spoken there, which the text
-    /// shows too.
-    private func point(at x: CGFloat, on scale: TimelineScale) {
-        aim = x
-        pointer.point(at: scale.paragraph(spokenAt: x, among: marks))
-    }
-
     /// The paragraph marks, behind the line and its played part, the stretch
     /// of the paragraph under the pointer, and the playhead over them.
     private func track(on scale: TimelineScale) -> some View {
@@ -122,9 +126,8 @@ struct PlayerTimeline: View {
         return ZStack(alignment: .leading) {
             ParagraphMarks(
                 offsets: marks.map(scale.offset(for:)), highlighted: pointer.paragraph,
-                playhead: played, pointer: aim, lens: stage == .resting ? 0 : 1
+                playhead: played, pointer: aim, lens: isLensOut ? 1 : 0
             )
-            .animation(growth, value: stage)
             line(.quaternary, width: scale.trackWidth, from: scale.inset)
             line(.tint, width: max(0, played - scale.inset), from: scale.inset)
             if let stretch = scale.stretch(of: pointer.paragraph, among: marks) {
@@ -134,9 +137,13 @@ struct PlayerTimeline: View {
             }
             // Not while it would cover the playhead, nor during a drag, when
             // the playhead is what the pointer holds.
-            if stage == .hovered, abs(aim - played) > Self.bead {
-                bead.position(x: aim, y: Self.height / 2).transition(.opacity)
+            let showsBead = stage == .hovered && abs(aim - played) > Self.bead
+            ZStack {
+                if showsBead {
+                    bead.position(x: aim, y: Self.height / 2).transition(.opacity)
+                }
             }
+            .animation(growth, value: showsBead)
             Capsule()
                 .fill(.tint)
                 .frame(
@@ -207,12 +214,14 @@ private struct ParagraphMarks: View, Animatable {
     }
 }
 
-/// Drawing and hit testing share the inset that keeps the playhead inside the line.
+/// Drawing and hit testing share one scale. The line stops half a point
+/// inside its width, where the digits of the times under it have their edge,
+/// so that the line and the times start and end together.
 nonisolated struct TimelineScale {
     let width: CGFloat
     let duration: TimeInterval
 
-    var inset: CGFloat { min(2, max(0, width) / 2) }
+    var inset: CGFloat { min(0.5, max(0, width) / 2) }
     var trackWidth: CGFloat { max(0, width - 2 * inset) }
 
     func offset(for time: TimeInterval) -> CGFloat {
@@ -259,4 +268,14 @@ nonisolated struct TimelineScale {
             paragraph + 1 < marks.count ? offset(for: marks[paragraph + 1]) : inset + trackWidth
         return start...max(start, end)
     }
+}
+
+#Preview {
+    PlayerTimeline(
+        duration: 5400, position: 2000,
+        marks: stride(from: 0.0, to: 5400, by: 37).map { $0 },
+        pointer: ParagraphPointer(), jump: { _ in }, scrub: { _ in }, reach: { _ in }
+    )
+    .padding()
+    .frame(width: 500)
 }

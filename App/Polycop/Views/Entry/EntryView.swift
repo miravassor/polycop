@@ -122,7 +122,6 @@ struct EntryView: View {
                 play: { model.replay(entry.id, from: $0) },
                 edit: { model.edit(entry.id, paragraphAt: $0, text: $1) },
                 typing: { model.player.pauseForTyping() },
-                hover: pointer.point(at:),
                 original: original, isComparing: reading.isComparing,
                 isFollowing: following != .off && !isFollowSuspended,
                 suspendFollowing: page.suspendFollowing,

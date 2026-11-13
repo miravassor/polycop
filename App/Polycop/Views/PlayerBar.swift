@@ -108,18 +108,24 @@ struct PlayerBar: View, @MainActor Equatable {
 
     /// Lit once the reader has scrolled away from what plays, and dim while
     /// the page follows, as the arrow of a map is.
-    private var returning: some View {
-        Button(action: returnToPlayback) {
+    @ViewBuilder private var returning: some View {
+        let button = Button(action: returnToPlayback) {
             Image(systemName: "text.line.first.and.arrowtriangle.forward")
                 .font(.body)
                 .frame(width: 26, height: Self.row)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.borderless)
-        .foregroundStyle(isFollowSuspended ? AnyShapeStyle(.tint) : AnyShapeStyle(.tertiary))
         .disabled(!isFollowSuspended)
         .help("Return to Playback (Option-Command-L)")
         .accessibilityLabel("Return to Playback")
+        // A colour given to a button stays when it is disabled: only the lit
+        // one has a colour, and the system dims the other.
+        if isFollowSuspended {
+            button.foregroundStyle(.tint)
+        } else {
+            button
+        }
     }
 
     /// The time played or the time left, alike but for their colour: the
@@ -127,7 +133,7 @@ struct PlayerBar: View, @MainActor Equatable {
     /// VoiceOver hears both from the timeline.
     private func time(_ text: String) -> some View {
         Text(text)
-            .font(.callout.monospacedDigit().weight(.medium))
+            .font(.subheadline.monospacedDigit().weight(.medium))
             .fixedSize()
             .accessibilityHidden(true)
     }
@@ -180,7 +186,7 @@ struct PlayerBar: View, @MainActor Equatable {
         .disabled(player.isPreparing || marks.isEmpty)
         .help(
             offset < 0
-                ? "Start of this paragraph, or the one before in its first seconds (Option-Command-Up Arrow)"
+                ? "Previous paragraph (Option-Command-Up Arrow)"
                 : "Next paragraph (Option-Command-Down Arrow)"
         )
         .accessibilityLabel(offset < 0 ? "Previous paragraph" : "Next paragraph")
@@ -244,7 +250,7 @@ struct PlayerBar: View, @MainActor Equatable {
             .pickerStyle(.inline)
         } label: {
             Text(label(player.speed))
-                .font(.callout.monospacedDigit())
+                .font(.subheadline.monospacedDigit())
         }
         .menuStyle(.borderlessButton)
         .fixedSize()

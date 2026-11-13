@@ -15,7 +15,7 @@ struct ShortcutHelpView: View {
                 shortcut("Leave the text", "Esc")
                 shortcut("Replay active paragraph", "⌥⌘R")
                 shortcut("Play next paragraph", "⌥⌘↓")
-                shortcut("Play this paragraph again, then the previous one", "⌥⌘↑")
+                shortcut("Play previous paragraph", "⌥⌘↑")
                 shortcut("Play from a word", "⌥ Click")
                 shortcut("Play from the text cursor", "⌥⌘P")
                 shortcut("Return to playback", "⌥⌘L")
