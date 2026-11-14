@@ -316,8 +316,6 @@ extension ContentView {
                     }
                     .disabled(model.foldersAreDamaged)
                 }
-                Divider()
-                libraryMenu
                 // What belongs to one transcript is offered for one: undoing or
                 // reverting several at once is not what a right click means.
                 if targets.count == 1 {
@@ -336,6 +334,8 @@ extension ContentView {
                 Divider()
                 Button("Remove from Library…", role: .destructive) { removing = targets }
                     .disabled(targets == [model.busyEntry])
+                Divider()
+                libraryMenu
             }
     }
 
@@ -349,9 +349,7 @@ extension ContentView {
 
     /// The transcripts selected, in the order the list shows them.
     private var selected: [Entry.ID] {
-        let chosen = selection.compactMap { if case .entry(let id) = $0 { id } else { nil } }
-        guard chosen.count > 1 else { return chosen.filter { model.entry($0) != nil } }
-        return model.sidebarOrder(Set(chosen))
+        model.entries.map(\.id).filter { selection.contains(.entry($0)) }
     }
 
     /// A transcript dragged onto a folder, or onto the unfiled section to leave

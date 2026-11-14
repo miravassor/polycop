@@ -68,19 +68,15 @@ nonisolated enum LibrarySort: String, Sendable {
     func areInIncreasingOrder(_ first: Entry, _ second: Entry) -> Bool {
         switch self {
         case .newestFirst:
-            first.added > second.added
+            if first.added != second.added { return first.added > second.added }
         case .oldestFirst:
-            first.added < second.added
+            if first.added != second.added { return first.added < second.added }
         case .name:
-            switch first.name.localizedStandardCompare(second.name) {
-            case .orderedAscending:
-                true
-            case .orderedDescending:
-                false
-            case .orderedSame:
-                first.added > second.added
-            }
+            let order = first.name.localizedStandardCompare(second.name)
+            if order != .orderedSame { return order == .orderedAscending }
+            if first.added != second.added { return first.added > second.added }
         }
+        return first.id.uuidString < second.id.uuidString
     }
 
     func sorted(_ entries: [Entry]) -> [Entry] {

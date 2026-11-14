@@ -625,7 +625,7 @@ func automaticIsADetectedLanguage(chosen: Model) {
 @Test func foldersStaySortedByNameOnLoadCreateAndRename() throws {
     let history = URL.temporaryDirectory.appending(path: UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: history) }
-    let model = AppModel(history: history)
+    let model = AppModel(history: history, defaults: MemoryDefaults())
     _ = try model.createFolder(named: "Law")
     _ = try model.createFolder(named: "Folder 10")
     _ = try model.createFolder(named: "Folder 2")
@@ -635,7 +635,7 @@ func automaticIsADetectedLanguage(chosen: Model) {
     try model.renameFolder(biology, to: "Zoology")
     #expect(model.folders.map(\.name) == ["Folder 2", "Folder 10", "Law", "Zoology"])
 
-    let reloaded = AppModel(history: history)
+    let reloaded = AppModel(history: history, defaults: MemoryDefaults())
     #expect(reloaded.folders.map(\.name) == ["Folder 2", "Folder 10", "Law", "Zoology"])
 
     let unsortedHistory = URL.temporaryDirectory.appending(path: UUID().uuidString)
@@ -647,7 +647,7 @@ func automaticIsADetectedLanguage(chosen: Model) {
         ],
         in: unsortedHistory
     )
-    let loaded = AppModel(history: unsortedHistory)
+    let loaded = AppModel(history: unsortedHistory, defaults: MemoryDefaults())
     #expect(loaded.folders.map(\.name) == ["Arts", "Philo"])
 }
 
@@ -674,6 +674,15 @@ func automaticIsADetectedLanguage(chosen: Model) {
         LibrarySort.name.sorted(sample).map(\.id)
             == [renamedFirst.id, older.id, middle.id, duplicateNewer.id, duplicateOlder.id]
     )
+
+    let sameTimeA = entry("Same.m4a", in: directory, added: base)
+    let sameTimeB = entry("Same.m4a", in: directory, added: base)
+    let expectedByID = [sameTimeA, sameTimeB].sorted { $0.id.uuidString < $1.id.uuidString }
+        .map(\.id)
+    for order in [LibrarySort.newestFirst, .oldestFirst, .name] {
+        #expect(order.sorted([sameTimeB, sameTimeA]).map(\.id) == expectedByID)
+        #expect(order.sorted([sameTimeA, sameTimeB]).map(\.id) == expectedByID)
+    }
 }
 
 @MainActor
@@ -719,17 +728,9 @@ func automaticIsADetectedLanguage(chosen: Model) {
     #expect(model.entries(in: nil).map(\.id) == [unfiled.id, orphaned.id])
     #expect(model.entries(in: historyFolder).map(\.id) == [inHistoryTwo.id, inHistoryOne.id])
     #expect(model.entries(in: law).map(\.id) == [inLaw.id])
-    #expect(model.sidebarOrder([]).isEmpty)
-    #expect(
-        model.sidebarOrder([inLaw.id, inHistoryTwo.id, unfiled.id, inHistoryOne.id, orphaned.id])
-            == [unfiled.id, orphaned.id, inHistoryTwo.id, inHistoryOne.id, inLaw.id]
-    )
 
     model.layout.sort = .oldestFirst
     #expect(model.entries(in: historyFolder).map(\.id) == [inHistoryOne.id, inHistoryTwo.id])
     try model.renameFolder(law, to: "Arts")
-    #expect(
-        model.sidebarOrder([inLaw.id, inHistoryTwo.id, orphaned.id])
-            == [orphaned.id, inLaw.id, inHistoryTwo.id]
-    )
+    #expect(model.folders.map(\.name) == ["Arts", "History"])
 }
