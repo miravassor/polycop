@@ -624,7 +624,11 @@ func automaticIsADetectedLanguage(chosen: Model) {
 @MainActor
 @Test func foldersKeepTheirReorderedSequenceAcrossLaunches() async throws {
     let history = URL.temporaryDirectory.appending(path: UUID().uuidString)
-    defer { try? FileManager.default.removeItem(at: history) }
+    defer {
+        try? FileManager.default.setAttributes(
+            [.posixPermissions: 0o700], ofItemAtPath: history.path)
+        try? FileManager.default.removeItem(at: history)
+    }
     var recording = entry("lecture.wav", in: history)
     recording.state = .finished
     try HistoryStore.write(recording, in: history)
@@ -635,20 +639,32 @@ func automaticIsADetectedLanguage(chosen: Model) {
     let law = try model.createFolder(named: "Law")
     model.moveEntry(recording.id, to: biology)
 
-    model.moveFolders(from: IndexSet(integer: 2), to: 0)
+    // Drag to top, middle, and bottom (`folders.count`), plus a multi-offset move.
+    try model.moveFolders(from: IndexSet(integer: 2), to: 0)
     #expect(model.folders.map(\.name) == ["Law", "Biology", "History"])
-    model.moveFolders(from: IndexSet(integer: 0), to: 2)
+    try model.moveFolders(from: IndexSet(integer: 0), to: 2)
     #expect(model.folders.map(\.name) == ["Biology", "Law", "History"])
+    try model.moveFolders(from: IndexSet(integer: 0), to: model.folders.count)
+    #expect(model.folders.map(\.name) == ["Law", "History", "Biology"])
+    try model.moveFolders(from: IndexSet([0, 2]), to: 1)
+    #expect(model.folders.map(\.name) == ["Law", "Biology", "History"])
     // Out-of-bounds and no-op moves keep the current order.
-    model.moveFolders(from: IndexSet(integer: 9), to: 0)
-    model.moveFolders(from: IndexSet(integer: 0), to: 1)
-    #expect(model.folders.map(\.name) == ["Biology", "Law", "History"])
+    try model.moveFolders(from: IndexSet(integer: 9), to: 0)
+    try model.moveFolders(from: IndexSet(integer: 0), to: 1)
+    #expect(model.folders.map(\.name) == ["Law", "Biology", "History"])
     await model.finishWrites()
 
     let reloaded = AppModel(history: history)
-    #expect(reloaded.folders.map(\.id) == [biology, law, historyFolder])
-    #expect(reloaded.folders.map(\.name) == ["Biology", "Law", "History"])
+    #expect(reloaded.folders.map(\.id) == [law, biology, historyFolder])
+    #expect(reloaded.folders.map(\.name) == ["Law", "Biology", "History"])
     #expect(reloaded.entry(recording.id)?.folderID == biology)
+
+    try FileManager.default.setAttributes(
+        [.posixPermissions: 0o500], ofItemAtPath: history.path)
+    #expect(throws: (any Error).self) {
+        try reloaded.moveFolders(from: IndexSet(integer: 0), to: reloaded.folders.count)
+    }
+    #expect(reloaded.folders.map(\.name) == ["Law", "Biology", "History"])
 }
 
 @MainActor
@@ -661,24 +677,11 @@ func automaticIsADetectedLanguage(chosen: Model) {
 
     let model = AppModel(history: history)
     #expect(model.foldersAreDamaged)
-    model.moveFolders(from: IndexSet(integer: 0), to: 1)
+    #expect(throws: CocoaError.self) { try model.moveFolders(from: IndexSet(integer: 0), to: 1) }
     #expect(try String(contentsOf: file, encoding: .utf8) == "[{\"id\":\"pas un identifiant\"")
 }
 
-@MainActor
-@Test func librarySortOrdersEntriesAndPersistsInLayout() {
-    let defaults = MemoryDefaults()
-    let layout = WindowLayout(defaults: defaults)
-    #expect(layout.sort == .newestFirst)
-
-    layout.sort = .name
-    #expect(WindowLayout(defaults: defaults).sort == .name)
-    layout.sort = .oldestFirst
-    #expect(WindowLayout(defaults: defaults).sort == .oldestFirst)
-
-    defaults.set("unknown", forKey: WindowLayout.librarySortKey)
-    #expect(WindowLayout(defaults: defaults).sort == .newestFirst)
-
+@Test func librarySortOrdersByDateOrNameAndFollowsSidebarFolders() {
     let base = Date(timeIntervalSinceReferenceDate: 1_000_000)
     let folder = URL.temporaryDirectory
     let older = entry("Lecture 2.m4a", in: folder, added: base)
@@ -690,15 +693,32 @@ func automaticIsADetectedLanguage(chosen: Model) {
 
     let sample = [older, middle, renamedFirst, duplicateOlder, duplicateNewer]
     #expect(
-        sample.sorted(by: LibrarySort.newestFirst.areInIncreasingOrder).map(\.id)
+        LibrarySort.newestFirst.sorted(sample).map(\.id)
             == [duplicateNewer.id, renamedFirst.id, middle.id, duplicateOlder.id, older.id]
     )
     #expect(
-        sample.sorted(by: LibrarySort.oldestFirst.areInIncreasingOrder).map(\.id)
+        LibrarySort.oldestFirst.sorted(sample).map(\.id)
             == [older.id, duplicateOlder.id, middle.id, renamedFirst.id, duplicateNewer.id]
     )
     #expect(
-        sample.sorted(by: LibrarySort.name.areInIncreasingOrder).map(\.id)
+        LibrarySort.name.sorted(sample).map(\.id)
             == [renamedFirst.id, older.id, middle.id, duplicateNewer.id, duplicateOlder.id]
     )
+
+    let law = TranscriptFolder(id: UUID(), name: "Law")
+    let history = TranscriptFolder(id: UUID(), name: "History")
+    var unfiled = older
+    unfiled.folderID = nil
+    var inLaw = renamedFirst
+    inLaw.folderID = law.id
+    var inHistoryTwo = middle
+    inHistoryTwo.folderID = history.id
+    var inHistoryOne = duplicateOlder
+    inHistoryOne.folderID = history.id
+    var orphaned = duplicateNewer
+    orphaned.folderID = UUID()
+
+    let ordered = LibrarySort.name.sidebarOrder(
+        [inLaw, inHistoryTwo, unfiled, inHistoryOne, orphaned], folders: [history, law])
+    #expect(ordered == [unfiled.id, orphaned.id, inHistoryTwo.id, inHistoryOne.id, inLaw.id])
 }

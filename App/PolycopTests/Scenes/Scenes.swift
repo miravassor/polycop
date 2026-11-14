@@ -114,7 +114,7 @@ extension AppScene {
                 _ = try stage.model.createFolder(named: "Law")
                 let history = try stage.model.createFolder(named: "History")
                 _ = try stage.model.createFolder(named: "Biology")
-                stage.model.moveFolders(from: IndexSet(integer: 2), to: 0)
+                try stage.model.moveFolders(from: IndexSet(integer: 2), to: 0)
                 stage.model.moveEntry(stage.first, to: history)
                 stage.model.moveEntry(stage.second, to: history)
                 stage.model.layout.openFolders = [history]
