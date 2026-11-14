@@ -12,7 +12,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 * Picture in Picture and full screen, from the buttons on the picture's corner or its menu. A double click fills the screen, and Esc leaves it.
 * Copy Frame, in the video's menu, copies the picture on screen, to paste a slide into notes.
 * The window opens as you left it: the same transcript, the library and the inspector shown or hidden, and the same folders open.
-* Folders in the sidebar can be dragged into your own order, and Sort By in the sidebar's shortcut menu orders transcripts across every folder and Unfiled by date added, newest or oldest first, or by name. Both stay as you left them.
+* Folders in the sidebar stay sorted by name, and Sort By in the sidebar's shortcut menu orders transcripts across every folder and Unfiled by date added, newest or oldest first, or by name. The sort order stays as you left it.
 * An inspector beside the transcript holds the video, the export settings and the transcription details. Each section folds by its title, and stays as you left it. Control-Command-I shows and hides it, and Control-Command-S the library.
 * A transcript that cannot be opened, because it needs a newer Polycop or its file is damaged, stays in the library with a warning beside its name, and nothing can change it. Its page says what to do. So opening your library with an earlier version no longer risks what a later one stored, from this version on.
 * Pause Transcription and Stop Transcription in the File menu, and Replay Passage and Stop in the Playback menu.
@@ -48,6 +48,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 * Update Export and "needs updating". Corrections are saved in the library, so an export is a copy made when you need one.
 * The Follow playback checkbox and the cursor setting in Settings, replaced by Follow in the Text and Playback menus.
 * The export options popover, replaced by the inspector's Export section.
+* "Always stored on this Mac" at the foot of the sidebar.
 
 ### Fixed
 

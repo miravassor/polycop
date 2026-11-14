@@ -38,8 +38,8 @@ unless they agree to more.
 * **Import** of a transcript made elsewhere (TXT or Word document with
   timestamps, SRT, VTT, Whisper or audio.cpp JSON) with its recording, to correct
   it the same way.
-* **Library** of transcripts in reorderable folders, sorted by date or name, each
-  one renamed as you like.
+* **Library** of transcripts in folders, sorted by date or name, each one renamed
+  as you like.
   A removed transcript waits 30 days in Recently Deleted. Your recordings stay
   where they are.
 * **Your own model files**: a model downloaded elsewhere can be imported, once
