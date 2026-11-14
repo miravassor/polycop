@@ -26,9 +26,12 @@ struct LibraryMenu: View {
 #Preview {
     // An empty library and glossaries of its own, never the user's.
     let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
-    LibraryMenu(
-        model: AppModel(
-            history: folder.appending(path: "History"),
-            glossaries: folder.appending(path: "Glossaries")),
-        newFolder: {})
+    Menu("Library") {
+        LibraryMenu(
+            model: AppModel(
+                history: folder.appending(path: "History"),
+                glossaries: folder.appending(path: "Glossaries"),
+                defaults: MemoryDefaults()),
+            newFolder: {})
+    }
 }
