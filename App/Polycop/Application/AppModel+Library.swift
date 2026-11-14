@@ -199,4 +199,24 @@ extension AppModel {
         folders = updated
         layout.openFolders.remove(id)
     }
+
+    func moveFolders(from offsets: IndexSet, to destination: Int) {
+        guard !isShuttingDown, !foldersAreDamaged else { return }
+        var updated = folders
+        let moving = offsets.sorted().filter(updated.indices.contains)
+        guard !moving.isEmpty else { return }
+        let removed = moving.map { updated[$0] }
+        let target = destination - moving.filter { $0 < destination }.count
+        for index in moving.reversed() {
+            updated.remove(at: index)
+        }
+        updated.insert(contentsOf: removed, at: min(max(0, target), updated.count))
+        guard updated != folders else { return }
+        do {
+            try HistoryStore.writeFolders(updated, in: history)
+            folders = updated
+        } catch {
+            failure = error.localizedDescription
+        }
+    }
 }
