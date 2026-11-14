@@ -102,6 +102,28 @@ extension AppScene {
                 window.makeFirstResponder(paragraph)
                 paragraph.setSelectedRange(NSRange(8..<30))
             }),
+        AppScene(name: "library") { stage in
+            stage.finish(stage.first)
+            stage.finish(stage.second)
+            stage.change(stage.first) { $0.title = "Lecture 10" }
+            stage.change(stage.second) { $0.title = "Lecture 2" }
+            if let third = stage.model.duplicate(stage.second) {
+                stage.change(third) { $0.title = "Seminar notes" }
+            }
+            do {
+                _ = try stage.model.createFolder(named: "Law")
+                let history = try stage.model.createFolder(named: "History")
+                _ = try stage.model.createFolder(named: "Biology")
+                stage.model.moveEntry(stage.first, to: history)
+                stage.model.moveEntry(stage.second, to: history)
+                stage.model.layout.openFolders = [history]
+            } catch {
+                assertionFailure("\(error)")
+            }
+            stage.model.layout.sort = .name
+            stage.model.layout.showsLibrary = true
+            stage.model.pane = .entry(stage.second)
+        },
     ]
 
     /// The paragraphs on screen, from the top of the page down.

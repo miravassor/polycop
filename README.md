@@ -38,7 +38,8 @@ unless they agree to more.
 * **Import** of a transcript made elsewhere (TXT or Word document with
   timestamps, SRT, VTT, Whisper or audio.cpp JSON) with its recording, to correct
   it the same way.
-* **Library** of transcripts, sorted in folders, each one renamed as you like.
+* **Library** of transcripts in folders, sorted by date or name, each one renamed
+  as you like.
   A removed transcript waits 30 days in Recently Deleted. Your recordings stay
   where they are.
 * **Your own model files**: a model downloaded elsewhere can be imported, once
@@ -205,7 +206,7 @@ open its release page.
   where it left off the next time.
 * Recordings waiting in the queue stay there when you quit, for the next Start.
 * The window opens as you left it: the same transcript, the library and the
-  inspector shown or hidden, and the same folders open.
+  inspector shown or hidden, the same sort order, and the same folders open.
 * Pausing keeps the text obtained so far; a few words may be dropped or repeated
   where the work resumes, and those spots are marked. A paused job stops when you
   quit the app. A stopped transcript with no corrections of yours can continue with
