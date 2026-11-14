@@ -69,13 +69,6 @@ struct ContentView: View {
                 min: Self.libraryWidths.lowerBound, ideal: layout.libraryWidth,
                 max: Self.libraryWidths.upperBound
             )
-            .safeAreaInset(edge: .bottom) {
-                Label("Always stored on this Mac", systemImage: "lock")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(16)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
         } detail: {
             Group {
                 if selected.count > 1 {
@@ -237,7 +230,7 @@ struct ContentView: View {
                         emptyNote("Empty folder")
                     }
                     UnavailableRows(model: model, folder: folder.id)
-                    ForEach(entries) { entry in row(entry).moveDisabled(true) }
+                    ForEach(entries) { entry in row(entry) }
                 } label: {
                     Label(folder.name, systemImage: "folder")
                         .lineLimit(1)
@@ -262,12 +255,6 @@ struct ContentView: View {
                         }
                 }
             }
-            .onMove(
-                perform: model.foldersAreDamaged
-                    ? nil
-                    : { offsets, to in
-                        attempt { try model.moveFolders(from: offsets, to: to) }
-                    })
         } header: {
             // The button sits on the header's own line: a bordered style
             // and a body sized symbol both stand away from a sidebar
@@ -298,7 +285,6 @@ struct ContentView: View {
 extension ContentView {
     private func emptyNote(_ text: LocalizedStringKey) -> some View {
         Text(text).font(.caption).foregroundStyle(.secondary)
-            .moveDisabled(true)
             .contextMenu { libraryMenu }
     }
 

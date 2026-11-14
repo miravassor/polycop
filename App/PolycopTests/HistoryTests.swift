@@ -622,63 +622,33 @@ func automaticIsADetectedLanguage(chosen: Model) {
 }
 
 @MainActor
-@Test func foldersKeepTheirReorderedSequenceAcrossLaunches() async throws {
+@Test func foldersStaySortedByNameOnLoadCreateAndRename() throws {
     let history = URL.temporaryDirectory.appending(path: UUID().uuidString)
-    defer {
-        try? FileManager.default.setAttributes(
-            [.posixPermissions: 0o700], ofItemAtPath: history.path)
-        try? FileManager.default.removeItem(at: history)
-    }
-    var recording = entry("lecture.wav", in: history)
-    recording.state = .finished
-    try HistoryStore.write(recording, in: history)
-
+    defer { try? FileManager.default.removeItem(at: history) }
     let model = AppModel(history: history)
+    _ = try model.createFolder(named: "Law")
+    _ = try model.createFolder(named: "Folder 10")
+    _ = try model.createFolder(named: "Folder 2")
     let biology = try model.createFolder(named: "Biology")
-    let historyFolder = try model.createFolder(named: "History")
-    let law = try model.createFolder(named: "Law")
-    model.moveEntry(recording.id, to: biology)
+    #expect(model.folders.map(\.name) == ["Biology", "Folder 2", "Folder 10", "Law"])
 
-    // Drag to top, middle, and bottom (`folders.count`), plus a multi-offset move.
-    try model.moveFolders(from: IndexSet(integer: 2), to: 0)
-    #expect(model.folders.map(\.name) == ["Law", "Biology", "History"])
-    try model.moveFolders(from: IndexSet(integer: 0), to: 2)
-    #expect(model.folders.map(\.name) == ["Biology", "Law", "History"])
-    try model.moveFolders(from: IndexSet(integer: 0), to: model.folders.count)
-    #expect(model.folders.map(\.name) == ["Law", "History", "Biology"])
-    try model.moveFolders(from: IndexSet([0, 2]), to: 1)
-    #expect(model.folders.map(\.name) == ["Law", "Biology", "History"])
-    // Out-of-bounds and no-op moves keep the current order.
-    try model.moveFolders(from: IndexSet(integer: 9), to: 0)
-    try model.moveFolders(from: IndexSet(integer: 0), to: 1)
-    #expect(model.folders.map(\.name) == ["Law", "Biology", "History"])
-    await model.finishWrites()
+    try model.renameFolder(biology, to: "Zoology")
+    #expect(model.folders.map(\.name) == ["Folder 2", "Folder 10", "Law", "Zoology"])
 
     let reloaded = AppModel(history: history)
-    #expect(reloaded.folders.map(\.id) == [law, biology, historyFolder])
-    #expect(reloaded.folders.map(\.name) == ["Law", "Biology", "History"])
-    #expect(reloaded.entry(recording.id)?.folderID == biology)
+    #expect(reloaded.folders.map(\.name) == ["Folder 2", "Folder 10", "Law", "Zoology"])
 
-    try FileManager.default.setAttributes(
-        [.posixPermissions: 0o500], ofItemAtPath: history.path)
-    #expect(throws: (any Error).self) {
-        try reloaded.moveFolders(from: IndexSet(integer: 0), to: reloaded.folders.count)
-    }
-    #expect(reloaded.folders.map(\.name) == ["Law", "Biology", "History"])
-}
-
-@MainActor
-@Test func aDamagedFolderListRefusesReordering() throws {
-    let history = URL.temporaryDirectory.appending(path: UUID().uuidString)
-    try FileManager.default.createDirectory(at: history, withIntermediateDirectories: true)
-    defer { try? FileManager.default.removeItem(at: history) }
-    let file = history.appending(path: "folders.json")
-    try Data("[{\"id\":\"pas un identifiant\"".utf8).write(to: file)
-
-    let model = AppModel(history: history)
-    #expect(model.foldersAreDamaged)
-    #expect(throws: CocoaError.self) { try model.moveFolders(from: IndexSet(integer: 0), to: 1) }
-    #expect(try String(contentsOf: file, encoding: .utf8) == "[{\"id\":\"pas un identifiant\"")
+    let unsortedHistory = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: unsortedHistory) }
+    try HistoryStore.writeFolders(
+        [
+            TranscriptFolder(id: UUID(), name: "Philo"),
+            TranscriptFolder(id: UUID(), name: "Arts"),
+        ],
+        in: unsortedHistory
+    )
+    let loaded = AppModel(history: unsortedHistory)
+    #expect(loaded.folders.map(\.name) == ["Arts", "Philo"])
 }
 
 @Test func librarySortOrdersEntriesByDateAddedOrName() {
@@ -737,13 +707,14 @@ func automaticIsADetectedLanguage(chosen: Model) {
     }
     try HistoryStore.writeFolders(
         [
-            TranscriptFolder(id: historyFolder, name: "History"),
             TranscriptFolder(id: law, name: "Law"),
+            TranscriptFolder(id: historyFolder, name: "History"),
         ],
         in: directory
     )
 
     let model = AppModel(history: directory, defaults: MemoryDefaults())
+    #expect(model.folders.map(\.name) == ["History", "Law"])
     model.layout.sort = .name
     #expect(model.entries(in: nil).map(\.id) == [unfiled.id, orphaned.id])
     #expect(model.entries(in: historyFolder).map(\.id) == [inHistoryTwo.id, inHistoryOne.id])
@@ -756,7 +727,7 @@ func automaticIsADetectedLanguage(chosen: Model) {
 
     model.layout.sort = .oldestFirst
     #expect(model.entries(in: historyFolder).map(\.id) == [inHistoryOne.id, inHistoryTwo.id])
-    try model.moveFolders(from: IndexSet(integer: 1), to: 0)
+    try model.renameFolder(law, to: "Arts")
     #expect(
         model.sidebarOrder([inLaw.id, inHistoryTwo.id, orphaned.id])
             == [orphaned.id, inLaw.id, inHistoryTwo.id]

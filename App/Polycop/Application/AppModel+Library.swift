@@ -117,7 +117,7 @@ extension AppModel {
             return existing.id
         }
         let folder = TranscriptFolder(id: UUID(), name: name)
-        let updated = folders + [folder]
+        let updated = Self.sorted(folders + [folder])
         try HistoryStore.writeFolders(updated, in: history)
         folders = updated
         return folder.id
@@ -165,6 +165,7 @@ extension AppModel {
         }
         var updated = folders
         updated[index].name = name
+        updated = Self.sorted(updated)
         try HistoryStore.writeFolders(updated, in: history)
         folders = updated
     }
@@ -224,20 +225,12 @@ extension AppModel {
         layout.openFolders.remove(id)
     }
 
-    func moveFolders(from offsets: IndexSet, to destination: Int) throws {
-        guard !isShuttingDown else { return }
-        try refuseDamagedFolders()
-        var updated = folders
-        let moving = offsets.sorted().filter(updated.indices.contains)
-        guard !moving.isEmpty else { return }
-        let removed = moving.map { updated[$0] }
-        let target = destination - moving.filter { $0 < destination }.count
-        for index in moving.reversed() {
-            updated.remove(at: index)
+    /// Folders in Finder-style alphabetical order, tie-broken by identifier.
+    static func sorted(_ folders: [TranscriptFolder]) -> [TranscriptFolder] {
+        folders.sorted { first, second in
+            let order = first.name.localizedStandardCompare(second.name)
+            if order != .orderedSame { return order == .orderedAscending }
+            return first.id.uuidString < second.id.uuidString
         }
-        updated.insert(contentsOf: removed, at: min(max(0, target), updated.count))
-        guard updated != folders else { return }
-        try HistoryStore.writeFolders(updated, in: history)
-        folders = updated
     }
 }
