@@ -50,6 +50,7 @@ struct UnavailableRecordRow: View {
         }
         .padding(.vertical, 5)
         .accessibilityElement(children: .combine)
+        .moveDisabled(true)
         .contextMenu {
             Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting(files) }
         }
