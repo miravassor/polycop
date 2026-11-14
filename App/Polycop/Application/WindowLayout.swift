@@ -6,6 +6,32 @@ import Observation
 /// How the reader left the window, remembered across launches. Here rather
 /// than in scene storage, which macOS restores only along with the window, and
 /// by default it closes windows for good when the app quits.
+/// How transcripts are ordered inside each folder and outside them.
+nonisolated enum LibrarySort: String, CaseIterable, Sendable {
+    case newestFirst
+    case oldestFirst
+    case name
+
+    /// Whether `first` appears before `second` in the sidebar.
+    func areInIncreasingOrder(_ first: Entry, _ second: Entry) -> Bool {
+        switch self {
+        case .newestFirst:
+            first.added > second.added
+        case .oldestFirst:
+            first.added < second.added
+        case .name:
+            switch first.name.localizedStandardCompare(second.name) {
+            case .orderedAscending:
+                true
+            case .orderedDescending:
+                false
+            case .orderedSame:
+                first.added > second.added
+            }
+        }
+    }
+}
+
 @Observable
 final class WindowLayout {
     static let showsLibraryKey = "showsLibrary"
@@ -13,6 +39,7 @@ final class WindowLayout {
     static let libraryWidthKey = "libraryWidth"
     static let inspectorWidthKey = "inspectorWidth"
     static let openFoldersKey = "openFolders"
+    static let librarySortKey = "librarySort"
 
     var showsLibrary: Bool {
         didSet { defaults.set(showsLibrary, forKey: Self.showsLibraryKey) }
@@ -31,6 +58,10 @@ final class WindowLayout {
     var openFolders: Set<UUID> {
         didSet { defaults.set(openFolders.map(\.uuidString), forKey: Self.openFoldersKey) }
     }
+    /// How transcripts in folders and outside them are ordered.
+    var sort: LibrarySort {
+        didSet { defaults.set(sort.rawValue, forKey: Self.librarySortKey) }
+    }
 
     @ObservationIgnored private let defaults: UserDefaults
 
@@ -47,5 +78,8 @@ final class WindowLayout {
         openFolders = Set(
             (defaults.stringArray(forKey: Self.openFoldersKey) ?? [])
                 .compactMap(UUID.init(uuidString:)))
+        sort =
+            defaults.string(forKey: Self.librarySortKey)
+            .flatMap(LibrarySort.init(rawValue:)) ?? .newestFirst
     }
 }
