@@ -21,12 +21,6 @@ struct ContentView: View {
     @State private var highlightsUnfiled = false
     @State private var importingTranscript = false
 
-    private var unfiled: [Entry] {
-        let known = Set(model.folders.map(\.id))
-        return layout.sort.sorted(
-            model.entries.filter { $0.folderID.map { !known.contains($0) } ?? true })
-    }
-
     private var layout: WindowLayout { model.layout }
 
     init(model: AppModel) {
@@ -199,7 +193,7 @@ struct ContentView: View {
     /// The transcripts in no folder, or the whole library before there is one.
     private var unfiledSection: some View {
         Section {
-            let entries = unfiled
+            let entries = model.entries(in: nil)
             if entries.isEmpty, model.unavailable(in: nil).isEmpty,
                 model.unidentifiedFiles.isEmpty
             {
@@ -238,8 +232,7 @@ struct ContentView: View {
                         }
                     )
                 ) {
-                    let entries = layout.sort.sorted(
-                        model.entries.filter { $0.folderID == folder.id })
+                    let entries = model.entries(in: folder.id)
                     if entries.isEmpty, model.unavailable(in: folder.id).isEmpty {
                         emptyNote("Empty folder")
                     }
@@ -290,6 +283,7 @@ struct ContentView: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .disabled(model.foldersAreDamaged)
                 .help("New folder")
                 .accessibilityLabel("New folder")
                 // Clear of the edge of the sidebar, where the scroller runs.
@@ -371,9 +365,7 @@ extension ContentView {
     private var selected: [Entry.ID] {
         let chosen = selection.compactMap { if case .entry(let id) = $0 { id } else { nil } }
         guard chosen.count > 1 else { return chosen.filter { model.entry($0) != nil } }
-        let wanted = Set(chosen)
-        return layout.sort.sidebarOrder(
-            model.entries.filter { wanted.contains($0.id) }, folders: model.folders)
+        return model.sidebarOrder(Set(chosen))
     }
 
     /// A transcript dragged onto a folder, or onto the unfiled section to leave

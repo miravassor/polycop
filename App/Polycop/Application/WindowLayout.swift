@@ -59,7 +59,7 @@ final class WindowLayout {
 }
 
 /// How transcripts are ordered inside each folder and outside them.
-nonisolated enum LibrarySort: String, CaseIterable, Sendable {
+nonisolated enum LibrarySort: String, Sendable {
     case newestFirst
     case oldestFirst
     case name
@@ -81,16 +81,6 @@ nonisolated enum LibrarySort: String, CaseIterable, Sendable {
                 first.added > second.added
             }
         }
-    }
-
-    /// The identifiers of `selected` in the order the sidebar displays them:
-    /// unfiled first, then each folder in `folders` order.
-    func sidebarOrder(_ selected: [Entry], folders: [TranscriptFolder]) -> [Entry.ID] {
-        let sorted = sorted(selected)
-        let known = Set(folders.map(\.id))
-        let outside = sorted.filter { $0.folderID.map { !known.contains($0) } ?? true }
-        let inside = folders.flatMap { folder in sorted.filter { $0.folderID == folder.id } }
-        return (outside + inside).map(\.id)
     }
 
     func sorted(_ entries: [Entry]) -> [Entry] {

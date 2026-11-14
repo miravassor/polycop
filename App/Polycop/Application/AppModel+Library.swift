@@ -169,6 +169,26 @@ extension AppModel {
         folders = updated
     }
 
+    /// The transcripts a place in the library holds: those of a folder, or with
+    /// `nil` those in no folder this library knows, in the reader's chosen order.
+    func entries(in folder: UUID?) -> [Entry] {
+        let known = Set(folders.map(\.id))
+        return layout.sort.sorted(
+            entries.filter { belongs($0.folderID, to: folder, known: known) })
+    }
+
+    /// Identifiers of `chosen` in the order the sidebar lists them: unfiled
+    /// first, then each folder in order.
+    func sidebarOrder(_ chosen: Set<Entry.ID>) -> [Entry.ID] {
+        guard !chosen.isEmpty else { return [] }
+        let known = Set(folders.map(\.id))
+        let sorted = layout.sort.sorted(entries.filter { chosen.contains($0.id) })
+        let sections: [UUID?] = [nil] + folders.map { Optional($0.id) }
+        return sections.flatMap { folder in
+            sorted.filter { belongs($0.folderID, to: folder, known: known) }.map(\.id)
+        }
+    }
+
     /// The records a place in the library holds that this version cannot read:
     /// those of a folder, or with `nil` those in no folder this library knows, as
     /// for transcripts. What nothing identifies is in no folder.
@@ -176,9 +196,13 @@ extension AppModel {
         let known = Set(folders.map(\.id))
         return unavailable.filter { record in
             guard record.removed == nil, !record.isUnidentified else { return false }
-            if let folder { return record.folderID == folder }
-            return record.folderID.map { !known.contains($0) } ?? true
+            return belongs(record.folderID, to: folder, known: known)
         }
+    }
+
+    private func belongs(_ folderID: UUID?, to folder: UUID?, known: Set<UUID>) -> Bool {
+        if let folder { return folderID == folder }
+        return folderID.map { !known.contains($0) } ?? true
     }
 
     /// Every file nothing identifies.

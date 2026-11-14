@@ -681,15 +681,15 @@ func automaticIsADetectedLanguage(chosen: Model) {
     #expect(try String(contentsOf: file, encoding: .utf8) == "[{\"id\":\"pas un identifiant\"")
 }
 
-@Test func librarySortOrdersByDateOrNameAndFollowsSidebarFolders() {
+@Test func librarySortOrdersEntriesByDateAddedOrName() {
     let base = Date(timeIntervalSinceReferenceDate: 1_000_000)
-    let folder = URL.temporaryDirectory
-    let older = entry("Lecture 2.m4a", in: folder, added: base)
-    let middle = entry("Lecture 10.m4a", in: folder, added: base.addingTimeInterval(60))
-    var renamedFirst = entry("Zebra.m4a", in: folder, added: base.addingTimeInterval(120))
+    let directory = URL.temporaryDirectory
+    let older = entry("Lecture 2.m4a", in: directory, added: base)
+    let middle = entry("Lecture 10.m4a", in: directory, added: base.addingTimeInterval(60))
+    var renamedFirst = entry("Zebra.m4a", in: directory, added: base.addingTimeInterval(120))
     renamedFirst.title = "Ethics"
-    let duplicateOlder = entry("Notes.m4a", in: folder, added: base.addingTimeInterval(10))
-    let duplicateNewer = entry("Notes.m4a", in: folder, added: base.addingTimeInterval(300))
+    let duplicateOlder = entry("Notes.m4a", in: directory, added: base.addingTimeInterval(10))
+    let duplicateNewer = entry("Notes.m4a", in: directory, added: base.addingTimeInterval(300))
 
     let sample = [older, middle, renamedFirst, duplicateOlder, duplicateNewer]
     #expect(
@@ -704,21 +704,61 @@ func automaticIsADetectedLanguage(chosen: Model) {
         LibrarySort.name.sorted(sample).map(\.id)
             == [renamedFirst.id, older.id, middle.id, duplicateNewer.id, duplicateOlder.id]
     )
+}
 
-    let law = TranscriptFolder(id: UUID(), name: "Law")
-    let history = TranscriptFolder(id: UUID(), name: "History")
-    var unfiled = older
-    unfiled.folderID = nil
-    var inLaw = renamedFirst
-    inLaw.folderID = law.id
-    var inHistoryTwo = middle
-    inHistoryTwo.folderID = history.id
-    var inHistoryOne = duplicateOlder
-    inHistoryOne.folderID = history.id
-    var orphaned = duplicateNewer
-    orphaned.folderID = UUID()
+@MainActor
+@Test func libraryModelGroupsAndOrdersEntriesBySidebarFolders() throws {
+    let base = Date(timeIntervalSinceReferenceDate: 1_000_000)
+    let directory = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
 
-    let ordered = LibrarySort.name.sidebarOrder(
-        [inLaw, inHistoryTwo, unfiled, inHistoryOne, orphaned], folders: [history, law])
-    #expect(ordered == [unfiled.id, orphaned.id, inHistoryTwo.id, inHistoryOne.id, inLaw.id])
+    let law = UUID()
+    let historyFolder = UUID()
+    let unfiled = entry("Lecture 2.m4a", in: directory, added: base)
+    let inHistoryTwo = entry("Lecture 10.m4a", in: directory, added: base.addingTimeInterval(60))
+    var inLaw = entry("Zebra.m4a", in: directory, added: base.addingTimeInterval(120))
+    inLaw.title = "Ethics"
+    let inHistoryOne = entry("Notes.m4a", in: directory, added: base.addingTimeInterval(10))
+    let orphaned = entry("Notes.m4a", in: directory, added: base.addingTimeInterval(300))
+
+    let placements: [(Entry, UUID?)] = [
+        (unfiled, nil),
+        (inHistoryTwo, historyFolder),
+        (inLaw, law),
+        (inHistoryOne, historyFolder),
+        (orphaned, UUID()),
+    ]
+    for (item, folderID) in placements {
+        var copy = item
+        copy.state = .finished
+        copy.folderID = folderID
+        try HistoryStore.write(copy, in: directory)
+    }
+    try HistoryStore.writeFolders(
+        [
+            TranscriptFolder(id: historyFolder, name: "History"),
+            TranscriptFolder(id: law, name: "Law"),
+        ],
+        in: directory
+    )
+
+    let model = AppModel(history: directory, defaults: MemoryDefaults())
+    model.layout.sort = .name
+    #expect(model.entries(in: nil).map(\.id) == [unfiled.id, orphaned.id])
+    #expect(model.entries(in: historyFolder).map(\.id) == [inHistoryTwo.id, inHistoryOne.id])
+    #expect(model.entries(in: law).map(\.id) == [inLaw.id])
+    #expect(model.sidebarOrder([]).isEmpty)
+    #expect(
+        model.sidebarOrder([inLaw.id, inHistoryTwo.id, unfiled.id, inHistoryOne.id, orphaned.id])
+            == [unfiled.id, orphaned.id, inHistoryTwo.id, inHistoryOne.id, inLaw.id]
+    )
+
+    model.layout.sort = .oldestFirst
+    #expect(model.entries(in: historyFolder).map(\.id) == [inHistoryOne.id, inHistoryTwo.id])
+    try model.moveFolders(from: IndexSet(integer: 1), to: 0)
+    #expect(
+        model.sidebarOrder([inLaw.id, inHistoryTwo.id, orphaned.id])
+            == [orphaned.id, inLaw.id, inHistoryTwo.id]
+    )
 }

@@ -8,37 +8,27 @@ struct LibraryMenu: View {
     let newFolder: () -> Void
 
     var body: some View {
+        @Bindable var layout = model.layout
         Button("New Folder…", action: newFolder)
             .disabled(model.foldersAreDamaged)
-        SortByMenu(layout: model.layout)
-    }
-}
-
-/// Chooses the sidebar's transcript order from any library context menu.
-struct SortByMenu: View {
-    @Bindable var layout: WindowLayout
-
-    var body: some View {
         Menu("Sort By") {
             Picker("Sort By", selection: $layout.sort) {
-                ForEach(LibrarySort.allCases, id: \.self) { order in
-                    Text(Self.title(of: order)).tag(order)
-                }
+                Text("Date Added (Newest First)").tag(LibrarySort.newestFirst)
+                Text("Date Added (Oldest First)").tag(LibrarySort.oldestFirst)
+                Text("Name").tag(LibrarySort.name)
             }
             .pickerStyle(.inline)
             .labelsHidden()
         }
     }
-
-    static func title(of sort: LibrarySort) -> String {
-        switch sort {
-        case .newestFirst: String(localized: "Date Added (Newest First)")
-        case .oldestFirst: String(localized: "Date Added (Oldest First)")
-        case .name: String(localized: "Name")
-        }
-    }
 }
 
 #Preview {
-    SortByMenu(layout: WindowLayout(defaults: MemoryDefaults()))
+    // An empty library and glossaries of its own, never the user's.
+    let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    LibraryMenu(
+        model: AppModel(
+            history: folder.appending(path: "History"),
+            glossaries: folder.appending(path: "Glossaries")),
+        newFolder: {})
 }
