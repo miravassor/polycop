@@ -122,6 +122,7 @@ extension AppScene {
                 assertionFailure("\(error)")
             }
             stage.model.layout.sort = .name
+            stage.model.layout.showsLibrary = true
             stage.model.pane = .entry(stage.second)
         },
     ]
