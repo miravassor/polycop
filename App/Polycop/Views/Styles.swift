@@ -109,6 +109,16 @@ extension View {
                     .allowsHitTesting(false)
             }
     }
+
+    /// The highlight of a sidebar destination that accepts dropped items.
+    func dropTargetHighlight(_ isTargeted: Bool) -> some View {
+        padding(.vertical, 2)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                isTargeted ? Color.accentColor.opacity(0.25) : .clear,
+                in: RoundedRectangle(cornerRadius: 6)
+            )
+    }
 }
 
 /// The surface of what floats at the foot of a page, the player or Start:

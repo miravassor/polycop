@@ -208,12 +208,7 @@ struct ContentView: View {
             ForEach(unfiled) { entry in row(entry) }
         } header: {
             Text(model.folders.isEmpty ? "Library" : "Unfiled")
-                .padding(.vertical, 2)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(
-                    highlightsUnfiled ? Color.accentColor.opacity(0.25) : .clear,
-                    in: RoundedRectangle(cornerRadius: 6)
-                )
+                .dropTargetHighlight(highlightsUnfiled)
                 .contextMenu { newFolder }
                 .dropDestination(for: DraggedTranscripts.self) { items, _ in
                     drop(items, into: nil)
@@ -251,13 +246,7 @@ struct ContentView: View {
                 } label: {
                     Label(folder.name, systemImage: "folder")
                         .lineLimit(1)
-                        .padding(.vertical, 2)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(
-                            highlighted == folder.id
-                                ? Color.accentColor.opacity(0.25) : .clear,
-                            in: RoundedRectangle(cornerRadius: 6)
-                        )
+                        .dropTargetHighlight(highlighted == folder.id)
                         .dropDestination(for: DraggedTranscripts.self) { items, _ in
                             drop(items, into: folder.id)
                         } isTargeted: {
