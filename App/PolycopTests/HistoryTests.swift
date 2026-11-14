@@ -620,3 +620,85 @@ func automaticIsADetectedLanguage(chosen: Model) {
         TranscriptionError.failed(WhisperEngine.cacheAllocationFailed).errorDescription)
     #expect(message.contains("memory"))
 }
+
+@MainActor
+@Test func foldersKeepTheirReorderedSequenceAcrossLaunches() async throws {
+    let history = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: history) }
+    var recording = entry("lecture.wav", in: history)
+    recording.state = .finished
+    try HistoryStore.write(recording, in: history)
+
+    let model = AppModel(history: history)
+    let biology = try model.createFolder(named: "Biology")
+    let historyFolder = try model.createFolder(named: "History")
+    let law = try model.createFolder(named: "Law")
+    model.moveEntry(recording.id, to: biology)
+
+    model.moveFolders(from: IndexSet(integer: 2), to: 0)
+    #expect(model.folders.map(\.name) == ["Law", "Biology", "History"])
+    model.moveFolders(from: IndexSet(integer: 0), to: 2)
+    #expect(model.folders.map(\.name) == ["Biology", "Law", "History"])
+    // Out-of-bounds and no-op moves keep the current order.
+    model.moveFolders(from: IndexSet(integer: 9), to: 0)
+    model.moveFolders(from: IndexSet(integer: 0), to: 1)
+    #expect(model.folders.map(\.name) == ["Biology", "Law", "History"])
+    await model.finishWrites()
+
+    let reloaded = AppModel(history: history)
+    #expect(reloaded.folders.map(\.id) == [biology, law, historyFolder])
+    #expect(reloaded.folders.map(\.name) == ["Biology", "Law", "History"])
+    #expect(reloaded.entry(recording.id)?.folderID == biology)
+}
+
+@MainActor
+@Test func aDamagedFolderListRefusesReordering() throws {
+    let history = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    try FileManager.default.createDirectory(at: history, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: history) }
+    let file = history.appending(path: "folders.json")
+    try Data("[{\"id\":\"pas un identifiant\"".utf8).write(to: file)
+
+    let model = AppModel(history: history)
+    #expect(model.foldersAreDamaged)
+    model.moveFolders(from: IndexSet(integer: 0), to: 1)
+    #expect(try String(contentsOf: file, encoding: .utf8) == "[{\"id\":\"pas un identifiant\"")
+}
+
+@MainActor
+@Test func librarySortOrdersEntriesAndPersistsInLayout() {
+    let defaults = MemoryDefaults()
+    let layout = WindowLayout(defaults: defaults)
+    #expect(layout.sort == .newestFirst)
+
+    layout.sort = .name
+    #expect(WindowLayout(defaults: defaults).sort == .name)
+    layout.sort = .oldestFirst
+    #expect(WindowLayout(defaults: defaults).sort == .oldestFirst)
+
+    defaults.set("unknown", forKey: WindowLayout.librarySortKey)
+    #expect(WindowLayout(defaults: defaults).sort == .newestFirst)
+
+    let base = Date(timeIntervalSinceReferenceDate: 1_000_000)
+    let folder = URL.temporaryDirectory
+    let older = entry("Lecture 2.m4a", in: folder, added: base)
+    let middle = entry("Lecture 10.m4a", in: folder, added: base.addingTimeInterval(60))
+    var renamedFirst = entry("Zebra.m4a", in: folder, added: base.addingTimeInterval(120))
+    renamedFirst.title = "Ethics"
+    let duplicateOlder = entry("Notes.m4a", in: folder, added: base.addingTimeInterval(10))
+    let duplicateNewer = entry("Notes.m4a", in: folder, added: base.addingTimeInterval(300))
+
+    let sample = [older, middle, renamedFirst, duplicateOlder, duplicateNewer]
+    #expect(
+        sample.sorted(by: LibrarySort.newestFirst.areInIncreasingOrder).map(\.id)
+            == [duplicateNewer.id, renamedFirst.id, middle.id, duplicateOlder.id, older.id]
+    )
+    #expect(
+        sample.sorted(by: LibrarySort.oldestFirst.areInIncreasingOrder).map(\.id)
+            == [older.id, duplicateOlder.id, middle.id, renamedFirst.id, duplicateNewer.id]
+    )
+    #expect(
+        sample.sorted(by: LibrarySort.name.areInIncreasingOrder).map(\.id)
+            == [renamedFirst.id, older.id, middle.id, duplicateNewer.id, duplicateOlder.id]
+    )
+}
