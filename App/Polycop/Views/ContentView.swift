@@ -23,15 +23,8 @@ struct ContentView: View {
 
     private var unfiled: [Entry] {
         let known = Set(model.folders.map(\.id))
-        return model.entries
-            .filter { $0.folderID.map { !known.contains($0) } ?? true }
-            .sorted(by: layout.sort.areInIncreasingOrder)
-    }
-
-    private func folderEntries(_ folderID: UUID) -> [Entry] {
-        model.entries
-            .filter { $0.folderID == folderID }
-            .sorted(by: layout.sort.areInIncreasingOrder)
+        return layout.sort.sorted(
+            model.entries.filter { $0.folderID.map { !known.contains($0) } ?? true })
     }
 
     private var layout: WindowLayout { model.layout }
@@ -206,13 +199,14 @@ struct ContentView: View {
     /// The transcripts in no folder, or the whole library before there is one.
     private var unfiledSection: some View {
         Section {
-            if unfiled.isEmpty, model.unavailable(in: nil).isEmpty,
+            let entries = unfiled
+            if entries.isEmpty, model.unavailable(in: nil).isEmpty,
                 model.unidentifiedFiles.isEmpty
             {
                 emptyNote("Nothing outside a folder")
             }
             UnavailableRows(model: model, folder: nil)
-            ForEach(unfiled) { entry in row(entry) }
+            ForEach(entries) { entry in row(entry) }
         } header: {
             Text(model.folders.isEmpty ? "Library" : "Unfiled")
                 .dropTargetHighlight(highlightsUnfiled)
@@ -244,12 +238,12 @@ struct ContentView: View {
                         }
                     )
                 ) {
-                    let entries = folderEntries(folder.id)
+                    let entries = layout.sort.sorted(
+                        model.entries.filter { $0.folderID == folder.id })
                     if entries.isEmpty, model.unavailable(in: folder.id).isEmpty {
                         emptyNote("Empty folder")
                     }
                     UnavailableRows(model: model, folder: folder.id)
-                        .moveDisabled(true)
                     ForEach(entries) { entry in row(entry).moveDisabled(true) }
                 } label: {
                     Label(folder.name, systemImage: "folder")
@@ -276,7 +270,11 @@ struct ContentView: View {
                 }
             }
             .onMove(
-                perform: model.foldersAreDamaged ? nil : { model.moveFolders(from: $0, to: $1) })
+                perform: model.foldersAreDamaged
+                    ? nil
+                    : { offsets, to in
+                        attempt { try model.moveFolders(from: offsets, to: to) }
+                    })
         } header: {
             // The button sits on the header's own line: a bordered style
             // and a body sized symbol both stand away from a sidebar
@@ -338,6 +336,7 @@ extension ContentView {
                     }
                     .disabled(model.foldersAreDamaged)
                 }
+                Divider()
                 libraryMenu
                 // What belongs to one transcript is offered for one: undoing or
                 // reverting several at once is not what a right click means.
@@ -370,8 +369,11 @@ extension ContentView {
 
     /// The transcripts selected, in the order the list shows them.
     private var selected: [Entry.ID] {
-        let ordered = unfiled + model.folders.flatMap { folderEntries($0.id) }
-        return ordered.map(\.id).filter { selection.contains(.entry($0)) }
+        let chosen = selection.compactMap { if case .entry(let id) = $0 { id } else { nil } }
+        guard chosen.count > 1 else { return chosen.filter { model.entry($0) != nil } }
+        let wanted = Set(chosen)
+        return layout.sort.sidebarOrder(
+            model.entries.filter { wanted.contains($0.id) }, folders: model.folders)
     }
 
     /// A transcript dragged onto a folder, or onto the unfiled section to leave

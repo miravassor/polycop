@@ -200,8 +200,9 @@ extension AppModel {
         layout.openFolders.remove(id)
     }
 
-    func moveFolders(from offsets: IndexSet, to destination: Int) {
-        guard !isShuttingDown, !foldersAreDamaged else { return }
+    func moveFolders(from offsets: IndexSet, to destination: Int) throws {
+        guard !isShuttingDown else { return }
+        try refuseDamagedFolders()
         var updated = folders
         let moving = offsets.sorted().filter(updated.indices.contains)
         guard !moving.isEmpty else { return }
@@ -212,11 +213,7 @@ extension AppModel {
         }
         updated.insert(contentsOf: removed, at: min(max(0, target), updated.count))
         guard updated != folders else { return }
-        do {
-            try HistoryStore.writeFolders(updated, in: history)
-            folders = updated
-        } catch {
-            failure = error.localizedDescription
-        }
+        try HistoryStore.writeFolders(updated, in: history)
+        folders = updated
     }
 }

@@ -6,32 +6,6 @@ import Observation
 /// How the reader left the window, remembered across launches. Here rather
 /// than in scene storage, which macOS restores only along with the window, and
 /// by default it closes windows for good when the app quits.
-/// How transcripts are ordered inside each folder and outside them.
-nonisolated enum LibrarySort: String, CaseIterable, Sendable {
-    case newestFirst
-    case oldestFirst
-    case name
-
-    /// Whether `first` appears before `second` in the sidebar.
-    func areInIncreasingOrder(_ first: Entry, _ second: Entry) -> Bool {
-        switch self {
-        case .newestFirst:
-            first.added > second.added
-        case .oldestFirst:
-            first.added < second.added
-        case .name:
-            switch first.name.localizedStandardCompare(second.name) {
-            case .orderedAscending:
-                true
-            case .orderedDescending:
-                false
-            case .orderedSame:
-                first.added > second.added
-            }
-        }
-    }
-}
-
 @Observable
 final class WindowLayout {
     static let showsLibraryKey = "showsLibrary"
@@ -81,5 +55,45 @@ final class WindowLayout {
         sort =
             defaults.string(forKey: Self.librarySortKey)
             .flatMap(LibrarySort.init(rawValue:)) ?? .newestFirst
+    }
+}
+
+/// How transcripts are ordered inside each folder and outside them.
+nonisolated enum LibrarySort: String, CaseIterable, Sendable {
+    case newestFirst
+    case oldestFirst
+    case name
+
+    /// Whether `first` appears before `second` in the sidebar.
+    func areInIncreasingOrder(_ first: Entry, _ second: Entry) -> Bool {
+        switch self {
+        case .newestFirst:
+            first.added > second.added
+        case .oldestFirst:
+            first.added < second.added
+        case .name:
+            switch first.name.localizedStandardCompare(second.name) {
+            case .orderedAscending:
+                true
+            case .orderedDescending:
+                false
+            case .orderedSame:
+                first.added > second.added
+            }
+        }
+    }
+
+    /// The identifiers of `selected` in the order the sidebar displays them:
+    /// unfiled first, then each folder in `folders` order.
+    func sidebarOrder(_ selected: [Entry], folders: [TranscriptFolder]) -> [Entry.ID] {
+        let sorted = sorted(selected)
+        let known = Set(folders.map(\.id))
+        let outside = sorted.filter { $0.folderID.map { !known.contains($0) } ?? true }
+        let inside = folders.flatMap { folder in sorted.filter { $0.folderID == folder.id } }
+        return (outside + inside).map(\.id)
+    }
+
+    func sorted(_ entries: [Entry]) -> [Entry] {
+        entries.sorted(by: areInIncreasingOrder)
     }
 }
