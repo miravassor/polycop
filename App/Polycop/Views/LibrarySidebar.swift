@@ -198,7 +198,7 @@ struct LibrarySidebar: View {
         let unavailable = model.visibleUnavailable(in: folderID)
         if entries.isEmpty, unavailable.isEmpty, !hasSubfolders {
             let emptyLabel: LocalizedStringKey =
-                if model.isFilteringLibrary, model.folderHasStoredItems(folderID) {
+                if model.isFilteringLibrary, model.holdsTranscripts(folderID) {
                     "No matches"
                 } else if model.hasPinnedEntries(in: folderID) {
                     "Pinned above"

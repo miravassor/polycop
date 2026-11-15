@@ -972,7 +972,7 @@ func automaticIsADetectedLanguage(chosen: Model) {
 }
 
 @MainActor
-@Test func activeEntrySupportsPinAndPresetFlairToggles() async throws {
+@Test func entrySupportsPinAndPresetFlairToggles() async throws {
     let directory = try temporaryFolder()
     defer { try? FileManager.default.removeItem(at: directory) }
     var item = entry("Lecture.m4a", in: directory)
@@ -980,23 +980,16 @@ func automaticIsADetectedLanguage(chosen: Model) {
     try HistoryStore.write(item, in: directory)
 
     let model = AppModel(history: directory, defaults: MemoryDefaults())
-    model.pane = .new
-    #expect(model.activeEntry == nil)
-
-    model.pane = .entry(item.id)
-    let activeID = try #require(model.activeEntry?.id)
-    #expect(activeID == item.id)
-
-    model.setPinned([activeID], to: true)
-    #expect(model.activeEntry?.isPinned == true)
-    model.setPinned([activeID], to: false)
-    #expect(model.activeEntry?.isPinned != true)
+    model.setPinned([item.id], to: true)
+    #expect(model.entry(item.id)?.isPinned == true)
+    model.setPinned([item.id], to: false)
+    #expect(model.entry(item.id)?.isPinned != true)
 
     for preset in TranscriptFlair.presets {
-        model.toggleFlair(preset, on: [activeID])
-        #expect(model.activeEntry?.flairs?.contains(preset) == true)
-        model.toggleFlair(preset, on: [activeID])
-        #expect(model.activeEntry?.flairs?.contains(preset) != true)
+        model.toggleFlair(preset, on: [item.id])
+        #expect(model.entry(item.id)?.flairs?.contains(preset) == true)
+        model.toggleFlair(preset, on: [item.id])
+        #expect(model.entry(item.id)?.flairs?.contains(preset) != true)
     }
 
     await model.finishWrites()
@@ -1053,7 +1046,7 @@ func automaticIsADetectedLanguage(chosen: Model) {
     #expect(model.visibleSelectablePanes.contains(.entry(lecture.id)))
 
     model.layout.searchQuery = "Biology"
-    #expect(model.folderHasStoredItems(bioID))
+    #expect(model.holdsTranscripts(bioID))
 
     model.pane = .new
     model.newTranscriptionRequest = nil
@@ -1062,4 +1055,76 @@ func automaticIsADetectedLanguage(chosen: Model) {
     model.manageGlossaries()
     let secondRequest = try #require(model.newTranscriptionRequest)
     #expect(firstRequest != secondRequest)
+}
+
+@Test func writeFoldersRollsBackWhenFolderDetailsWriteFails() throws {
+    let directory = try temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: directory) }
+
+    let original = TranscriptFolder(id: UUID(), name: "Original")
+    try HistoryStore.writeFolders([original], in: directory)
+
+    // Block writing folder-details.json so the second write fails after folders.json is rewritten.
+    let blocker = directory.appending(path: "folder-details.json")
+    try FileManager.default.createDirectory(at: blocker, withIntermediateDirectories: true)
+
+    let replacement = TranscriptFolder(id: UUID(), name: "Updated", color: .blue)
+    #expect(throws: (any Error).self) {
+        try HistoryStore.writeFolders([replacement], in: directory)
+    }
+
+    try FileManager.default.removeItem(at: blocker)
+    let restored = try HistoryStore.folders(in: directory)
+    #expect(restored == [original])
+}
+
+@MainActor
+@Test func recoverEntrySyncsCustomTagCasingAndColorWithLiveTag() async throws {
+    let directory = try temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: directory) }
+
+    var live = entry("Live.m4a", in: directory)
+    live.state = .finished
+    let canonicalTag = TranscriptFlair(kind: nil, title: "Midterm", color: .blue)
+    live.flairs = [canonicalTag]
+
+    var deleted = entry("Deleted.m4a", in: directory)
+    deleted.state = .finished
+    deleted.removed = .now
+    deleted.flairs = [TranscriptFlair(kind: nil, title: "midterm", color: .red)]
+
+    try HistoryStore.write(live, in: directory)
+    try HistoryStore.write(deleted, in: directory)
+
+    let model = AppModel(history: directory, defaults: MemoryDefaults())
+    model.recoverEntry(deleted.id)
+    await model.finishWrites()
+
+    #expect(model.entry(deleted.id)?.flairs == [canonicalTag])
+}
+
+@MainActor
+@Test func retryUnpinsFailedOriginalWhileKeepingRetryPinned() async throws {
+    let directory = try temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: directory) }
+
+    var failed = Entry(
+        recording: directory.appending(path: "Lecture.m4a"),
+        modelFile: "missing-test-model.bin", glossary: nil, skipsSilence: false, subtitles: false
+    )
+    failed.state = .failed("Stopped")
+    failed.isPinned = true
+    try HistoryStore.write(failed, in: directory)
+
+    let model = AppModel(history: directory, defaults: MemoryDefaults())
+    model.retry(failed.id)
+    await model.finishWrites()
+
+    let retried = try #require(model.entries.first { $0.id != failed.id })
+    #expect(retried.isPinned == true)
+    #expect(model.entry(failed.id)?.isPinned != true)
+
+    let reloaded = AppModel(history: directory, defaults: MemoryDefaults())
+    #expect(reloaded.entry(retried.id)?.isPinned == true)
+    #expect(reloaded.entry(failed.id)?.isPinned != true)
 }

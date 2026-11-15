@@ -37,11 +37,6 @@ extension AppModel {
         return target.name
     }
 
-    var activeEntry: Entry? {
-        guard case .entry(let id) = pane else { return nil }
-        return entry(id)
-    }
-
     func setPinned(_ ids: [Entry.ID], to isPinned: Bool) {
         guard !isShuttingDown else { return }
         if isPinned, !ids.isEmpty { layout.showsPinned = true }
@@ -174,12 +169,6 @@ extension AppModel {
             panes.formUnion(visibleUnavailable(in: folderID).map { .unavailable($0.id) })
         }
         return panes
-    }
-
-    func folderHasStoredItems(_ folderID: UUID) -> Bool {
-        entries.contains { $0.folderID == folderID }
-            || !subfolders(of: folderID).isEmpty
-            || !unavailable(in: folderID).isEmpty
     }
 
     func hasPinnedEntries(in folderID: UUID?) -> Bool {

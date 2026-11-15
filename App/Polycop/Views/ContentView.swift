@@ -113,10 +113,6 @@ struct ContentView: View {
         }
         .focusedSceneValue(\.selectedTranscripts, activeTranscripts)
         .onChange(of: selection) { _, chosen in
-            if chosen.contains(.new) {
-                selection.remove(.new)
-                return
-            }
             // Several rows are a selection to act on, not a page to show, so
             // the window only follows a single one.
             guard chosen.count == 1, let only = chosen.first, only != model.pane else { return }

@@ -378,3 +378,13 @@ struct LibraryToolbar<MenuContent: View>: ViewModifier {
             newFolder: {})
     }
 }
+
+#Preview("New Tag") {
+    let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    NewTagSheet(
+        model: AppModel(
+            history: folder.appending(path: "History"),
+            glossaries: folder.appending(path: "Glossaries"),
+            defaults: MemoryDefaults()),
+        targets: .constant([UUID()]))
+}
