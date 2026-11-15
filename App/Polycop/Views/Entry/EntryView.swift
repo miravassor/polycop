@@ -54,7 +54,12 @@ struct EntryView: View {
         .libraryWarnings(model)
         .navigationTitle(entry.name)
         .toolbar { pageTools }
-        .modifier(InspectorToggle(isShown: Bindable(model.layout).isInspectorShown))
+        .modifier(
+            InspectorToggle(
+                isShown: Bindable(model.layout).isInspectorShown,
+                canToggle: model.layout.canShowLibrary
+            )
+        )
         .inspector(isPresented: Bindable(model.layout).isInspectorShown) { inspector }
         // The Playback menu's steps, which work with the inspector hidden.
         .focusedSceneValue(\.paragraphSteps, steps)

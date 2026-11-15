@@ -62,13 +62,13 @@ final class WindowLayout {
             + EntryView.idealInspectorWidth
     }
 
-    /// Default centered window size with both sidebars matching horizontally
+    /// Default centred window size with both sidebars matching horizontally
     /// (`idealLibraryWidth + libraryInset == idealInspectorWidth == 360 pt`).
     static var defaultSize: CGSize {
         CGSize(width: defaultWidth, height: defaultHeight)
     }
 
-    private static let singleSidebarWidth = Double(
+    static let singleSidebarWidth = Double(
         ContentView.idealLibraryWidth + ContentView.libraryInset + ContentView.pageMinimumWidth)
     private static let bothSidebarsWidth =
         singleSidebarWidth + Double(EntryView.idealInspectorWidth)
@@ -90,8 +90,60 @@ final class WindowLayout {
         prefersInspectorWhenNarrow = false
         showsLibrary = true
         showsInspector = true
+        // Updating `libraryWidth` syncs `inspectorWidth` via `didSet`.
         libraryWidth = Double(ContentView.idealLibraryWidth)
-        inspectorWidth = Double(EntryView.idealInspectorWidth)
+    }
+
+    /// Widest each open sidebar may stretch from the window's edge without
+    /// pushing the center page below `ContentView.pageMinimumWidth`.
+    var maxInspectorColumnWidth: CGFloat {
+        guard windowWidth.isFinite else { return EntryView.inspectorWidths.upperBound }
+        let available = CGFloat(windowWidth) - ContentView.pageMinimumWidth
+        let visibleCount: CGFloat = isLibraryShown && isInspectorShown ? 2 : 1
+        return min(
+            EntryView.inspectorWidths.upperBound,
+            max(EntryView.idealInspectorWidth, available / visibleCount)
+        )
+    }
+
+    /// Matching library column ceiling inside the leading glass inset on macOS 26.
+    var maxLibraryColumnWidth: CGFloat {
+        max(ContentView.idealLibraryWidth, maxInspectorColumnWidth - ContentView.libraryInset)
+    }
+
+    /// Records a user drag of the library divider while ignoring transient
+    /// window-narrowing clamps below the stored width.
+    func recordLibraryWidth(_ measured: CGFloat) {
+        let ceiling = maxLibraryColumnWidth
+        guard
+            shouldRecordColumnWidth(
+                measured, shown: isLibraryShown, range: ContentView.libraryWidths,
+                ceiling: ceiling, current: libraryWidth)
+        else { return }
+        libraryWidth = Double(measured)
+    }
+
+    /// Records a user drag of the inspector divider while ignoring transient
+    /// window-narrowing clamps below the stored width.
+    func recordInspectorWidth(_ measured: CGFloat) {
+        let ceiling = maxInspectorColumnWidth
+        guard
+            shouldRecordColumnWidth(
+                measured, shown: isInspectorShown, range: EntryView.inspectorWidths,
+                ceiling: ceiling, current: inspectorWidth)
+        else { return }
+        inspectorWidth = Double(measured)
+    }
+
+    private func shouldRecordColumnWidth(
+        _ measured: CGFloat, shown: Bool, range: ClosedRange<CGFloat>,
+        ceiling: CGFloat, current: Double
+    ) -> Bool {
+        guard !isResettingSize, shown, range.contains(measured),
+            measured < ceiling - 0.5 || current <= Double(ceiling) + 0.5,
+            abs(Double(measured) - current) >= 0.5
+        else { return false }
+        return true
     }
 
     /// Whether the window has room for the library beside the page.

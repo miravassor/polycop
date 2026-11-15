@@ -54,6 +54,10 @@ struct ContentView: View {
         EntryView.idealInspectorWidth - libraryInset
     }
 
+    private var maxLibraryWidth: CGFloat {
+        layout.isResettingSize ? Self.idealLibraryWidth : layout.maxLibraryColumnWidth
+    }
+
     var body: some View {
         NavigationSplitView(columnVisibility: columns) {
             List(selection: $selection) {
@@ -67,18 +71,17 @@ struct ContentView: View {
             }
             .listStyle(.sidebar)
             .contextMenu { libraryMenu }
+            // Keep the stored width balanced with the inspector while letting narrow windows
+            // bound the sidebar so the page never shrinks below `pageMinimumWidth`.
             .onGeometryChange(for: CGFloat.self) {
                 $0.size.width
             } action: {
-                if !layout.isResettingSize, layout.isLibraryShown, Self.libraryWidths.contains($0),
-                    abs(Double($0) - layout.libraryWidth) >= 0.5
-                {
-                    layout.libraryWidth = $0
-                }
+                layout.recordLibraryWidth($0)
             }
             .navigationSplitViewColumnWidth(
-                min: Self.libraryWidths.lowerBound, ideal: layout.libraryWidth,
-                max: layout.isResettingSize ? Self.idealLibraryWidth : Self.libraryWidths.upperBound
+                min: Self.libraryWidths.lowerBound,
+                ideal: min(CGFloat(layout.libraryWidth), maxLibraryWidth),
+                max: maxLibraryWidth
             )
         } detail: {
             Group {
@@ -105,7 +108,7 @@ struct ContentView: View {
             }
             // The detail column asks for a minimum of its own: the player
             // under the text, and the page's margins.
-            .minimumSize(width: PlayerBar.narrowest + 2 * Spacing.page, height: 450)
+            .minimumSize(width: Self.pageMinimumWidth, height: 450)
         }
         .onChange(of: selection) { _, chosen in
             // Several rows are a selection to act on, not a page to show, so

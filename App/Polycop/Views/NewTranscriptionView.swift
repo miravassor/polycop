@@ -16,7 +16,12 @@ struct NewTranscriptionView: View {
         page
             .libraryWarnings(model)
             .navigationTitle("New Transcription")
-            .modifier(InspectorToggle(isShown: Bindable(model.layout).isInspectorShown))
+            .modifier(
+                InspectorToggle(
+                    isShown: Bindable(model.layout).isInspectorShown,
+                    canToggle: model.layout.canShowLibrary
+                )
+            )
             .inspector(isPresented: Bindable(model.layout).isInspectorShown) {
                 NewTranscriptionSettings(
                     model: model, editingGlossaries: $editingGlossaries

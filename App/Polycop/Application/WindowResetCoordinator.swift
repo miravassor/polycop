@@ -3,7 +3,7 @@
 import AppKit
 import SwiftUI
 
-/// Centers the main window at its default size and snaps live AppKit split dividers
+/// Centres the main window at its default size and snaps live AppKit split dividers
 /// back to the symmetric defaults once any hidden panes finish uncollapsing.
 @MainActor
 final class WindowResetCoordinator {
@@ -38,6 +38,13 @@ final class WindowResetCoordinator {
 
         if window.isMiniaturized {
             window.deminiaturize(nil)
+            _ = await waitUntil(
+                timeout: .seconds(3),
+                observing: [NSWindow.didDeminiaturizeNotification]
+            ) {
+                !window.isMiniaturized
+            }
+            guard !Task.isCancelled, !window.isMiniaturized else { return }
         }
         window.makeKeyAndOrderFront(nil)
         centerAtDefaultSizeIfWindowed(window)
@@ -73,7 +80,6 @@ final class WindowResetCoordinator {
             timeout: .milliseconds(500),
             observing: [
                 NSWindow.didResizeNotification,
-                NSWindow.didDeminiaturizeNotification,
                 NSSplitView.didResizeSubviewsNotification,
             ]
         ) {
@@ -87,12 +93,15 @@ final class WindowResetCoordinator {
             return !window.isMiniaturized
         }
         let targetWidth = root.bounds.width
-        let minInspectorContainerWidth = max(
+        let minPossibleInspectorWidth = max(
             0,
-            targetWidth - ContentView.idealLibraryWidth - ContentView.libraryInset - 1
+            targetWidth - ContentView.libraryWidths.upperBound - ContentView.libraryInset - 1
         )
         let (sidebar, inspector) = splitControllers(in: root)
         let sidebarReady = sidebar.map { $0.splitView.bounds.width >= targetWidth - 1 } ?? true
+        let expectedDetailWidth =
+            sidebar?.splitViewItems.last?.viewController.view.bounds.width ?? targetWidth
+        let minInspectorContainerWidth = max(minPossibleInspectorWidth, expectedDetailWidth - 1)
         let inspectorReady =
             inspector.map {
                 guard $0.splitView.bounds.width >= minInspectorContainerWidth else {

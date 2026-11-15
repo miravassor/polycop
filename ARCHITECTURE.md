@@ -58,12 +58,10 @@ Size.
   disk; a new entry is written by the action that makes it (adding, retrying,
   duplicating or importing).
 * `Player` owns playback state (position, playing, speed) and is owned by
-  `AppModel`. Views read it; `AppModel`, the player and video controls,
-  `PlaybackCommands`, typing pauses in `EntryView`, `NowPlaying`, and
-  `PlaybackInterruptions` change it.
+  `AppModel`. Views read it and change it, as does typing pausing in
+  `EntryView`, `NowPlaying`, and `PlaybackInterruptions`.
 * Views keep only presentation state (`@State`: hover, popovers, scroll
-  frames, sidebar row selection). What must survive a view going away belongs
-  to `AppModel`.
+  frames). What must survive a view going away belongs to `AppModel`.
 * Text being typed lives in the paragraph's `NSTextView` until
   `TypingBuffer` hands it over, after a pause or before anything else reads
   the transcript.

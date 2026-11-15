@@ -127,8 +127,9 @@ extension AppScene {
                 stage.model.pane = .entry(stage.second)
             },
             act: { window in
-                if (window.contentView?.frame.width ?? 0) < 866 {
-                    window.setContentSize(NSSize(width: 866, height: 600))
+                let minimum = CGFloat(WindowLayout.singleSidebarWidth)
+                if (window.contentView?.frame.width ?? 0) < minimum {
+                    window.setContentSize(NSSize(width: minimum, height: 600))
                 }
             }),
     ]

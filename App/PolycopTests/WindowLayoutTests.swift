@@ -118,6 +118,51 @@ import Testing
 }
 
 @MainActor
+@Test func columnWidthCeilingsReservePageMinimumWidthWithoutOverwritingStoredWidth() {
+    let layout = WindowLayout(defaults: MemoryDefaults())
+    let wideLibrary = Double(ContentView.libraryWidths.upperBound)
+    layout.libraryWidth = wideLibrary
+
+    // Half of a 2560x1440 screen: both sidebars stay open and clamp symmetrically
+    // so the center page never falls below `ContentView.pageMinimumWidth`.
+    layout.windowWidth = 1280
+    #expect(layout.isLibraryShown)
+    #expect(layout.isInspectorShown)
+    #expect(
+        layout.maxLibraryColumnWidth + ContentView.libraryInset
+            + ContentView.pageMinimumWidth + layout.maxInspectorColumnWidth == 1280)
+
+    // Clamped geometry updates at 1280 must not clobber the reader's wider preference.
+    layout.recordLibraryWidth(layout.maxLibraryColumnWidth)
+    layout.recordInspectorWidth(layout.maxInspectorColumnWidth)
+    #expect(layout.libraryWidth == wideLibrary)
+
+    // At the default width, sidebars can widen up to half the remaining room.
+    layout.windowWidth = Double(WindowLayout.defaultSize.width)
+    #expect(layout.maxInspectorColumnWidth == 475)
+    #expect(
+        layout.maxLibraryColumnWidth + ContentView.libraryInset
+            + ContentView.pageMinimumWidth + layout.maxInspectorColumnWidth
+            == WindowLayout.defaultSize.width)
+
+    // Narrower single-sidebar width: only one sidebar is open, so the full spare room applies.
+    layout.windowWidth = 1000
+    #expect(layout.isLibraryShown)
+    #expect(!layout.isInspectorShown)
+    #expect(
+        layout.maxLibraryColumnWidth
+            == 1000 - ContentView.pageMinimumWidth - ContentView.libraryInset)
+
+    // Dragging narrower within the ceiling updates both paired widths.
+    layout.windowWidth = 1600
+    #expect(layout.maxLibraryColumnWidth == ContentView.libraryWidths.upperBound)
+    #expect(layout.maxInspectorColumnWidth == EntryView.inspectorWidths.upperBound)
+    layout.recordLibraryWidth(440)
+    #expect(layout.libraryWidth == 440)
+    #expect(layout.inspectorWidth == 440 + Double(ContentView.libraryInset))
+}
+
+@MainActor
 @Test func resetToDefaultSizeRestoresSidebarsAndCenteredDefaults() {
     let defaults = MemoryDefaults()
     let layout = WindowLayout(defaults: defaults)
@@ -161,6 +206,10 @@ import Testing
 private struct ResetTestSplitView: View {
     @Bindable var layout: WindowLayout
 
+    private var maxLibraryWidth: CGFloat {
+        layout.isResettingSize ? ContentView.idealLibraryWidth : layout.maxLibraryColumnWidth
+    }
+
     var body: some View {
         NavigationSplitView(
             columnVisibility: Binding(
@@ -170,8 +219,9 @@ private struct ResetTestSplitView: View {
         ) {
             Color.clear
                 .navigationSplitViewColumnWidth(
-                    min: ContentView.idealLibraryWidth, ideal: layout.libraryWidth,
-                    max: layout.isResettingSize ? ContentView.idealLibraryWidth : 512
+                    min: ContentView.libraryWidths.lowerBound,
+                    ideal: min(CGFloat(layout.libraryWidth), maxLibraryWidth),
+                    max: maxLibraryWidth
                 )
         } detail: {
             Color.clear
@@ -293,6 +343,8 @@ private func assertCenteredDefaultFrame(of window: NSWindow) {
 
     let window = makeResetTestWindow(layout: layout)
     defer { window.close() }
+    window.setContentSize(NSSize(width: 900, height: 600))
+    window.setFrameOrigin(NSPoint(x: 40, y: 40))
     #expect(!window.isVisible)
 
     var openCalls = 0
@@ -304,13 +356,35 @@ private func assertCenteredDefaultFrame(of window: NSWindow) {
     }
 
     await waitUntilSettled {
-        window.isVisible && !layout.isResettingSize && layout.isLibraryShown
+        guard window.isVisible, !layout.isResettingSize,
+            layout.isLibraryShown, layout.isInspectorShown,
+            let root = window.contentView
+        else { return false }
+        let controllers = WindowResetCoordinator.splitControllers(in: root)
+        guard let sidebar = controllers.sidebar, let inspector = controllers.inspector,
+            sidebar.splitViewItems.first?.isCollapsed == false,
+            inspector.splitViewItems.last?.isCollapsed == false
+        else { return false }
+        let sidebarWidth = sidebar.splitViewItems.first?.viewController.view.frame.width ?? 0
+        let inspectorWidth = inspector.splitViewItems.last?.viewController.view.frame.width ?? 0
+        return abs(sidebarWidth - ContentView.idealLibraryWidth) <= 1
+            && abs(inspectorWidth - EntryView.idealInspectorWidth) <= 1
     }
 
     #expect(openCalls == 1)
     #expect(window.isVisible)
+    assertCenteredDefaultFrame(of: window)
     #expect(layout.showsLibrary)
     #expect(layout.showsInspector)
+    #expect(layout.isLibraryShown)
+    #expect(layout.isInspectorShown)
     #expect(layout.libraryWidth == Double(ContentView.idealLibraryWidth))
     #expect(layout.inspectorWidth == Double(EntryView.idealInspectorWidth))
+    if let root = window.contentView {
+        let (sidebar, inspector) = WindowResetCoordinator.splitControllers(in: root)
+        let sidebarWidth = sidebar?.splitViewItems.first?.viewController.view.frame.width ?? 0
+        let inspectorWidth = inspector?.splitViewItems.last?.viewController.view.frame.width ?? 0
+        #expect(abs(sidebarWidth - ContentView.idealLibraryWidth) <= 1)
+        #expect(abs(inspectorWidth - EntryView.idealInspectorWidth) <= 1)
+    }
 }
