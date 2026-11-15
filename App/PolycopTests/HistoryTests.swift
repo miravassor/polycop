@@ -1148,24 +1148,42 @@ func automaticIsADetectedLanguage(chosen: Model) {
     let reloaded = AppModel(history: directory, defaults: MemoryDefaults())
     #expect(reloaded.customFlairs.map(\.title) == ["Midterm"])
 
-    let notifiedOnEdit = OSAllocatedUnfairLock(initialState: false)
-    withObservationTracking {
-        _ = reloaded.customFlairs
-    } onChange: {
-        notifiedOnEdit.withLock { $0 = true }
+    func customFlairsNotified(_ mutate: () -> Void) -> Bool {
+        let notified = OSAllocatedUnfairLock(initialState: false)
+        withObservationTracking {
+            _ = reloaded.customFlairs
+        } onChange: {
+            notified.withLock { $0 = true }
+        }
+        mutate()
+        return notified.withLock { $0 }
     }
-    reloaded.updateEntry(item.id, whileTyping: true) {
-        $0.paragraphs[0].text = "Bonjour edited"
-    }
-    #expect(!notifiedOnEdit.withLock { $0 })
 
-    let notifiedOnTag = OSAllocatedUnfairLock(initialState: false)
-    withObservationTracking {
-        _ = reloaded.customFlairs
-    } onChange: {
-        notifiedOnTag.withLock { $0 = true }
+    let notifiedOnEdit = customFlairsNotified {
+        reloaded.updateEntry(item.id) { $0.paragraphs[0].text = "Bonjour edited" }
     }
-    reloaded.addCustomTag(named: "Exam", color: .green, to: [item.id])
-    #expect(notifiedOnTag.withLock { $0 })
+    #expect(!notifiedOnEdit)
+
+    let notifiedOnAdd = customFlairsNotified {
+        reloaded.addCustomTag(named: "Exam", color: .green, to: [item.id])
+    }
+    #expect(notifiedOnAdd)
     #expect(reloaded.customFlairs.map(\.title) == ["Exam", "Midterm"])
+
+    let notifiedOnColor = customFlairsNotified {
+        reloaded.addCustomTag(named: "Midterm", color: .red, to: [item.id])
+    }
+    #expect(notifiedOnColor)
+    #expect(reloaded.customFlairs.first { $0.title == "Midterm" }?.color == .red)
+
+    let notifiedOnClear = customFlairsNotified {
+        reloaded.clearFlairs(on: [item.id])
+    }
+    #expect(notifiedOnClear)
+    #expect(reloaded.customFlairs.isEmpty)
+
+    reloaded.addFolder()
+    #expect(reloaded.folderRequest != nil)
+
+    await reloaded.finishWrites()
 }

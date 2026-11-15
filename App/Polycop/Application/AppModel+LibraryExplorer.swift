@@ -87,9 +87,8 @@ extension AppModel {
         for id in ids { updateEntry(id) { $0.flairs = nil } }
     }
 
-    /// Returns sorted unique custom tags when `entries` changes them, or `nil`
-    /// so unrelated `entries` writes leave `customFlairs` observers quiet.
-    var updatedCustomFlairs: [TranscriptFlair]? {
+    /// Returns sorted unique custom tags present across `entries`.
+    static func customFlairs(in entries: [Entry]) -> [TranscriptFlair] {
         var tags: [TranscriptFlair] = []
         for entry in entries {
             for flair in entry.flairs ?? [] where flair.kind == nil && !flair.title.isEmpty {
@@ -99,15 +98,18 @@ extension AppModel {
                 if !exists { tags.append(flair) }
             }
         }
-        let next: [TranscriptFlair] =
-            tags.isEmpty
-            ? []
-            : tags.sorted {
-                let order = $0.title.localizedStandardCompare($1.title)
-                if order != .orderedSame { return order == .orderedAscending }
-                return $0.color.rawValue < $1.color.rawValue
-            }
-        return next == customFlairs ? nil : next
+        return tags.sorted {
+            let order = $0.title.localizedStandardCompare($1.title)
+            if order != .orderedSame { return order == .orderedAscending }
+            return $0.color.rawValue < $1.color.rawValue
+        }
+    }
+
+    static func changedFlairs(
+        _ entries: [Entry], _ current: [TranscriptFlair]
+    ) -> [TranscriptFlair]? {
+        let next = customFlairs(in: entries)
+        return next == current ? nil : next
     }
 
     private var trimmedSearchQuery: String {

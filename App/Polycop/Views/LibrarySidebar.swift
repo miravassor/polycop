@@ -254,7 +254,7 @@ struct LibrarySidebar: View {
     }
 
     private var libraryMenu: some View {
-        LibraryMenu(model: model) { newFolder(nil) }
+        LibraryMenu(model: model)
     }
 }
 

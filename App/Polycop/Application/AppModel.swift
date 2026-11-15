@@ -44,9 +44,9 @@ final class AppModel {
     }
     /// Every recording given to the app, newest first.
     var entries: [Entry] = [] {
-        didSet { if let tags = updatedCustomFlairs { customFlairs = tags } }
+        didSet { if let tags = Self.changedFlairs(entries, customFlairs) { customFlairs = tags } }
     }
-    /// Sorted unique custom tags across `entries`, kept updated on writes.
+    /// Sorted unique custom tags across `entries`, kept in sync on changes.
     private(set) var customFlairs: [TranscriptFlair] = []
     /// Transcripts removed from the library in the last `keepsDeleted`, most
     /// recent first, so that a removal can be taken back.

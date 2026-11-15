@@ -5,10 +5,9 @@ import SwiftUI
 /// Actions shared by the sidebar's context menus and toolbar menu.
 struct LibraryMenu: View {
     let model: AppModel
-    let newFolder: () -> Void
 
     var body: some View {
-        Button("New Folder…", action: newFolder)
+        Button("New Folder…") { model.addFolder() }
             .disabled(model.foldersAreDamaged)
         LibraryFilterAndSortMenu(model: model)
     }
@@ -329,32 +328,36 @@ struct LibrarySectionHeader<Trailing: View>: View {
 }
 
 /// Filter and sort menu in the sidebar's toolbar. Holds only `model` without
-/// closures so sidebar list redraws do not rebuild the toolbar item's menu.
+/// closures so sidebar redraws do not rebuild the toolbar item.
 struct LibraryToolbar: ViewModifier {
     let model: AppModel
 
     func body(content: Content) -> some View {
         let isShown = model.layout.showsLibrary
-        let isFiltered = model.layout.filter != .all
         if #available(macOS 26, *) {
             content.toolbar {
                 if isShown {
-                    ToolbarItem { filterMenu(isFiltered: isFiltered) }
+                    ToolbarItem { LibraryFilterMenu(model: model) }
                         .sharedBackgroundVisibility(.hidden)
                 }
             }
         } else {
             content.toolbar {
                 if isShown {
-                    ToolbarItem { filterMenu(isFiltered: isFiltered) }
+                    ToolbarItem { LibraryFilterMenu(model: model) }
                 }
             }
         }
     }
+}
 
-    private func filterMenu(isFiltered: Bool) -> some View {
+private struct LibraryFilterMenu: View {
+    let model: AppModel
+
+    var body: some View {
+        let isFiltered = model.layout.filter != .all
         Menu {
-            LibraryMenu(model: model) { model.addFolder() }
+            LibraryMenu(model: model)
         } label: {
             Label(
                 "Filter and Sort",
@@ -376,8 +379,7 @@ struct LibraryToolbar: ViewModifier {
             model: AppModel(
                 history: folder.appending(path: "History"),
                 glossaries: folder.appending(path: "Glossaries"),
-                defaults: MemoryDefaults()),
-            newFolder: {})
+                defaults: MemoryDefaults()))
     }
 }
 
