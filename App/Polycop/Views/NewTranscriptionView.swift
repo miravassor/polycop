@@ -16,8 +16,8 @@ struct NewTranscriptionView: View {
         page
             .libraryWarnings(model)
             .navigationTitle("New Transcription")
-            .modifier(InspectorToggle(isShown: Bindable(model.layout).showsInspector))
-            .inspector(isPresented: Bindable(model.layout).showsInspector) {
+            .modifier(InspectorToggle(isShown: Bindable(model.layout).isInspectorShown))
+            .inspector(isPresented: Bindable(model.layout).isInspectorShown) {
                 NewTranscriptionSettings(
                     model: model, editingGlossaries: $editingGlossaries
                 )
@@ -62,12 +62,12 @@ struct NewTranscriptionView: View {
                 VStack(spacing: 24) {
                     dropHere
                     // What runs while nothing waits, under the empty state.
-                    StartBar(model: model, showsSettings: !model.layout.showsInspector)
+                    StartBar(model: model, showsSettings: !model.layout.isInspectorShown)
                 }
                 .padding(.bottom, Spacing.page)
             } else {
                 RecordingsQueue(
-                    model: model, showsSettings: !model.layout.showsInspector,
+                    model: model, showsSettings: !model.layout.isInspectorShown,
                     choose: chooseRecordings)
             }
         }

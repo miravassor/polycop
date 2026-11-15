@@ -22,11 +22,26 @@ final class WindowLayout {
         didSet { defaults.set(showsInspector, forKey: Self.showsInspectorKey) }
     }
     var libraryWidth: Double {
-        didSet { defaults.set(libraryWidth, forKey: Self.libraryWidthKey) }
+        didSet {
+            defaults.set(libraryWidth, forKey: Self.libraryWidthKey)
+            guard !isSyncingWidth else { return }
+            isSyncingWidth = true
+            defer { isSyncingWidth = false }
+            let matched = libraryWidth + Double(ContentView.libraryInset)
+            if inspectorWidth != matched { inspectorWidth = matched }
+        }
     }
-    /// The same on every page, since each has an inspector of its own.
+    /// Paired with the library's width so both columns take the same width from
+    /// the window's edges.
     var inspectorWidth: Double {
-        didSet { defaults.set(inspectorWidth, forKey: Self.inspectorWidthKey) }
+        didSet {
+            defaults.set(inspectorWidth, forKey: Self.inspectorWidthKey)
+            guard !isSyncingWidth else { return }
+            isSyncingWidth = true
+            defer { isSyncingWidth = false }
+            let matched = inspectorWidth - Double(ContentView.libraryInset)
+            if libraryWidth != matched { libraryWidth = matched }
+        }
     }
     /// The library's folders showing what they hold.
     var openFolders: Set<UUID> {
@@ -37,18 +52,120 @@ final class WindowLayout {
         didSet { defaults.set(sort.rawValue, forKey: Self.librarySortKey) }
     }
 
+    static let defaultHeight: CGFloat = 880
+
+    static var defaultWidth: CGFloat {
+        ContentView.idealLibraryWidth
+            + ContentView.libraryInset
+            + EntryView.readingWidth(textSize: ReadingSettings.defaultTextSize)
+            + 2 * Spacing.page
+            + EntryView.idealInspectorWidth
+    }
+
+    /// Default centered window size with both sidebars matching horizontally
+    /// (`idealLibraryWidth + libraryInset == idealInspectorWidth == 360 pt`).
+    static var defaultSize: CGSize {
+        CGSize(width: defaultWidth, height: defaultHeight)
+    }
+
+    private static let singleSidebarWidth = Double(
+        ContentView.idealLibraryWidth + ContentView.libraryInset + ContentView.pageMinimumWidth)
+    private static let bothSidebarsWidth =
+        singleSidebarWidth + Double(EntryView.idealInspectorWidth)
+
+    /// Current content width of the window, used to fold sidebars when narrow
+    /// without overwriting the reader's stored choices.
+    var windowWidth: Double = .infinity {
+        didSet {
+            if windowWidth >= Self.bothSidebarsWidth || windowWidth < Self.singleSidebarWidth {
+                prefersInspectorWhenNarrow = false
+            }
+        }
+    }
+    var isResettingSize = false
+    private var prefersInspectorWhenNarrow = false
+
+    /// Restores both sidebars to their symmetric default widths.
+    func resetToDefaultSize() {
+        prefersInspectorWhenNarrow = false
+        showsLibrary = true
+        showsInspector = true
+        libraryWidth = Double(ContentView.idealLibraryWidth)
+        inspectorWidth = Double(EntryView.idealInspectorWidth)
+    }
+
+    /// Whether the window has room for the library beside the page.
+    var canShowLibrary: Bool {
+        windowWidth >= Self.singleSidebarWidth
+    }
+
+    /// Whether the window has room for the inspector beside the page and, if
+    /// shown, the library.
+    var canShowInspector: Bool {
+        if windowWidth >= Self.bothSidebarsWidth { return true }
+        guard windowWidth >= Self.singleSidebarWidth else { return false }
+        return !showsLibrary || prefersInspectorWhenNarrow
+    }
+
+    /// Whether the library is shown at the window's current width.
+    var isLibraryShown: Bool {
+        get {
+            guard showsLibrary, canShowLibrary else { return false }
+            if windowWidth < Self.bothSidebarsWidth, showsInspector, prefersInspectorWhenNarrow {
+                return false
+            }
+            return true
+        }
+        set {
+            guard canShowLibrary else { return }
+            prefersInspectorWhenNarrow = false
+            showsLibrary = newValue
+        }
+    }
+
+    /// Whether the inspector is shown at the window's current width.
+    var isInspectorShown: Bool {
+        get { showsInspector && canShowInspector }
+        set {
+            guard windowWidth >= Self.singleSidebarWidth else { return }
+            if newValue {
+                if windowWidth < Self.bothSidebarsWidth, showsLibrary {
+                    prefersInspectorWhenNarrow = true
+                }
+                showsInspector = true
+            } else {
+                prefersInspectorWhenNarrow = false
+                showsInspector = false
+            }
+        }
+    }
+
     @ObservationIgnored private let defaults: UserDefaults
+    @ObservationIgnored private var isSyncingWidth = false
 
     init(defaults: UserDefaults) {
         self.defaults = defaults
         showsLibrary = defaults.object(forKey: Self.showsLibraryKey) as? Bool ?? true
         showsInspector = defaults.object(forKey: Self.showsInspectorKey) as? Bool ?? true
-        libraryWidth =
-            defaults.object(forKey: Self.libraryWidthKey) as? Double
-            ?? Double(ContentView.idealLibraryWidth)
-        inspectorWidth =
-            defaults.object(forKey: Self.inspectorWidthKey) as? Double
-            ?? Double(EntryView.idealInspectorWidth)
+        let storedLibrary = defaults.object(forKey: Self.libraryWidthKey) as? Double
+        let storedInspector = defaults.object(forKey: Self.inspectorWidthKey) as? Double
+        let inset = Double(ContentView.libraryInset)
+        let widths = ContentView.libraryWidths
+        let validWidths = Double(widths.lowerBound)...Double(widths.upperBound)
+        if let storedLibrary, let storedInspector,
+            abs(storedLibrary + inset - storedInspector) < 1.0,
+            validWidths.contains(storedLibrary)
+        {
+            libraryWidth = storedLibrary
+            inspectorWidth = storedLibrary + inset
+        } else {
+            let defaultLibrary = Double(ContentView.idealLibraryWidth)
+            let defaultInspector = Double(EntryView.idealInspectorWidth)
+            libraryWidth = defaultLibrary
+            inspectorWidth = defaultInspector
+            defaults.set(defaultLibrary, forKey: Self.libraryWidthKey)
+            defaults.set(defaultInspector, forKey: Self.inspectorWidthKey)
+        }
         openFolders = Set(
             (defaults.stringArray(forKey: Self.openFoldersKey) ?? [])
                 .compactMap(UUID.init(uuidString:)))

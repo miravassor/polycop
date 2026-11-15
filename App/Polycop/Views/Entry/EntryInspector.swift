@@ -66,11 +66,17 @@ struct InspectorColumn: ViewModifier {
             .onGeometryChange(for: CGFloat.self) {
                 $0.size.width
             } action: {
-                layout.inspectorWidth = max($0, EntryView.inspectorWidths.lowerBound)
+                if !layout.isResettingSize, layout.isInspectorShown,
+                    EntryView.inspectorWidths.contains($0),
+                    abs(Double($0) - layout.inspectorWidth) >= 0.5
+                {
+                    layout.inspectorWidth = $0
+                }
             }
             .inspectorColumnWidth(
                 min: EntryView.inspectorWidths.lowerBound, ideal: layout.inspectorWidth,
-                max: EntryView.inspectorWidths.upperBound
+                max: layout.isResettingSize
+                    ? EntryView.idealInspectorWidth : EntryView.inspectorWidths.upperBound
             )
     }
 }

@@ -28,24 +28,31 @@ struct ContentView: View {
         _selection = State(initialValue: [model.pane])
     }
 
-    /// Room for the library, the page with its player and the inspector, so
-    /// that nothing is cut; hiding the inspector narrows it.
-    private var minimumWidth: CGFloat {
-        guard layout.showsInspector, selected.count <= 1 else { return 860 }
-        // At its widest: macOS squeezes a column below its minimum otherwise.
-        let library = layout.showsLibrary ? Self.libraryWidths.upperBound : 0
-        return max(860, library + PlayerBar.narrowest + 2 * Spacing.page + layout.inspectorWidth)
-    }
+    /// The narrowest page: the player bar and the page margins around it. A
+    /// window narrower than its sidebars folds the inspector first, then the
+    /// library, so split screen can reach half of any display.
+    static let pageMinimumWidth: CGFloat = PlayerBar.narrowest + 2 * Spacing.page
     /// The library shown or hidden.
     private var columns: Binding<NavigationSplitViewVisibility> {
         Binding(
-            get: { layout.showsLibrary ? .automatic : .detailOnly },
-            set: { layout.showsLibrary = $0 != .detailOnly })
+            get: { layout.isLibraryShown ? .automatic : .detailOnly },
+            set: { layout.isLibraryShown = $0 != .detailOnly })
     }
-    /// The library's widths: by default about as wide as the inspector, so
-    /// the text sits between two balanced columns.
-    static let libraryWidths: ClosedRange<CGFloat> = 220...340
-    static let idealLibraryWidth: CGFloat = 300
+    /// The margin macOS 26 leaves outside the floating sidebar platter, which
+    /// the inspector on the trailing edge does not have.
+    static var libraryInset: CGFloat {
+        if #available(macOS 26, *) { PlayerBar.foot } else { 0 }
+    }
+    /// The library's widths: paired with the inspector's so that, with the
+    /// floating sidebar's leading margin included, both side columns take the
+    /// same room from the window edges and keep the middle page centred.
+    static var libraryWidths: ClosedRange<CGFloat> {
+        let bounds = EntryView.inspectorWidths
+        return (bounds.lowerBound - libraryInset)...(bounds.upperBound - libraryInset)
+    }
+    static var idealLibraryWidth: CGFloat {
+        EntryView.idealInspectorWidth - libraryInset
+    }
 
     var body: some View {
         NavigationSplitView(columnVisibility: columns) {
@@ -63,11 +70,15 @@ struct ContentView: View {
             .onGeometryChange(for: CGFloat.self) {
                 $0.size.width
             } action: {
-                if Self.libraryWidths.contains($0) { layout.libraryWidth = $0 }
+                if !layout.isResettingSize, layout.isLibraryShown, Self.libraryWidths.contains($0),
+                    abs(Double($0) - layout.libraryWidth) >= 0.5
+                {
+                    layout.libraryWidth = $0
+                }
             }
             .navigationSplitViewColumnWidth(
                 min: Self.libraryWidths.lowerBound, ideal: layout.libraryWidth,
-                max: Self.libraryWidths.upperBound
+                max: layout.isResettingSize ? Self.idealLibraryWidth : Self.libraryWidths.upperBound
             )
         } detail: {
             Group {
@@ -174,7 +185,12 @@ struct ContentView: View {
                 model: model, moving: $moving, destinationFolder: $destinationFolder,
                 opened: { layout.openFolders.insert($0) })
         }
-        .minimumSize(width: minimumWidth, height: 600)
+        .minimumSize(width: Self.pageMinimumWidth, height: 600)
+        .onGeometryChange(for: CGFloat.self) {
+            $0.size.width
+        } action: {
+            layout.windowWidth = Double($0)
+        }
         .disabled(model.isShuttingDown)
         .dropDestination(for: URL.self) { urls, _ in
             guard !model.isShuttingDown else { return false }
