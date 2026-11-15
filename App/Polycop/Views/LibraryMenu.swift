@@ -328,31 +328,33 @@ struct LibrarySectionHeader<Trailing: View>: View {
     }
 }
 
-struct LibraryToolbar<MenuContent: View>: ViewModifier {
-    let isShown: Bool
-    let isFiltered: Bool
-    @ViewBuilder let menu: () -> MenuContent
+/// Filter and sort menu in the sidebar's toolbar. Holds only `model` without
+/// closures so sidebar list redraws do not rebuild the toolbar item's menu.
+struct LibraryToolbar: ViewModifier {
+    let model: AppModel
 
     func body(content: Content) -> some View {
+        let isShown = model.layout.showsLibrary
+        let isFiltered = model.layout.filter != .all
         if #available(macOS 26, *) {
             content.toolbar {
                 if isShown {
-                    ToolbarItem { filterMenu }
+                    ToolbarItem { filterMenu(isFiltered: isFiltered) }
                         .sharedBackgroundVisibility(.hidden)
                 }
             }
         } else {
             content.toolbar {
                 if isShown {
-                    ToolbarItem { filterMenu }
+                    ToolbarItem { filterMenu(isFiltered: isFiltered) }
                 }
             }
         }
     }
 
-    private var filterMenu: some View {
+    private func filterMenu(isFiltered: Bool) -> some View {
         Menu {
-            menu()
+            LibraryMenu(model: model) { model.addFolder() }
         } label: {
             Label(
                 "Filter and Sort",

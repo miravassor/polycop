@@ -87,7 +87,9 @@ extension AppModel {
         for id in ids { updateEntry(id) { $0.flairs = nil } }
     }
 
-    var customFlairs: [TranscriptFlair] {
+    /// Returns sorted unique custom tags when `entries` changes them, or `nil`
+    /// so unrelated `entries` writes leave `customFlairs` observers quiet.
+    var updatedCustomFlairs: [TranscriptFlair]? {
         var tags: [TranscriptFlair] = []
         for entry in entries {
             for flair in entry.flairs ?? [] where flair.kind == nil && !flair.title.isEmpty {
@@ -97,11 +99,15 @@ extension AppModel {
                 if !exists { tags.append(flair) }
             }
         }
-        return tags.sorted {
-            let order = $0.title.localizedStandardCompare($1.title)
-            if order != .orderedSame { return order == .orderedAscending }
-            return $0.color.rawValue < $1.color.rawValue
-        }
+        let next: [TranscriptFlair] =
+            tags.isEmpty
+            ? []
+            : tags.sorted {
+                let order = $0.title.localizedStandardCompare($1.title)
+                if order != .orderedSame { return order == .orderedAscending }
+                return $0.color.rawValue < $1.color.rawValue
+            }
+        return next == customFlairs ? nil : next
     }
 
     private var trimmedSearchQuery: String {

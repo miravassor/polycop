@@ -68,12 +68,7 @@ struct LibrarySidebar: View {
             .listStyle(.sidebar)
         }
         .contextMenu { libraryMenu }
-        .modifier(
-            LibraryToolbar(
-                isShown: layout.showsLibrary, isFiltered: layout.filter != .all,
-                menu: { libraryMenu }
-            )
-        )
+        .modifier(LibraryToolbar(model: model))
     }
 
     private var filterBanner: some View {

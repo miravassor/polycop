@@ -43,7 +43,11 @@ final class AppModel {
         didSet { holdActivity(while: stage.isRunning) }
     }
     /// Every recording given to the app, newest first.
-    var entries: [Entry] = []
+    var entries: [Entry] = [] {
+        didSet { if let tags = updatedCustomFlairs { customFlairs = tags } }
+    }
+    /// Sorted unique custom tags across `entries`, kept updated on writes.
+    private(set) var customFlairs: [TranscriptFlair] = []
     /// Transcripts removed from the library in the last `keepsDeleted`, most
     /// recent first, so that a removal can be taken back.
     var recentlyDeleted: [Entry] = []

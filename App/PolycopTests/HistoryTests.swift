@@ -3,8 +3,10 @@
 // swiftlint:disable file_length
 
 import Foundation
+import Observation
 import Testing
 import UniformTypeIdentifiers
+import os
 
 @testable import Polycop
 
@@ -1127,4 +1129,43 @@ func automaticIsADetectedLanguage(chosen: Model) {
     let reloaded = AppModel(history: directory, defaults: MemoryDefaults())
     #expect(reloaded.entry(retried.id)?.isPinned == true)
     #expect(reloaded.entry(failed.id)?.isPinned != true)
+}
+
+@MainActor
+@Test func customFlairsStayCurrentWithoutNotifyingOnTranscriptEdits() async throws {
+    let directory = try temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: directory) }
+
+    var item = entry("Lecture.m4a", in: directory)
+    item.state = .finished
+    item.paragraphs = [Transcript.Paragraph(start: 0, text: "Bonjour")]
+    try HistoryStore.write(item, in: directory)
+
+    let model = AppModel(history: directory, defaults: MemoryDefaults())
+    model.addCustomTag(named: "Midterm", color: .blue, to: [item.id])
+    await model.finishWrites()
+
+    let reloaded = AppModel(history: directory, defaults: MemoryDefaults())
+    #expect(reloaded.customFlairs.map(\.title) == ["Midterm"])
+
+    let notifiedOnEdit = OSAllocatedUnfairLock(initialState: false)
+    withObservationTracking {
+        _ = reloaded.customFlairs
+    } onChange: {
+        notifiedOnEdit.withLock { $0 = true }
+    }
+    reloaded.updateEntry(item.id, whileTyping: true) {
+        $0.paragraphs[0].text = "Bonjour edited"
+    }
+    #expect(!notifiedOnEdit.withLock { $0 })
+
+    let notifiedOnTag = OSAllocatedUnfairLock(initialState: false)
+    withObservationTracking {
+        _ = reloaded.customFlairs
+    } onChange: {
+        notifiedOnTag.withLock { $0 = true }
+    }
+    reloaded.addCustomTag(named: "Exam", color: .green, to: [item.id])
+    #expect(notifiedOnTag.withLock { $0 })
+    #expect(reloaded.customFlairs.map(\.title) == ["Exam", "Midterm"])
 }
