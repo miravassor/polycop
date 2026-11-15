@@ -10,10 +10,15 @@ struct SelectionView: View {
     let selected: [Entry.ID]
     let move: ([Entry.ID]) -> Void
     let remove: ([Entry.ID]) -> Void
+    let tag: ([Entry.ID]) -> Void
 
     /// Whether any of them is in a folder, to be taken out of it.
     private var isAnyFiled: Bool {
         selected.contains { model.entry($0)?.folderID != nil }
+    }
+
+    private var areAllPinned: Bool {
+        !selected.isEmpty && selected.allSatisfy { model.entry($0)?.isPinned == true }
     }
 
     var body: some View {
@@ -23,13 +28,17 @@ struct SelectionView: View {
             )
             .font(.callout)
             .foregroundStyle(.secondary)
-            HStack(spacing: 12) {
+            WrappingLayout {
                 Button("Move to Folder…") { move(selected) }
                     .disabled(model.foldersAreDamaged)
                 Button("Remove from Folder") {
-                    for id in selected { model.moveEntry(id, to: nil) }
+                    model.moveEntries(selected, to: nil)
                 }
                 .disabled(model.foldersAreDamaged || !isAnyFiled)
+                Button(areAllPinned ? "Unpin" : "Pin") {
+                    model.setPinned(selected, to: !areAllPinned)
+                }
+                TranscriptFlairMenu(model: model, targets: selected) { tag(selected) }
                 Button("Remove from Library…", role: .destructive) { remove(selected) }
             }
             if let failure = model.failure {

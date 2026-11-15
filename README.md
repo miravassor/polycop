@@ -38,8 +38,7 @@ unless they agree to more.
 * **Import** of a transcript made elsewhere (TXT or Word document with
   timestamps, SRT, VTT, Whisper or audio.cpp JSON) with its recording, to correct
   it the same way.
-* **Library** of transcripts in folders, sorted by date or name, each one renamed
-  as you like.
+* **Library** of transcripts in nested course folders (up to two levels, sorted by name, with Finder colours), sorted by date or name, each one renamed as you like. Pin key lectures to the top of the sidebar, mark transcripts with workflow flairs (Done, To Do, Urgent, Exam) or custom coloured tags, and filter or search the sidebar by name, folder, tag or colour.
   A removed transcript waits 30 days in Recently Deleted. Your recordings stay
   where they are.
 * **Your own model files**: a model downloaded elsewhere can be imported, once

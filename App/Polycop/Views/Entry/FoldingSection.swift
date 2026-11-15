@@ -75,9 +75,7 @@ struct FoldTitle: View {
             HStack {
                 Text(section.title)
                 Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
-                    .rotationEffect(.degrees(isFolded ? 0 : 90))
+                FoldChevron(isExpanded: !isFolded)
             }
             .contentShape(Rectangle())
         }

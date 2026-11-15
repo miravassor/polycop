@@ -331,3 +331,62 @@ func aNewerRecordIsNotTakenForADamagedOneWhenAPropertyChangedShape(key: String) 
     #expect(entry.dismissedWarnings == ["gaps", "later"])
     #expect(entry.requires == nil)
 }
+
+@Test func explorerFieldsDefaultToNilOnEarlierRecordsAndRoundTripWhenSet() throws {
+    let directory = try changed {
+        $0.removeValue(forKey: "isPinned")
+        $0.removeValue(forKey: "flairs")
+    }
+    defer { try? FileManager.default.removeItem(at: directory) }
+
+    let parentID = UUID()
+    let childID = UUID()
+    let legacyFolders = Data("[{\"id\":\"\(parentID.uuidString)\",\"name\":\"History\"}]".utf8)
+    try legacyFolders.write(to: directory.appending(path: "folders.json"))
+    let decodedLegacy = try HistoryStore.folders(in: directory)
+    #expect(decodedLegacy.first?.parentID == nil)
+    #expect(decodedLegacy.first?.color == nil)
+
+    let loaded = HistoryStore.all(in: directory)
+    var item = try #require(loaded.entries.first)
+    #expect(item.isPinned == nil)
+    #expect(item.flairs == nil)
+
+    let flairs: [TranscriptFlair] = [
+        .urgent, .exam, TranscriptFlair(title: "Midterm", color: .blue),
+    ]
+    item.isPinned = true
+    item.flairs = flairs
+    try HistoryStore.write(item, in: directory)
+    let savedFoldersInput = [
+        TranscriptFolder(id: parentID, name: "Biology", color: .green),
+        TranscriptFolder(id: childID, name: "Lectures", parentID: parentID, color: .blue),
+    ]
+    try HistoryStore.writeFolders(savedFoldersInput, in: directory)
+
+    let reloaded = HistoryStore.all(in: directory)
+    let savedEntry = try #require(reloaded.entries.first)
+    let savedFolders = try HistoryStore.folders(in: directory)
+    #expect(savedEntry.isPinned == true && savedEntry.flairs == flairs)
+    #expect(savedFolders.last?.parentID == parentID && savedFolders.last?.color == .blue)
+    let writtenBase = try JSONSerialization.jsonObject(
+        with: Data(contentsOf: directory.appending(path: "folders.json")))
+    let firstKeys = Set((writtenBase as? [[String: Any]])?.first?.keys.map { $0 } ?? [])
+    #expect(firstKeys == ["id", "name"])
+}
+
+@Test func unknownFutureFlairAndFolderColorDecodeSafely() throws {
+    let directory = try changed {
+        $0["flairs"] = [["kind": "future", "title": "Quiz", "color": "teal"], ["color": NSNull()]]
+    }
+    defer { try? FileManager.default.removeItem(at: directory) }
+
+    let folderID = UUID()
+    try HistoryStore.writeFolders([TranscriptFolder(id: folderID, name: "Physics")], in: directory)
+    try Data("[{\"id\":\"\(folderID.uuidString)\",\"color\":\"teal\"}]".utf8)
+        .write(to: directory.appending(path: "folder-details.json"))
+
+    let entry = try #require(HistoryStore.all(in: directory).entries.first)
+    #expect(entry.flairs == [.init(title: "Quiz", color: .gray), .init(title: "", color: .gray)])
+    #expect(try HistoryStore.folders(in: directory).first?.color == nil)
+}

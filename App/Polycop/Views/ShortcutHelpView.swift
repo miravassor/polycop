@@ -41,6 +41,11 @@ struct ShortcutHelpView: View {
                 shortcut("Import transcript and recording", "⇧⌘O")
                 shortcut("Start transcription", "⌘R")
                 shortcut("New folder", "⇧⌘N")
+                shortcut("Pin or unpin transcript", "⇧⌘P")
+                shortcut("Mark as Done", "⇧⌘D")
+                shortcut("Mark as To Do", "⇧⌘T")
+                shortcut("Mark as Urgent", "⇧⌘U")
+                shortcut("Mark for Exam", "⇧⌘E")
                 shortcut("Manage glossaries", "⌥⌘G")
             }
             Section("Export") {

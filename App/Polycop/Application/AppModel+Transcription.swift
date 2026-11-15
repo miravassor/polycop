@@ -136,6 +136,7 @@ extension AppModel {
         else { return }
         failure = nil
         var again = entry.retrying()
+        if entry.isPinned == true { updateEntry(id) { $0.isPinned = nil } }
         again.title = Entry.freeName(
             from: entry.name, of: entry.recording, among: Set(entries.map(\.name)))
         entries.insert(again, at: 0)

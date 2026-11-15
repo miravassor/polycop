@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+import AppKit
 import SwiftUI
 
 // The shapes the app repeats beyond the system's own: what floats at the foot
@@ -42,6 +43,47 @@ enum NoticeState {
         case .warning: .orange
         case .failure: .red
         }
+    }
+}
+
+extension FolderColor {
+    var tint: Color {
+        switch self {
+        case .red: .red
+        case .orange: .orange
+        case .yellow: .yellow
+        case .green: .green
+        case .blue: .blue
+        case .purple: .purple
+        case .gray: .gray
+        }
+    }
+
+    var nsColor: NSColor {
+        switch self {
+        case .red: .systemRed
+        case .orange: .systemOrange
+        case .yellow: .systemYellow
+        case .green: .systemGreen
+        case .blue: .systemBlue
+        case .purple: .systemPurple
+        case .gray: .systemGray
+        }
+    }
+
+    /// A non-template symbol image that keeps its Finder colour inside AppKit
+    /// menus, where SwiftUI strips `.foregroundStyle` and renders template
+    /// symbols monochrome.
+    func menuSymbol(_ systemName: String) -> Image {
+        guard
+            let image = NSImage(
+                systemSymbolName: systemName,
+                accessibilityDescription: nil
+            )?.withSymbolConfiguration(.init(paletteColors: [nsColor]))
+        else {
+            return Image(systemName: systemName)
+        }
+        return Image(nsImage: image)
     }
 }
 
@@ -118,6 +160,51 @@ extension View {
                 isTargeted ? Color.accentColor.opacity(0.25) : .clear,
                 in: RoundedRectangle(cornerRadius: 6)
             )
+    }
+
+    /// A selectable action row above the sidebar list, matching the corners and
+    /// inset of a sidebar row.
+    func sidebarRowSelection(_ isSelected: Bool) -> some View {
+        modifier(SidebarRowSelection(isSelected: isSelected))
+    }
+
+    /// The field above the sidebar list that filters the library.
+    func sidebarSearchField() -> some View {
+        padding(.horizontal, 6)
+            .padding(.vertical, 5)
+            .background(.quaternary, in: RoundedRectangle(cornerRadius: 6))
+    }
+}
+
+private struct SidebarRowSelection: ViewModifier {
+    let isSelected: Bool
+    @Environment(\.appearsActive) private var appearsActive
+
+    func body(content: Content) -> some View {
+        content
+            .padding(.horizontal, 6)
+            .padding(.vertical, 5)
+            .foregroundStyle(isSelected && appearsActive ? Color.white : Color.primary)
+            .background {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(appearsActive ? AnyShapeStyle(.tint) : AnyShapeStyle(.quaternary))
+                }
+            }
+            .contentShape(Rectangle())
+    }
+}
+
+/// The arrow at the trailing edge of a section header that folds, pointing
+/// down while open.
+struct FoldChevron: View {
+    let isExpanded: Bool
+
+    var body: some View {
+        Image(systemName: "chevron.right")
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .rotationEffect(.degrees(isExpanded ? 90 : 0))
     }
 }
 
