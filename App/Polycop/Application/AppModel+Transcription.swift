@@ -8,7 +8,7 @@ import os
 extension AppModel {
     func chooseRecordings() {
         guard !isShuttingDown else { return }
-        pane = .new
+        openNewTranscription()
         recordingsRequest = UUID()
     }
 
@@ -63,7 +63,7 @@ extension AppModel {
         // Adding leaves the user on the page that holds the queue and the
         // settings, since more files can follow and the settings still apply
         // to all of them until Start.
-        pane = .new
+        openNewTranscription()
         // Said last: showing the entry clears what the window was reporting.
         if let lost { failure = lostGlossary(lost) }
     }

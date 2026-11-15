@@ -197,7 +197,15 @@ struct LibrarySidebar: View {
         let entries = model.entries(in: folderID)
         let unavailable = model.visibleUnavailable(in: folderID)
         if entries.isEmpty, unavailable.isEmpty, !hasSubfolders {
-            emptyNote(model.hasPinnedEntries(in: folderID) ? "Pinned above" : "Empty folder")
+            let emptyLabel: LocalizedStringKey =
+                if model.isFilteringLibrary, model.folderHasStoredItems(folderID) {
+                    "No matches"
+                } else if model.hasPinnedEntries(in: folderID) {
+                    "Pinned above"
+                } else {
+                    "Empty folder"
+                }
+            emptyNote(emptyLabel)
         }
         UnavailableRows(model: model, folder: folderID)
         ForEach(entries) { entry in row(entry, folderName: nil) }

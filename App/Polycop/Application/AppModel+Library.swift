@@ -43,7 +43,7 @@ extension AppModel {
             undoSteps[id] = nil
             pendingSaves.remove(id)
             if !hasUnsavedHistory { storageFailure = nil }
-            if pane == .entry(id) { pane = .new }
+            if pane == .entry(id) { openNewTranscription() }
         } catch {
             failure = error.localizedDescription
         }

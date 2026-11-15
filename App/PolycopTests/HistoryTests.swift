@@ -1022,3 +1022,44 @@ func automaticIsADetectedLanguage(chosen: Model) {
     #expect(model.isFolderExpanded(bioID))
     #expect(!model.isFolderExpanded(neuroID))
 }
+
+@MainActor
+@Test func visibleSelectablePanesIncludesUnavailableRowsAndOpenNewEmitsRequest() throws {
+    let directory = try temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: directory) }
+
+    let bioID = UUID()
+    let bio = TranscriptFolder(id: bioID, name: "Biology")
+    try HistoryStore.writeFolders([bio], in: directory)
+
+    var lecture = entry("Lecture.m4a", in: directory)
+    lecture.state = .finished
+    lecture.folderID = bioID
+    try HistoryStore.write(lecture, in: directory)
+
+    let futureID = UUID()
+    let futureFile = directory.appending(path: "\(futureID.uuidString).json")
+    try Data(#"{"id":"\#(futureID.uuidString)","requires":999,"name":"Future"}"#.utf8)
+        .write(to: futureFile)
+    let badID = UUID()
+    try Data("damaged".utf8).write(to: directory.appending(path: "\(badID.uuidString).json"))
+
+    let model = AppModel(history: directory, defaults: MemoryDefaults())
+    #expect(model.visibleSelectablePanes.contains(.unavailable(futureFile)))
+    #expect(model.visibleSelectablePanes.contains(.unidentifiedFiles))
+    #expect(!model.visibleSelectablePanes.contains(.entry(lecture.id)))
+
+    model.revealFolder(bioID)
+    #expect(model.visibleSelectablePanes.contains(.entry(lecture.id)))
+
+    model.layout.searchQuery = "Biology"
+    #expect(model.folderHasStoredItems(bioID))
+
+    model.pane = .new
+    model.newTranscriptionRequest = nil
+    model.chooseRecordings()
+    let firstRequest = try #require(model.newTranscriptionRequest)
+    model.manageGlossaries()
+    let secondRequest = try #require(model.newTranscriptionRequest)
+    #expect(firstRequest != secondRequest)
+}

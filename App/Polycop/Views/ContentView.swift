@@ -127,16 +127,13 @@ struct ContentView: View {
             guard selection != expected else { return }
             selection = expected
         }
-        .onChange(of: model.visibleEntryOrder) { _, visibleOrder in
+        .onChange(of: model.visibleSelectablePanes) { _, visiblePanes in
             guard selection.count > 1 else { return }
-            let visiblePanes = Set(visibleOrder.map(AppModel.Pane.entry))
             let kept = selection.intersection(visiblePanes)
             if kept.isEmpty {
-                if case .entry(let id) = model.pane, model.entry(id) != nil {
-                    selection = [.entry(id)]
-                } else {
-                    selection.removeAll()
-                }
+                selection =
+                    (model.pane != .new && visiblePanes.contains(model.pane))
+                    ? [model.pane] : []
             } else if kept != selection {
                 selection = kept
             }

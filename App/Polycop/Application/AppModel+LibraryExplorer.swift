@@ -140,21 +140,46 @@ extension AppModel {
         }
     }
 
+    private var visibleExpandedFolders: [UUID] {
+        guard isFilteringLibrary || layout.showsFolders else { return [] }
+        var ids: [UUID] = []
+        for root in rootFolders where shouldShowFolder(root.id) && isFolderExpanded(root.id) {
+            for subfolder in subfolders(of: root.id)
+            where shouldShowFolder(subfolder.id) && isFolderExpanded(subfolder.id) {
+                ids.append(subfolder.id)
+            }
+            ids.append(root.id)
+        }
+        return ids
+    }
+
     var visibleEntryOrder: [Entry.ID] {
         var ordered = (isFilteringLibrary || layout.showsPinned) ? pinnedEntries.map(\.id) : []
         if isFilteringLibrary || layout.showsUnfiled {
             ordered.append(contentsOf: entries(in: nil).map(\.id))
         }
-        if isFilteringLibrary || layout.showsFolders {
-            for root in rootFolders where shouldShowFolder(root.id) && isFolderExpanded(root.id) {
-                for subfolder in subfolders(of: root.id)
-                where shouldShowFolder(subfolder.id) && isFolderExpanded(subfolder.id) {
-                    ordered.append(contentsOf: entries(in: subfolder.id).map(\.id))
-                }
-                ordered.append(contentsOf: entries(in: root.id).map(\.id))
-            }
+        for folderID in visibleExpandedFolders {
+            ordered.append(contentsOf: entries(in: folderID).map(\.id))
         }
         return ordered
+    }
+
+    var visibleSelectablePanes: Set<Pane> {
+        var panes = Set(visibleEntryOrder.map(Pane.entry))
+        if isFilteringLibrary || layout.showsUnfiled {
+            if !visibleUnidentifiedFiles.isEmpty { panes.insert(.unidentifiedFiles) }
+            panes.formUnion(visibleUnavailable(in: nil).map { .unavailable($0.id) })
+        }
+        for folderID in visibleExpandedFolders {
+            panes.formUnion(visibleUnavailable(in: folderID).map { .unavailable($0.id) })
+        }
+        return panes
+    }
+
+    func folderHasStoredItems(_ folderID: UUID) -> Bool {
+        entries.contains { $0.folderID == folderID }
+            || !subfolders(of: folderID).isEmpty
+            || !unavailable(in: folderID).isEmpty
     }
 
     func hasPinnedEntries(in folderID: UUID?) -> Bool {
