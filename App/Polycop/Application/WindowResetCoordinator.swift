@@ -32,7 +32,8 @@ final class WindowResetCoordinator {
             let window = await ensureVisibleWindow(
                 layout: layout,
                 openMainWindow: openMainWindow
-            )
+            ),
+            !Task.isCancelled
         else { return }
 
         if window.isMiniaturized {
@@ -72,6 +73,7 @@ final class WindowResetCoordinator {
             timeout: .milliseconds(500),
             observing: [
                 NSWindow.didResizeNotification,
+                NSWindow.didDeminiaturizeNotification,
                 NSSplitView.didResizeSubviewsNotification,
             ]
         ) {
@@ -80,7 +82,10 @@ final class WindowResetCoordinator {
     }
 
     private static func areWindowBoundsPropagated(in window: NSWindow) -> Bool {
-        guard window.isVisible, let root = window.contentView else { return true }
+        guard window.isVisible else { return !window.isMiniaturized }
+        guard !window.isMiniaturized, let root = window.contentView else {
+            return !window.isMiniaturized
+        }
         let targetWidth = root.bounds.width
         let minInspectorContainerWidth = max(
             0,

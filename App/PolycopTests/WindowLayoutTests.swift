@@ -257,7 +257,6 @@ private func assertCenteredDefaultFrame(of window: NSWindow) {
     layout.libraryWidth = 450
     await waitUntilSettled { areSplitPanesCollapsed(in: window) }
 
-    window.identifier = NSUserInterfaceItemIdentifier("main-AppWindow-1")
     let coordinator = WindowResetCoordinator()
     coordinator.attach(window)
     coordinator.reset(layout: layout) {}
@@ -296,7 +295,6 @@ private func assertCenteredDefaultFrame(of window: NSWindow) {
     defer { window.close() }
     #expect(!window.isVisible)
 
-    window.identifier = NSUserInterfaceItemIdentifier("main-AppWindow-1")
     var openCalls = 0
     let coordinator = WindowResetCoordinator()
     coordinator.reset(layout: layout) {

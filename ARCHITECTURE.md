@@ -30,9 +30,11 @@ call an engine or the decoder; stores and engines never know about views or
 `AppModel`. `Output/` and `Glossary/Terms` are pure and hold no state, which is
 why most tests live there.
 
-Two parts sit beside `AppModel` rather than under it. The update check
-(`UpdatePrompt`, `UpdateCheck`) is started from the app's menu and settings, and
-Find Terms (`TermFinder`) reads the chosen documents itself, through `Documents`.
+Three parts sit beside `AppModel` rather than under it. The update check
+(`UpdatePrompt`, `UpdateCheck`) is started from the app's menu and settings,
+Find Terms (`TermFinder`) reads the chosen documents itself, through `Documents`,
+and `WindowResetCoordinator` in `PolycopApp` handles Window > Reset to Default
+Size.
 
 ## State
 
@@ -56,10 +58,12 @@ Find Terms (`TermFinder`) reads the chosen documents itself, through `Documents`
   disk; a new entry is written by the action that makes it (adding, retrying,
   duplicating or importing).
 * `Player` owns playback state (position, playing, speed) and is owned by
-  `AppModel`. Views read it; `AppModel`, the player bar and the pause for
-  typing in `EntryView` change it.
+  `AppModel`. Views read it; `AppModel`, the player and video controls,
+  `PlaybackCommands`, typing pauses in `EntryView`, `NowPlaying`, and
+  `PlaybackInterruptions` change it.
 * Views keep only presentation state (`@State`: hover, popovers, scroll
-  frames). What must survive a view going away belongs to `AppModel`.
+  frames, sidebar row selection). What must survive a view going away belongs
+  to `AppModel`.
 * Text being typed lives in the paragraph's `NSTextView` until
   `TypingBuffer` hands it over, after a pause or before anything else reads
   the transcript.
