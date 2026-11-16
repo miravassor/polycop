@@ -1210,7 +1210,9 @@ func automaticIsADetectedLanguage(chosen: Model) {
     var nested = entry("Cell.m4a", in: directory)
     nested.state = .finished
     nested.folderID = lectures.id
-    nested.flairs = [.todo, .exam, midterm]
+    nested.flairs = [
+        .todo, .exam, midterm, TranscriptFlair(title: "midterm", color: .red),
+    ]
 
     var pinnedNested = entry("Review.m4a", in: directory)
     pinnedNested.state = .finished
@@ -1241,4 +1243,59 @@ func automaticIsADetectedLanguage(chosen: Model) {
 
     model.layout.openFolders.insert(lectures.id)
     #expect(model.collapsedFolderFlairs(in: lectures.id).isEmpty)
+    await model.finishWrites()
+}
+
+@MainActor
+@Test func collapsedFolderFlairsStayQuietOnTextEditsAndRespectFilter() async throws {
+    let directory = try temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: directory) }
+
+    let course = TranscriptFolder(id: UUID(), name: "Physics")
+    let pinnedOnly = TranscriptFolder(id: UUID(), name: "PinnedOnly")
+    try HistoryStore.writeFolders([course, pinnedOnly], in: directory)
+
+    var lecture = entry("Optics.m4a", in: directory)
+    lecture.state = .finished
+    lecture.folderID = course.id
+    lecture.flairs = [.done]
+
+    var pinnedDone = entry("SoloDone.m4a", in: directory)
+    pinnedDone.state = .finished
+    pinnedDone.folderID = pinnedOnly.id
+    pinnedDone.isPinned = true
+    pinnedDone.flairs = [.done]
+
+    var pinnedUrgent = entry("SoloUrgent.m4a", in: directory)
+    pinnedUrgent.state = .finished
+    pinnedUrgent.folderID = pinnedOnly.id
+    pinnedUrgent.isPinned = true
+    pinnedUrgent.flairs = [.urgent]
+
+    for item in [lecture, pinnedDone, pinnedUrgent] {
+        try HistoryStore.write(item, in: directory)
+    }
+
+    let model = AppModel(history: directory, defaults: MemoryDefaults())
+    let notified = OSAllocatedUnfairLock(initialState: false)
+    withObservationTracking {
+        _ = model.folderFlairs
+    } onChange: {
+        notified.withLock { $0 = true }
+    }
+    model.updateEntry(lecture.id) {
+        $0.paragraphs = [Transcript.Paragraph(start: 0, text: "Edit")]
+    }
+    #expect(!notified.withLock { $0 })
+
+    model.layout.searchQuery = "Optics"
+    #expect(model.isFolderExpanded(course.id))
+    #expect(model.collapsedFolderFlairs(in: course.id).isEmpty)
+    model.layout.searchQuery = ""
+
+    model.layout.filter = .flair(.urgent)
+    #expect(!model.isFolderExpanded(pinnedOnly.id))
+    #expect(model.collapsedFolderFlairs(in: pinnedOnly.id) == [.urgent])
+    model.layout.filter = .all
+    await model.finishWrites()
 }

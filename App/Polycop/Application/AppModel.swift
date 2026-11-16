@@ -43,15 +43,14 @@ final class AppModel {
         didSet { holdActivity(while: stage.isRunning) }
     }
     /// Every recording given to the app, newest first.
-    var entries: [Entry] = [] {
-        didSet { if let tags = Self.changedFlairs(entries, customFlairs) { customFlairs = tags } }
-    }
-    /// Sorted unique custom tags across `entries`, kept in sync on changes.
-    private(set) var customFlairs: [TranscriptFlair] = []
+    var entries: [Entry] = [] { didSet { syncFlairCaches() } }
+    /// Sorted unique custom tags and per-folder flair summaries, kept in sync on changes.
+    var customFlairs: [TranscriptFlair] = []
+    var folderFlairs: [UUID: [TranscriptFlair]] = [:]
     /// Transcripts removed from the library in the last `keepsDeleted`, most
     /// recent first, so that a removal can be taken back.
     var recentlyDeleted: [Entry] = []
-    var folders: [TranscriptFolder] = []
+    var folders: [TranscriptFolder] = [] { didSet { syncFolderFlairs() } }
     /// The entry being transcribed, or paused part way through.
     var running: Entry.ID?
     /// The entry whose repeats are being transcribed again. Kept apart from

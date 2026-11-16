@@ -91,18 +91,10 @@ extension AppModel {
     static func customFlairs(in entries: [Entry]) -> [TranscriptFlair] {
         var tags: [TranscriptFlair] = []
         for entry in entries {
-            for flair in entry.flairs ?? [] where flair.kind == nil && !flair.title.isEmpty {
-                let exists = tags.contains {
-                    $0.title.localizedCaseInsensitiveCompare(flair.title) == .orderedSame
-                }
-                if !exists { tags.append(flair) }
-            }
+            let matching = (entry.flairs ?? []).filter { $0.kind == nil && !$0.title.isEmpty }
+            appendUniqueFlairs(matching, to: &tags)
         }
-        return tags.sorted {
-            let order = $0.title.localizedStandardCompare($1.title)
-            if order != .orderedSame { return order == .orderedAscending }
-            return $0.color.rawValue < $1.color.rawValue
-        }
+        return tags.sorted(by: TranscriptFlair.areInDisplayOrder)
     }
 
     static func changedFlairs(
@@ -110,6 +102,51 @@ extension AppModel {
     ) -> [TranscriptFlair]? {
         let next = customFlairs(in: entries)
         return next == current ? nil : next
+    }
+
+    static func folderFlairs(
+        in entries: [Entry], folders: [TranscriptFolder]
+    ) -> [UUID: [TranscriptFlair]] {
+        let parents = Dictionary(
+            folders.map { ($0.id, $0.parentID) }, uniquingKeysWith: { first, _ in first }
+        )
+        var collected: [UUID: [TranscriptFlair]] = [:]
+        for entry in entries {
+            guard let folderID = entry.folderID, let parentID = parents[folderID],
+                let entryFlairs = entry.flairs, !entryFlairs.isEmpty
+            else { continue }
+            appendUniqueFlairs(entryFlairs, to: &collected[folderID, default: []])
+            if let parentID {
+                appendUniqueFlairs(entryFlairs, to: &collected[parentID, default: []])
+            }
+        }
+        return collected.mapValues { $0.sorted(by: TranscriptFlair.areInDisplayOrder) }
+    }
+
+    private static func appendUniqueFlairs(
+        _ source: [TranscriptFlair], to target: inout [TranscriptFlair]
+    ) {
+        for flair in source where !target.contains(where: { $0.matchesIdentity(of: flair) }) {
+            target.append(flair)
+        }
+    }
+
+    static func changedFolderFlairs(
+        _ entries: [Entry], _ folders: [TranscriptFolder], _ current: [UUID: [TranscriptFlair]]
+    ) -> [UUID: [TranscriptFlair]]? {
+        let next = folderFlairs(in: entries, folders: folders)
+        return next == current ? nil : next
+    }
+
+    func syncFlairCaches() {
+        if let tags = Self.changedFlairs(entries, customFlairs) { customFlairs = tags }
+        syncFolderFlairs()
+    }
+
+    func syncFolderFlairs() {
+        if let next = Self.changedFolderFlairs(entries, folders, folderFlairs) {
+            folderFlairs = next
+        }
     }
 
     private var trimmedSearchQuery: String {
@@ -127,19 +164,15 @@ extension AppModel {
     /// Deduplicated flairs inside `folderID` and any subfolders for collapsed folder rows.
     func collapsedFolderFlairs(in folderID: UUID) -> [TranscriptFlair] {
         guard !isFolderExpanded(folderID) else { return [] }
+        guard isFilteringLibrary else { return folderFlairs[folderID] ?? [] }
         let children = subfolders(of: folderID)
-        let filtering = isFilteringLibrary
         var collected: [TranscriptFlair] = []
-        for entry in entries {
+        for entry in entries where matchesLibraryFilter(entry) {
             guard let entryFolder = entry.folderID,
                 entryFolder == folderID || children.contains(where: { $0.id == entryFolder }),
-                let entryFlairs = entry.flairs, !entryFlairs.isEmpty,
-                !filtering || matchesLibraryFilter(entry)
+                let entryFlairs = entry.flairs
             else { continue }
-            collected.append(
-                contentsOf: entryFlairs.filter { flair in
-                    !collected.contains { $0.matchesIdentity(of: flair) }
-                })
+            Self.appendUniqueFlairs(entryFlairs, to: &collected)
         }
         return collected.sorted(by: TranscriptFlair.areInDisplayOrder)
     }

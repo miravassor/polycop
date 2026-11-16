@@ -104,7 +104,7 @@ nonisolated struct TranscriptFlair: Equatable, Hashable, Codable, Sendable {
     var symbol: String {
         switch kind {
         case .done: "checkmark.circle.fill"
-        case .todo: "circle.dotted"
+        case .todo: "circle.dotted.circle.fill"
         case .urgent: "exclamationmark.circle.fill"
         case .exam: "graduationcap.fill"
         case nil: title.isEmpty ? "circle.fill" : "tag.fill"

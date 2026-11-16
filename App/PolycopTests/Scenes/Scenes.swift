@@ -107,9 +107,22 @@ extension AppScene {
         },
         AppScene(name: "library-collapsed") { stage in
             arrangeLibrary(stage)
-            stage.model.layout.openFolders = Set(
-                stage.model.folders.filter { $0.name == "Biology" }.map(\.id)
-            )
+            if let extra = stage.model.duplicate(stage.second),
+                let longCourse = try? stage.model.createFolder(
+                    named: "Constitutional History Seminar")
+            {
+                stage.change(extra) { $0.title = "Extra reading" }
+                try? stage.model.setFolderColor(longCourse, to: .red)
+                stage.model.moveEntry(extra, to: longCourse)
+                stage.model.toggleFlair(.done, on: [extra])
+                stage.model.toggleFlair(.exam, on: [extra])
+                stage.model.addCustomTag(named: "Midterm", color: .blue, to: [extra])
+                stage.model.addCustomTag(named: "Cases", color: .purple, to: [extra])
+                stage.model.toggleFlair(
+                    TranscriptFlair(kind: nil, title: "", color: .yellow), on: [extra]
+                )
+            }
+            stage.model.layout.openFolders = []
         },
         AppScene(name: "library-filtered") { stage in
             arrangeLibrary(stage)

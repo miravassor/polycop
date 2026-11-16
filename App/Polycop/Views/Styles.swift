@@ -90,19 +90,51 @@ extension FolderColor {
 /// Trailing icons summarizing flairs on a transcript or collapsed folder row.
 struct FlairIcons: View {
     let flairs: [TranscriptFlair]
-    var hidesAccessibility = false
+    var maxCount: Int?
+
+    private var visibleFlairs: [TranscriptFlair] {
+        guard let maxCount, maxCount > 1, flairs.count > maxCount else { return flairs }
+        return Array(flairs.prefix(maxCount - 1))
+    }
 
     var body: some View {
+        let visible = visibleFlairs
+        let overflow = flairs.count - visible.count
         HStack(spacing: Spacing.icon) {
-            ForEach(flairs, id: \.self) { flair in
+            ForEach(visible, id: \.self) { flair in
                 Image(systemName: flair.symbol)
                     .font(.caption)
                     .foregroundStyle(flair.color.tint)
                     .accessibilityLabel(flair.displayTitle)
-                    .accessibilityHidden(hidesAccessibility)
+            }
+            if overflow > 0 {
+                Text("+\(overflow)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
             }
         }
+        .fixedSize()
     }
+
+    static func folderAccessibilityLabel(
+        _ name: String, collapsedFlairs flairs: [TranscriptFlair]
+    ) -> String {
+        guard !flairs.isEmpty else { return name }
+        let list = ListFormatter.localizedString(byJoining: flairs.map(\.displayTitle))
+        return String(localized: "\(name), contains \(list)")
+    }
+}
+
+#Preview("Flair icons") {
+    FlairIcons(
+        flairs: [
+            .done, .todo, .urgent, .exam,
+            TranscriptFlair(title: "Midterm", color: .blue),
+        ],
+        maxCount: 4
+    )
+    .padding()
 }
 
 /// A warning or a failure: the state's symbol in its colour, the text in the

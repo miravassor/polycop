@@ -9,7 +9,7 @@ struct EntryRow: View {
     var folderName: String?
 
     private var flairs: [TranscriptFlair] {
-        entry.flairs ?? []
+        (entry.flairs ?? []).sorted(by: TranscriptFlair.areInDisplayOrder)
     }
 
     var body: some View {
@@ -19,11 +19,9 @@ struct EntryRow: View {
                     .lineLimit(1)
                     .truncationMode(.middle)
                 if !flairs.isEmpty {
-                    Spacer(minLength: 4)
-                    FlairIcons(
-                        flairs: flairs,
-                        hidesAccessibility: stage == nil && entry.state == .finished
-                    )
+                    Spacer(minLength: 0)
+                    FlairIcons(flairs: flairs)
+                        .accessibilityHidden(stage == nil && entry.state == .finished)
                 }
             }
             status
