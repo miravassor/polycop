@@ -1187,3 +1187,58 @@ func automaticIsADetectedLanguage(chosen: Model) {
 
     await reloaded.finishWrites()
 }
+
+@MainActor
+@Test func collapsedFolderFlairsAggregateSubfoldersAndClearWhenExpanded() async throws {
+    let directory = try temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: directory) }
+
+    let biology = TranscriptFolder(id: UUID(), name: "Biology", color: .green)
+    let lectures = TranscriptFolder(
+        id: UUID(), name: "Lectures", parentID: biology.id, color: .blue)
+    let emptyFolder = TranscriptFolder(id: UUID(), name: "Law", color: .purple)
+    try HistoryStore.writeFolders([biology, lectures, emptyFolder], in: directory)
+
+    let midterm = TranscriptFlair(title: "Midterm", color: .blue)
+    let dot = TranscriptFlair(title: "", color: .yellow)
+
+    var direct = entry("Overview.m4a", in: directory)
+    direct.state = .finished
+    direct.folderID = biology.id
+    direct.flairs = [.done, dot]
+
+    var nested = entry("Cell.m4a", in: directory)
+    nested.state = .finished
+    nested.folderID = lectures.id
+    nested.flairs = [.todo, .exam, midterm]
+
+    var pinnedNested = entry("Review.m4a", in: directory)
+    pinnedNested.state = .finished
+    pinnedNested.folderID = lectures.id
+    pinnedNested.isPinned = true
+    pinnedNested.flairs = [.urgent, .exam]
+
+    var deleted = entry("Old.m4a", in: directory)
+    deleted.state = .finished
+    deleted.folderID = emptyFolder.id
+    deleted.removed = .now
+    deleted.flairs = [.urgent]
+
+    for item in [direct, nested, pinnedNested, deleted] {
+        try HistoryStore.write(item, in: directory)
+    }
+
+    let model = AppModel(history: directory, defaults: MemoryDefaults())
+    #expect(model.collapsedFolderFlairs(in: emptyFolder.id).isEmpty)
+    #expect(
+        model.collapsedFolderFlairs(in: biology.id)
+            == [.done, .todo, .urgent, .exam, midterm, dot]
+    )
+
+    model.layout.openFolders.insert(biology.id)
+    #expect(model.collapsedFolderFlairs(in: biology.id).isEmpty)
+    #expect(model.collapsedFolderFlairs(in: lectures.id) == [.todo, .urgent, .exam, midterm])
+
+    model.layout.openFolders.insert(lectures.id)
+    #expect(model.collapsedFolderFlairs(in: lectures.id).isEmpty)
+}

@@ -105,6 +105,12 @@ extension AppScene {
         AppScene(name: "library") { stage in
             arrangeLibrary(stage)
         },
+        AppScene(name: "library-collapsed") { stage in
+            arrangeLibrary(stage)
+            stage.model.layout.openFolders = Set(
+                stage.model.folders.filter { $0.name == "Biology" }.map(\.id)
+            )
+        },
         AppScene(name: "library-filtered") { stage in
             arrangeLibrary(stage)
             stage.model.layout.filter = .unreviewed

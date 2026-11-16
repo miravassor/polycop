@@ -124,6 +124,26 @@ extension AppModel {
         layout.sort.sorted(entries.filter { $0.isPinned == true && matchesLibraryFilter($0) })
     }
 
+    /// Deduplicated flairs inside `folderID` and any subfolders for collapsed folder rows.
+    func collapsedFolderFlairs(in folderID: UUID) -> [TranscriptFlair] {
+        guard !isFolderExpanded(folderID) else { return [] }
+        let children = subfolders(of: folderID)
+        let filtering = isFilteringLibrary
+        var collected: [TranscriptFlair] = []
+        for entry in entries {
+            guard let entryFolder = entry.folderID,
+                entryFolder == folderID || children.contains(where: { $0.id == entryFolder }),
+                let entryFlairs = entry.flairs, !entryFlairs.isEmpty,
+                !filtering || matchesLibraryFilter(entry)
+            else { continue }
+            collected.append(
+                contentsOf: entryFlairs.filter { flair in
+                    !collected.contains { $0.matchesIdentity(of: flair) }
+                })
+        }
+        return collected.sorted(by: TranscriptFlair.areInDisplayOrder)
+    }
+
     func isFolderExpanded(_ folderID: UUID) -> Bool {
         if isFilteringLibrary,
             hasVisibleContents(in: folderID)

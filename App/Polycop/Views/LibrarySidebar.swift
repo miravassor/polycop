@@ -207,19 +207,27 @@ struct LibrarySidebar: View {
     }
 
     private func folderLabel(_ folder: TranscriptFolder) -> some View {
-        Group {
-            if let color = folder.color {
-                Label {
-                    Text(folder.name)
-                } icon: {
-                    Image(systemName: "folder.fill")
-                        .foregroundStyle(color.tint)
+        let collapsedFlairs = model.collapsedFolderFlairs(in: folder.id)
+        return HStack(spacing: Spacing.icon) {
+            Group {
+                if let color = folder.color {
+                    Label {
+                        Text(folder.name)
+                    } icon: {
+                        Image(systemName: "folder.fill")
+                            .foregroundStyle(color.tint)
+                    }
+                } else {
+                    Label(folder.name, systemImage: "folder")
                 }
-            } else {
-                Label(folder.name, systemImage: "folder")
+            }
+            .lineLimit(1)
+            if !collapsedFlairs.isEmpty {
+                Spacer(minLength: 4)
+                FlairIcons(flairs: collapsedFlairs)
             }
         }
-        .lineLimit(1)
+        .accessibilityElement(children: .combine)
         .dropTargetHighlight(highlighted == folder.id)
         .dropDestination(for: DraggedTranscripts.self) { items, _ in
             drop(items, into: folder.id)

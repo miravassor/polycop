@@ -87,6 +87,24 @@ extension FolderColor {
     }
 }
 
+/// Trailing icons summarizing flairs on a transcript or collapsed folder row.
+struct FlairIcons: View {
+    let flairs: [TranscriptFlair]
+    var hidesAccessibility = false
+
+    var body: some View {
+        HStack(spacing: Spacing.icon) {
+            ForEach(flairs, id: \.self) { flair in
+                Image(systemName: flair.symbol)
+                    .font(.caption)
+                    .foregroundStyle(flair.color.tint)
+                    .accessibilityLabel(flair.displayTitle)
+                    .accessibilityHidden(hidesAccessibility)
+            }
+        }
+    }
+}
+
 /// A warning or a failure: the state's symbol in its colour, the text in the
 /// label colours.
 struct Notice: View {

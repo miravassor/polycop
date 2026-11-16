@@ -20,15 +20,10 @@ struct EntryRow: View {
                     .truncationMode(.middle)
                 if !flairs.isEmpty {
                     Spacer(minLength: 4)
-                    HStack(spacing: Spacing.icon) {
-                        ForEach(flairs, id: \.self) { flair in
-                            Image(systemName: flair.symbol)
-                                .font(.caption)
-                                .foregroundStyle(flair.color.tint)
-                                .accessibilityLabel(flair.displayTitle)
-                                .accessibilityHidden(stage == nil && entry.state == .finished)
-                        }
-                    }
+                    FlairIcons(
+                        flairs: flairs,
+                        hidesAccessibility: stage == nil && entry.state == .finished
+                    )
                 }
             }
             status

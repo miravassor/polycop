@@ -110,6 +110,25 @@ nonisolated struct TranscriptFlair: Equatable, Hashable, Codable, Sendable {
         case nil: title.isEmpty ? "circle.fill" : "tag.fill"
         }
     }
+
+    private var displayRank: (group: Int, order: Int) {
+        let colorOrder = FolderColor.allCases.firstIndex(of: color) ?? 0
+        if let kind, let index = Kind.allCases.firstIndex(of: kind) {
+            return (0, index)
+        }
+        return (title.isEmpty ? 2 : 1, colorOrder)
+    }
+
+    static func areInDisplayOrder(_ first: TranscriptFlair, _ second: TranscriptFlair) -> Bool {
+        let a = first.displayRank
+        let b = second.displayRank
+        if a.group != b.group { return a.group < b.group }
+        if a.group == 1 {
+            let nameOrder = first.title.localizedStandardCompare(second.title)
+            if nameOrder != .orderedSame { return nameOrder == .orderedAscending }
+        }
+        return a.order < b.order
+    }
 }
 
 nonisolated struct TranscriptFolder: Identifiable, Equatable, Codable, Sendable {
