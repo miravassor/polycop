@@ -79,7 +79,8 @@ struct TermFinder: View {
             .padding(Spacing.sheet)
         }
         .onDisappear { search?.cancel() }
-        .frame(width: 640, height: 640)
+        // Fits under the toolbar of the smallest window, whose content minimum is 600 pt.
+        .frame(width: 640, height: 580)
         .fileImporter(
             isPresented: $choosing, allowedContentTypes: Documents.readable,
             allowsMultipleSelection: true
@@ -135,7 +136,7 @@ struct TermFinder: View {
                 .font(.body)
                 .autocorrectionDisabled()
                 .scrollContentBackground(.hidden)
-                .frame(minHeight: 140)
+                .frame(minHeight: 100)
                 .accessibilityLabel("Terms found")
         } header: {
             HStack {
@@ -186,4 +187,8 @@ struct TermFinder: View {
             }
         }
     }
+}
+
+#Preview {
+    TermFinder(attested: ["Jean Oury", "DSM-5"], add: { _ in })
 }
