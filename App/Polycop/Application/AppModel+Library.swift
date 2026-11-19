@@ -107,7 +107,9 @@ extension AppModel {
     func removeEntries(_ ids: [Entry.ID]) {
         guard !isShuttingDown else { return }
         let busy = ids.contains { $0 == busyEntry }
-        for id in ids where id != busyEntry { removeEntry(id) }
+        withFlairSync {
+            for id in ids where id != busyEntry { removeEntry(id) }
+        }
         if busy {
             failure = String(
                 localized:
@@ -160,7 +162,9 @@ extension AppModel {
         guard !foldersAreDamaged else { return false }
         let moved = ids.filter { id in entries.contains { $0.id == id } }
         guard !moved.isEmpty else { return false }
-        for id in moved { moveEntry(id, to: folderID) }
+        withFlairSync {
+            for id in moved { moveEntry(id, to: folderID) }
+        }
         return true
     }
 

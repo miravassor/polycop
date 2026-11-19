@@ -1,6 +1,70 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import Foundation
+import Observation
+
+/// Equality-guarded cache of sidebar custom tags and per-folder flair summaries.
+/// Owned by `AppModel` so transcript text edits do not re-scan the library or
+/// notify observers whose flairs did not change.
+@Observable
+final class LibraryFlairCache {
+    private(set) var custom: [TranscriptFlair] = []
+    private(set) var folders: [UUID: [TranscriptFlair]] = [:]
+    @ObservationIgnored private var suppressesSync = false
+
+    func sync(_ entries: [Entry], _ libraryFolders: [TranscriptFolder]) {
+        guard !suppressesSync else { return }
+        refresh(entries, libraryFolders)
+    }
+
+    func withSync(
+        deferred: Bool = true,
+        entries: () -> [Entry],
+        folders libraryFolders: () -> [TranscriptFolder],
+        _ work: () -> Void
+    ) {
+        let wasSuppressed = suppressesSync
+        suppressesSync = true
+        defer {
+            suppressesSync = wasSuppressed
+            if deferred, !wasSuppressed { refresh(entries(), libraryFolders()) }
+        }
+        work()
+    }
+
+    private func refresh(_ entries: [Entry], _ libraryFolders: [TranscriptFolder]) {
+        let parents = Dictionary(
+            libraryFolders.map { ($0.id, $0.parentID) }, uniquingKeysWith: { first, _ in first }
+        )
+        var tags: [TranscriptFlair] = []
+        var byFolder: [UUID: [TranscriptFlair]] = [:]
+        for entry in entries {
+            guard let entryFlairs = entry.flairs, !entryFlairs.isEmpty else { continue }
+            for flair in entryFlairs where flair.kind == nil && !flair.title.isEmpty {
+                Self.appendUnique(flair, to: &tags)
+            }
+            guard let folderID = entry.folderID, let parentID = parents[folderID] else { continue }
+            for flair in entryFlairs {
+                Self.appendUnique(flair, to: &byFolder[folderID, default: []])
+                if let parentID {
+                    Self.appendUnique(flair, to: &byFolder[parentID, default: []])
+                }
+            }
+        }
+        let nextCustom = tags.sorted(by: TranscriptFlair.areInDisplayOrder)
+        if nextCustom != custom { custom = nextCustom }
+        let nextFolders = byFolder.mapValues { $0.sorted(by: TranscriptFlair.areInDisplayOrder) }
+        if nextFolders != folders { folders = nextFolders }
+    }
+
+    private static func appendUnique(
+        _ flair: TranscriptFlair, to target: inout [TranscriptFlair]
+    ) {
+        if !target.contains(where: { $0.matchesIdentity(of: flair) }) {
+            target.append(flair)
+        }
+    }
+}
 
 // MARK: Nested folders, pins, flairs, and sidebar search
 
@@ -44,6 +108,10 @@ extension AppModel {
         for id in ids { updateEntry(id) { $0.isPinned = value } }
     }
 
+    func withFlairSync(deferred: Bool = true, _ work: () -> Void) {
+        flairCache.withSync(deferred: deferred, entries: { entries }, folders: { folders }, work)
+    }
+
     func toggleFlair(_ flair: TranscriptFlair, on ids: [Entry.ID]) {
         guard !isShuttingDown else { return }
         let existing = ids.compactMap { entry($0) }
@@ -51,15 +119,17 @@ extension AppModel {
         let removes = existing.allSatisfy {
             $0.flairs?.contains { $0.matchesIdentity(of: flair) } == true
         }
-        for id in existing.map(\.id) {
-            updateEntry(id) { entry in
-                var current = entry.flairs ?? []
-                if removes {
-                    current.removeAll { $0.matchesIdentity(of: flair) }
-                } else {
-                    current = appending(flair, to: current)
+        withFlairSync {
+            for id in existing.map(\.id) {
+                updateEntry(id) { entry in
+                    var current = entry.flairs ?? []
+                    if removes {
+                        current.removeAll { $0.matchesIdentity(of: flair) }
+                    } else {
+                        current = appending(flair, to: current)
+                    }
+                    entry.flairs = current.isEmpty ? nil : current
                 }
-                entry.flairs = current.isEmpty ? nil : current
             }
         }
     }
@@ -70,82 +140,24 @@ extension AppModel {
         guard !title.isEmpty else { return }
         let tag = TranscriptFlair(title: title, color: color)
         let targetSet = Set(ids)
-        for item in entries {
-            let hasMatchingTag = item.flairs?.contains { $0.matchesIdentity(of: tag) } == true
-            guard targetSet.contains(item.id) || hasMatchingTag else { continue }
-            updateEntry(item.id) { entry in
-                var current = entry.flairs ?? []
-                current.removeAll { $0.matchesIdentity(of: tag) }
-                current.append(tag)
-                entry.flairs = current
+        withFlairSync {
+            for item in entries {
+                let hasMatchingTag = item.flairs?.contains { $0.matchesIdentity(of: tag) } == true
+                guard targetSet.contains(item.id) || hasMatchingTag else { continue }
+                updateEntry(item.id) { entry in
+                    var current = entry.flairs ?? []
+                    current.removeAll { $0.matchesIdentity(of: tag) }
+                    current.append(tag)
+                    entry.flairs = current
+                }
             }
         }
     }
 
     func clearFlairs(on ids: [Entry.ID]) {
         guard !isShuttingDown else { return }
-        for id in ids { updateEntry(id) { $0.flairs = nil } }
-    }
-
-    /// Returns sorted unique custom tags present across `entries`.
-    static func customFlairs(in entries: [Entry]) -> [TranscriptFlair] {
-        var tags: [TranscriptFlair] = []
-        for entry in entries {
-            let matching = (entry.flairs ?? []).filter { $0.kind == nil && !$0.title.isEmpty }
-            appendUniqueFlairs(matching, to: &tags)
-        }
-        return tags.sorted(by: TranscriptFlair.areInDisplayOrder)
-    }
-
-    static func changedFlairs(
-        _ entries: [Entry], _ current: [TranscriptFlair]
-    ) -> [TranscriptFlair]? {
-        let next = customFlairs(in: entries)
-        return next == current ? nil : next
-    }
-
-    static func folderFlairs(
-        in entries: [Entry], folders: [TranscriptFolder]
-    ) -> [UUID: [TranscriptFlair]] {
-        let parents = Dictionary(
-            folders.map { ($0.id, $0.parentID) }, uniquingKeysWith: { first, _ in first }
-        )
-        var collected: [UUID: [TranscriptFlair]] = [:]
-        for entry in entries {
-            guard let folderID = entry.folderID, let parentID = parents[folderID],
-                let entryFlairs = entry.flairs, !entryFlairs.isEmpty
-            else { continue }
-            appendUniqueFlairs(entryFlairs, to: &collected[folderID, default: []])
-            if let parentID {
-                appendUniqueFlairs(entryFlairs, to: &collected[parentID, default: []])
-            }
-        }
-        return collected.mapValues { $0.sorted(by: TranscriptFlair.areInDisplayOrder) }
-    }
-
-    private static func appendUniqueFlairs(
-        _ source: [TranscriptFlair], to target: inout [TranscriptFlair]
-    ) {
-        for flair in source where !target.contains(where: { $0.matchesIdentity(of: flair) }) {
-            target.append(flair)
-        }
-    }
-
-    static func changedFolderFlairs(
-        _ entries: [Entry], _ folders: [TranscriptFolder], _ current: [UUID: [TranscriptFlair]]
-    ) -> [UUID: [TranscriptFlair]]? {
-        let next = folderFlairs(in: entries, folders: folders)
-        return next == current ? nil : next
-    }
-
-    func syncFlairCaches() {
-        if let tags = Self.changedFlairs(entries, customFlairs) { customFlairs = tags }
-        syncFolderFlairs()
-    }
-
-    func syncFolderFlairs() {
-        if let next = Self.changedFolderFlairs(entries, folders, folderFlairs) {
-            folderFlairs = next
+        withFlairSync {
+            for id in ids { updateEntry(id) { $0.flairs = nil } }
         }
     }
 
@@ -163,18 +175,7 @@ extension AppModel {
 
     /// Deduplicated flairs inside `folderID` and any subfolders for collapsed folder rows.
     func collapsedFolderFlairs(in folderID: UUID) -> [TranscriptFlair] {
-        guard !isFolderExpanded(folderID) else { return [] }
-        guard isFilteringLibrary else { return folderFlairs[folderID] ?? [] }
-        let children = subfolders(of: folderID)
-        var collected: [TranscriptFlair] = []
-        for entry in entries where matchesLibraryFilter(entry) {
-            guard let entryFolder = entry.folderID,
-                entryFolder == folderID || children.contains(where: { $0.id == entryFolder }),
-                let entryFlairs = entry.flairs
-            else { continue }
-            Self.appendUniqueFlairs(entryFlairs, to: &collected)
-        }
-        return collected.sorted(by: TranscriptFlair.areInDisplayOrder)
+        isFolderExpanded(folderID) ? [] : (folderFlairs[folderID] ?? [])
     }
 
     func isFolderExpanded(_ folderID: UUID) -> Bool {

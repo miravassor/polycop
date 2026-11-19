@@ -225,7 +225,7 @@ struct LibrarySidebar: View {
             .truncationMode(.middle)
             if !flairs.isEmpty {
                 Spacer(minLength: 0)
-                FlairIcons(flairs: flairs, maxCount: 4).accessibilityHidden(true)
+                FlairIcons(flairs: flairs, maxCount: 4)
             }
         }
         .accessibilityElement(children: .ignore)

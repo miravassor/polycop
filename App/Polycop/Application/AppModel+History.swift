@@ -15,12 +15,18 @@ extension AppModel {
     ) {
         guard let index = entries.firstIndex(where: { $0.id == id }) else { return }
         let before = entries[index]
-        update(&entries[index])
-        guard entries[index] != before else { return }
+        var updated = before
+        update(&updated)
+        guard updated != before else { return }
+        if before.flairs == updated.flairs && before.folderID == updated.folderID {
+            withFlairSync(deferred: false) { entries[index] = updated }
+        } else {
+            entries[index] = updated
+        }
         if whileTyping {
             saveAfterPause(id)
         } else {
-            store(entries[index])
+            store(updated)
         }
     }
 

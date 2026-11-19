@@ -43,14 +43,15 @@ final class AppModel {
         didSet { holdActivity(while: stage.isRunning) }
     }
     /// Every recording given to the app, newest first.
-    var entries: [Entry] = [] { didSet { syncFlairCaches() } }
+    var entries: [Entry] = [] { didSet { flairCache.sync(entries, folders) } }
     /// Sorted unique custom tags and per-folder flair summaries, kept in sync on changes.
-    var customFlairs: [TranscriptFlair] = []
-    var folderFlairs: [UUID: [TranscriptFlair]] = [:]
+    var customFlairs: [TranscriptFlair] { flairCache.custom }
+    var folderFlairs: [UUID: [TranscriptFlair]] { flairCache.folders }
+    @ObservationIgnored let flairCache = LibraryFlairCache()
     /// Transcripts removed from the library in the last `keepsDeleted`, most
     /// recent first, so that a removal can be taken back.
     var recentlyDeleted: [Entry] = []
-    var folders: [TranscriptFolder] = [] { didSet { syncFolderFlairs() } }
+    var folders: [TranscriptFolder] = []
     /// The entry being transcribed, or paused part way through.
     var running: Entry.ID?
     /// The entry whose repeats are being transcribed again. Kept apart from
@@ -291,11 +292,6 @@ final class AppModel {
     /// What is on disk, at launch.
     private func readLibrary() {
         let library = HistoryStore.all(in: history)
-        entries = library.entries.filter { $0.removed == nil }
-        recentlyDeleted = library.entries.filter { $0.removed != nil }
-            .sorted { ($0.removed ?? .distantPast) > ($1.removed ?? .distantPast) }
-        deleteExpired()
-        unavailable = library.unavailable
         do {
             folders = Self.sorted(try HistoryStore.folders(in: history))
         } catch let error as HistoryStore.FolderReadError {
@@ -309,6 +305,11 @@ final class AppModel {
             // `HistoryStore.folders(in:)` wraps every read error in `FolderReadError`.
             assertionFailure("unexpected folder read error: \(error)")
         }
+        entries = library.entries.filter { $0.removed == nil }
+        recentlyDeleted = library.entries.filter { $0.removed != nil }
+            .sorted { ($0.removed ?? .distantPast) > ($1.removed ?? .distantPast) }
+        deleteExpired()
+        unavailable = library.unavailable
         if library.isUnlisted {
             libraryWarning = String(
                 localized: "The folder that holds your library could not be opened.")

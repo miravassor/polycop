@@ -109,11 +109,12 @@ extension AppScene {
             arrangeLibrary(stage)
             if let extra = stage.model.duplicate(stage.second),
                 let longCourse = try? stage.model.createFolder(
-                    named: "Constitutional History Seminar")
+                    named: "Constitutional History Seminar"),
+                let seminars = try? stage.model.createFolder(named: "Seminars", in: longCourse)
             {
                 stage.change(extra) { $0.title = "Extra reading" }
                 try? stage.model.setFolderColor(longCourse, to: .red)
-                stage.model.moveEntry(extra, to: longCourse)
+                stage.model.moveEntry(extra, to: seminars)
                 stage.model.clearFlairs(on: [extra])
                 stage.model.toggleFlair(.done, on: [extra])
                 stage.model.toggleFlair(.exam, on: [extra])
@@ -123,7 +124,9 @@ extension AppScene {
                     TranscriptFlair(kind: nil, title: "", color: .yellow), on: [extra]
                 )
             }
-            stage.model.layout.openFolders = []
+            stage.model.layout.openFolders = Set(
+                stage.model.folders.filter { $0.name == "Biology" }.map(\.id)
+            )
         },
         AppScene(name: "library-filtered") { stage in
             arrangeLibrary(stage)

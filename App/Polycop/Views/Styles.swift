@@ -115,13 +115,15 @@ struct FlairIcons: View {
             }
         }
         .fixedSize()
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(flairs.map(\.displayTitle).formatted(.list(type: .and)))
     }
 
     static func folderAccessibilityLabel(
         _ name: String, collapsedFlairs flairs: [TranscriptFlair]
     ) -> String {
         guard !flairs.isEmpty else { return name }
-        let list = ListFormatter.localizedString(byJoining: flairs.map(\.displayTitle))
+        let list = flairs.map(\.displayTitle).formatted(.list(type: .and))
         return String(localized: "\(name), contains \(list)")
     }
 }

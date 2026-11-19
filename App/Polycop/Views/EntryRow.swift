@@ -20,7 +20,7 @@ struct EntryRow: View {
                     .truncationMode(.middle)
                 if !flairs.isEmpty {
                     Spacer(minLength: 0)
-                    FlairIcons(flairs: flairs)
+                    FlairIcons(flairs: flairs, maxCount: 4)
                         .accessibilityHidden(stage == nil && entry.state == .finished)
                 }
             }

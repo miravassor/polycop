@@ -1291,11 +1291,68 @@ func automaticIsADetectedLanguage(chosen: Model) {
     model.layout.searchQuery = "Optics"
     #expect(model.isFolderExpanded(course.id))
     #expect(model.collapsedFolderFlairs(in: course.id).isEmpty)
+
+    model.layout.searchQuery = "PinnedOnly"
+    #expect(model.shouldShowFolder(pinnedOnly.id))
+    #expect(!model.isFolderExpanded(pinnedOnly.id))
+    #expect(model.collapsedFolderFlairs(in: pinnedOnly.id) == [.done, .urgent])
     model.layout.searchQuery = ""
 
-    model.layout.filter = .flair(.urgent)
-    #expect(!model.isFolderExpanded(pinnedOnly.id))
-    #expect(model.collapsedFolderFlairs(in: pinnedOnly.id) == [.urgent])
-    model.layout.filter = .all
+    #expect(FlairIcons.folderAccessibilityLabel("Law", collapsedFlairs: []) == "Law")
+    let label = FlairIcons.folderAccessibilityLabel("History", collapsedFlairs: [.done, .urgent])
+    #expect(label.contains("History") && label.contains("Done") && label.contains("Urgent"))
+    await model.finishWrites()
+}
+
+@MainActor
+@Test func collapsedFolderFlairsTrackLiveFlairMoveRemoveAndRecoverMutations() async throws {
+    let directory = try temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: directory) }
+
+    var first = entry("One.m4a", in: directory)
+    first.state = .finished
+    first.paragraphs = [Transcript.Paragraph(start: 0, text: "First")]
+    var second = entry("Two.m4a", in: directory)
+    second.state = .finished
+    second.paragraphs = [Transcript.Paragraph(start: 0, text: "Second")]
+    try HistoryStore.write(first, in: directory)
+    try HistoryStore.write(second, in: directory)
+
+    let model = AppModel(history: directory, defaults: MemoryDefaults())
+    let source = try model.createFolder(named: "History")
+    let sub = try model.createFolder(named: "Seminars", in: source)
+    let dest = try model.createFolder(named: "Law")
+
+    model.moveEntries([first.id, second.id], to: sub)
+    model.toggleFlair(.urgent, on: [first.id, second.id])
+    model.addCustomTag(named: "Midterm", color: .blue, to: [first.id])
+    #expect(
+        model.collapsedFolderFlairs(in: source)
+            == [.urgent, TranscriptFlair(title: "Midterm", color: .blue)]
+    )
+
+    model.addCustomTag(named: "Midterm", color: .red, to: [second.id])
+    #expect(
+        model.collapsedFolderFlairs(in: sub)
+            == [.urgent, TranscriptFlair(title: "Midterm", color: .red)]
+    )
+
+    model.moveEntry(second.id, to: dest)
+    #expect(
+        model.collapsedFolderFlairs(in: dest)
+            == [.urgent, TranscriptFlair(title: "Midterm", color: .red)]
+    )
+
+    model.removeEntry(second.id)
+    #expect(model.collapsedFolderFlairs(in: dest).isEmpty)
+    model.recoverEntry(second.id)
+    #expect(
+        model.collapsedFolderFlairs(in: dest)
+            == [.urgent, TranscriptFlair(title: "Midterm", color: .red)]
+    )
+
+    model.clearFlairs(on: [first.id, second.id])
+    #expect(model.collapsedFolderFlairs(in: source).isEmpty)
+    #expect(model.collapsedFolderFlairs(in: dest).isEmpty)
     await model.finishWrites()
 }
