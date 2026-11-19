@@ -70,7 +70,9 @@ final class WindowLayout {
 
     static let singleSidebarWidth = Double(
         ContentView.idealLibraryWidth + ContentView.libraryInset + ContentView.pageMinimumWidth)
-    private static let bothSidebarsWidth =
+    /// Not private: the reset tests read it, since the screen they run on sets
+    /// how wide a reset window can be.
+    static let bothSidebarsWidth =
         singleSidebarWidth + Double(EntryView.idealInspectorWidth)
 
     /// Current content width of the window, used to fold sidebars when narrow

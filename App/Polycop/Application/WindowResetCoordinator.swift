@@ -17,14 +17,21 @@ final class WindowResetCoordinator {
         signalEvent?()
     }
 
-    func reset(layout: WindowLayout, openMainWindow: @escaping @MainActor () -> Void) {
+    /// Returns the reset under way, which the tests await to read the window
+    /// once it is done.
+    @discardableResult
+    func reset(
+        layout: WindowLayout, openMainWindow: @escaping @MainActor () -> Void
+    ) -> Task<Void, Never> {
         let previous = resetTask
         previous?.cancel()
-        resetTask = Task { @MainActor [weak self] in
+        let task = Task { @MainActor [weak self] in
             _ = await previous?.value
             guard let self, !Task.isCancelled else { return }
             await self.performReset(layout: layout, openMainWindow: openMainWindow)
         }
+        resetTask = task
+        return task
     }
 
     private func performReset(layout: WindowLayout, openMainWindow: () -> Void) async {

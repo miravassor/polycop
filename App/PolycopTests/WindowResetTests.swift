@@ -92,6 +92,45 @@ private func assertCenteredDefaultFrame(of window: NSWindow) {
     #expect(abs(window.frame.minY - expectedY) <= 1)
 }
 
+/// Whether the window has room for both sidebars beside the page. A reset
+/// window is as wide as the screen allows, and a screen narrower than that
+/// folds the inspector.
+@MainActor
+private func hasRoomForBothSidebars(_ window: NSWindow) -> Bool {
+    Double(window.contentView?.bounds.width ?? 0) >= WindowLayout.bothSidebarsWidth
+}
+
+/// Whether the split view shows what a reset leaves at the window's width: the
+/// library at its default width, and the inspector at its own when there is
+/// room for both, folded when there is not.
+@MainActor
+private func showsDefaultColumns(in window: NSWindow) -> Bool {
+    guard let root = window.contentView else { return false }
+    let (sidebar, inspector) = WindowResetCoordinator.splitControllers(in: root)
+    guard let library = sidebar?.splitViewItems.first, !library.isCollapsed,
+        abs(library.viewController.view.frame.width - ContentView.idealLibraryWidth) <= 1
+    else { return false }
+    let inspectorItem = inspector?.splitViewItems.last
+    guard hasRoomForBothSidebars(window) else { return inspectorItem?.isCollapsed ?? true }
+    guard let inspectorItem, !inspectorItem.isCollapsed else { return false }
+    return abs(inspectorItem.viewController.view.frame.width - EntryView.idealInspectorWidth) <= 1
+}
+
+/// What a reset leaves on any screen: both sidebars chosen at their default
+/// widths, and shown as far as the window has room.
+@MainActor
+private func expectDefaultLayout(_ layout: WindowLayout, in window: NSWindow) {
+    let width = window.contentView?.bounds.width ?? 0
+    #expect(!layout.isResettingSize)
+    #expect(layout.showsLibrary)
+    #expect(layout.showsInspector)
+    #expect(layout.isLibraryShown)
+    #expect(layout.isInspectorShown == hasRoomForBothSidebars(window), "\(width) points wide")
+    #expect(layout.libraryWidth == Double(ContentView.idealLibraryWidth))
+    #expect(layout.inspectorWidth == Double(EntryView.idealInspectorWidth))
+    #expect(showsDefaultColumns(in: window), "\(width) points wide")
+}
+
 @MainActor
 @Test func windowResetCoordinatorCentersCollapsedWindowAndRestoresSplitWidths() async {
     let layout = WindowLayout(defaults: MemoryDefaults())
@@ -112,29 +151,11 @@ private func assertCenteredDefaultFrame(of window: NSWindow) {
 
     let coordinator = WindowResetCoordinator()
     coordinator.attach(window)
-    coordinator.reset(layout: layout) {}
+    await coordinator.reset(layout: layout) {}.value
+    await waitUntilSettled { showsDefaultColumns(in: window) }
 
-    await waitUntilSettled {
-        guard !layout.isResettingSize, let root = window.contentView else { return false }
-        let controllers = WindowResetCoordinator.splitControllers(in: root)
-        return controllers.sidebar?.splitViewItems.first?.isCollapsed == false
-            && controllers.inspector?.splitViewItems.last?.isCollapsed == false
-    }
-
-    #expect(!layout.isResettingSize)
     assertCenteredDefaultFrame(of: window)
-    #expect(layout.showsLibrary)
-    #expect(layout.showsInspector)
-    #expect(layout.libraryWidth == Double(ContentView.idealLibraryWidth))
-    #expect(layout.inspectorWidth == Double(EntryView.idealInspectorWidth))
-
-    if let root = window.contentView {
-        let (sidebar, inspector) = WindowResetCoordinator.splitControllers(in: root)
-        let sidebarWidth = sidebar?.splitViewItems.first?.viewController.view.frame.width ?? 0
-        let inspectorWidth = inspector?.splitViewItems.last?.viewController.view.frame.width ?? 0
-        #expect(abs(sidebarWidth - ContentView.idealLibraryWidth) <= 1)
-        #expect(abs(inspectorWidth - EntryView.idealInspectorWidth) <= 1)
-    }
+    expectDefaultLayout(layout, in: window)
 }
 
 @MainActor
@@ -152,42 +173,15 @@ private func assertCenteredDefaultFrame(of window: NSWindow) {
 
     var openCalls = 0
     let coordinator = WindowResetCoordinator()
-    coordinator.reset(layout: layout) {
+    await coordinator.reset(layout: layout) {
         openCalls += 1
         coordinator.attach(window)
         window.orderFront(nil)
-    }
-
-    await waitUntilSettled {
-        guard window.isVisible, !layout.isResettingSize,
-            layout.isLibraryShown, layout.isInspectorShown,
-            let root = window.contentView
-        else { return false }
-        let controllers = WindowResetCoordinator.splitControllers(in: root)
-        guard let sidebar = controllers.sidebar, let inspector = controllers.inspector,
-            sidebar.splitViewItems.first?.isCollapsed == false,
-            inspector.splitViewItems.last?.isCollapsed == false
-        else { return false }
-        let sidebarWidth = sidebar.splitViewItems.first?.viewController.view.frame.width ?? 0
-        let inspectorWidth = inspector.splitViewItems.last?.viewController.view.frame.width ?? 0
-        return abs(sidebarWidth - ContentView.idealLibraryWidth) <= 1
-            && abs(inspectorWidth - EntryView.idealInspectorWidth) <= 1
-    }
+    }.value
+    await waitUntilSettled { showsDefaultColumns(in: window) }
 
     #expect(openCalls == 1)
     #expect(window.isVisible)
     assertCenteredDefaultFrame(of: window)
-    #expect(layout.showsLibrary)
-    #expect(layout.showsInspector)
-    #expect(layout.isLibraryShown)
-    #expect(layout.isInspectorShown)
-    #expect(layout.libraryWidth == Double(ContentView.idealLibraryWidth))
-    #expect(layout.inspectorWidth == Double(EntryView.idealInspectorWidth))
-    if let root = window.contentView {
-        let (sidebar, inspector) = WindowResetCoordinator.splitControllers(in: root)
-        let sidebarWidth = sidebar?.splitViewItems.first?.viewController.view.frame.width ?? 0
-        let inspectorWidth = inspector?.splitViewItems.last?.viewController.view.frame.width ?? 0
-        #expect(abs(sidebarWidth - ContentView.idealLibraryWidth) <= 1)
-        #expect(abs(inspectorWidth - EntryView.idealInspectorWidth) <= 1)
-    }
+    expectDefaultLayout(layout, in: window)
 }
