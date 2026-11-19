@@ -116,6 +116,29 @@ import Testing
     #expect(synced.inspectorWidth == 504.3 + Double(ContentView.libraryInset))
 }
 
+/// SwiftUI writes a column's fold back through its binding once AppKit has
+/// folded it, as if the reader had hidden it.
+@MainActor
+@Test func aFoldWrittenBackBySwiftUIComesBackWhenTheWindowWidens() {
+    let defaults = MemoryDefaults()
+    let layout = WindowLayout(defaults: defaults)
+
+    layout.windowWidth = 1000
+    layout.isInspectorShown = false
+    layout.windowWidth = 1440
+    #expect(layout.isInspectorShown)
+
+    layout.windowWidth = 1000
+    layout.isInspectorShown = true
+    layout.isLibraryShown = false
+    #expect(layout.isInspectorShown)
+    layout.windowWidth = 1440
+    #expect(layout.isLibraryShown)
+
+    #expect(WindowLayout(defaults: defaults).showsLibrary)
+    #expect(WindowLayout(defaults: defaults).showsInspector)
+}
+
 @MainActor
 @Test func columnWidthCeilingsReservePageMinimumWidthWithoutOverwritingStoredWidth() {
     let layout = WindowLayout(defaults: MemoryDefaults())

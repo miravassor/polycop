@@ -169,7 +169,10 @@ final class WindowLayout {
             return true
         }
         set {
-            guard canShowLibrary else { return }
+            // SwiftUI writes back what AppKit's split view shows once a column
+            // has folded or opened, the folds decided here included: only a
+            // change is the reader's choice, or a fold would be stored as one.
+            guard newValue != isLibraryShown, canShowLibrary else { return }
             prefersInspectorWhenNarrow = false
             showsLibrary = newValue
         }
@@ -179,7 +182,9 @@ final class WindowLayout {
     var isInspectorShown: Bool {
         get { showsInspector && canShowInspector }
         set {
-            guard windowWidth >= Self.singleSidebarWidth else { return }
+            // Only a change is the reader's choice, as for the library.
+            guard newValue != isInspectorShown, windowWidth >= Self.singleSidebarWidth
+            else { return }
             if newValue {
                 if windowWidth < Self.bothSidebarsWidth, showsLibrary {
                     prefersInspectorWhenNarrow = true
