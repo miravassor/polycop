@@ -36,10 +36,7 @@ final class WindowResetCoordinator {
 
     private func performReset(layout: WindowLayout, openMainWindow: () -> Void) async {
         guard
-            let window = await ensureVisibleWindow(
-                layout: layout,
-                openMainWindow: openMainWindow
-            ),
+            let window = await ensureVisibleWindow(openMainWindow: openMainWindow),
             !Task.isCancelled
         else { return }
 
@@ -64,6 +61,9 @@ final class WindowResetCoordinator {
         }
         layout.isResettingSize = true
         defer { layout.isResettingSize = false }
+        // Only once the window has its size: sidebars opened in a narrower one
+        // make AppKit widen it for them, and an opening that ends after the
+        // centring has folded it again reaches the layout as the reader's choice.
         layout.resetToDefaultSize()
 
         await waitUntilSplitPanesSettle(in: window, layout: layout)
@@ -129,14 +129,10 @@ final class WindowResetCoordinator {
         }
     }
 
-    private func ensureVisibleWindow(
-        layout: WindowLayout,
-        openMainWindow: () -> Void
-    ) async -> NSWindow? {
+    private func ensureVisibleWindow(openMainWindow: () -> Void) async -> NSWindow? {
         if let window = visibleOrMiniaturizedAttachedWindow {
             return window
         }
-        layout.resetToDefaultSize()
         openMainWindow()
         await nextRunLoopTurn()
         _ = await waitUntil(
