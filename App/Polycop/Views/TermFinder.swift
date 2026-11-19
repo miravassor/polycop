@@ -35,8 +35,6 @@ struct TermFinder: View {
                     .background(.quaternary, in: Capsule())
             }
             .padding([.horizontal, .top], Spacing.sheet)
-            // Grouped rows as the other sheets: what is read, then what was
-            // found, to trim before adding.
             Form {
                 documents
                 Section("Or Paste Text") {
@@ -96,8 +94,7 @@ struct TermFinder: View {
         }
     }
 
-    /// The documents chosen, by name, with Add on the title line as the
-    /// recordings waiting have.
+    /// The chosen documents, with Add on the section header.
     private var documents: some View {
         Section {
             if files.isEmpty {
