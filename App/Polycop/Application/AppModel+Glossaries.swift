@@ -8,7 +8,7 @@ import os
 extension AppModel {
     func manageGlossaries() {
         guard !isShuttingDown else { return }
-        pane = .new
+        openNewTranscription()
         glossariesRequest = UUID()
     }
 

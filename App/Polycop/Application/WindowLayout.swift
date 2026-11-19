@@ -13,6 +13,10 @@ final class WindowLayout {
     static let libraryWidthKey = "libraryWidth"
     static let inspectorWidthKey = "inspectorWidth"
     static let openFoldersKey = "openFolders"
+    static let showsPinnedKey = "showsPinned"
+    static let showsUnfiledKey = "showsUnfiled"
+    static let showsFoldersKey = "showsFolders"
+    static let showsRecentlyDeletedKey = "showsRecentlyDeleted"
     static let librarySortKey = "librarySort"
 
     var showsLibrary: Bool {
@@ -32,10 +36,29 @@ final class WindowLayout {
     var openFolders: Set<UUID> {
         didSet { defaults.set(openFolders.map(\.uuidString), forKey: Self.openFoldersKey) }
     }
+    /// Whether the sidebar's Pinned section is expanded.
+    var showsPinned: Bool {
+        didSet { defaults.set(showsPinned, forKey: Self.showsPinnedKey) }
+    }
+    /// Whether the sidebar's Unfiled section is expanded.
+    var showsUnfiled: Bool {
+        didSet { defaults.set(showsUnfiled, forKey: Self.showsUnfiledKey) }
+    }
+    /// Whether the sidebar's Folders section is expanded.
+    var showsFolders: Bool {
+        didSet { defaults.set(showsFolders, forKey: Self.showsFoldersKey) }
+    }
+    /// Whether the sidebar's Recently Deleted section is expanded.
+    var showsRecentlyDeleted: Bool {
+        didSet { defaults.set(showsRecentlyDeleted, forKey: Self.showsRecentlyDeletedKey) }
+    }
     /// How transcripts in folders and outside them are ordered.
     var sort: LibrarySort {
         didSet { defaults.set(sort.rawValue, forKey: Self.librarySortKey) }
     }
+    /// Transient sidebar filter, reset on launch so nothing stays hidden by surprise.
+    var filter: LibraryFilter = .all
+    var searchQuery = ""
 
     @ObservationIgnored private let defaults: UserDefaults
 
@@ -52,6 +75,11 @@ final class WindowLayout {
         openFolders = Set(
             (defaults.stringArray(forKey: Self.openFoldersKey) ?? [])
                 .compactMap(UUID.init(uuidString:)))
+        showsPinned = defaults.object(forKey: Self.showsPinnedKey) as? Bool ?? true
+        showsUnfiled = defaults.object(forKey: Self.showsUnfiledKey) as? Bool ?? true
+        showsFolders = defaults.object(forKey: Self.showsFoldersKey) as? Bool ?? true
+        showsRecentlyDeleted =
+            defaults.object(forKey: Self.showsRecentlyDeletedKey) as? Bool ?? true
         sort =
             defaults.string(forKey: Self.librarySortKey)
             .flatMap(LibrarySort.init(rawValue:)) ?? .newestFirst
@@ -81,5 +109,26 @@ nonisolated enum LibrarySort: String, Sendable {
 
     func sorted(_ entries: [Entry]) -> [Entry] {
         entries.sorted(by: areInIncreasingOrder)
+    }
+}
+
+/// Filters what the sidebar lists without changing saved transcript assignments.
+nonisolated enum LibraryFilter: Hashable, Sendable {
+    case all
+    case pinned
+    case unreviewed
+    case flair(TranscriptFlair.Kind)
+    case tag(String)
+    case color(FolderColor)
+
+    var title: String {
+        switch self {
+        case .all: String(localized: "All Transcripts")
+        case .pinned: String(localized: "Pinned")
+        case .unreviewed: String(localized: "Unreviewed")
+        case .flair(let kind): kind.title
+        case .tag(let title): title
+        case .color(let color): color.title
+        }
     }
 }

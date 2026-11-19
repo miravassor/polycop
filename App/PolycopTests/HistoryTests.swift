@@ -3,8 +3,10 @@
 // swiftlint:disable file_length
 
 import Foundation
+import Observation
 import Testing
 import UniformTypeIdentifiers
+import os
 
 @testable import Polycop
 
@@ -733,4 +735,624 @@ func automaticIsADetectedLanguage(chosen: Model) {
     #expect(model.entries(in: historyFolder).map(\.id) == [inHistoryOne.id, inHistoryTwo.id])
     try model.renameFolder(law, to: "Arts")
     #expect(model.folders.map(\.name) == ["Arts", "History"])
+}
+
+@MainActor
+@Test func subfoldersStayTwoLevelsDeepWithPerParentNamesAndColors() throws {
+    let history = try temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: history) }
+    let model = AppModel(history: history, defaults: MemoryDefaults())
+
+    let biology = try model.createFolder(named: "Biology")
+    let courseHistory = try model.createFolder(named: "History")
+    let bioLectures = try model.createFolder(named: "Lectures", in: biology)
+    let histLectures = try model.createFolder(named: "Lectures", in: courseHistory)
+
+    #expect(model.canAddSubfolder(to: biology))
+    #expect(!model.canAddSubfolder(to: bioLectures))
+    #expect(try model.createFolder(named: "Lectures", in: biology) == bioLectures)
+    let seminar = try model.createFolder(named: "Seminars", in: biology)
+    #expect(throws: (any Error).self) { try model.renameFolder(seminar, to: "Lectures") }
+    try model.removeFolder(seminar)
+    #expect(throws: (any Error).self) { try model.createFolder(named: "Week 1", in: bioLectures) }
+    #expect(model.holdsTranscripts(biology))
+    #expect(model.folderPath(of: histLectures) == "History / Lectures")
+
+    try model.removeFolder(bioLectures)
+    #expect(!model.holdsTranscripts(biology))
+    try model.setFolderColor(courseHistory, to: .orange)
+    try model.setFolderColor(histLectures, to: .blue)
+
+    let reloaded = AppModel(history: history, defaults: MemoryDefaults())
+    #expect(reloaded.folder(courseHistory)?.color == .orange)
+    #expect(reloaded.folder(histLectures)?.color == .blue)
+    #expect(reloaded.subfolders(of: courseHistory).map(\.id) == [histLectures])
+
+    let cycleA = UUID()
+    let cycleB = UUID()
+    let normalized = AppModel.sorted([
+        TranscriptFolder(id: cycleA, name: "Zulu", parentID: cycleB),
+        TranscriptFolder(id: cycleB, name: "Alpha", parentID: cycleA),
+    ])
+    #expect(normalized.map(\.name) == ["Alpha", "Zulu"])
+    #expect(normalized.allSatisfy { $0.parentID == nil })
+}
+
+@MainActor
+@Test func pinningKeepsFolderAndRemovesRowFromFolderList() async throws {
+    let directory = try temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let folder = TranscriptFolder(id: UUID(), name: "History")
+    let first = entry("First.m4a", in: directory, added: .now)
+    let second = entry("Second.m4a", in: directory, added: .now.addingTimeInterval(60))
+    for var item in [first, second] {
+        item.state = .finished
+        item.folderID = folder.id
+        try HistoryStore.write(item, in: directory)
+    }
+    try HistoryStore.writeFolders([folder], in: directory)
+
+    let model = AppModel(history: directory, defaults: MemoryDefaults())
+    model.setPinned([first.id], to: true)
+    #expect(model.pinnedEntries.map(\.id) == [first.id])
+    #expect(model.entries(in: folder.id).map(\.id) == [second.id])
+    #expect(model.entry(first.id)?.folderID == folder.id)
+    #expect(model.hasPinnedEntries(in: folder.id))
+    #expect(model.holdsTranscripts(folder.id))
+    #expect(model.visibleEntryOrder.contains(first.id))
+
+    model.layout.showsPinned = false
+    #expect(!model.visibleEntryOrder.contains(first.id))
+    model.layout.filter = .pinned
+    #expect(model.visibleEntryOrder == [first.id])
+    model.layout.filter = .all
+    model.layout.showsPinned = true
+
+    model.setPinned([first.id], to: false)
+    await model.finishWrites()
+    let reloaded = AppModel(history: directory, defaults: MemoryDefaults())
+    #expect(reloaded.pinnedEntries.isEmpty)
+    #expect(reloaded.entry(first.id)?.isPinned == nil)
+    #expect(Set(reloaded.entries(in: folder.id).map(\.id)) == [first.id, second.id])
+
+    var orphaned = entry("Orphaned.m4a", in: directory)
+    orphaned.state = .finished
+    orphaned.folderID = UUID()
+    orphaned.isPinned = true
+    try HistoryStore.write(orphaned, in: directory)
+    let withOrphan = AppModel(history: directory, defaults: MemoryDefaults())
+    #expect(withOrphan.hasPinnedEntries(in: nil))
+}
+
+@MainActor
+@Test func collapsingSidebarSectionsHidesEntriesUntilRevealedOrFiltered() throws {
+    let directory = try temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let folder = TranscriptFolder(id: UUID(), name: "History")
+    var filed = entry("Filed.m4a", in: directory)
+    filed.state = .finished
+    filed.folderID = folder.id
+    var unfiled = entry("Unfiled.m4a", in: directory)
+    unfiled.state = .finished
+    for item in [filed, unfiled] { try HistoryStore.write(item, in: directory) }
+    try HistoryStore.writeFolders([folder], in: directory)
+
+    let model = AppModel(history: directory, defaults: MemoryDefaults())
+    model.setFolderExpanded(folder.id, to: true)
+    #expect(model.visibleEntryOrder.contains(filed.id))
+    model.setFolderExpanded(folder.id, to: false)
+    #expect(!model.visibleEntryOrder.contains(filed.id))
+    model.setFolderExpanded(folder.id, to: true)
+
+    model.layout.showsFolders = false
+    #expect(!model.visibleEntryOrder.contains(filed.id))
+    model.revealFolder(folder.id)
+    #expect(model.layout.showsFolders)
+    #expect(model.visibleEntryOrder.contains(filed.id))
+
+    model.layout.showsUnfiled = false
+    #expect(!model.visibleEntryOrder.contains(unfiled.id))
+    model.layout.searchQuery = "Unfiled"
+    #expect(model.visibleEntryOrder.contains(unfiled.id))
+    model.layout.searchQuery = ""
+
+    model.layout.showsPinned = false
+    model.setPinned([unfiled.id], to: true)
+    #expect(model.layout.showsPinned)
+}
+
+@MainActor
+@Test func flairsAndCustomTagsCombineWhileStatusStaysSingle() async throws {
+    let directory = try temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    var item = entry("Lecture.m4a", in: directory)
+    item.state = .finished
+    try HistoryStore.write(item, in: directory)
+
+    var second = entry("Seminar.m4a", in: directory, added: .now.addingTimeInterval(60))
+    second.state = .finished
+    try HistoryStore.write(second, in: directory)
+
+    let model = AppModel(history: directory, defaults: MemoryDefaults())
+    model.toggleFlair(.todo, on: [item.id])
+    model.toggleFlair(.urgent, on: [item.id])
+    model.toggleFlair(.exam, on: [item.id])
+    #expect(model.entry(item.id)?.flairs == [.urgent, .exam])
+
+    model.addCustomTag(named: "Midterm", color: .blue, to: [item.id])
+    model.addCustomTag(named: "Midterm", color: .purple, to: [second.id])
+    model.addCustomTag(named: "Final", color: .green, to: [item.id])
+    #expect(model.customFlairs.map(\.title) == ["Final", "Midterm"])
+
+    let canonicalMidterm = try #require(model.customFlairs.first { $0.title == "Midterm" })
+    model.toggleFlair(canonicalMidterm, on: [item.id])
+    #expect(model.entry(item.id)?.flairs?.contains { $0.title == "Midterm" } == false)
+
+    let orangeDot = TranscriptFlair(kind: nil, title: "", color: .orange)
+    let greenDot = TranscriptFlair(kind: nil, title: "", color: .green)
+    model.toggleFlair(orangeDot, on: [item.id])
+    model.toggleFlair(greenDot, on: [item.id])
+    #expect(model.entry(item.id)?.flairs?.contains(orangeDot) == false)
+    #expect(model.entry(item.id)?.flairs?.contains(greenDot) == true)
+
+    model.toggleFlair(.exam, on: [item.id])
+    #expect(model.entry(item.id)?.flairs?.contains(.exam) == false)
+
+    let savedFlairsEntry = try #require(model.entry(item.id))
+    var pinnedRetrySource = savedFlairsEntry
+    pinnedRetrySource.isPinned = true
+    let retried = pinnedRetrySource.retrying()
+    #expect(retried.flairs == savedFlairsEntry.flairs)
+    #expect(retried.isPinned == true)
+
+    model.clearFlairs(on: [item.id])
+    await model.finishWrites()
+    let reloaded = AppModel(history: directory, defaults: MemoryDefaults())
+    #expect(reloaded.entry(item.id)?.flairs == nil)
+}
+
+@MainActor
+@Test func librarySearchAndFiltersMatchNamesFoldersFlairsAndInheritedColors() throws {
+    let directory = try temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let bioID = UUID()
+    let subID = UUID()
+    let lawID = UUID()
+    let bio = TranscriptFolder(id: bioID, name: "Biology", color: .green)
+    let sub = TranscriptFolder(id: subID, name: "Cell Bio", parentID: bioID, color: .blue)
+    let law = TranscriptFolder(id: lawID, name: "Law", color: .orange)
+    try HistoryStore.writeFolders([bio, sub, law], in: directory)
+
+    var cellular = entry("Respiration.m4a", in: directory)
+    cellular.state = .finished
+    cellular.folderID = subID
+    cellular.isPinned = true
+    cellular.flairs = [.urgent]
+
+    var quiz = entry("Quiz Prep.m4a", in: directory)
+    quiz.state = .finished
+    quiz.folderID = bioID
+    quiz.flairs = [.done, TranscriptFlair(kind: nil, title: "Midterm", color: .red)]
+
+    var syllabus = entry("Syllabus.m4a", in: directory)
+    syllabus.state = .finished
+    syllabus.flairs = [.exam]
+
+    for item in [cellular, quiz, syllabus] { try HistoryStore.write(item, in: directory) }
+
+    let model = AppModel(history: directory, defaults: MemoryDefaults())
+    model.layout.filter = .color(.green)
+    #expect(model.pinnedEntries.map(\.id) == [cellular.id])
+    #expect(model.entries(in: bioID).map(\.id) == [quiz.id])
+    #expect(!model.shouldShowFolder(lawID))
+
+    model.layout.filter = .unreviewed
+    #expect(model.entries(in: bioID).isEmpty)
+    #expect(model.entries(in: nil).map(\.id) == [syllabus.id])
+
+    model.layout.filter = .all
+    model.layout.searchQuery = "Law"
+    #expect(model.shouldShowFolder(lawID))
+    model.layout.searchQuery = "Midterm"
+    #expect(model.entries(in: bioID).map(\.id) == [quiz.id])
+    #expect(model.pinnedEntries.isEmpty)
+    model.layout.searchQuery = ""
+    model.layout.filter = .tag("midterm")
+    #expect(model.entries(in: bioID).map(\.id) == [quiz.id])
+    #expect(model.pinnedEntries.isEmpty)
+
+    let badName = "\(UUID().uuidString).json"
+    try Data("damaged".utf8).write(to: directory.appending(path: badName))
+    let filtered = AppModel(history: directory, defaults: MemoryDefaults())
+    filtered.layout.filter = .pinned
+    #expect(filtered.visibleUnidentifiedFiles.isEmpty)
+    #expect(filtered.visibleEntryOrder == [cellular.id])
+    filtered.layout.filter = .all
+    #expect(filtered.visibleUnidentifiedFiles.count == 1)
+    filtered.layout.searchQuery = "missing"
+    #expect(filtered.visibleUnidentifiedFiles.isEmpty)
+}
+
+@MainActor
+@Test func entrySupportsPinAndPresetFlairToggles() async throws {
+    let directory = try temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    var item = entry("Lecture.m4a", in: directory)
+    item.state = .finished
+    try HistoryStore.write(item, in: directory)
+
+    let model = AppModel(history: directory, defaults: MemoryDefaults())
+    model.setPinned([item.id], to: true)
+    #expect(model.entry(item.id)?.isPinned == true)
+    model.setPinned([item.id], to: false)
+    #expect(model.entry(item.id)?.isPinned != true)
+
+    for preset in TranscriptFlair.presets {
+        model.toggleFlair(preset, on: [item.id])
+        #expect(model.entry(item.id)?.flairs?.contains(preset) == true)
+        model.toggleFlair(preset, on: [item.id])
+        #expect(model.entry(item.id)?.flairs?.contains(preset) != true)
+    }
+
+    await model.finishWrites()
+}
+
+@MainActor
+@Test func collapsedParentAutoExpandsForEmptyMatchingSubfolder() async throws {
+    let directory = try temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: directory) }
+
+    let bioID = UUID()
+    let neuroID = UUID()
+    let bio = TranscriptFolder(id: bioID, name: "Biology")
+    let neuro = TranscriptFolder(id: neuroID, name: "Neurobiology", parentID: bioID)
+    try HistoryStore.writeFolders([bio, neuro], in: directory)
+
+    let model = AppModel(history: directory, defaults: MemoryDefaults())
+    #expect(!model.isFolderExpanded(bioID))
+
+    model.layout.searchQuery = "Neurobiology"
+    #expect(model.shouldShowFolder(neuroID))
+    #expect(model.shouldShowFolder(bioID))
+    #expect(model.isFolderExpanded(bioID))
+    #expect(!model.isFolderExpanded(neuroID))
+}
+
+@MainActor
+@Test func visibleSelectablePanesIncludesUnavailableRowsAndOpenNewEmitsRequest() throws {
+    let directory = try temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: directory) }
+
+    let bioID = UUID()
+    let bio = TranscriptFolder(id: bioID, name: "Biology")
+    try HistoryStore.writeFolders([bio], in: directory)
+
+    var lecture = entry("Lecture.m4a", in: directory)
+    lecture.state = .finished
+    lecture.folderID = bioID
+    try HistoryStore.write(lecture, in: directory)
+
+    let futureID = UUID()
+    let futureFile = directory.appending(path: "\(futureID.uuidString).json")
+    try Data(#"{"id":"\#(futureID.uuidString)","requires":999,"name":"Future"}"#.utf8)
+        .write(to: futureFile)
+    let badID = UUID()
+    try Data("damaged".utf8).write(to: directory.appending(path: "\(badID.uuidString).json"))
+
+    let model = AppModel(history: directory, defaults: MemoryDefaults())
+    #expect(model.visibleSelectablePanes.contains(.unavailable(futureFile)))
+    #expect(model.visibleSelectablePanes.contains(.unidentifiedFiles))
+    #expect(!model.visibleSelectablePanes.contains(.entry(lecture.id)))
+
+    model.revealFolder(bioID)
+    #expect(model.visibleSelectablePanes.contains(.entry(lecture.id)))
+
+    model.layout.searchQuery = "Biology"
+    #expect(model.holdsTranscripts(bioID))
+
+    model.pane = .new
+    model.newTranscriptionRequest = nil
+    model.chooseRecordings()
+    let firstRequest = try #require(model.newTranscriptionRequest)
+    model.manageGlossaries()
+    let secondRequest = try #require(model.newTranscriptionRequest)
+    #expect(firstRequest != secondRequest)
+}
+
+@Test func writeFoldersRollsBackWhenFolderDetailsWriteFails() throws {
+    let directory = try temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: directory) }
+
+    let original = TranscriptFolder(id: UUID(), name: "Original")
+    try HistoryStore.writeFolders([original], in: directory)
+
+    // Block writing folder-details.json so the second write fails after folders.json is rewritten.
+    let blocker = directory.appending(path: "folder-details.json")
+    try FileManager.default.createDirectory(at: blocker, withIntermediateDirectories: true)
+
+    let replacement = TranscriptFolder(id: UUID(), name: "Updated", color: .blue)
+    #expect(throws: (any Error).self) {
+        try HistoryStore.writeFolders([replacement], in: directory)
+    }
+
+    try FileManager.default.removeItem(at: blocker)
+    let restored = try HistoryStore.folders(in: directory)
+    #expect(restored == [original])
+}
+
+@MainActor
+@Test func recoverEntrySyncsCustomTagCasingAndColorWithLiveTag() async throws {
+    let directory = try temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: directory) }
+
+    var live = entry("Live.m4a", in: directory)
+    live.state = .finished
+    let canonicalTag = TranscriptFlair(kind: nil, title: "Midterm", color: .blue)
+    live.flairs = [canonicalTag]
+
+    var deleted = entry("Deleted.m4a", in: directory)
+    deleted.state = .finished
+    deleted.removed = .now
+    deleted.flairs = [TranscriptFlair(kind: nil, title: "midterm", color: .red)]
+
+    try HistoryStore.write(live, in: directory)
+    try HistoryStore.write(deleted, in: directory)
+
+    let model = AppModel(history: directory, defaults: MemoryDefaults())
+    model.recoverEntry(deleted.id)
+    await model.finishWrites()
+
+    #expect(model.entry(deleted.id)?.flairs == [canonicalTag])
+}
+
+@MainActor
+@Test func retryUnpinsFailedOriginalWhileKeepingRetryPinned() async throws {
+    let directory = try temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: directory) }
+
+    var failed = Entry(
+        recording: directory.appending(path: "Lecture.m4a"),
+        modelFile: "missing-test-model.bin", glossary: nil, skipsSilence: false, subtitles: false
+    )
+    failed.state = .failed("Stopped")
+    failed.isPinned = true
+    try HistoryStore.write(failed, in: directory)
+
+    let model = AppModel(history: directory, defaults: MemoryDefaults())
+    model.retry(failed.id)
+    await model.finishWrites()
+
+    let retried = try #require(model.entries.first { $0.id != failed.id })
+    #expect(retried.isPinned == true)
+    #expect(model.entry(failed.id)?.isPinned != true)
+
+    let reloaded = AppModel(history: directory, defaults: MemoryDefaults())
+    #expect(reloaded.entry(retried.id)?.isPinned == true)
+    #expect(reloaded.entry(failed.id)?.isPinned != true)
+}
+
+@MainActor
+@Test func customFlairsStayCurrentWithoutNotifyingOnTranscriptEdits() async throws {
+    let directory = try temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: directory) }
+
+    var item = entry("Lecture.m4a", in: directory)
+    item.state = .finished
+    item.paragraphs = [Transcript.Paragraph(start: 0, text: "Bonjour")]
+    try HistoryStore.write(item, in: directory)
+
+    let model = AppModel(history: directory, defaults: MemoryDefaults())
+    model.addCustomTag(named: "Midterm", color: .blue, to: [item.id])
+    await model.finishWrites()
+
+    let reloaded = AppModel(history: directory, defaults: MemoryDefaults())
+    #expect(reloaded.customFlairs.map(\.title) == ["Midterm"])
+
+    func customFlairsNotified(_ mutate: () -> Void) -> Bool {
+        let notified = OSAllocatedUnfairLock(initialState: false)
+        withObservationTracking {
+            _ = reloaded.customFlairs
+        } onChange: {
+            notified.withLock { $0 = true }
+        }
+        mutate()
+        return notified.withLock { $0 }
+    }
+
+    let notifiedOnEdit = customFlairsNotified {
+        reloaded.updateEntry(item.id) { $0.paragraphs[0].text = "Bonjour edited" }
+    }
+    #expect(!notifiedOnEdit)
+
+    let notifiedOnAdd = customFlairsNotified {
+        reloaded.addCustomTag(named: "Exam", color: .green, to: [item.id])
+    }
+    #expect(notifiedOnAdd)
+    #expect(reloaded.customFlairs.map(\.title) == ["Exam", "Midterm"])
+
+    let notifiedOnColor = customFlairsNotified {
+        reloaded.addCustomTag(named: "Midterm", color: .red, to: [item.id])
+    }
+    #expect(notifiedOnColor)
+    #expect(reloaded.customFlairs.first { $0.title == "Midterm" }?.color == .red)
+
+    let notifiedOnClear = customFlairsNotified {
+        reloaded.clearFlairs(on: [item.id])
+    }
+    #expect(notifiedOnClear)
+    #expect(reloaded.customFlairs.isEmpty)
+
+    reloaded.addFolder()
+    #expect(reloaded.folderRequest != nil)
+
+    await reloaded.finishWrites()
+}
+
+@MainActor
+@Test func collapsedFolderFlairsAggregateSubfoldersAndClearWhenExpanded() async throws {
+    let directory = try temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: directory) }
+
+    let biology = TranscriptFolder(id: UUID(), name: "Biology", color: .green)
+    let lectures = TranscriptFolder(
+        id: UUID(), name: "Lectures", parentID: biology.id, color: .blue)
+    let emptyFolder = TranscriptFolder(id: UUID(), name: "Law", color: .purple)
+    try HistoryStore.writeFolders([biology, lectures, emptyFolder], in: directory)
+
+    let midterm = TranscriptFlair(title: "Midterm", color: .blue)
+    let dot = TranscriptFlair(title: "", color: .yellow)
+
+    var direct = entry("Overview.m4a", in: directory)
+    direct.state = .finished
+    direct.folderID = biology.id
+    direct.flairs = [.done, dot]
+
+    var nested = entry("Cell.m4a", in: directory)
+    nested.state = .finished
+    nested.folderID = lectures.id
+    nested.flairs = [
+        .todo, .exam, midterm, TranscriptFlair(title: "midterm", color: .red),
+    ]
+
+    var pinnedNested = entry("Review.m4a", in: directory)
+    pinnedNested.state = .finished
+    pinnedNested.folderID = lectures.id
+    pinnedNested.isPinned = true
+    pinnedNested.flairs = [.urgent, .exam]
+
+    var deleted = entry("Old.m4a", in: directory)
+    deleted.state = .finished
+    deleted.folderID = emptyFolder.id
+    deleted.removed = .now
+    deleted.flairs = [.urgent]
+
+    for item in [direct, nested, pinnedNested, deleted] {
+        try HistoryStore.write(item, in: directory)
+    }
+
+    let model = AppModel(history: directory, defaults: MemoryDefaults())
+    #expect(model.collapsedFolderFlairs(in: emptyFolder.id).isEmpty)
+    #expect(
+        model.collapsedFolderFlairs(in: biology.id)
+            == [.done, .todo, .urgent, .exam, midterm, dot]
+    )
+
+    model.layout.openFolders.insert(biology.id)
+    #expect(model.collapsedFolderFlairs(in: biology.id).isEmpty)
+    #expect(model.collapsedFolderFlairs(in: lectures.id) == [.todo, .urgent, .exam, midterm])
+
+    model.layout.openFolders.insert(lectures.id)
+    #expect(model.collapsedFolderFlairs(in: lectures.id).isEmpty)
+    await model.finishWrites()
+}
+
+@MainActor
+@Test func collapsedFolderFlairsStayQuietOnTextEditsAndRespectFilter() async throws {
+    let directory = try temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: directory) }
+
+    let course = TranscriptFolder(id: UUID(), name: "Physics")
+    let pinnedOnly = TranscriptFolder(id: UUID(), name: "PinnedOnly")
+    try HistoryStore.writeFolders([course, pinnedOnly], in: directory)
+
+    var lecture = entry("Optics.m4a", in: directory)
+    lecture.state = .finished
+    lecture.folderID = course.id
+    lecture.flairs = [.done]
+
+    var pinnedDone = entry("SoloDone.m4a", in: directory)
+    pinnedDone.state = .finished
+    pinnedDone.folderID = pinnedOnly.id
+    pinnedDone.isPinned = true
+    pinnedDone.flairs = [.done]
+
+    var pinnedUrgent = entry("SoloUrgent.m4a", in: directory)
+    pinnedUrgent.state = .finished
+    pinnedUrgent.folderID = pinnedOnly.id
+    pinnedUrgent.isPinned = true
+    pinnedUrgent.flairs = [.urgent]
+
+    for item in [lecture, pinnedDone, pinnedUrgent] {
+        try HistoryStore.write(item, in: directory)
+    }
+
+    let model = AppModel(history: directory, defaults: MemoryDefaults())
+    let notified = OSAllocatedUnfairLock(initialState: false)
+    withObservationTracking {
+        _ = model.folderFlairs
+    } onChange: {
+        notified.withLock { $0 = true }
+    }
+    model.updateEntry(lecture.id) {
+        $0.paragraphs = [Transcript.Paragraph(start: 0, text: "Edit")]
+    }
+    #expect(!notified.withLock { $0 })
+
+    model.layout.searchQuery = "Optics"
+    #expect(model.isFolderExpanded(course.id))
+    #expect(model.collapsedFolderFlairs(in: course.id).isEmpty)
+
+    model.layout.searchQuery = "PinnedOnly"
+    #expect(model.shouldShowFolder(pinnedOnly.id))
+    #expect(!model.isFolderExpanded(pinnedOnly.id))
+    #expect(model.collapsedFolderFlairs(in: pinnedOnly.id) == [.done, .urgent])
+    model.layout.searchQuery = ""
+
+    #expect(FlairIcons.folderAccessibilityLabel("Law", collapsedFlairs: []) == "Law")
+    let label = FlairIcons.folderAccessibilityLabel("History", collapsedFlairs: [.done, .urgent])
+    #expect(label.contains("History") && label.contains("Done") && label.contains("Urgent"))
+    await model.finishWrites()
+}
+
+@MainActor
+@Test func collapsedFolderFlairsTrackLiveFlairMoveRemoveAndRecoverMutations() async throws {
+    let directory = try temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: directory) }
+
+    var first = entry("One.m4a", in: directory)
+    first.state = .finished
+    first.paragraphs = [Transcript.Paragraph(start: 0, text: "First")]
+    var second = entry("Two.m4a", in: directory)
+    second.state = .finished
+    second.paragraphs = [Transcript.Paragraph(start: 0, text: "Second")]
+    try HistoryStore.write(first, in: directory)
+    try HistoryStore.write(second, in: directory)
+
+    let model = AppModel(history: directory, defaults: MemoryDefaults())
+    let source = try model.createFolder(named: "History")
+    let sub = try model.createFolder(named: "Seminars", in: source)
+    let dest = try model.createFolder(named: "Law")
+
+    model.moveEntries([first.id, second.id], to: sub)
+    model.toggleFlair(.urgent, on: [first.id, second.id])
+    model.addCustomTag(named: "Midterm", color: .blue, to: [first.id])
+    #expect(
+        model.collapsedFolderFlairs(in: source)
+            == [.urgent, TranscriptFlair(title: "Midterm", color: .blue)]
+    )
+
+    model.addCustomTag(named: "Midterm", color: .red, to: [second.id])
+    #expect(
+        model.collapsedFolderFlairs(in: sub)
+            == [.urgent, TranscriptFlair(title: "Midterm", color: .red)]
+    )
+
+    model.moveEntry(second.id, to: dest)
+    #expect(
+        model.collapsedFolderFlairs(in: dest)
+            == [.urgent, TranscriptFlair(title: "Midterm", color: .red)]
+    )
+
+    model.removeEntry(second.id)
+    #expect(model.collapsedFolderFlairs(in: dest).isEmpty)
+    model.recoverEntry(second.id)
+    #expect(
+        model.collapsedFolderFlairs(in: dest)
+            == [.urgent, TranscriptFlair(title: "Midterm", color: .red)]
+    )
+
+    model.clearFlairs(on: [first.id, second.id])
+    #expect(model.collapsedFolderFlairs(in: source).isEmpty)
+    #expect(model.collapsedFolderFlairs(in: dest).isEmpty)
+    await model.finishWrites()
 }

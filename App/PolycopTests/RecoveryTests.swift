@@ -238,9 +238,23 @@ private func finished(_ recording: URL, in history: URL, model: String, language
 
     let model = AppModel(history: history)
     #expect(model.foldersAreDamaged)
+    #expect(model.damagedFolderFile == "folders.json")
     #expect(model.libraryWarning != nil)
     #expect(throws: (any Error).self) { try model.createFolder(named: "Psychologie") }
     #expect(try String(contentsOf: file, encoding: .utf8) == "[{\"id\":\"pas un identifiant\"")
+
+    let detailsHistory = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    try FileManager.default.createDirectory(at: detailsHistory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: detailsHistory) }
+    try HistoryStore.writeFolders(
+        [TranscriptFolder(id: UUID(), name: "Biologie")], in: detailsHistory)
+    try Data("{bad details".utf8).write(to: detailsHistory.appending(path: "folder-details.json"))
+
+    let detailsDamaged = AppModel(history: detailsHistory)
+    #expect(detailsDamaged.foldersAreDamaged)
+    #expect(detailsDamaged.damagedFolderFile == "folder-details.json")
+    #expect(detailsDamaged.folders.map(\.name) == ["Biologie"])
+    #expect(throws: (any Error).self) { try detailsDamaged.createFolder(named: "Psychologie") }
 }
 
 /// With the folder list unreadable, no folder can be named, and taking a
@@ -522,7 +536,7 @@ private func finished(_ recording: URL, in history: URL, model: String, language
     defer { try? FileManager.default.removeItem(at: root) }
     let folder = TranscriptFolder(id: UUID(), name: "Synthetic")
     try HistoryStore.writeFolders([folder, folder], in: root)
-    #expect(throws: CocoaError.self) { try HistoryStore.folders(in: root) }
+    #expect(throws: HistoryStore.FolderReadError.self) { try HistoryStore.folders(in: root) }
 }
 
 @MainActor

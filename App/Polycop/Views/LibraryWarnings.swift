@@ -30,7 +30,8 @@ private struct LibraryWarnings: View {
                     if model.foldersAreDamaged {
                         Button("Show in Finder") {
                             NSWorkspace.shared.activateFileViewerSelecting([
-                                model.history.appending(path: "folders.json")
+                                model.history.appending(
+                                    path: model.damagedFolderFile ?? "folders.json")
                             ])
                         }
                     }

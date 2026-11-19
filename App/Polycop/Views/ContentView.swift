@@ -13,19 +13,19 @@ struct ContentView: View {
     @State private var destinationFolder: UUID?
     @State private var namingFolder = false
     @State private var renamedFolder: UUID?
+    @State private var parentFolder: UUID?
     @State private var folderName = ""
     @State private var renamedEntry: Entry.ID?
     @State private var entryName = ""
-    @State private var highlighted: UUID?
     @State private var reverting: Entry?
-    @State private var highlightsUnfiled = false
+    @State private var tagging: [Entry.ID] = []
     @State private var importingTranscript = false
 
     private var layout: WindowLayout { model.layout }
 
     init(model: AppModel) {
         self.model = model
-        _selection = State(initialValue: [model.pane])
+        _selection = State(initialValue: model.pane == .new ? [] : [model.pane])
     }
 
     /// Room for the library, the page with its player and the inspector, so
@@ -48,18 +48,32 @@ struct ContentView: View {
     static let idealLibraryWidth: CGFloat = 300
 
     var body: some View {
-        NavigationSplitView(columnVisibility: columns) {
-            List(selection: $selection) {
-                Label("New Transcription", systemImage: "plus")
-                    .fontWeight(.medium)
-                    .padding(.vertical, 5)
-                    .tag(AppModel.Pane.new)
-                unfiledSection
-                foldersSection
-                RecentlyDeletedSection(model: model)
+        applyingSheets(to: applyingDialogs(to: splitContent))
+            .minimumSize(width: minimumWidth, height: 600)
+            .disabled(model.isShuttingDown)
+            .dropDestination(for: URL.self) { urls, _ in
+                guard !model.isShuttingDown else { return false }
+                model.transcribe(urls)
+                return !urls.isEmpty
             }
-            .listStyle(.sidebar)
-            .contextMenu { libraryMenu }
+    }
+
+    private var splitContent: some View {
+        NavigationSplitView(columnVisibility: columns) {
+            LibrarySidebar(
+                model: model,
+                selection: $selection,
+                selected: selected,
+                removing: $removing,
+                moving: $moving,
+                destinationFolder: $destinationFolder,
+                tagging: $tagging,
+                renamedEntry: $renamedEntry,
+                entryName: $entryName,
+                reverting: $reverting,
+                newFolder: { startNewFolder(in: $0) },
+                renameFolder: { startRenameFolder($0) }
+            )
             .onGeometryChange(for: CGFloat.self) {
                 $0.size.width
             } action: {
@@ -78,7 +92,8 @@ struct ContentView: View {
                             destinationFolder = nil
                             moving = ids
                         },
-                        remove: { removing = $0 }
+                        remove: { removing = $0 },
+                        tag: { tagging = $0 }
                     )
                     .libraryWarnings(model)
                 } else if let page = UnavailableRecordPage(model: model) {
@@ -96,6 +111,7 @@ struct ContentView: View {
             // under the text, and the page's margins.
             .minimumSize(width: PlayerBar.narrowest + 2 * Spacing.page, height: 450)
         }
+        .focusedSceneValue(\.selectedTranscripts, activeTranscripts)
         .onChange(of: selection) { _, chosen in
             // Several rows are a selection to act on, not a page to show, so
             // the window only follows a single one.
@@ -103,8 +119,26 @@ struct ContentView: View {
             model.pane = only
         }
         .onChange(of: model.pane) { _, pane in
-            guard selection != [pane] else { return }
-            selection = [pane]
+            let expected: Set<AppModel.Pane> = pane == .new ? [] : [pane]
+            guard selection != expected else { return }
+            selection = expected
+        }
+        .onChange(of: model.visibleSelectablePanes) { _, visiblePanes in
+            guard selection.count > 1 else { return }
+            let kept = selection.intersection(visiblePanes)
+            if kept.isEmpty {
+                selection =
+                    (model.pane != .new && visiblePanes.contains(model.pane))
+                    ? [model.pane] : []
+            } else if kept != selection {
+                selection = kept
+            }
+        }
+        .task(id: model.newTranscriptionRequest) {
+            guard model.newTranscriptionRequest != nil else { return }
+            model.newTranscriptionRequest = nil
+            selection.removeAll()
+            model.pane = .new
         }
         .background { PictureInPictureSource(model: model) }
         .task(id: model.folderRequest) {
@@ -118,7 +152,7 @@ struct ContentView: View {
             importingTranscript = true
         }
         .sheet(isPresented: $importingTranscript) { TranscriptImportView(model: model) }
-        .alert(renamedFolder == nil ? "New folder" : "Rename folder", isPresented: $namingFolder) {
+        .alert(folderAlertTitle, isPresented: $namingFolder) {
             TextField("Folder name", text: $folderName)
             Button("Cancel", role: .cancel) {}
             Button(renamedFolder == nil ? "Create" : "Rename") {
@@ -126,7 +160,8 @@ struct ContentView: View {
                     if let renamedFolder {
                         try model.renameFolder(renamedFolder, to: folderName)
                     } else {
-                        layout.openFolders.insert(try model.createFolder(named: folderName))
+                        let created = try model.createFolder(named: folderName, in: parentFolder)
+                        model.revealFolder(created)
                     }
                 }
             }
@@ -135,229 +170,100 @@ struct ContentView: View {
             Text("Folders organize your library. Audio files stay where they are.")
         }
         .modifier(RenameAlert(renamed: $renamedEntry, name: $entryName, model: model))
-        .confirmationDialog(
-            removing.count > 1
-                ? "Remove \(removing.count) transcripts from the library?"
-                : "Remove this transcript from the library?",
-            isPresented: Binding(
-                get: { !removing.isEmpty }, set: { if !$0 { removing = [] } }
-            )
-        ) {
-            Button(
-                removing.count > 1 ? "Remove Transcripts" : "Remove Transcript", role: .destructive
-            ) {
-                model.removeEntries(removing)
-                removing = []
-            }
-        } message: {
-            Text(
+    }
+
+    private func applyingDialogs(to content: some View) -> some View {
+        content
+            .confirmationDialog(
                 removing.count > 1
-                    ? "They move to Recently Deleted, with their corrections, for 30 days. Audio files and exports are kept."
-                    : "It moves to Recently Deleted, with its corrections, for 30 days. Audio files and exports are kept."
-            )
-        }
-        .confirmationDialog(
-            "Throw away every correction of this transcript?",
-            isPresented: Binding(get: { reverting != nil }, set: { if !$0 { reverting = nil } })
-        ) {
-            Button("Revert to Original", role: .destructive) {
-                if let reverting { model.revert(reverting.id) }
-                reverting = nil
-            }
-        } message: {
-            Text(
-                "The text goes back to what the engine wrote. Files already exported stay as they are, and a correction can be stepped back one at a time instead."
-            )
-        }
-        .sheet(isPresented: Binding(get: { !moving.isEmpty }, set: { if !$0 { moving = [] } })) {
-            MoveTranscriptsSheet(
-                model: model, moving: $moving, destinationFolder: $destinationFolder,
-                opened: { layout.openFolders.insert($0) })
-        }
-        .minimumSize(width: minimumWidth, height: 600)
-        .disabled(model.isShuttingDown)
-        .dropDestination(for: URL.self) { urls, _ in
-            guard !model.isShuttingDown else { return false }
-            model.transcribe(urls)
-            return !urls.isEmpty
-        }
-    }
-
-    /// The transcripts in no folder, or the whole library before there is one.
-    private var unfiledSection: some View {
-        Section {
-            let entries = model.entries(in: nil)
-            if entries.isEmpty, model.unavailable(in: nil).isEmpty,
-                model.unidentifiedFiles.isEmpty
-            {
-                emptyNote("Nothing outside a folder")
-            }
-            UnavailableRows(model: model, folder: nil)
-            ForEach(entries) { entry in row(entry) }
-        } header: {
-            Text(model.folders.isEmpty ? "Library" : "Unfiled")
-                .dropTargetHighlight(highlightsUnfiled)
-                .contextMenu { libraryMenu }
-                .dropDestination(for: DraggedTranscripts.self) { items, _ in
-                    drop(items, into: nil)
-                } isTargeted: {
-                    highlightsUnfiled = $0
-                }
-        }
-    }
-
-    /// Each folder, opened or closed, with its transcripts.
-    private var foldersSection: some View {
-        Section {
-            if model.folders.isEmpty {
-                emptyNote("No folders yet")
-            }
-            ForEach(model.folders) { folder in
-                DisclosureGroup(
-                    isExpanded: Binding(
-                        get: { layout.openFolders.contains(folder.id) },
-                        set: {
-                            if $0 {
-                                layout.openFolders.insert(folder.id)
-                            } else {
-                                layout.openFolders.remove(folder.id)
-                            }
-                        }
-                    )
+                    ? "Remove \(removing.count) transcripts from the library?"
+                    : "Remove this transcript from the library?",
+                isPresented: Binding(
+                    get: { !removing.isEmpty }, set: { if !$0 { removing = [] } }
+                )
+            ) {
+                Button(
+                    removing.count > 1 ? "Remove Transcripts" : "Remove Transcript",
+                    role: .destructive
                 ) {
-                    let entries = model.entries(in: folder.id)
-                    if entries.isEmpty, model.unavailable(in: folder.id).isEmpty {
-                        emptyNote("Empty folder")
-                    }
-                    UnavailableRows(model: model, folder: folder.id)
-                    ForEach(entries) { entry in row(entry) }
-                } label: {
-                    Label(folder.name, systemImage: "folder")
-                        .lineLimit(1)
-                        .dropTargetHighlight(highlighted == folder.id)
-                        .dropDestination(for: DraggedTranscripts.self) { items, _ in
-                            drop(items, into: folder.id)
-                        } isTargeted: {
-                            highlighted = $0 ? folder.id : nil
-                        }
-                        .contextMenu {
-                            Button("Rename Folder…") {
-                                renamedFolder = folder.id
-                                folderName = folder.name
-                                namingFolder = true
-                            }
-                            Button("Delete Empty Folder", role: .destructive) {
-                                attempt { try model.removeFolder(folder.id) }
-                            }
-                            .disabled(model.holdsTranscripts(folder.id))
-                            Divider()
-                            libraryMenu
-                        }
+                    model.removeEntries(removing)
+                    removing = []
                 }
+            } message: {
+                Text(
+                    removing.count > 1
+                        ? "They move to Recently Deleted, with their corrections, for 30 days. Audio files and exports are kept."
+                        : "It moves to Recently Deleted, with its corrections, for 30 days. Audio files and exports are kept."
+                )
             }
-        } header: {
-            // The button sits on the header's own line: a bordered style
-            // and a body sized symbol both stand away from a sidebar
-            // title, which is small and secondary.
-            HStack(alignment: .firstTextBaseline) {
-                Text("Folders")
-                Spacer(minLength: 8)
-                Button(action: startNewFolder) {
-                    Image(systemName: "folder.badge.plus")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 4)
-                        .contentShape(Rectangle())
+            .confirmationDialog(
+                "Throw away every correction of this transcript?",
+                isPresented: Binding(get: { reverting != nil }, set: { if !$0 { reverting = nil } })
+            ) {
+                Button("Revert to Original", role: .destructive) {
+                    if let reverting { model.revert(reverting.id) }
+                    reverting = nil
                 }
-                .buttonStyle(.plain)
-                .disabled(model.foldersAreDamaged)
-                .help("New folder")
-                .accessibilityLabel("New folder")
-                // Clear of the edge of the sidebar, where the scroller runs.
-                .padding(.trailing, 6)
+            } message: {
+                Text(
+                    "The text goes back to what the engine wrote. Files already exported stay as they are, and a correction can be stepped back one at a time instead."
+                )
             }
-            .contextMenu { libraryMenu }
-        }
+    }
+
+    private func applyingSheets(to content: some View) -> some View {
+        content
+            .sheet(
+                isPresented: Binding(get: { !moving.isEmpty }, set: { if !$0 { moving = [] } })
+            ) {
+                MoveTranscriptsSheet(
+                    model: model, moving: $moving, destinationFolder: $destinationFolder,
+                    opened: {
+                        if let folder = $0 {
+                            model.revealFolder(folder)
+                        } else {
+                            layout.showsUnfiled = true
+                        }
+                    })
+            }
+            .sheet(
+                isPresented: Binding(get: { !tagging.isEmpty }, set: { if !$0 { tagging = [] } })
+            ) {
+                NewTagSheet(model: model, targets: $tagging)
+            }
+    }
+
+    private var folderAlertTitle: LocalizedStringKey {
+        if renamedFolder != nil { return "Rename folder" }
+        return parentFolder == nil ? "New folder" : "New subfolder"
     }
 }
 
-// The sidebar's rows, drops and folder actions.
+// Folder actions and selection helpers.
 extension ContentView {
-    private func emptyNote(_ text: LocalizedStringKey) -> some View {
-        Text(text).font(.caption).foregroundStyle(.secondary)
-            .contextMenu { libraryMenu }
-    }
-
-    private var libraryMenu: some View {
-        LibraryMenu(model: model, newFolder: startNewFolder)
-    }
-
-    private func startNewFolder() {
+    private func startNewFolder(in parent: UUID? = nil) {
         renamedFolder = nil
+        parentFolder = parent
         folderName = ""
         namingFolder = true
     }
 
-    private func row(_ entry: Entry) -> some View {
-        let targets = targets(of: entry)
-        let isWorking = entry.id == model.busyEntry || model.isWaitingForDownload(entry)
-        return EntryRow(entry: entry, stage: isWorking ? model.stage : nil)
-            .tag(AppModel.Pane.entry(entry.id))
-            .draggable(DraggedTranscripts(ids: targets))
-            .contextMenu {
-                Button("Move to Folder…") {
-                    destinationFolder = entry.folderID
-                    moving = targets
-                }
-                .disabled(model.foldersAreDamaged)
-                if targets.contains(where: { model.entry($0)?.folderID != nil }) {
-                    Button("Remove from Folder") {
-                        for id in targets { model.moveEntry(id, to: nil) }
-                    }
-                    .disabled(model.foldersAreDamaged)
-                }
-                // What belongs to one transcript is offered for one: undoing or
-                // reverting several at once is not what a right click means.
-                if targets.count == 1 {
-                    Divider()
-                    Button("Rename Transcript…") {
-                        entryName = entry.name
-                        renamedEntry = entry.id
-                    }
-                    Button("Undo Last Correction") { model.undo(entry.id) }
-                        .disabled(!model.canUndo(entry.id) || entry.id == model.busyEntry)
-                    Button("Revert to Original…") { reverting = entry }
-                        .disabled(!entry.isEdited || entry.id == model.busyEntry)
-                    Button("Duplicate Transcript") { model.duplicate(entry.id) }
-                        .disabled(entry.paragraphs.isEmpty || entry.id == model.busyEntry)
-                }
-                Divider()
-                Button("Remove from Library…", role: .destructive) { removing = targets }
-                    .disabled(targets == [model.busyEntry])
-                Divider()
-                libraryMenu
-            }
+    private func startRenameFolder(_ folder: TranscriptFolder) {
+        renamedFolder = folder.id
+        parentFolder = folder.parentID
+        folderName = folder.name
+        namingFolder = true
     }
 
-    /// The transcripts an action on this row applies to: the whole selection
-    /// when the row is part of it, so one menu acts on everything selected, and
-    /// the row alone otherwise.
-    private func targets(of entry: Entry) -> [Entry.ID] {
-        guard selection.contains(.entry(entry.id)), selected.count > 1 else { return [entry.id] }
-        return selected
-    }
-
-    /// The transcripts selected, in the order the list shows them.
+    /// The visible transcripts selected, in the order the sidebar shows them.
     private var selected: [Entry.ID] {
-        model.entries.map(\.id).filter { selection.contains(.entry($0)) }
+        model.visibleEntryOrder.filter { selection.contains(.entry($0)) }
     }
 
-    /// A transcript dragged onto a folder, or onto the unfiled section to leave
-    /// one.
-    private func drop(_ items: [DraggedTranscripts], into folder: UUID?) -> Bool {
-        guard model.moveEntries(items.flatMap(\.ids), to: folder) else { return false }
-        if let folder { layout.openFolders.insert(folder) }
-        return true
+    private var activeTranscripts: [Entry.ID] {
+        if selected.count > 1 { return selected }
+        guard case .entry(let id) = model.pane, model.entry(id) != nil else { return [] }
+        return [id]
     }
 
     private func attempt(_ action: () throws -> Void) {

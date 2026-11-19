@@ -103,28 +103,75 @@ extension AppScene {
                 paragraph.setSelectedRange(NSRange(8..<30))
             }),
         AppScene(name: "library") { stage in
-            stage.finish(stage.first)
-            stage.finish(stage.second)
-            stage.change(stage.first) { $0.title = "Lecture 10" }
-            stage.change(stage.second) { $0.title = "Lecture 2" }
-            if let third = stage.model.duplicate(stage.second) {
-                stage.change(third) { $0.title = "Seminar notes" }
+            arrangeLibrary(stage)
+        },
+        AppScene(name: "library-collapsed") { stage in
+            arrangeLibrary(stage)
+            if let extra = stage.model.duplicate(stage.second),
+                let longCourse = try? stage.model.createFolder(
+                    named: "Constitutional History Seminar"),
+                let seminars = try? stage.model.createFolder(named: "Seminars", in: longCourse)
+            {
+                stage.change(extra) { $0.title = "Extra reading" }
+                try? stage.model.setFolderColor(longCourse, to: .red)
+                stage.model.moveEntry(extra, to: seminars)
+                stage.model.clearFlairs(on: [extra])
+                stage.model.toggleFlair(.done, on: [extra])
+                stage.model.toggleFlair(.exam, on: [extra])
+                stage.model.addCustomTag(named: "Midterm", color: .blue, to: [extra])
+                stage.model.addCustomTag(named: "Cases", color: .purple, to: [extra])
+                stage.model.toggleFlair(
+                    TranscriptFlair(kind: nil, title: "", color: .yellow), on: [extra]
+                )
             }
-            do {
-                _ = try stage.model.createFolder(named: "Law")
-                let history = try stage.model.createFolder(named: "History")
-                _ = try stage.model.createFolder(named: "Biology")
-                stage.model.moveEntry(stage.first, to: history)
-                stage.model.moveEntry(stage.second, to: history)
-                stage.model.layout.openFolders = [history]
-            } catch {
-                assertionFailure("\(error)")
-            }
-            stage.model.layout.sort = .name
-            stage.model.layout.showsLibrary = true
-            stage.model.pane = .entry(stage.second)
+            stage.model.layout.openFolders = Set(
+                stage.model.folders.filter { $0.name == "Biology" }.map(\.id)
+            )
+        },
+        AppScene(name: "library-filtered") { stage in
+            arrangeLibrary(stage)
+            stage.model.layout.filter = .unreviewed
+            stage.model.layout.openFolders = []
         },
     ]
+
+    private static func arrangeLibrary(_ stage: Stage) {
+        stage.finish(stage.first)
+        stage.finish(stage.second)
+        stage.change(stage.first) { $0.title = "Lecture 10" }
+        stage.change(stage.second) { $0.title = "Lecture 2" }
+        let third = stage.model.duplicate(stage.second)
+        if let third {
+            stage.change(third) { $0.title = "Seminar notes" }
+        }
+        do {
+            let law = try stage.model.createFolder(named: "Law")
+            try stage.model.setFolderColor(law, to: .purple)
+            let history = try stage.model.createFolder(named: "History")
+            try stage.model.setFolderColor(history, to: .orange)
+            let biology = try stage.model.createFolder(named: "Biology")
+            try stage.model.setFolderColor(biology, to: .green)
+            let lectures = try stage.model.createFolder(named: "Lectures", in: biology)
+            try stage.model.setFolderColor(lectures, to: .blue)
+            stage.model.moveEntry(stage.first, to: history)
+            stage.model.moveEntry(stage.second, to: history)
+            if let third {
+                stage.model.moveEntry(third, to: lectures)
+                stage.model.setPinned([third], to: true)
+                stage.model.toggleFlair(.urgent, on: [third])
+            }
+            stage.model.toggleFlair(.done, on: [stage.second])
+            stage.model.toggleFlair(.exam, on: [stage.second])
+            stage.model.toggleFlair(.todo, on: [stage.first])
+            stage.model.addCustomTag(named: "Midterm", color: .blue, to: [stage.first])
+            stage.model.layout.openFolders = [biology, lectures, history]
+        } catch {
+            assertionFailure("\(error)")
+        }
+        stage.model.layout.sort = .name
+        stage.model.layout.showsLibrary = true
+        stage.model.pane = .entry(stage.second)
+    }
 
     /// The paragraphs on screen, from the top of the page down.
     private static func paragraphs(in view: NSView) -> [WordTextView] {

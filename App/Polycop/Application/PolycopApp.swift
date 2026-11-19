@@ -126,7 +126,7 @@ struct PolycopApp: App {
             // The File menu of an app without documents: what the window can do
             // from anywhere, with the shortcuts a Mac user expects.
             CommandGroup(replacing: .newItem) {
-                Button("New Transcription") { model.pane = .new }
+                Button("New Transcription") { model.openNewTranscription() }
                     .keyboardShortcut("n")
                 Button("Add Recordings…") { model.chooseRecordings() }
                     .keyboardShortcut("o")
@@ -155,6 +155,8 @@ struct PolycopApp: App {
                 Button("Manage Glossaries…") { model.manageGlossaries() }
                     .keyboardShortcut("g", modifiers: [.command, .option])
                 Divider()
+                LibraryTranscriptCommands(model: model)
+                Divider()
                 // Typing not yet handed to the model is flushed first.
                 Button("Export…") { exportOpenTranscript() }
                     .keyboardShortcut("s")
@@ -164,6 +166,9 @@ struct PolycopApp: App {
             // Show and hide the library, with Control-Command-S, and the
             // inspector, with Control-Command-I.
             SidebarCommands()
+            CommandGroup(after: .sidebar) {
+                LibraryFilterAndSortMenu(model: model)
+            }
             InspectorCommands()
             CompareCommand()
             CommandGroup(after: .help) {

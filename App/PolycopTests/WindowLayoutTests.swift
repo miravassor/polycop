@@ -13,6 +13,10 @@ import Testing
     #expect(layout.libraryWidth == Double(ContentView.idealLibraryWidth))
     #expect(layout.inspectorWidth == Double(EntryView.idealInspectorWidth))
     #expect(layout.openFolders.isEmpty)
+    #expect(layout.showsPinned)
+    #expect(layout.showsUnfiled)
+    #expect(layout.showsFolders)
+    #expect(layout.showsRecentlyDeleted)
     #expect(layout.sort == .newestFirst)
 }
 
@@ -27,6 +31,10 @@ import Testing
     defaults.set(250.0, forKey: "libraryWidth")
     defaults.set(450.0, forKey: "inspectorWidth")
     defaults.set([folder.uuidString, "not one"], forKey: "openFolders")
+    defaults.set(false, forKey: "showsPinned")
+    defaults.set(false, forKey: "showsUnfiled")
+    defaults.set(false, forKey: "showsFolders")
+    defaults.set(false, forKey: "showsRecentlyDeleted")
     defaults.set("name", forKey: "librarySort")
     let layout = WindowLayout(defaults: defaults)
     #expect(!layout.showsLibrary)
@@ -34,6 +42,10 @@ import Testing
     #expect(layout.libraryWidth == 250)
     #expect(layout.inspectorWidth == 450)
     #expect(layout.openFolders == [folder])
+    #expect(!layout.showsPinned)
+    #expect(!layout.showsUnfiled)
+    #expect(!layout.showsFolders)
+    #expect(!layout.showsRecentlyDeleted)
     #expect(layout.sort == .name)
 
     defaults.set("unknown", forKey: "librarySort")
@@ -50,6 +62,10 @@ import Testing
     layout.libraryWidth = 250
     layout.inspectorWidth = 450
     layout.openFolders = [folder]
+    layout.showsPinned = false
+    layout.showsUnfiled = false
+    layout.showsFolders = false
+    layout.showsRecentlyDeleted = false
     layout.sort = .oldestFirst
     let next = WindowLayout(defaults: defaults)
     #expect(!next.showsLibrary)
@@ -57,5 +73,9 @@ import Testing
     #expect(next.libraryWidth == 250)
     #expect(next.inspectorWidth == 450)
     #expect(next.openFolders == [folder])
+    #expect(!next.showsPinned)
+    #expect(!next.showsUnfiled)
+    #expect(!next.showsFolders)
+    #expect(!next.showsRecentlyDeleted)
     #expect(next.sort == .oldestFirst)
 }

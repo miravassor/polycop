@@ -43,7 +43,11 @@ final class AppModel {
         didSet { holdActivity(while: stage.isRunning) }
     }
     /// Every recording given to the app, newest first.
-    var entries: [Entry] = []
+    var entries: [Entry] = [] { didSet { flairCache.sync(entries, folders) } }
+    /// Sorted unique custom tags and per-folder flair summaries, kept in sync on changes.
+    var customFlairs: [TranscriptFlair] { flairCache.custom }
+    var folderFlairs: [UUID: [TranscriptFlair]] { flairCache.folders }
+    @ObservationIgnored let flairCache = LibraryFlairCache()
     /// Transcripts removed from the library in the last `keepsDeleted`, most
     /// recent first, so that a removal can be taken back.
     var recentlyDeleted: [Entry] = []
@@ -155,6 +159,7 @@ final class AppModel {
     /// A menu command cannot reach the state of a view, so it leaves a token
     /// here. The view that owns the sheet acts on a new one and clears it.
     var recordingsRequest: UUID?
+    var newTranscriptionRequest: UUID?
     var folderRequest: UUID?
     var glossariesRequest: UUID?
     var transcriptImportRequest: UUID?
@@ -164,10 +169,10 @@ final class AppModel {
     private(set) var libraryWarning: String?
     /// Records this version cannot read, listed but never written.
     private(set) var unavailable: [UnavailableRecord] = []
-    /// Whether the list of folders could not be read. While it cannot, no
-    /// folder is created, renamed or deleted, since a write would overwrite
-    /// the only copy of the folder names.
+    /// Whether folder storage could not be read, blocking folder edits.
     private(set) var foldersAreDamaged = false
+    /// The folder storage file that failed to decode, revealed by Show in Finder.
+    private(set) var damagedFolderFile: String?
     private(set) var isShuttingDown = false
     var hasUnsavedHistory: Bool { !unsavedHistory.isEmpty || !unsavedGlossaries.isEmpty }
 
@@ -287,22 +292,24 @@ final class AppModel {
     /// What is on disk, at launch.
     private func readLibrary() {
         let library = HistoryStore.all(in: history)
+        do {
+            folders = Self.sorted(try HistoryStore.folders(in: history))
+        } catch let error as HistoryStore.FolderReadError {
+            Log.persistence.error(
+                "folder store error in \(error.fileName): \(error.underlying, privacy: .private)")
+            folders = Self.sorted(error.preservedFolders)
+            foldersAreDamaged = true
+            damagedFolderFile = error.fileName
+            libraryWarning = error.localizedMessage
+        } catch {
+            // `HistoryStore.folders(in:)` wraps every read error in `FolderReadError`.
+            assertionFailure("unexpected folder read error: \(error)")
+        }
         entries = library.entries.filter { $0.removed == nil }
         recentlyDeleted = library.entries.filter { $0.removed != nil }
             .sorted { ($0.removed ?? .distantPast) > ($1.removed ?? .distantPast) }
         deleteExpired()
         unavailable = library.unavailable
-        do {
-            folders = Self.sorted(try HistoryStore.folders(in: history))
-        } catch {
-            // The folder names could not be read. Left on disk rather than
-            // written over, so nothing else is lost while the user decides
-            // what to do; no folder can be changed until then.
-            foldersAreDamaged = true
-            libraryWarning = String(
-                localized: "The list of your folders could not be read. It has been left untouched."
-            )
-        }
         if library.isUnlisted {
             libraryWarning = String(
                 localized: "The folder that holds your library could not be opened.")
