@@ -114,6 +114,7 @@ extension AppScene {
                 stage.change(extra) { $0.title = "Extra reading" }
                 try? stage.model.setFolderColor(longCourse, to: .red)
                 stage.model.moveEntry(extra, to: longCourse)
+                stage.model.clearFlairs(on: [extra])
                 stage.model.toggleFlair(.done, on: [extra])
                 stage.model.toggleFlair(.exam, on: [extra])
                 stage.model.addCustomTag(named: "Midterm", color: .blue, to: [extra])
