@@ -53,7 +53,8 @@ nonisolated enum WordCharacters {
         return text.substring(with: range).first.map(contains) ?? false
     }
 
-    private static func contains(_ character: Character) -> Bool {
+    /// Whether `character` is a letter or digit.
+    static func contains(_ character: Character) -> Bool {
         character.isLetter || character.isNumber
     }
 

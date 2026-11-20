@@ -256,4 +256,21 @@ import Testing
     #expect(
         placed.map { string.substring(with: $0.range) }
             == ["E\u{0301}cole", "l", "a\u{1D431}b", "café", "\u{10400}\u{1D7CF}"])
+
+    // CRLF and lone CR must advance UTF-16 offsets accurately so word ranges stay aligned.
+    let lineBreaks = "Un\r\ndeux\rtrois"
+    let lineWords: [Segment.Word] = [
+        .init(text: "Un", start: 0, end: 0.3),
+        .init(text: "deux", start: 0.3, end: 0.6),
+        .init(text: "trois", start: 0.6, end: 1.0),
+    ]
+    let placedBreaks = WordLayout.place(lineWords, in: lineBreaks)
+    let breakString = lineBreaks as NSString
+    #expect(
+        placedBreaks.map(\.range) == [
+            NSRange(location: 0, length: 2),
+            NSRange(location: 4, length: 4),
+            NSRange(location: 9, length: 5),
+        ])
+    #expect(placedBreaks.map { breakString.substring(with: $0.range) } == ["Un", "deux", "trois"])
 }

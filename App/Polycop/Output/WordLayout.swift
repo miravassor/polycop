@@ -40,9 +40,10 @@ nonisolated enum WordLayout {
     }
 
     /// Aligns `words` to `text` like a diff, so a short word such as "de"
-    /// cannot match far ahead. Words are compared by their `WordCharacters`
-    /// runs, as `TimedWords` matches them, since an aligner splits
-    /// "L'encodage" into "L" and "encodage" and drops punctuation.
+    /// cannot pull the rest of the paragraph out of place. Words are compared
+    /// by their `WordCharacters` runs, as `TimedWords` matches them, since an
+    /// aligner splits "L'encodage" into "L" and "encodage" and drops
+    /// punctuation.
     ///
     /// Where words said are missing from the text, the text written in their
     /// place takes their time, spread over it, so the word lit goes on through

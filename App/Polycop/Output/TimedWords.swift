@@ -9,12 +9,10 @@ nonisolated enum TimedWords {
     /// Matches letters and digits despite differences in word boundaries or punctuation.
     /// Returns nil on a mismatch rather than assigning unsupported sentence times.
     static func sentences(of text: String, timedBy words: [Word]) -> [Segment]? {
-        func spelling(_ string: String) -> String {
-            var result = ""
-            WordCharacters.runs(in: string) { key, _ in result += key }
-            return result
+        func spelling(_ string: some StringProtocol) -> String {
+            String(string.filter(WordCharacters.contains)).lowercased()
         }
-        func letters(_ string: String) -> Int { spelling(string).count }
+        func letters(_ string: some StringProtocol) -> Int { spelling(string).count }
         guard !words.isEmpty, spelling(text) == words.map({ spelling($0.text) }).joined() else {
             return nil
         }
