@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+import Foundation
+
 /// How many times each view that declares the window's structure ran its
 /// body, for `RedrawTests`, which state what each change on the page may
 /// redraw. An API added for those tests: it counts only in the test host, and
@@ -20,19 +22,25 @@ enum Redraws {
     }
 
     #if DEBUG
-        // On the main actor, as every body: one thread reads and writes them.
-        private static var counts: [ObjectIdentifier: [Piece: Int]] = [:]
-        private static var pointers: [ObjectIdentifier: ParagraphPointer] = [:]
+        /// What a window counted, in a value its table can hold.
+        private final class Runs {
+            var counts: [Piece: Int] = [:]
+        }
 
-        /// The runs of each piece of the window of `model` so far. Compare two
-        /// readings: a model made where one gone was takes up its counts.
+        // On the main actor, as every body: one thread reads and writes them.
+        // Their keys are weak: what a window counted goes with its model, and a
+        // model made where one gone was starts from nothing.
+        private static let runs = NSMapTable<AppModel, Runs>.weakToStrongObjects()
+        private static let pointers = NSMapTable<AppModel, ParagraphPointer>.weakToWeakObjects()
+
+        /// The runs of each piece of the window of `model` so far.
         static func counts(in model: AppModel) -> [Piece: Int] {
-            counts[ObjectIdentifier(model)] ?? [:]
+            runs.object(forKey: model)?.counts ?? [:]
         }
 
         /// The pointer of the page the window of `model` shows.
         static func pointer(of model: AppModel) -> ParagraphPointer? {
-            pointers[ObjectIdentifier(model)]
+            pointers.object(forKey: model)
         }
     #endif
 
@@ -40,7 +48,9 @@ enum Redraws {
     static func count(_ piece: Piece, in model: AppModel) {
         #if DEBUG
             guard TestHost.isRunning else { return }
-            counts[ObjectIdentifier(model), default: [:]][piece, default: 0] += 1
+            let window = runs.object(forKey: model) ?? Runs()
+            window.counts[piece, default: 0] += 1
+            runs.setObject(window, forKey: model)
         #endif
     }
 
@@ -49,7 +59,7 @@ enum Redraws {
     static func keep(_ pointer: ParagraphPointer, of model: AppModel) {
         #if DEBUG
             guard TestHost.isRunning else { return }
-            pointers[ObjectIdentifier(model)] = pointer
+            pointers.setObject(pointer, forKey: model)
         #endif
     }
 }
