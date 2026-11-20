@@ -12,8 +12,10 @@ import Foundation
 /// tests hosting pages at the same time each read their own window's counts.
 enum Redraws {
     nonisolated enum Piece: CaseIterable {
-        /// `ContentView`: the split view, the library's list, the window's minimum.
+        /// `ContentView`: the split view, the window's sheets and its minimum.
         case window
+        /// `LibrarySidebar`: the library's column, its search, sections and rows.
+        case library
         /// `EntryView`: the page's title, toolbar, inspector and focused values.
         case page
         /// `EntryTools`: the page's tools in the toolbar.

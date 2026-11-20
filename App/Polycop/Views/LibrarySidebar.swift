@@ -47,6 +47,8 @@ struct LibrarySidebar: View {
     }
 
     var body: some View {
+        // For RedrawTests, in the test host only.
+        let _ = Redraws.count(.library, in: model)
         VStack(spacing: 0) {
             VStack(spacing: 6) {
                 newTranscriptionButton
