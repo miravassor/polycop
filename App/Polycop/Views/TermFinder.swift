@@ -37,7 +37,7 @@ struct TermFinder: View {
             .padding([.horizontal, .top], Spacing.sheet)
             Form {
                 documents
-                Section("Or Paste Text") {
+                Section("Or paste text") {
                     TextEditor(text: $pasted)
                         .font(.body)
                         .scrollContentBackground(.hidden)
@@ -79,8 +79,9 @@ struct TermFinder: View {
             .padding(Spacing.sheet)
         }
         .onDisappear { search?.cancel() }
-        // Fits under the toolbar of the smallest window, whose content minimum is 600 pt.
-        .frame(width: 640, height: 580)
+        // Presented over GlossaryEditor, so it stays within that sheet's height
+        // and inside the smallest main window.
+        .frame(width: 640, height: GlossaryEditor.sheetSize.height)
         .fileImporter(
             isPresented: $choosing, allowedContentTypes: Documents.readable,
             allowsMultipleSelection: true
@@ -110,11 +111,14 @@ struct TermFinder: View {
                     Button {
                         files.removeAll { $0 == file }
                     } label: {
-                        Image(systemName: "xmark.circle.fill")
+                        Label(
+                            "Remove \(file.lastPathComponent)", systemImage: "xmark.circle.fill"
+                        )
+                        .labelStyle(.iconOnly)
                     }
                     .buttonStyle(.borderless)
                     .foregroundStyle(.secondary)
-                    .accessibilityLabel("Remove \(file.lastPathComponent)")
+                    .help("Remove \(file.lastPathComponent)")
                 }
             }
         } header: {
@@ -140,7 +144,7 @@ struct TermFinder: View {
                 .accessibilityLabel("Terms found")
         } header: {
             HStack {
-                Text("Terms Found")
+                Text("Terms found")
                 Spacer()
                 if !terms.isEmpty {
                     Text("\(terms.count)").monospacedDigit().foregroundStyle(.secondary)

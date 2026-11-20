@@ -212,7 +212,8 @@ private func write(_ pages: [String], to file: URL) throws {
         (view as? NSTextView).map { [$0] } ?? view.subviews.flatMap(textViews)
     }
     let window = NSWindow(
-        contentRect: NSRect(x: 0, y: 0, width: 640, height: 580),
+        contentRect: NSRect(
+            x: 0, y: 0, width: 640, height: GlossaryEditor.sheetSize.height),
         styleMask: [.titled], backing: .buffered, defer: false)
     window.isReleasedWhenClosed = false
     defer { window.close() }
@@ -235,15 +236,15 @@ private func write(_ pages: [String], to file: URL) throws {
     #expect(pasted.string.isEmpty)
 }
 
-/// Fits inside the smallest main window (860 by 600 below its toolbar),
-/// so the sheet never runs past the foot of the window.
+/// Requested sheet size stays within GlossaryEditor, its presenter, so it does
+/// not overhang the parent sheet or the smallest window.
 @MainActor
-@Test func termFinderFitsInsideTheSmallestWindow() {
+@Test func termFinderFitsWithinGlossaryEditor() {
     let size = NSHostingController(rootView: TermFinder(attested: [], add: { _ in }))
         .sizeThatFits(in: CGSize(width: CGFloat.infinity, height: CGFloat.infinity))
 
     #expect(size.width > 0)
-    #expect(size.width <= 860)
+    #expect(size.width <= GlossaryEditor.sheetSize.width)
     #expect(size.height > 0)
-    #expect(size.height < 600)
+    #expect(size.height <= GlossaryEditor.sheetSize.height)
 }
