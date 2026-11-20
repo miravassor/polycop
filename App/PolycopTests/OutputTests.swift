@@ -491,6 +491,113 @@ func aShortCorrectResultIsNotReported(_ count: Int) {
     #expect(Edits.changed(from: original, to: original).isEmpty)
 }
 
+/// A skewed paste such as one word against 20,000 passes a product check while
+/// still driving `difference(from:)` into quadratic work; bounding the combined
+/// middle skips the diff and pairs only the shared ends.
+@Test(.timeLimit(.minutes(1)))
+func aSkewedPasteKeepsDiffWorkBounded() {
+    let single = ["needle"]
+    let pasted =
+        Array(repeating: "x", count: 10_000) + ["needle"] + Array(repeating: "y", count: 9_999)
+    #expect(Edits.pairs(single, pasted).isEmpty)
+    #expect(Edits.pairs(pasted, single).isEmpty)
+
+    let short = ["start", "a", "b", "c", "needle", "d", "e", "f", "g", "end"]
+    let long =
+        ["start"] + Array(repeating: "x", count: 12_499) + ["needle"]
+        + Array(repeating: "y", count: 12_498) + ["end"]
+    let skewed = Edits.pairs(short, long)
+    #expect(skewed.map(\.0) == [0, 9])
+    #expect(skewed.map(\.1) == [0, 24_999])
+
+    // Exact boundary: a combined middle of `diffLimit` still diffs; one more skips it.
+    let before = ["start", "a", "needle", "b", "end"]
+    let half = (Edits.diffLimit - 3) / 2
+    let rest = Edits.diffLimit - 4 - half
+    let atLimit =
+        ["start"] + Array(repeating: "x", count: half) + ["needle"]
+        + Array(repeating: "y", count: rest) + ["end"]
+    let overLimit =
+        ["start"] + Array(repeating: "x", count: half) + ["needle"]
+        + Array(repeating: "y", count: rest + 1) + ["end"]
+    let paired = Edits.pairs(before, atLimit)
+    #expect(paired.map(\.0) == [0, 2, 4])
+    #expect(paired.map(\.1) == [0, half + 1, atLimit.count - 1])
+    let skipped = Edits.pairs(before, overLimit)
+    #expect(skipped.map(\.0) == [0, 4])
+    #expect(skipped.map(\.1) == [0, overLimit.count - 1])
+}
+
+/// Shared ends never overlap, an empty middle needs no diff, and small edits
+/// inside a long paragraph still diff accurately once the shared ends are stripped.
+@Test func editsPairsHandlesEndsOverlapAndSmallEditsInLargeParagraphs() {
+    #expect(Edits.pairs([String](), [String]()).isEmpty)
+    #expect(Edits.pairs([String](), ["a"]).isEmpty)
+    #expect(Edits.pairs(["a"], [String]()).isEmpty)
+
+    let inserted = Edits.pairs(["a", "b"], ["a", "x", "y", "b"])
+    #expect(inserted.map(\.0) == [0, 1])
+    #expect(inserted.map(\.1) == [0, 3])
+    let deleted = Edits.pairs(["a", "x", "y", "b"], ["a", "b"])
+    #expect(deleted.map(\.0) == [0, 3])
+    #expect(deleted.map(\.1) == [0, 1])
+
+    // Pure insertion of 20,000 words leaves an empty old middle and pairs every kept word.
+    let head = ["p0", "p1", "p2", "p3", "p4"]
+    let tail = ["s0", "s1", "s2", "s3", "s4"]
+    let hugeInsert = Edits.pairs(head + tail, head + Array(repeating: "new", count: 20_000) + tail)
+    #expect(hugeInsert.map(\.0) == Array(0..<10))
+    #expect(hugeInsert.map(\.1) == Array(0..<5) + Array(20_005..<20_010))
+
+    // Overlapping prefix and suffix must not pair the same element twice.
+    let shrink = Edits.pairs(["a", "a"], ["a"])
+    #expect(shrink.map(\.0) == [0] && shrink.map(\.1) == [0])
+    let grow = Edits.pairs(["a"], ["a", "a"])
+    #expect(grow.map(\.0) == [0] && grow.map(\.1) == [0])
+    let dropMiddle = Edits.pairs(["a", "b", "a"], ["a", "a"])
+    #expect(dropMiddle.map(\.0) == [0, 2] && dropMiddle.map(\.1) == [0, 1])
+    let addMiddle = Edits.pairs(["a", "a"], ["a", "b", "a"])
+    #expect(addMiddle.map(\.0) == [0, 1] && addMiddle.map(\.1) == [0, 2])
+
+    // Two small edits near the middle of a 2,500-word paragraph still pair the words between them.
+    let large = (0..<2_500).map { "word\($0)" }
+    var edited = large
+    edited[1_200] = "changedA"
+    edited[1_210] = "changedB"
+    let changed = Edits.changed(
+        from: large.joined(separator: " "), to: edited.joined(separator: " "))
+    #expect(changed == [1_200, 1_210])
+}
+
+@Test func editsPairsStayOrderedAndJoinEqualWords() {
+    var generator = RobustnessTests.Generator(state: 17)
+    let alphabet = ["a", "b", "c", "d"]
+    for _ in 0..<200 {
+        let before = (0..<Int.random(in: 0...40, using: &generator)).map { _ in
+            alphabet[Int.random(in: alphabet.indices, using: &generator)]
+        }
+        let after = (0..<Int.random(in: 0...40, using: &generator)).map { _ in
+            alphabet[Int.random(in: alphabet.indices, using: &generator)]
+        }
+        let identical = Edits.pairs(before, before)
+        #expect(identical.map(\.0) == Array(before.indices))
+        #expect(identical.map(\.1) == Array(before.indices))
+
+        let pairs = Edits.pairs(before, after)
+        let shortest = (before.count + after.count - after.difference(from: before).count) / 2
+        #expect(pairs.count == shortest)
+        var lastBefore = -1
+        var lastAfter = -1
+        for (old, new) in pairs {
+            #expect(old > lastBefore && old < before.count)
+            #expect(new > lastAfter && new < after.count)
+            #expect(before[old] == after[new])
+            lastBefore = old
+            lastAfter = new
+        }
+    }
+}
+
 @Test func aTextExportDoesNotOverwriteAnUnconfirmedSubtitle() throws {
     let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
     try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
