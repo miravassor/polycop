@@ -41,7 +41,7 @@ struct ModelManagerView: View {
             }
             .padding(Spacing.sheet)
         }
-        .frame(width: 620, height: 600)
+        .frame(width: 620, height: 550)
         .confirmationDialog(
             "Delete this model?",
             isPresented: Binding(
