@@ -241,7 +241,7 @@ import UniformTypeIdentifiers
         await model.shutDown()
     }
 
-    @Test func transcriptTypesMatchSupportedExtensionsOnly() throws {
+    @Test func transcriptTypesAcceptSupportedFormatsAndRejectCommonOthers() throws {
         let allowed = TranscriptImportView.transcriptTypes
         for suffix in ["txt", "docx", "srt", "vtt", "json"] {
             let type = try #require(UTType(filenameExtension: suffix))
@@ -273,7 +273,7 @@ import UniformTypeIdentifiers
             .sizeThatFits(in: CGSize(width: CGFloat.infinity, height: CGFloat.infinity))
 
         #expect(size.width > 0 && size.width <= 640)
-        #expect(size.height > 0 && size.height <= 560)
+        #expect(size.height >= 200 && size.height <= 560)
         await model.shutDown()
     }
 }
