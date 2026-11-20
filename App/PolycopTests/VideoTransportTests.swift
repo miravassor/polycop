@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+import AppKit
+import SwiftUI
 import Testing
 
 @testable import Polycop
@@ -28,4 +30,78 @@ func videoControlsShowWhileTheyAreOfUse(
     #expect(VideoTransport.diameter(forWidth: 100) == 26)
     #expect(VideoTransport.diameter(forWidth: 360) == 36)
     #expect(VideoTransport.diameter(forWidth: 1000) == 44)
+}
+
+/// Sizing SF Symbols through the font keeps play.fill's optical side bearings,
+/// shifting the triangle's bounding box slightly right of the button's centre so
+/// it reads centred in its circle; resizable().scaledToFit() drops those
+/// bearings and leaves the triangle visibly to the left.
+@MainActor
+@Test func videoPlayGlyphKeepsItsOpticalCentering() throws {
+    let view = VideoTransport(
+        player: Player(defaults: MemoryDefaults()), diameter: 36, canSkip: true,
+        overSkip: { _ in }
+    )
+    .frame(width: 240, height: 100)
+    .background(.black)
+
+    let hosting = NSHostingView(rootView: view)
+    hosting.frame = NSRect(x: 0, y: 0, width: 240, height: 100)
+    let window = NSWindow(
+        contentRect: hosting.frame, styleMask: [.borderless], backing: .buffered, defer: false)
+    window.isReleasedWhenClosed = false
+    window.appearance = NSAppearance(named: .darkAqua)
+    window.contentView = hosting
+    defer { window.close() }
+    hosting.layoutSubtreeIfNeeded()
+
+    let bitmap = try #require(
+        NSBitmapImageRep(
+            bitmapDataPlanes: nil, pixelsWide: 480, pixelsHigh: 200,
+            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+            colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
+    bitmap.size = hosting.bounds.size
+    hosting.cacheDisplay(in: hosting.bounds, to: bitmap)
+
+    let offset = try playGlyphOffset(in: bitmap)
+    #expect(offset.x > 1.0 && offset.x < 3.0)
+    #expect(abs(offset.y) < 1.0)
+}
+
+/// Returns the centre of the play glyph's bounding box relative to the centre
+/// of the 240x100 (2x) render, in points.
+@MainActor
+private func playGlyphOffset(in bitmap: NSBitmapImageRep) throws -> (x: Double, y: Double) {
+    let centerX = Double(bitmap.pixelsWide - 1) / 2
+    let centerY = Double(bitmap.pixelsHigh - 1) / 2
+    // Sample inside the play circle, clear of the glyph, so the contrast check
+    // works both with macOS 26 glass (transparent in cacheDisplay) and with
+    // pre-26 bordered circles.
+    let fill = try #require(luminance(at: Int(centerX), y: Int(centerY) - 44, in: bitmap))
+    var minX = bitmap.pixelsWide
+    var maxX = -1
+    var minY = bitmap.pixelsHigh
+    var maxY = -1
+    for y in (Int(centerY) - 40)...(Int(centerY) + 40) {
+        for x in (Int(centerX) - 40)...(Int(centerX) + 40) {
+            guard let pixel = luminance(at: x, y: y, in: bitmap), pixel - fill > 0.15 else {
+                continue
+            }
+            minX = min(minX, x)
+            maxX = max(maxX, x)
+            minY = min(minY, y)
+            maxY = max(maxY, y)
+        }
+    }
+    try #require(minX <= maxX && minY <= maxY)
+    return (
+        x: (Double(minX + maxX) / 2 - centerX) / 2,
+        y: (Double(minY + maxY) / 2 - centerY) / 2
+    )
+}
+
+@MainActor
+private func luminance(at x: Int, y: Int, in bitmap: NSBitmapImageRep) -> Double? {
+    guard let color = bitmap.colorAt(x: x, y: y) else { return nil }
+    return (color.redComponent + color.greenComponent + color.blueComponent) / 3
 }
