@@ -584,6 +584,8 @@ func aSkewedPasteKeepsDiffWorkBounded() {
         #expect(identical.map(\.1) == Array(before.indices))
 
         let pairs = Edits.pairs(before, after)
+        let shortest = (before.count + after.count - after.difference(from: before).count) / 2
+        #expect(pairs.count == shortest)
         var lastBefore = -1
         var lastAfter = -1
         for (old, new) in pairs {
