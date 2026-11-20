@@ -4,6 +4,17 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct TranscriptImportView: View {
+    /// File types accepted by `TranscriptImport.parse`: plain text, Word,
+    /// SRT, VTT and JSON. Every type registered for `docx`, `srt` and `vtt`
+    /// is included because macOS and installed apps can declare more than
+    /// one identifier for those extensions.
+    nonisolated static var transcriptTypes: [UTType] {
+        [.plainText, .json]
+            + ["docx", "srt", "vtt"].flatMap {
+                UTType.types(tag: $0, tagClass: .filenameExtension, conformingTo: .data)
+            }
+    }
+
     let model: AppModel
     @Environment(\.dismiss) private var dismiss
     @State private var transcript: URL?
@@ -79,7 +90,7 @@ struct TranscriptImportView: View {
         .interactiveDismissDisabled(importing)
         .fileImporter(
             isPresented: $choosing,
-            allowedContentTypes: choosingTranscript ? [.data] : [.audio, .movie]
+            allowedContentTypes: choosingTranscript ? Self.transcriptTypes : [.audio, .movie]
         ) { result in
             switch result {
             case .success(let file):

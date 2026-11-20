@@ -2,6 +2,7 @@
 
 import AppKit
 import Testing
+import UniformTypeIdentifiers
 
 @testable import Polycop
 
@@ -237,5 +238,23 @@ import Testing
         #expect(model.entries.isEmpty)
         #expect(!model.stage.isBusy)
         await model.shutDown()
+    }
+
+    @Test func transcriptTypesMatchSupportedExtensionsOnly() throws {
+        let allowed = TranscriptImportView.transcriptTypes
+        for suffix in ["txt", "docx", "srt", "vtt", "json"] {
+            let type = try #require(UTType(filenameExtension: suffix))
+            #expect(
+                allowed.contains { type.conforms(to: $0) },
+                ".\(suffix) (\(type.identifier)) should be selectable")
+        }
+        for rejected in [UTType.pdf, .mp3, .png, .rtf, .html] {
+            #expect(
+                !allowed.contains { rejected.conforms(to: $0) },
+                "\(rejected.identifier) should not be selectable")
+        }
+        if let doc = UTType(filenameExtension: "doc") {
+            #expect(!allowed.contains { doc.conforms(to: $0) })
+        }
     }
 }
