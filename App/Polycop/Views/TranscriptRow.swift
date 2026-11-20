@@ -220,6 +220,8 @@ private struct PointedBackground: View {
     let index: Int
 
     var body: some View {
+        // For RedrawTests, in the test host only, which wait on it.
+        let _ = Redraws.countGrey(of: pointer)
         RoundedRectangle(cornerRadius: 6)
             .fill(pointer.paragraph == index ? Color.primary.opacity(0.06) : .clear)
     }

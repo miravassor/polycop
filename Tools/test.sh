@@ -97,9 +97,10 @@ if grep -qE '^SUMMARY: (Thread|Address)Sanitizer' "$log"; then
     echo "A sanitizer reported: see $log" >&2
     exit 1
 fi
-ran="$(sed -nE 's/^(✔|✘) Test run with ([0-9]+) tests? in .*/\2/p' "$log" | tail -1)"
+# A run whose only failures are known issues is marked ━ rather than ✔.
+ran="$(sed -nE 's/^(✔|✘|━) Test run with ([0-9]+) tests? in .*/\2/p' "$log" | tail -1)"
 if [ -z "$ran" ] || [ "$ran" -eq 0 ]; then
     echo "No test ran: check the names given. See $log" >&2
     exit 1
 fi
-grep -E '^✔ Test run with ' "$log" | tail -1
+grep -E '^(✔|━) Test run with ' "$log" | tail -1

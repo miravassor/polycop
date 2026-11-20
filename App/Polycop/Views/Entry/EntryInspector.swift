@@ -22,6 +22,8 @@ struct EntryInspector: View {
     private static let pictureShare = 0.55
 
     var body: some View {
+        // For RedrawTests, in the test host only.
+        let _ = Redraws.count(.inspector, in: model)
         VStack(spacing: 0) {
             if let picture, let source {
                 VideoSection(

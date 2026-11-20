@@ -48,6 +48,8 @@ struct ContentView: View {
     static let idealLibraryWidth: CGFloat = 300
 
     var body: some View {
+        // For RedrawTests, in the test host only.
+        let _ = Redraws.count(.window, in: model)
         applyingSheets(to: applyingDialogs(to: splitContent))
             .minimumSize(width: minimumWidth, height: 600)
             .disabled(model.isShuttingDown)
