@@ -75,15 +75,19 @@ private func playGlyphOffset(in bitmap: NSBitmapImageRep) throws -> (x: Double, 
     let centerX = Double(bitmap.pixelsWide - 1) / 2
     let centerY = Double(bitmap.pixelsHigh - 1) / 2
     // Sample inside the play circle, clear of the glyph, so the contrast check
-    // works both with macOS 26 glass (transparent in cacheDisplay) and with
-    // pre-26 bordered circles.
+    // does not depend on the button fill matching the outer black background.
     let fill = try #require(luminance(at: Int(centerX), y: Int(centerY) - 44, in: bitmap))
     var minX = bitmap.pixelsWide
     var maxX = -1
     var minY = bitmap.pixelsHigh
     var maxY = -1
-    for y in (Int(centerY) - 40)...(Int(centerY) + 40) {
-        for x in (Int(centerX) - 40)...(Int(centerX) + 40) {
+    // Stay strictly inside the 52.2 px circle radius so a button rim never
+    // enters the bounding box.
+    let radius = 38
+    for dy in -radius...radius {
+        for dx in -radius...radius where dx * dx + dy * dy <= radius * radius {
+            let x = Int(centerX) + dx
+            let y = Int(centerY) + dy
             guard let pixel = luminance(at: x, y: y, in: bitmap), pixel - fill > 0.15 else {
                 continue
             }
