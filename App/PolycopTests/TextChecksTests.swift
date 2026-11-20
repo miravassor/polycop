@@ -356,6 +356,12 @@ private struct Page {
         #expect(model.failure(for: other.id) == nil)
         #expect(model.failure == nil)
 
+        // An error for an entry no longer in the library is ignored.
+        let unknown = UUID()
+        model.report(PanelFailure(), for: unknown)
+        #expect(model.failure(for: unknown) == nil)
+        #expect(model.failure(for: entry.id) == "The file panel could not open.")
+
         let relocated = folder.appending(path: "relocated.wav")
         try Data("audio".utf8).write(to: relocated)
         notices.applyLocatedRecording(.success(relocated))

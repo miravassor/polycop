@@ -15,6 +15,7 @@ struct EntryNotices: View {
     let isRunning: Bool
     let engine: Engine?
     @State private var isLocating = false
+    @State private var defaultDirectory: URL?
 
     var body: some View {
         let checks = TextChecks(
@@ -23,23 +24,21 @@ struct EntryNotices: View {
         ).aboveText
         let hasRecording = entry.hasRecording
         if !hasRecording || !checks.isEmpty {
+            let missingPath = hasRecording ? nil : entry.location.path(percentEncoded: false)
             // Side by side when they fit, for the height of the text. The file
             // importer lives here rather than inside ViewThatFits's two
             // branches so SwiftUI attaches one sheet, and clean transcripts
             // emit no view.
             ViewThatFits(in: .horizontal) {
-                HStack(spacing: 8) { capsules(checks, showsRecording: !hasRecording) }
-                VStack(spacing: 8) { capsules(checks, showsRecording: !hasRecording) }
+                HStack(spacing: 8) { capsules(checks, missingPath: missingPath) }
+                VStack(spacing: 8) { capsules(checks, missingPath: missingPath) }
             }
             .fileImporter(isPresented: $isLocating, allowedContentTypes: [.audio, .movie]) {
                 applyLocatedRecording($0)
             }
-            .fileDialogDefaultDirectory(
-                hasRecording ? nil : Self.locateDirectory(for: entry.location)
-            )
+            .fileDialogDefaultDirectory(defaultDirectory)
             .fileDialogMessage("Choose the recording this transcript was made from.")
             .onChange(of: isRunning) { if isRunning { isLocating = false } }
-            .onChange(of: hasRecording) { if hasRecording { isLocating = false } }
             .onDisappear { isLocating = false }
         }
         ForEach(
@@ -52,8 +51,8 @@ struct EntryNotices: View {
         }
     }
 
-    @ViewBuilder private func capsules(_ checks: [TextCheck], showsRecording: Bool) -> some View {
-        if showsRecording { recording }
+    @ViewBuilder private func capsules(_ checks: [TextCheck], missingPath: String?) -> some View {
+        if let missingPath { recording(missingAt: missingPath) }
         if checks.count == 1, let check = checks.first {
             TextCheckRow(check: check).statusCapsule()
         } else if !checks.isEmpty {
@@ -64,15 +63,18 @@ struct EntryNotices: View {
     }
 
     /// The details go in the tooltip: the choosing panel opens where it was.
-    private var recording: some View {
+    private func recording(missingAt path: String) -> some View {
         HStack(spacing: 12) {
             Label("Recording unavailable", systemImage: "questionmark.folder")
                 .notice(.orange)
                 .help(
-                    "The transcript is safe. Listening, transcribing again and repairing the repeats all need the original recording, last at \(entry.location.path(percentEncoded: false))."
+                    "The transcript is safe. Listening, transcribing again and repairing the repeats all need the original recording, last at \(path)."
                 )
-            Button("Locate Recording…") { isLocating = true }
-                .disabled(isRunning)
+            Button("Locate Recording…") {
+                defaultDirectory = Self.locateDirectory(for: entry.location)
+                isLocating = true
+            }
+            .disabled(isRunning)
         }
         .statusCapsule()
     }
@@ -84,8 +86,7 @@ struct EntryNotices: View {
         case .success(let found):
             model.locateRecording(entry.id, at: found)
         case .failure(let error):
-            model.entryFailure = AppModel.EntryFailure(
-                id: entry.id, message: error.localizedDescription)
+            model.report(error, for: entry.id)
         }
     }
 
