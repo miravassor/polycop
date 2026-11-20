@@ -15,12 +15,24 @@ struct TranscriptImportView: View {
             }
     }
 
+    private enum FileKind {
+        case transcript
+        case recording
+
+        var allowedContentTypes: [UTType] {
+            switch self {
+            case .transcript: TranscriptImportView.transcriptTypes
+            case .recording: [.audio, .movie]
+            }
+        }
+    }
+
     let model: AppModel
     @Environment(\.dismiss) private var dismiss
     @State private var transcript: URL?
     @State private var audio: URL?
     @State private var choosing = false
-    @State private var choosingTranscript = true
+    @State private var choosingKind: FileKind = .transcript
     @State private var importing = false
     @State private var closing = false
     @State private var problem: String?
@@ -32,8 +44,8 @@ struct TranscriptImportView: View {
                 "Correct an existing transcript while listening to its recording. The source files stay unchanged."
             )
             .foregroundStyle(.secondary)
-            fileRow("Transcript", file: transcript, transcript: true)
-            fileRow("Recording", file: audio, transcript: false)
+            fileRow("Transcript", file: transcript, kind: .transcript)
+            fileRow("Recording", file: audio, kind: .recording)
             Text(
                 "Timestamped TXT or Word document, SRT, VTT and Whisper/audio.cpp JSON. audio.cpp sample offsets use 16 kHz unless the JSON declares a sample rate."
             )
@@ -88,20 +100,25 @@ struct TranscriptImportView: View {
         .frame(width: 560)
         .fixedSize(horizontal: false, vertical: true)
         .interactiveDismissDisabled(importing)
+        // One importer for both rows: SwiftUI honours only one `.fileImporter`
+        // on a view, so both rows share this modifier on the sheet root.
         .fileImporter(
             isPresented: $choosing,
-            allowedContentTypes: choosingTranscript ? Self.transcriptTypes : [.audio, .movie]
+            allowedContentTypes: choosingKind.allowedContentTypes
         ) { result in
             switch result {
             case .success(let file):
-                if choosingTranscript { transcript = file } else { audio = file }
+                switch choosingKind {
+                case .transcript: transcript = file
+                case .recording: audio = file
+                }
                 problem = nil
             case .failure(let error): problem = error.localizedDescription
             }
         }
     }
 
-    private func fileRow(_ label: LocalizedStringKey, file: URL?, transcript: Bool) -> some View {
+    private func fileRow(_ label: LocalizedStringKey, file: URL?, kind: FileKind) -> some View {
         HStack(spacing: 12) {
             Text(label).fontWeight(.medium).frame(width: 85, alignment: .leading)
             Text(file?.lastPathComponent ?? "No file selected")
@@ -109,7 +126,7 @@ struct TranscriptImportView: View {
                 .lineLimit(1).truncationMode(.middle)
                 .frame(maxWidth: .infinity, alignment: .leading)
             Button("Choose…") {
-                choosingTranscript = transcript
+                choosingKind = kind
                 choosing = true
             }
             .disabled(importing)
