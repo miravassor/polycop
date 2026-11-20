@@ -233,3 +233,27 @@ import Testing
     #expect(placed.map(\.start) == [0, 29.75, 59.5, 89.25])
     #expect(placed.allSatisfy { $0.confidence == nil })
 }
+
+/// Alignment and word placement share the same word-character rule across
+/// composed and decomposed accents, non-BMP letters and punctuation boundaries.
+@Test func timedWordsAndWordLayoutAgreeOnUnicodeBoundaries() throws {
+    let text = "E\u{0301}cole, l'a\u{1D431}b 🧪 \u{0301}café \u{10400}\u{1D7CF}."
+    let words: [Segment.Word] = [
+        .init(text: "École", start: 0, end: 0.4),
+        .init(text: "l", start: 0.4, end: 0.5),
+        .init(text: "a\u{1D431}b", start: 0.5, end: 1.0),
+        .init(text: "cafe\u{0301}", start: 1.0, end: 1.5),
+        .init(text: "\u{10400}\u{1D7CF}", start: 1.5, end: 2.0),
+    ]
+
+    let sentences = try #require(TimedWords.sentences(of: text, timedBy: words))
+    #expect(sentences.count == 1)
+    #expect(sentences[0].words == words)
+
+    let placed = WordLayout.place(words, in: text)
+    let string = text as NSString
+    #expect(placed.map(\.start) == [0, 0.4, 0.5, 1.0, 1.5])
+    #expect(
+        placed.map { string.substring(with: $0.range) }
+            == ["E\u{0301}cole", "l", "a\u{1D431}b", "café", "\u{10400}\u{1D7CF}"])
+}
