@@ -56,8 +56,8 @@ struct ModelManagerView: View {
                 "Existing transcripts are kept. You will need to download or import the model again to use it."
             )
         }
-        // .gguf has no declared system UTType and .bin maps to MacBinary;
-        // .data avoids greying out valid weights, verified by size and SHA-256.
+        // ModelStore.install identifies weights by size and SHA-256 regardless
+        // of extension, so .data keeps renamed or extensionless files selectable.
         .fileImporter(isPresented: $importing, allowedContentTypes: [.data]) { result in
             switch result {
             case .success(let file): model.importModel(file)

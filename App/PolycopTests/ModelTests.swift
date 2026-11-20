@@ -363,7 +363,7 @@ func launchStartsOnTheRecommendedModelOrAnInstalledOne(installed: [String], expe
 /// window (860 by 600 below its toolbar). Actual sheet placement over the
 /// window is verified on captures.
 @MainActor
-@Test func modelManagerFitsInsideTheSmallestWindow() {
+@Test func modelManagerFitsInsideTheSmallestWindow() async {
     let root = URL.temporaryDirectory.appending(path: UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: root) }
     let model = AppModel(
@@ -371,6 +371,7 @@ func launchStartsOnTheRecommendedModelOrAnInstalledOne(installed: [String], expe
         models: root.appending(path: "Models"), playbackCopies: root.appending(path: "Replay"),
         defaults: MemoryDefaults())
     let size = NSHostingView(rootView: ModelManagerView(model: model)).fittingSize
+    await model.shutDown()
     #expect(size.width > 0 && size.width <= 640)
     #expect(size.height > 0 && size.height <= 560)
 }
