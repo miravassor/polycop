@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import AppKit
+import SwiftUI
 import Testing
+import UniformTypeIdentifiers
 
 @testable import Polycop
 
@@ -236,6 +238,42 @@ import Testing
         #expect(model.failure == nil)
         #expect(model.entries.isEmpty)
         #expect(!model.stage.isBusy)
+        await model.shutDown()
+    }
+
+    @Test func transcriptTypesAcceptSupportedFormatsAndRejectCommonOthers() throws {
+        let allowed = TranscriptImportView.transcriptTypes
+        for suffix in ["txt", "docx", "srt", "vtt", "json"] {
+            let type = try #require(UTType(filenameExtension: suffix))
+            #expect(
+                allowed.contains { type.conforms(to: $0) },
+                ".\(suffix) (\(type.identifier)) should be selectable")
+        }
+        for rejected in [UTType.pdf, .mp3, .png, .rtf, .html] {
+            #expect(
+                !allowed.contains { rejected.conforms(to: $0) },
+                "\(rejected.identifier) should not be selectable")
+        }
+        if let doc = UTType(filenameExtension: "doc") {
+            #expect(!allowed.contains { doc.conforms(to: $0) })
+        }
+    }
+
+    @MainActor
+    @Test func importSheetFitsInsideTheSmallestWindow() async {
+        let root = URL.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let model = AppModel(
+            history: root.appending(path: "History"),
+            glossaries: root.appending(path: "Glossaries"),
+            models: root.appending(path: "Models"),
+            playbackCopies: root.appending(path: "Copies"),
+            defaults: MemoryDefaults())
+        let size = NSHostingController(rootView: TranscriptImportView(model: model))
+            .sizeThatFits(in: CGSize(width: CGFloat.infinity, height: CGFloat.infinity))
+
+        #expect(size.width > 0 && size.width <= 640)
+        #expect(size.height >= 200 && size.height <= 560)
         await model.shutDown()
     }
 }
