@@ -255,11 +255,16 @@ struct VideoTransport: View {
     }
 
     var body: some View {
+        let playSize = diameter * 1.45
         HStack(spacing: diameter * 0.4) {
             skip(by: -5)
+            // Skip glyphs carry an outer ring and sit taller per point than
+            // play/pause, so each role uses its own font ratio to fill the
+            // same share of its circle.
             symbol(
                 player.isPlaying ? "Pause" : "Play",
-                player.isPlaying ? "pause.fill" : "play.fill", size: diameter * 1.45
+                player.isPlaying ? "pause.fill" : "play.fill",
+                size: playSize, fontSize: playSize * 0.56
             )
             .allowsHitTesting(false)
             .accessibilityHidden(true)
@@ -270,7 +275,10 @@ struct VideoTransport: View {
 
     private func skip(by seconds: TimeInterval) -> some View {
         let name: LocalizedStringKey = seconds < 0 ? "Back five seconds" : "Forward five seconds"
-        return symbol(name, seconds < 0 ? "gobackward.5" : "goforward.5", size: diameter) {
+        return symbol(
+            name, seconds < 0 ? "gobackward.5" : "goforward.5",
+            size: diameter, fontSize: diameter * 0.45
+        ) {
             player.skip(by: seconds)
         }
         .disabled(!canSkip || player.isPreparing)
@@ -279,26 +287,29 @@ struct VideoTransport: View {
     }
 
     private func symbol(
-        _ name: LocalizedStringKey, _ symbol: String, size: CGFloat,
+        _ name: LocalizedStringKey, _ symbol: String, size: CGFloat, fontSize: CGFloat,
         action: @escaping () -> Void = {}
     ) -> some View {
         Button(action: action) {
-            Label {
-                Text(name)
-            } icon: {
-                Image(systemName: symbol).resizable().scaledToFit()
-            }
-            .labelStyle(.iconOnly)
-            .padding(size * 0.25)
-            .frame(width: size, height: size)
+            // Sized through the font rather than resizable().scaledToFit():
+            // scaling a symbol as an image drops its side bearings, which
+            // leaves play.fill visibly to the left of the circle's centre.
+            Label(name, systemImage: symbol)
+                .labelStyle(.iconOnly)
+                .font(.system(size: fontSize))
+                .frame(width: size, height: size)
         }
     }
 }
 
 #Preview("On the picture") {
-    VideoTransport(player: Player(), diameter: 36, canSkip: true, overSkip: { _ in })
-        .padding(Spacing.sheet)
-        .background(.gray)
+    VStack(spacing: Spacing.block) {
+        VideoTransport(player: Player(), diameter: 26, canSkip: true, overSkip: { _ in })
+        VideoTransport(player: Player(), diameter: 36, canSkip: true, overSkip: { _ in })
+        VideoTransport(player: Player(), diameter: 44, canSkip: true, overSkip: { _ in })
+    }
+    .padding(Spacing.sheet)
+    .background(.gray)
 }
 
 /// The buttons on the picture: glass on macOS 26, as the player's, and the
