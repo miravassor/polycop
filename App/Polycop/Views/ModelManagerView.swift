@@ -8,15 +8,17 @@ struct ModelManagerView: View {
     let model: AppModel
     @Environment(\.dismiss) private var dismiss
     @State private var importing = false
-    @State private var removingModel: Model?
-    @State private var removingImported: ModelStore.Imported?
+    private enum Removal {
+        case catalogue(Model)
+        case imported(ModelStore.Imported)
+    }
+
+    @State private var removing: Removal?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text("Models").font(.sheetTitle)
                 .padding([.horizontal, .top], Spacing.sheet)
-            // Grouped rows as the inspector beside the page, one section an
-            // engine, without a colour of its own.
             Form {
                 ForEach(Engine.allCases, id: \.self) { engine($0) }
                 imported
@@ -41,29 +43,21 @@ struct ModelManagerView: View {
             }
             .padding(Spacing.sheet)
         }
-        .frame(width: 620, height: 600)
-        .confirmationDialog(
-            "Delete this model?",
-            isPresented: Binding(
-                get: { removingModel != nil || removingImported != nil },
-                set: {
-                    if !$0 {
-                        removingModel = nil
-                        removingImported = nil
-                    }
-                })
-        ) {
+        .frame(width: 620, height: 550)
+        .confirmationDialog("Delete this model?", item: $removing) { removal in
             Button("Delete Model", role: .destructive) {
-                if let removingModel { model.delete(removingModel) }
-                if let removingImported { model.delete(removingImported) }
-                removingModel = nil
-                removingImported = nil
+                switch removal {
+                case .catalogue(let item): model.delete(item)
+                case .imported(let item): model.delete(item)
+                }
             }
-        } message: {
+        } message: { _ in
             Text(
                 "Existing transcripts are kept. You will need to download or import the model again to use it."
             )
         }
+        // ModelStore.install identifies weights by size and SHA-256 regardless
+        // of extension, so .data keeps renamed or extensionless files selectable.
         .fileImporter(isPresented: $importing, allowedContentTypes: [.data]) { result in
             switch result {
             case .success(let file): model.importModel(file)
@@ -103,15 +97,16 @@ struct ModelManagerView: View {
                         Button("Use") { model.selected = item.id }
                     }
                     Menu {
-                        Button("Delete…", role: .destructive) { removingModel = item }
+                        Button("Delete…", role: .destructive) { removing = .catalogue(item) }
                             .disabled(model.stage.isBusy || model.isNeeded(item.id))
                     } label: {
-                        Image(systemName: "ellipsis.circle")
+                        Label("Actions for \(item.name)", systemImage: "ellipsis.circle")
+                            .labelStyle(.iconOnly)
                     }
                     .menuStyle(.borderlessButton)
                     .menuIndicator(.hidden)
                     .fixedSize()
-                    .accessibilityLabel("Actions for \(item.name)")
+                    .help("Actions for \(item.name)")
                 } else if model.downloadingModel?.id != item.id {
                     Button("Download and Use") {
                         model.selected = item.id
@@ -134,7 +129,7 @@ struct ModelManagerView: View {
             Section("Imported") {
                 ForEach(model.imported) { item in
                     LabeledContent {
-                        Button("Delete…", role: .destructive) { removingImported = item }
+                        Button("Delete…", role: .destructive) { removing = .imported(item) }
                             .disabled(model.stage.isBusy)
                     } label: {
                         Text(item.name)
@@ -151,7 +146,7 @@ struct ModelManagerView: View {
         let item = ModelCatalog.qwenAligner
         LabeledContent {
             if model.alignerInstalled {
-                Button("Delete…", role: .destructive) { removingModel = item }
+                Button("Delete…", role: .destructive) { removing = .catalogue(item) }
                     .disabled(model.stage.isBusy)
             } else if model.downloadingModel?.id != item.id {
                 Button("Download") { model.download(item) }
@@ -164,4 +159,16 @@ struct ModelManagerView: View {
         }
         if model.downloadingModel?.id == item.id { ModelTransferStatus(model: model) }
     }
+}
+
+#Preview {
+    // Empty folders and settings of its own, never the user's.
+    let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    ModelManagerView(
+        model: AppModel(
+            history: folder.appending(path: "History"),
+            glossaries: folder.appending(path: "Glossaries"),
+            models: folder.appending(path: "Models"),
+            playbackCopies: folder.appending(path: "Replay"),
+            defaults: MemoryDefaults()))
 }
