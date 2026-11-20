@@ -45,6 +45,7 @@ private let mayRedraw: [Change: Set<Redraws.Piece>] = [
 @Test func eachChangeOnThePageRedrawsOnlyTheStructureListedForIt() async throws {
     try await withHostedPage(lecture()) { page in
         try await openCounting(page)
+        try await settle(page)
         var redrew = try await corrections(on: page)
         redrew.merge(try await editing(on: page)) { $1 }
         redrew.merge(try await listening(on: page)) { $1 }
@@ -66,6 +67,29 @@ private func openCounting(_ page: HostedPage) async throws {
     for piece in Redraws.Piece.allCases {
         #expect(opened[piece, default: 0] > closed[piece, default: 0], "\(piece) never ran")
     }
+}
+
+/// Waits until SwiftUI skips a piece given what it was given before, which
+/// every change below relies on. SwiftUI tells whether what a view is given
+/// changed through a description of the view's type, which it makes in the
+/// background the first time it compares one (at once with AttributeGraph's
+/// `AG_ASYNC_LAYOUTS=0`); until then it can take equal values for new ones and
+/// run the body. On a busy Mac, or in the first run after a build, that lasts
+/// into the changes counted. So each piece runs alone, until none of those it
+/// holds runs with it.
+@MainActor
+private func settle(_ page: HostedPage) async throws {
+    var unsettled: [Redraws.Piece: Set<Redraws.Piece>] = [:]
+    for _ in 0..<100 {
+        unsettled = [:]
+        for piece in Redraws.Piece.allCases {
+            let redrew = try await redrawn(in: page.model) { Redraws.redraw(piece, in: page.model) }
+            if redrew != [piece] { unsettled[piece] = redrew }
+        }
+        if unsettled.isEmpty { return }
+        try await Task.sleep(for: .milliseconds(50))
+    }
+    Issue.record("Run alone, a piece redrew others given nothing new: \(unsettled)")
 }
 
 /// A handover, its write, then Replace All. The first correction changes what
