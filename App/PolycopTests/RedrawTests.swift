@@ -86,8 +86,16 @@ private func corrections(on page: HostedPage) async throws -> [Change: Set<Redra
         model.edit(id, paragraphAt: 2, text: corrected)
     }
 
+    // The handover's own write waits for a pause, which a slow machine can let
+    // pass inside the step above: written now, wherever it fell, so that no
+    // step below meets it, and the write timed is one that surely happens.
+    model.savePending()
+    await model.finishWrites()
+    await turns(2)
+
+    let record = try #require(model.entry(id))
     redrew[.write] = try await redrawn(in: model) {
-        model.savePending()
+        model.store(record)
         await model.finishWrites()
     }
 
