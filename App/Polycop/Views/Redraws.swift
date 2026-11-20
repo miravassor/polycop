@@ -4,11 +4,12 @@ import Foundation
 
 /// How many times each view that declares the window's structure ran its
 /// body, for `RedrawTests`, which state what each change on the page may
-/// redraw. An API added for those tests: it counts only in the test host, and
-/// a release build has neither the counts nor the work.
+/// redraw, and how often the page drew where the pointer is, which they wait
+/// on. An API added for those tests: it counts only in the test host, and a
+/// release build has neither the counts nor the work.
 ///
-/// Counted by the model the window draws, so that tests hosting pages at the
-/// same time each read their own window's counts.
+/// Counted by the model the window draws, or the pointer of its page, so that
+/// tests hosting pages at the same time each read their own window's counts.
 enum Redraws {
     nonisolated enum Piece: CaseIterable {
         /// `ContentView`: the split view, the library's list, the window's minimum.
@@ -27,11 +28,17 @@ enum Redraws {
             var counts: [Piece: Int] = [:]
         }
 
+        /// How often a page drew where its pointer is.
+        private final class Greys {
+            var drawn = 0
+        }
+
         // On the main actor, as every body: one thread reads and writes them.
         // Their keys are weak: what a window counted goes with its model, and a
         // model made where one gone was starts from nothing.
         private static let runs = NSMapTable<AppModel, Runs>.weakToStrongObjects()
         private static let pointers = NSMapTable<AppModel, ParagraphPointer>.weakToWeakObjects()
+        private static let greys = NSMapTable<ParagraphPointer, Greys>.weakToStrongObjects()
 
         /// The runs of each piece of the window of `model` so far.
         static func counts(in model: AppModel) -> [Piece: Int] {
@@ -42,6 +49,12 @@ enum Redraws {
         static func pointer(of model: AppModel) -> ParagraphPointer? {
             pointers.object(forKey: model)
         }
+
+        /// How many times the rows of the page holding `pointer` drew where it
+        /// is, or that it is elsewhere.
+        static func greys(of pointer: ParagraphPointer) -> Int {
+            greys.object(forKey: pointer)?.drawn ?? 0
+        }
     #endif
 
     /// Counts a run of the body of `piece` in the window of `model`.
@@ -51,6 +64,17 @@ enum Redraws {
             let window = runs.object(forKey: model) ?? Runs()
             window.counts[piece, default: 0] += 1
             runs.setObject(window, forKey: model)
+        #endif
+    }
+
+    /// Counts a row drawing the grey of `pointer`, or its absence: the grey is
+    /// drawn by SwiftUI alone, which a test cannot read from the window.
+    static func countGrey(of pointer: ParagraphPointer) {
+        #if DEBUG
+            guard TestHost.isRunning else { return }
+            let page = greys.object(forKey: pointer) ?? Greys()
+            page.drawn += 1
+            greys.setObject(page, forKey: pointer)
         #endif
     }
 

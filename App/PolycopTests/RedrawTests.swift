@@ -161,17 +161,39 @@ private func listening(on page: HostedPage) async throws -> [Change: Set<Redraws
     await turns(2)
     var redrew: [Change: Set<Redraws.Piece>] = [:]
 
-    redrew[.wordHeard] = try await redrawn(in: model, drawn: { player.position == 0.6 }) {
+    let heard = try page.textView(of: 0)
+    let word = heardWord(in: heard)
+    redrew[.wordHeard] = try await redrawn(in: model, drawn: { heardWord(in: heard) != word }) {
         player.seek(to: 0.6)
     }
 
     let pointer = try #require(Redraws.pointer(of: model))
     pointer.point(at: 2)
     await turns(2)
-    redrew[.pointer] = try await redrawn(in: model, drawn: { pointer.paragraph == 3 }) {
+    let greys = Redraws.greys(of: pointer)
+    redrew[.pointer] = try await redrawn(in: model, drawn: { Redraws.greys(of: pointer) > greys }) {
         pointer.point(at: 3)
     }
     return redrew
+}
+
+/// The word a paragraph's text view shows as heard: the stretch its editor
+/// marks with a background of the layout manager's own.
+@MainActor
+private func heardWord(in view: WordTextView) -> NSRange? {
+    guard let manager = view.layoutManager else { return nil }
+    let length = (view.string as NSString).length
+    var index = 0
+    while index < length {
+        var stretch = NSRange()
+        if manager.temporaryAttribute(
+            .backgroundColor, atCharacterIndex: index, effectiveRange: &stretch) != nil
+        {
+            return stretch
+        }
+        index = max(NSMaxRange(stretch), index + 1)
+    }
+    return nil
 }
 
 /// The pieces whose body ran for `change`: from the change until the page
