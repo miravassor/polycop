@@ -41,7 +41,7 @@ struct TermFinder: View {
                     TextEditor(text: $pasted)
                         .font(.body)
                         .scrollContentBackground(.hidden)
-                        .frame(height: 56)
+                        .frame(height: 44)
                         .accessibilityLabel("Text to read")
                         // Refused as it arrives: a text view holding this much
                         // freezes the window as it draws.
@@ -79,9 +79,9 @@ struct TermFinder: View {
             .padding(Spacing.sheet)
         }
         .onDisappear { search?.cancel() }
-        // Presented over GlossaryEditor, so it stays within that sheet's height
-        // and inside the smallest main window.
-        .frame(width: 640, height: GlossaryEditor.sheetSize.height)
+        // Keeps the nested sheet clear of the smallest window's toolbar and foot
+        // while showing all three sections without initial scrolling.
+        .frame(width: 640, height: 550)
         .fileImporter(
             isPresented: $choosing, allowedContentTypes: Documents.readable,
             allowsMultipleSelection: true

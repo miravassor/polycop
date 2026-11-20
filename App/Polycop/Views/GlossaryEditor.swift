@@ -6,9 +6,6 @@ import UniformTypeIdentifiers
 
 /// Course glossaries: one term per line, saved as it is typed.
 struct GlossaryEditor: View {
-    /// Fits cleanly inside the smallest main window; nested sheets stay within it.
-    static let sheetSize = CGSize(width: 700, height: 500)
-
     let model: AppModel
     @Environment(\.dismiss) private var dismiss
     @State private var selection: String?
@@ -68,7 +65,7 @@ struct GlossaryEditor: View {
             }
         }
         .padding(Spacing.sheet)
-        .frame(width: Self.sheetSize.width, height: Self.sheetSize.height)
+        .frame(width: 700, height: 500)
         .sheet(isPresented: $findingTerms) {
             TermFinder(attested: Set(Glossary.terms(in: text)), add: append)
         }
