@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import AppKit
+import SwiftUI
 import Testing
 import UniformTypeIdentifiers
 
@@ -256,5 +257,23 @@ import UniformTypeIdentifiers
         if let doc = UTType(filenameExtension: "doc") {
             #expect(!allowed.contains { doc.conforms(to: $0) })
         }
+    }
+
+    @MainActor
+    @Test func importSheetFitsInsideTheSmallestWindow() async {
+        let root = URL.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let model = AppModel(
+            history: root.appending(path: "History"),
+            glossaries: root.appending(path: "Glossaries"),
+            models: root.appending(path: "Models"),
+            playbackCopies: root.appending(path: "Copies"),
+            defaults: MemoryDefaults())
+        let size = NSHostingController(rootView: TranscriptImportView(model: model))
+            .sizeThatFits(in: CGSize(width: CGFloat.infinity, height: CGFloat.infinity))
+
+        #expect(size.width > 0 && size.width <= 640)
+        #expect(size.height > 0 && size.height <= 560)
+        await model.shutDown()
     }
 }

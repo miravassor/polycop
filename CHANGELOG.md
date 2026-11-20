@@ -24,6 +24,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 
 ### Changed
 
+* Import Transcript and Recording is laid out as a grouped form like the rest of the app, with plain guidance under the rows, and its transcript picker now greys out unsupported file formats.
 * New Transcription no longer shows a Language row for MOSS and Voxtral, which detect the language themselves, and a recording waiting its turn no longer names a language its model ignores.
 * Warnings and failures are centred, closer to their icon, and take less room. On a transcript each sits in a capsule above the text, and several warnings gather into one capsule that opens their list, so the text stays in place.
 * A failure has the same red symbol wherever it shows, in the library too.
