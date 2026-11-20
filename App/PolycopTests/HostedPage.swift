@@ -93,6 +93,12 @@ final class HostedPage {
         for character in text {
             view.insertText(
                 String(character), replacementRange: NSRange(location: NSNotFound, length: 0))
+            // One pass of the run loop that does not wait, as between real
+            // keys: its timers, sources and the observers of its start and end
+            // run, SwiftUI's update of the page among them. Not the main
+            // actor's jobs, the pause that hands typing over among them, which
+            // wait for this one to end, nor the observers of a loop about to
+            // sleep, which a pass that does not wait never calls.
             RunLoop.main.run(mode: .default, before: Date())
         }
     }
