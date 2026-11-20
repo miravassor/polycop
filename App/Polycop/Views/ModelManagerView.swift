@@ -8,8 +8,12 @@ struct ModelManagerView: View {
     let model: AppModel
     @Environment(\.dismiss) private var dismiss
     @State private var importing = false
-    @State private var removingModel: Model?
-    @State private var removingImported: ModelStore.Imported?
+    private enum Removal {
+        case catalogue(Model)
+        case imported(ModelStore.Imported)
+    }
+
+    @State private var removing: Removal?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -42,24 +46,14 @@ struct ModelManagerView: View {
             .padding(Spacing.sheet)
         }
         .frame(width: 620, height: 550)
-        .confirmationDialog(
-            "Delete this model?",
-            isPresented: Binding(
-                get: { removingModel != nil || removingImported != nil },
-                set: {
-                    if !$0 {
-                        removingModel = nil
-                        removingImported = nil
-                    }
-                })
-        ) {
+        .confirmationDialog("Delete this model?", item: $removing) { removal in
             Button("Delete Model", role: .destructive) {
-                if let removingModel { model.delete(removingModel) }
-                if let removingImported { model.delete(removingImported) }
-                removingModel = nil
-                removingImported = nil
+                switch removal {
+                case .catalogue(let item): model.delete(item)
+                case .imported(let item): model.delete(item)
+                }
             }
-        } message: {
+        } message: { _ in
             Text(
                 "Existing transcripts are kept. You will need to download or import the model again to use it."
             )
@@ -103,7 +97,7 @@ struct ModelManagerView: View {
                         Button("Use") { model.selected = item.id }
                     }
                     Menu {
-                        Button("Delete…", role: .destructive) { removingModel = item }
+                        Button("Delete…", role: .destructive) { removing = .catalogue(item) }
                             .disabled(model.stage.isBusy || model.isNeeded(item.id))
                     } label: {
                         Image(systemName: "ellipsis.circle")
@@ -134,7 +128,7 @@ struct ModelManagerView: View {
             Section("Imported") {
                 ForEach(model.imported) { item in
                     LabeledContent {
-                        Button("Delete…", role: .destructive) { removingImported = item }
+                        Button("Delete…", role: .destructive) { removing = .imported(item) }
                             .disabled(model.stage.isBusy)
                     } label: {
                         Text(item.name)
@@ -151,7 +145,7 @@ struct ModelManagerView: View {
         let item = ModelCatalog.qwenAligner
         LabeledContent {
             if model.alignerInstalled {
-                Button("Delete…", role: .destructive) { removingModel = item }
+                Button("Delete…", role: .destructive) { removing = .catalogue(item) }
                     .disabled(model.stage.isBusy)
             } else if model.downloadingModel?.id != item.id {
                 Button("Download") { model.download(item) }
