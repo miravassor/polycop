@@ -19,8 +19,6 @@ struct ModelManagerView: View {
         VStack(alignment: .leading, spacing: 0) {
             Text("Models").font(.sheetTitle)
                 .padding([.horizontal, .top], Spacing.sheet)
-            // Grouped rows as the inspector beside the page, one section an
-            // engine, without a colour of its own.
             Form {
                 ForEach(Engine.allCases, id: \.self) { engine($0) }
                 imported
@@ -58,6 +56,8 @@ struct ModelManagerView: View {
                 "Existing transcripts are kept. You will need to download or import the model again to use it."
             )
         }
+        // .gguf has no declared system UTType and .bin maps to MacBinary;
+        // .data avoids greying out valid weights, verified by size and SHA-256.
         .fileImporter(isPresented: $importing, allowedContentTypes: [.data]) { result in
             switch result {
             case .success(let file): model.importModel(file)
@@ -100,12 +100,13 @@ struct ModelManagerView: View {
                         Button("Delete…", role: .destructive) { removing = .catalogue(item) }
                             .disabled(model.stage.isBusy || model.isNeeded(item.id))
                     } label: {
-                        Image(systemName: "ellipsis.circle")
+                        Label("Actions for \(item.name)", systemImage: "ellipsis.circle")
+                            .labelStyle(.iconOnly)
                     }
                     .menuStyle(.borderlessButton)
                     .menuIndicator(.hidden)
                     .fixedSize()
-                    .accessibilityLabel("Actions for \(item.name)")
+                    .help("Actions for \(item.name)")
                 } else if model.downloadingModel?.id != item.id {
                     Button("Download and Use") {
                         model.selected = item.id
@@ -158,4 +159,16 @@ struct ModelManagerView: View {
         }
         if model.downloadingModel?.id == item.id { ModelTransferStatus(model: model) }
     }
+}
+
+#Preview {
+    // Empty folders and settings of its own, never the user's.
+    let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    ModelManagerView(
+        model: AppModel(
+            history: folder.appending(path: "History"),
+            glossaries: folder.appending(path: "Glossaries"),
+            models: folder.appending(path: "Models"),
+            playbackCopies: folder.appending(path: "Replay"),
+            defaults: MemoryDefaults()))
 }
