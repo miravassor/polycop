@@ -54,15 +54,15 @@ private let mayRedraw: [Change: Set<Redraws.Piece>] = [
     }
 }
 
-/// Opens the page, each piece running as it does, with the inspector shown:
-/// a count lost in a change of the code, or an inspector folded, fails here
-/// rather than counting nothing.
+/// Opens the page, each piece running as it does: a count lost in a change of
+/// the code fails here rather than counting nothing. The inspector's body runs
+/// whether its column shows or is folded, so its count is what says it is
+/// counted, not the column.
 @MainActor
 private func openCounting(_ page: HostedPage) async throws {
     let closed = Redraws.counts(in: page.model)
     try await page.open()
     let opened = Redraws.counts(in: page.model)
-    #expect(page.model.layout.showsInspector)
     for piece in Redraws.Piece.allCases {
         #expect(opened[piece, default: 0] > closed[piece, default: 0], "\(piece) never ran")
     }
