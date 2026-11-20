@@ -125,7 +125,9 @@ private func changed(_ change: (inout [String: Any]) -> Void) throws -> URL {
     #expect(library.unavailable.isEmpty)
     let entry = try #require(library.entries.first)
     #expect(entry.playbackPosition == nil)
-    #expect(PlayerBar.clock(1e100) == PlayerBar.clock(AudioDecoder.longestRecording + 60))
+    #expect(
+        PlayerBar.clock(1e100, of: 1e100)
+            == PlayerBar.clock(AudioDecoder.longestRecording + 60, of: 1e100))
 }
 
 /// A format this version does not know, whether or not it still decodes, is left

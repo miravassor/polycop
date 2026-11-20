@@ -293,7 +293,7 @@ final class AppModel {
         deleteExpired()
         unavailable = library.unavailable
         do {
-            folders = try HistoryStore.folders(in: history)
+            folders = Self.sorted(try HistoryStore.folders(in: history))
         } catch {
             // The folder names could not be read. Left on disk rather than
             // written over, so nothing else is lost while the user decides

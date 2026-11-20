@@ -620,3 +620,117 @@ func automaticIsADetectedLanguage(chosen: Model) {
         TranscriptionError.failed(WhisperEngine.cacheAllocationFailed).errorDescription)
     #expect(message.contains("memory"))
 }
+
+@MainActor
+@Test func foldersStaySortedByNameOnLoadCreateAndRename() throws {
+    let history = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: history) }
+    let model = AppModel(history: history, defaults: MemoryDefaults())
+    _ = try model.createFolder(named: "Law")
+    _ = try model.createFolder(named: "Folder 10")
+    _ = try model.createFolder(named: "Folder 2")
+    let biology = try model.createFolder(named: "Biology")
+    #expect(model.folders.map(\.name) == ["Biology", "Folder 2", "Folder 10", "Law"])
+
+    try model.renameFolder(biology, to: "Zoology")
+    #expect(model.folders.map(\.name) == ["Folder 2", "Folder 10", "Law", "Zoology"])
+
+    let reloaded = AppModel(history: history, defaults: MemoryDefaults())
+    #expect(reloaded.folders.map(\.name) == ["Folder 2", "Folder 10", "Law", "Zoology"])
+
+    let unsortedHistory = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: unsortedHistory) }
+    try HistoryStore.writeFolders(
+        [
+            TranscriptFolder(id: UUID(), name: "Philo"),
+            TranscriptFolder(id: UUID(), name: "Arts"),
+        ],
+        in: unsortedHistory
+    )
+    let loaded = AppModel(history: unsortedHistory, defaults: MemoryDefaults())
+    #expect(loaded.folders.map(\.name) == ["Arts", "Philo"])
+}
+
+@Test func librarySortOrdersEntriesByDateAddedOrName() {
+    let base = Date(timeIntervalSinceReferenceDate: 1_000_000)
+    let directory = URL.temporaryDirectory
+    let older = entry("Lecture 2.m4a", in: directory, added: base)
+    let middle = entry("Lecture 10.m4a", in: directory, added: base.addingTimeInterval(60))
+    var renamedFirst = entry("Zebra.m4a", in: directory, added: base.addingTimeInterval(120))
+    renamedFirst.title = "Ethics"
+    let duplicateOlder = entry("Notes.m4a", in: directory, added: base.addingTimeInterval(10))
+    let duplicateNewer = entry("Notes.m4a", in: directory, added: base.addingTimeInterval(300))
+
+    let sample = [older, middle, renamedFirst, duplicateOlder, duplicateNewer]
+    #expect(
+        LibrarySort.newestFirst.sorted(sample).map(\.id)
+            == [duplicateNewer.id, renamedFirst.id, middle.id, duplicateOlder.id, older.id]
+    )
+    #expect(
+        LibrarySort.oldestFirst.sorted(sample).map(\.id)
+            == [older.id, duplicateOlder.id, middle.id, renamedFirst.id, duplicateNewer.id]
+    )
+    #expect(
+        LibrarySort.name.sorted(sample).map(\.id)
+            == [renamedFirst.id, older.id, middle.id, duplicateNewer.id, duplicateOlder.id]
+    )
+
+    let sameTimeA = entry("Same.m4a", in: directory, added: base)
+    let sameTimeB = entry("Same.m4a", in: directory, added: base)
+    let expectedByID = [sameTimeA, sameTimeB].sorted { $0.id.uuidString < $1.id.uuidString }
+        .map(\.id)
+    for order in [LibrarySort.newestFirst, .oldestFirst, .name] {
+        #expect(order.sorted([sameTimeB, sameTimeA]).map(\.id) == expectedByID)
+        #expect(order.sorted([sameTimeA, sameTimeB]).map(\.id) == expectedByID)
+    }
+}
+
+@MainActor
+@Test func libraryModelGroupsAndOrdersEntriesBySidebarFolders() throws {
+    let base = Date(timeIntervalSinceReferenceDate: 1_000_000)
+    let directory = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+
+    let law = UUID()
+    let historyFolder = UUID()
+    let unfiled = entry("Lecture 2.m4a", in: directory, added: base)
+    let inHistoryTwo = entry("Lecture 10.m4a", in: directory, added: base.addingTimeInterval(60))
+    var inLaw = entry("Zebra.m4a", in: directory, added: base.addingTimeInterval(120))
+    inLaw.title = "Ethics"
+    let inHistoryOne = entry("Notes.m4a", in: directory, added: base.addingTimeInterval(10))
+    let orphaned = entry("Notes.m4a", in: directory, added: base.addingTimeInterval(300))
+
+    let placements: [(Entry, UUID?)] = [
+        (unfiled, nil),
+        (inHistoryTwo, historyFolder),
+        (inLaw, law),
+        (inHistoryOne, historyFolder),
+        (orphaned, UUID()),
+    ]
+    for (item, folderID) in placements {
+        var copy = item
+        copy.state = .finished
+        copy.folderID = folderID
+        try HistoryStore.write(copy, in: directory)
+    }
+    try HistoryStore.writeFolders(
+        [
+            TranscriptFolder(id: law, name: "Law"),
+            TranscriptFolder(id: historyFolder, name: "History"),
+        ],
+        in: directory
+    )
+
+    let model = AppModel(history: directory, defaults: MemoryDefaults())
+    #expect(model.folders.map(\.name) == ["History", "Law"])
+    model.layout.sort = .name
+    #expect(model.entries(in: nil).map(\.id) == [unfiled.id, orphaned.id])
+    #expect(model.entries(in: historyFolder).map(\.id) == [inHistoryTwo.id, inHistoryOne.id])
+    #expect(model.entries(in: law).map(\.id) == [inLaw.id])
+
+    model.layout.sort = .oldestFirst
+    #expect(model.entries(in: historyFolder).map(\.id) == [inHistoryOne.id, inHistoryTwo.id])
+    try model.renameFolder(law, to: "Arts")
+    #expect(model.folders.map(\.name) == ["Arts", "History"])
+}

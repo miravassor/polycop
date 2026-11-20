@@ -117,7 +117,7 @@ extension AppModel {
             return existing.id
         }
         let folder = TranscriptFolder(id: UUID(), name: name)
-        let updated = folders + [folder]
+        let updated = Self.sorted(folders + [folder])
         try HistoryStore.writeFolders(updated, in: history)
         folders = updated
         return folder.id
@@ -165,20 +165,33 @@ extension AppModel {
         }
         var updated = folders
         updated[index].name = name
+        updated = Self.sorted(updated)
         try HistoryStore.writeFolders(updated, in: history)
         folders = updated
+    }
+
+    /// The transcripts a place in the library holds: those of a folder, or with
+    /// `nil` those in no folder this library knows, in the reader's chosen order.
+    func entries(in folder: UUID?) -> [Entry] {
+        let known = folder == nil ? Set(folders.map(\.id)) : []
+        return layout.sort.sorted(
+            entries.filter { belongs($0.folderID, to: folder, known: known) })
     }
 
     /// The records a place in the library holds that this version cannot read:
     /// those of a folder, or with `nil` those in no folder this library knows, as
     /// for transcripts. What nothing identifies is in no folder.
     func unavailable(in folder: UUID?) -> [UnavailableRecord] {
-        let known = Set(folders.map(\.id))
+        let known = folder == nil ? Set(folders.map(\.id)) : []
         return unavailable.filter { record in
             guard record.removed == nil, !record.isUnidentified else { return false }
-            if let folder { return record.folderID == folder }
-            return record.folderID.map { !known.contains($0) } ?? true
+            return belongs(record.folderID, to: folder, known: known)
         }
+    }
+
+    private func belongs(_ folderID: UUID?, to folder: UUID?, known: Set<UUID>) -> Bool {
+        if let folder { return folderID == folder }
+        return folderID.map { !known.contains($0) } ?? true
     }
 
     /// Every file nothing identifies.
@@ -198,5 +211,14 @@ extension AppModel {
         try HistoryStore.writeFolders(updated, in: history)
         folders = updated
         layout.openFolders.remove(id)
+    }
+
+    /// Folders in Finder-style alphabetical order, tie-broken by identifier.
+    static func sorted(_ folders: [TranscriptFolder]) -> [TranscriptFolder] {
+        folders.sorted { first, second in
+            let order = first.name.localizedStandardCompare(second.name)
+            if order != .orderedSame { return order == .orderedAscending }
+            return first.id.uuidString < second.id.uuidString
+        }
     }
 }

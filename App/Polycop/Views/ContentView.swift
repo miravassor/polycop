@@ -21,11 +21,6 @@ struct ContentView: View {
     @State private var highlightsUnfiled = false
     @State private var importingTranscript = false
 
-    private var unfiled: [Entry] {
-        let known = Set(model.folders.map(\.id))
-        return model.entries.filter { $0.folderID.map { !known.contains($0) } ?? true }
-    }
-
     private var layout: WindowLayout { model.layout }
 
     init(model: AppModel) {
@@ -53,6 +48,8 @@ struct ContentView: View {
     static let idealLibraryWidth: CGFloat = 300
 
     var body: some View {
+        // For RedrawTests, in the test host only.
+        let _ = Redraws.count(.window, in: model)
         NavigationSplitView(columnVisibility: columns) {
             List(selection: $selection) {
                 Label("New Transcription", systemImage: "plus")
@@ -64,7 +61,7 @@ struct ContentView: View {
                 RecentlyDeletedSection(model: model)
             }
             .listStyle(.sidebar)
-            .contextMenu { newFolder }
+            .contextMenu { libraryMenu }
             .onGeometryChange(for: CGFloat.self) {
                 $0.size.width
             } action: {
@@ -74,13 +71,6 @@ struct ContentView: View {
                 min: Self.libraryWidths.lowerBound, ideal: layout.libraryWidth,
                 max: Self.libraryWidths.upperBound
             )
-            .safeAreaInset(edge: .bottom) {
-                Label("Always stored on this Mac", systemImage: "lock")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(16)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
         } detail: {
             Group {
                 if selected.count > 1 {
@@ -198,23 +188,18 @@ struct ContentView: View {
     /// The transcripts in no folder, or the whole library before there is one.
     private var unfiledSection: some View {
         Section {
-            if unfiled.isEmpty, model.unavailable(in: nil).isEmpty,
+            let entries = model.entries(in: nil)
+            if entries.isEmpty, model.unavailable(in: nil).isEmpty,
                 model.unidentifiedFiles.isEmpty
             {
-                Text("Nothing outside a folder")
-                    .font(.caption).foregroundStyle(.secondary)
+                emptyNote("Nothing outside a folder")
             }
             UnavailableRows(model: model, folder: nil)
-            ForEach(unfiled) { entry in row(entry) }
+            ForEach(entries) { entry in row(entry) }
         } header: {
             Text(model.folders.isEmpty ? "Library" : "Unfiled")
-                .padding(.vertical, 2)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(
-                    highlightsUnfiled ? Color.accentColor.opacity(0.25) : .clear,
-                    in: RoundedRectangle(cornerRadius: 6)
-                )
-                .contextMenu { newFolder }
+                .dropTargetHighlight(highlightsUnfiled)
+                .contextMenu { libraryMenu }
                 .dropDestination(for: DraggedTranscripts.self) { items, _ in
                     drop(items, into: nil)
                 } isTargeted: {
@@ -227,7 +212,7 @@ struct ContentView: View {
     private var foldersSection: some View {
         Section {
             if model.folders.isEmpty {
-                Text("No folders yet").font(.caption).foregroundStyle(.secondary)
+                emptyNote("No folders yet")
             }
             ForEach(model.folders) { folder in
                 DisclosureGroup(
@@ -242,22 +227,16 @@ struct ContentView: View {
                         }
                     )
                 ) {
-                    let entries = model.entries.filter { $0.folderID == folder.id }
+                    let entries = model.entries(in: folder.id)
                     if entries.isEmpty, model.unavailable(in: folder.id).isEmpty {
-                        Text("Empty folder").font(.caption).foregroundStyle(.secondary)
+                        emptyNote("Empty folder")
                     }
                     UnavailableRows(model: model, folder: folder.id)
                     ForEach(entries) { entry in row(entry) }
                 } label: {
                     Label(folder.name, systemImage: "folder")
                         .lineLimit(1)
-                        .padding(.vertical, 2)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(
-                            highlighted == folder.id
-                                ? Color.accentColor.opacity(0.25) : .clear,
-                            in: RoundedRectangle(cornerRadius: 6)
-                        )
+                        .dropTargetHighlight(highlighted == folder.id)
                         .dropDestination(for: DraggedTranscripts.self) { items, _ in
                             drop(items, into: folder.id)
                         } isTargeted: {
@@ -274,7 +253,7 @@ struct ContentView: View {
                             }
                             .disabled(model.holdsTranscripts(folder.id))
                             Divider()
-                            newFolder
+                            libraryMenu
                         }
                 }
             }
@@ -293,21 +272,26 @@ struct ContentView: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .disabled(model.foldersAreDamaged)
                 .help("New folder")
                 .accessibilityLabel("New folder")
                 // Clear of the edge of the sidebar, where the scroller runs.
                 .padding(.trailing, 6)
             }
-            .contextMenu { newFolder }
+            .contextMenu { libraryMenu }
         }
     }
 }
 
 // The sidebar's rows, drops and folder actions.
 extension ContentView {
-    private var newFolder: some View {
-        Button("New Folder…", action: startNewFolder)
-            .disabled(model.foldersAreDamaged)
+    private func emptyNote(_ text: LocalizedStringKey) -> some View {
+        Text(text).font(.caption).foregroundStyle(.secondary)
+            .contextMenu { libraryMenu }
+    }
+
+    private var libraryMenu: some View {
+        LibraryMenu(model: model, newFolder: startNewFolder)
     }
 
     private func startNewFolder() {
@@ -334,7 +318,6 @@ extension ContentView {
                     }
                     .disabled(model.foldersAreDamaged)
                 }
-                newFolder
                 // What belongs to one transcript is offered for one: undoing or
                 // reverting several at once is not what a right click means.
                 if targets.count == 1 {
@@ -353,6 +336,8 @@ extension ContentView {
                 Divider()
                 Button("Remove from Library…", role: .destructive) { removing = targets }
                     .disabled(targets == [model.busyEntry])
+                Divider()
+                libraryMenu
             }
     }
 

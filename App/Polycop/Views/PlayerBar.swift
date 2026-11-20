@@ -6,12 +6,12 @@ import SwiftUI
 /// The player at the foot of a transcript, whether or not a file is open.
 ///
 /// The length is known from the transcription, so the timeline exists before
-/// anything plays and a point chosen on it opens the recording there. Each
-/// paragraph is a mark, stronger under the pointer, so a passage can be found
-/// by eye before it is heard.
+/// anything plays and a point chosen on it opens the recording there. It runs
+/// across the bar, on a line of its own, so that a long lecture has room on it.
 struct PlayerBar: View, @MainActor Equatable {
-    /// The bar's width at its narrowest, with its controls on one line.
-    static let narrowest: CGFloat = 410
+    /// The bar's width at its narrowest, which holds the line under the
+    /// timeline with the times of a recording of hours and the widest speed.
+    static let narrowest: CGFloat = 450
     /// Its distance from the window's foot, level with the foot of the
     /// library, which floats 8 points in on macOS 26.
     static let foot: CGFloat = 8
@@ -19,23 +19,29 @@ struct PlayerBar: View, @MainActor Equatable {
     @Bindable var player: Player
     /// The opening second of each paragraph.
     let marks: [TimeInterval]
-    /// The paragraph whose time the pointer is over, if any.
-    let highlighted: Int?
+    /// The paragraph under the pointer, in the text or on the timeline.
+    let pointer: ParagraphPointer
+    /// Whether the reader has scrolled away from what plays.
+    let isFollowSuspended: Bool
     /// The length the transcription measured, used until a file is open.
     let length: TimeInterval
     /// Where playback stood when the transcript was last left, until a file is open.
     let resume: TimeInterval
     /// Opens the recording at a point and plays from there.
     let play: (TimeInterval) -> Void
-    /// The mark the pointer is over, so the text can show which paragraph it is.
-    let hover: (Int?) -> Void
     /// A paragraph chosen on the timeline, to be shown in the text above.
     let jump: (Int) -> Void
     /// Plays the paragraph before or after, as the Playback menu does.
     let step: (Int) -> Void
+    /// Shows the paragraph playing and follows it again.
+    let returnToPlayback: () -> Void
 
     @State private var scrubbed: TimeInterval?
-    @State private var width: CGFloat = 0
+
+    /// The height of the line under the timeline, and of its buttons.
+    private static let row: CGFloat = 28
+    /// More at the top, where the playhead rises above its line.
+    private static let padding = EdgeInsets(top: 8, leading: 18, bottom: 6, trailing: 18)
 
     /// Compared without its actions, which stay the same for a page: a
     /// correction handed over gives the page a new transcript, not the player
@@ -43,7 +49,8 @@ struct PlayerBar: View, @MainActor Equatable {
     /// observes of the player still redraws it.
     static func == (lhs: PlayerBar, rhs: PlayerBar) -> Bool {
         lhs.player === rhs.player && lhs.marks == rhs.marks
-            && lhs.highlighted == rhs.highlighted && lhs.length == rhs.length
+            && lhs.pointer === rhs.pointer && lhs.isFollowSuspended == rhs.isFollowSuspended
+            && lhs.length == rhs.length
             && lhs.resume == rhs.resume
     }
 
@@ -53,68 +60,87 @@ struct PlayerBar: View, @MainActor Equatable {
     }
 
     var body: some View {
-        // As the Music player: the transport, the timeline between the time
-        // played and the time left, then the speed, all centred on one line;
-        // the timeline takes a line of its own when the column is narrow,
-        // under the transport centred. Its own width only changes as the
-        // window does.
-        Group {
-            if width >= Self.oneLine {
-                HStack(spacing: 10) {
-                    transport
-                    timed
-                    preparing
-                    speed
-                }
-            } else {
-                VStack(spacing: 2) {
-                    HStack(spacing: 10) {
-                        HStack { preparing }.frame(maxWidth: .infinity, alignment: .leading)
-                        transport
-                        speed.frame(maxWidth: .infinity, alignment: .trailing)
-                    }
-                    timed
-                }
-            }
+        // The timeline across the bar. Under it the time played at one
+        // end and the time left at the other, and between them the transport
+        // with the speed: the same at every width, in one layout. The
+        // window asks for its smallest size after every change, which
+        // measures this bar: a choice between two rows would be measured
+        // twice each time.
+        VStack(spacing: 0) {
+            timeline
+            controls
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .modifier(FloatingSurface(cornerRadius: width >= Self.oneLine ? 26 : 18))
-        .onGeometryChange(for: CGFloat.self) {
-            $0.size.width
-        } action: {
-            width = $0
-        }
+        .padding(Self.padding)
+        .modifier(FloatingSurface(shape: Capsule()))
         .background(SpaceToPlay(isEnabled: !player.isPreparing, action: playOrPause))
     }
 
-    /// The timeline between the time played and the time left, on its line.
-    private var timed: some View {
-        HStack(spacing: 6) {
-            time(Self.clock(position))
-            timeline
-            time("-\(Self.clock(max(0, duration - position)))")
+    /// The time played and the way back to playback on one side of the
+    /// transport, the speed and the time left on the other. The sides share
+    /// what room is left, which keeps Play at the centre of the bar.
+    private var controls: some View {
+        HStack(spacing: 10) {
+            HStack(spacing: 10) {
+                time(Self.clock(position, of: duration)).foregroundStyle(.primary)
+                Spacer(minLength: 0)
+                // A recording being prepared has no playback to return to.
+                if player.isPreparing {
+                    preparing
+                } else {
+                    returning
+                }
+            }
+            .frame(maxWidth: .infinity)
+            transport
+            HStack(spacing: 10) {
+                speed
+                Spacer(minLength: 0)
+                // Unknown until the recording is decoded or opened.
+                if duration > 0 {
+                    time("-\(Self.clock(max(0, duration - position), of: duration))")
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .frame(maxWidth: .infinity)
         }
     }
 
-    private func time(_ text: String) -> some View {
-        Text(text)
-            .font(.subheadline.monospacedDigit())
-            .foregroundStyle(.secondary)
-            .fixedSize()
+    /// Lit once the reader has scrolled away from what plays, and dim while
+    /// the page follows, as the arrow of a map is.
+    @ViewBuilder private var returning: some View {
+        let button = Button(action: returnToPlayback) {
+            Image(systemName: "text.line.first.and.arrowtriangle.forward")
+                .font(.body)
+                .frame(width: 26, height: Self.row)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.borderless)
+        .disabled(!isFollowSuspended)
+        .help("Return to Playback (Option-Command-L)")
+        .accessibilityLabel("Return to Playback")
+        // A colour given to a button stays when it is disabled: only the lit
+        // one has a colour, and the system dims the other.
+        if isFollowSuspended {
+            button.foregroundStyle(.tint)
+        } else {
+            button
+        }
     }
 
-    /// The width from which the player fits on one line.
-    private static let oneLine: CGFloat = 580
+    /// The time played or the time left, alike but for their colour: the
+    /// time played, in the label colour, is what says where we are.
+    /// VoiceOver hears both from the timeline.
+    private func time(_ text: String) -> some View {
+        Text(text)
+            .font(.subheadline.monospacedDigit().weight(.medium))
+            .fixedSize()
+            .accessibilityHidden(true)
+    }
 
     private var timeline: some View {
         PlayerTimeline(
-            duration: duration, position: position, marks: marks, highlighted: highlighted,
-            current: player.isOpen
-                ? TranscriptNavigation.paragraph(playingAt: player.position, starts: marks)
-                : nil,
-            rate: player.isPlaying ? Double(player.speed) : 0,
-            hover: hover, jump: jump,
+            duration: duration, position: position, marks: marks, pointer: pointer,
+            jump: jump,
             scrub: { scrubbed = $0 },
             reach: seek
         )
@@ -122,16 +148,17 @@ struct PlayerBar: View, @MainActor Equatable {
 
     /// Five seconds back, play, five seconds forward, as plain symbols as in
     /// the Music player, between the previous and the next paragraph, where
-    /// Music has the previous and next song. Stop is in the Playback menu, as
-    /// a transport keeps to what is pressed while listening.
+    /// Music has the previous and next song, each a size under the one it
+    /// surrounds. Stop is in the Playback menu, as a transport keeps to what
+    /// is pressed while listening.
     private var transport: some View {
         HStack(spacing: 4) {
             paragraph(by: -1)
             skip(by: -5)
             Button(action: playOrPause) {
                 Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
-                    .font(.largeTitle)
-                    .frame(width: 32, height: 36)
+                    .font(.title)
+                    .frame(width: 32, height: Self.row)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.borderless)
@@ -150,8 +177,8 @@ struct PlayerBar: View, @MainActor Equatable {
             step(offset)
         } label: {
             Image(systemName: offset < 0 ? "backward.end.fill" : "forward.end.fill")
-                .font(.title3)
-                .frame(width: 26, height: 36)
+                .font(.body)
+                .frame(width: 26, height: Self.row)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.borderless)
@@ -169,8 +196,8 @@ struct PlayerBar: View, @MainActor Equatable {
             seek(min(duration, max(0, position + seconds)))
         } label: {
             Image(systemName: seconds < 0 ? "gobackward.5" : "goforward.5")
-                .font(.title2)
-                .frame(width: 26, height: 36)
+                .font(.title3)
+                .frame(width: 26, height: Self.row)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.borderless)
@@ -179,11 +206,14 @@ struct PlayerBar: View, @MainActor Equatable {
         .accessibilityLabel(seconds < 0 ? "Back five seconds" : "Forward five seconds")
     }
 
-    @ViewBuilder private var preparing: some View {
-        if player.isPreparing {
-            ProgressView().controlSize(.small)
-            Text("Preparing playback").font(.caption).foregroundStyle(.secondary).lineLimit(1)
-        }
+    /// In the place of Return to Playback, beside the transport it holds
+    /// back: a recording being decoded before it can play.
+    private var preparing: some View {
+        ProgressView()
+            .controlSize(.small)
+            .frame(width: 26, height: Self.row)
+            .help("Preparing playback")
+            .accessibilityLabel("Preparing playback")
     }
 
     private func playOrPause() {
@@ -216,7 +246,7 @@ struct PlayerBar: View, @MainActor Equatable {
             .pickerStyle(.inline)
         } label: {
             Text(label(player.speed))
-                .font(.body.monospacedDigit())
+                .font(.subheadline.monospacedDigit())
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
@@ -229,9 +259,11 @@ struct PlayerBar: View, @MainActor Equatable {
         "\(Double(speed).formatted(.number.precision(.fractionLength(0...2))))×"
     }
 
-    /// Bounded, so that a position read from a damaged record cannot trap in
-    /// the conversion.
-    nonisolated static func clock(_ time: TimeInterval) -> String {
-        Transcript.clock(Int(min(max(0, time), AudioDecoder.longestRecording + 60) * 1000))
+    /// A time of a recording, with the hours only where it has any, so that
+    /// its two times read alike. Bounded, so that a position read from a
+    /// damaged record cannot trap in the conversion.
+    nonisolated static func clock(_ time: TimeInterval, of length: TimeInterval) -> String {
+        let seconds = Int(min(max(0, time), AudioDecoder.longestRecording + 60))
+        return Transcript.shortClock(seconds, withHours: max(time, length) >= 3600)
     }
 }

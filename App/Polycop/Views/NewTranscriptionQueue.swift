@@ -80,7 +80,7 @@ struct StartBar: View {
                     button
                 }
                 .padding(6)
-                .modifier(FloatingSurface(cornerRadius: 30))
+                .modifier(FloatingSurface(shape: RoundedRectangle(cornerRadius: 30)))
             } else {
                 button
             }

@@ -42,8 +42,8 @@ Find Terms (`TermFinder`) reads the chosen documents itself, through `Documents`
   extensions (`AppModel+Transcription`, `+Editing`, `+Library`, ...) add
   behaviour, never stored state.
 * `WindowLayout`, on `AppModel`, keeps how the reader left the window across
-  launches: the library and the inspector, their widths and the folders open.
-  `AppModel+Pane` reopens the transcript left open.
+  launches: the library and the inspector, their widths, the folders open, and
+  how transcripts are sorted. `AppModel+Pane` reopens the transcript left open.
 * `Entry` is a value: one recording, its settings, the segments the engine
   wrote, the paragraphs as corrected, and where the reader left it. Every
   change to an entry goes through `AppModel.updateEntry`, which writes it to
@@ -120,7 +120,9 @@ one decision it makes for a recording.
 * The player bar, floating over the foot of the text, and `SpaceToPlay` drive
   `Player`. The bar's paragraph steps and the way back to playback
   (`ParagraphSteps`) also reach the Playback menu as a focused value, with their
-  shortcuts. Its timeline (`PlayerTimeline`) draws the played part as glass on macOS 26 (`PlayedGlass`). The inspector beside
+  shortcuts. The paragraph under the pointer, by its time in the text or on the
+  bar's timeline (`PlayerTimeline`), belongs to the page (`ParagraphPointer`), which
+  hands it to both; only what draws it reads it. The inspector beside
   the text (`EntryInspector`) holds the video, above a grouped form so that it takes the
   width, then export, the warnings about the text and the transcript's details in
   the form. Each folds by its title (`FoldingSection`), and `ReadingSettings` remembers which.

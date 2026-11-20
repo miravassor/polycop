@@ -136,22 +136,26 @@ Every page speaks the same visual language. The shared pieces live in
 * A page's main action is one `ActionButton`: a large capsule with an SF Symbol, glass
   in the accent colour on macOS 26, centred right under what it acts on. The player
   is a capsule too, floating at the foot of the text, which scrolls under it: the
-  previous and next paragraph either side of 5 seconds back, play and 5 seconds on,
-  then the timeline and times, centred on one line, on `FloatingSurface` (glass on
-  macOS 26, the system's material before). Find opens at the top, away from it.
+  timeline across it, and under it the time played, Return to Playback, the previous
+  and next paragraph either side of 5 seconds back, play and 5 seconds on, with Play at
+  the centre, the speed and the time left, on `FloatingSurface` (glass on macOS 26, the
+  system's material before).
+  The paragraphs are faint marks on the timeline, which grow around the pointer.
+  Find opens at the top, away from it.
   Work under way on a transcript is one capsule on the same surface, centred above
-  the text, in the words of its row in the library. Return to Playback, once the page
-  stops following, is one above the player, pressed as a whole.
+  the text, in the words of its row in the library. Return to Playback is a button of
+  the player, lit once the page stops following.
 * `FloatingSurface` keeps its glass in a `GlassEffectContainer`: glass placed in
-  plain glass turns the floating player dark in a light window.
+  plain glass, such as a glass button, turns the surface dark in a light window.
 * A list's Add and Clear sit on its title line at the trailing edge, aligned with the
   rows, removal last. A list of things kept, such as courses, has the Mac's + and −
   inside the foot of its edge. Managing a choice ("Manage Models…") is the last item
   of that choice's menu.
 * A page's tools are window toolbar items, drawn by the system, each also a menu
   command. Controls are the system's, never drawn by hand. Two exceptions: the player's
-  timeline, since no system slider marks where each paragraph opens, and the fold of an
-  inspector's section, since the form's own hangs its arrow outside the titles.
+  timeline, since no system slider magnifies its marks under the pointer or opens a
+  passage on a double click, and the fold of an inspector's section, since the form's own
+  hangs its arrow outside the titles.
 * Text editors: `editorBorder()`, with the corners of a control.
 * Warnings and failures: a `Notice`, `.warning` or `.failure`, each with one symbol
   and colour; a notice with a symbol of its own is a `Label` with `notice(_:)`. Colour

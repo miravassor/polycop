@@ -13,6 +13,7 @@ final class WindowLayout {
     static let libraryWidthKey = "libraryWidth"
     static let inspectorWidthKey = "inspectorWidth"
     static let openFoldersKey = "openFolders"
+    static let librarySortKey = "librarySort"
 
     var showsLibrary: Bool {
         didSet { defaults.set(showsLibrary, forKey: Self.showsLibraryKey) }
@@ -31,6 +32,10 @@ final class WindowLayout {
     var openFolders: Set<UUID> {
         didSet { defaults.set(openFolders.map(\.uuidString), forKey: Self.openFoldersKey) }
     }
+    /// How transcripts in folders and outside them are ordered.
+    var sort: LibrarySort {
+        didSet { defaults.set(sort.rawValue, forKey: Self.librarySortKey) }
+    }
 
     @ObservationIgnored private let defaults: UserDefaults
 
@@ -47,5 +52,34 @@ final class WindowLayout {
         openFolders = Set(
             (defaults.stringArray(forKey: Self.openFoldersKey) ?? [])
                 .compactMap(UUID.init(uuidString:)))
+        sort =
+            defaults.string(forKey: Self.librarySortKey)
+            .flatMap(LibrarySort.init(rawValue:)) ?? .newestFirst
+    }
+}
+
+/// How transcripts are ordered inside each folder and outside them.
+nonisolated enum LibrarySort: String, Sendable {
+    case newestFirst
+    case oldestFirst
+    case name
+
+    /// Whether `first` appears before `second` in the sidebar.
+    func areInIncreasingOrder(_ first: Entry, _ second: Entry) -> Bool {
+        switch self {
+        case .newestFirst:
+            if first.added != second.added { return first.added > second.added }
+        case .oldestFirst:
+            if first.added != second.added { return first.added < second.added }
+        case .name:
+            let order = first.name.localizedStandardCompare(second.name)
+            if order != .orderedSame { return order == .orderedAscending }
+            if first.added != second.added { return first.added > second.added }
+        }
+        return first.id.uuidString < second.id.uuidString
+    }
+
+    func sorted(_ entries: [Entry]) -> [Entry] {
+        entries.sorted(by: areInIncreasingOrder)
     }
 }
