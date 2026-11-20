@@ -34,6 +34,9 @@ struct EntryView: View {
     private var engine: Engine? { ModelCatalog.model(entry.modelFile)?.engine }
 
     var body: some View {
+        // For RedrawTests, in the test host only, with the pointer they move.
+        let _ = Redraws.count(.page, in: model)
+        let _ = Redraws.keep(pointer, of: model)
         VStack(alignment: .leading, spacing: Spacing.block) {
             Group {
                 EntryProgress(model: model, entry: entry, isRunning: isRunning)

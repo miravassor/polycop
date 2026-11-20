@@ -38,6 +38,8 @@ struct EntryTools: View {
     }
 
     var body: some View {
+        // For RedrawTests, in the test host only.
+        let _ = Redraws.count(.tools, in: model)
         // One capsule of evenly spaced symbols: the menus show no arrow,
         // which would set one apart in a capsule of its own.
         if facts.hasText {
