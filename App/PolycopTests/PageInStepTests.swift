@@ -35,13 +35,15 @@ private func lesson(after credits: Bool = false) -> Entry {
 
 /// What the page shows of each paragraph is what the record holds, once the
 /// page has drawn the change. A busy machine can delay the drawing, so the
-/// page is given a few seconds.
+/// page is given a few seconds unless `bound` says otherwise.
 @MainActor
-private func expectInStep(_ page: HostedPage, sourceLocation: SourceLocation = #_sourceLocation)
-    async throws
-{
+private func expectInStep(
+    _ page: HostedPage, within bound: Duration = .seconds(5),
+    sourceLocation: SourceLocation = #_sourceLocation
+) async throws {
     await turns(2)
-    for _ in 0..<100 where page.shown != page.held {
+    let deadline = ContinuousClock.now + bound
+    while page.shown != page.held, ContinuousClock.now < deadline {
         try await Task.sleep(for: .milliseconds(50))
     }
     #expect(page.shown == page.held, sourceLocation: sourceLocation)
@@ -117,8 +119,10 @@ private func expectInStep(_ page: HostedPage, sourceLocation: SourceLocation = #
         try page.type(" corrigé", inParagraph: 1)
         page.handOver()
         page.model.revert(page.id)
+        // The page has drawn the revert in the turns the check waits for, and
+        // the typing stays however long it waits after: half a second.
         await withKnownIssue("The typing stays on screen, the record holds the original") {
-            try await expectInStep(page)
+            try await expectInStep(page, within: .milliseconds(500))
         }
     }
 }
