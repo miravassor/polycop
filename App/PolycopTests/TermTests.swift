@@ -212,7 +212,7 @@ private func write(_ pages: [String], to file: URL) throws {
         (view as? NSTextView).map { [$0] } ?? view.subviews.flatMap(textViews)
     }
     let window = NSWindow(
-        contentRect: NSRect(x: 0, y: 0, width: 640, height: 640),
+        contentRect: NSRect(x: 0, y: 0, width: 640, height: 550),
         styleMask: [.titled], backing: .buffered, defer: false)
     window.isReleasedWhenClosed = false
     defer { window.close() }
@@ -233,4 +233,16 @@ private func write(_ pages: [String], to file: URL) throws {
         try await Task.sleep(for: .milliseconds(10))
     }
     #expect(pasted.string.isEmpty)
+}
+
+/// Requested size leaves room for the toolbar and sheet margin inside the
+/// smallest main window; actual nested-sheet fit over GlossaryEditor is checked
+/// on captures.
+@MainActor
+@Test func termFinderRequestedSizeFitsInsideTheSmallestWindow() {
+    let size = NSHostingController(rootView: TermFinder(attested: [], add: { _ in }))
+        .sizeThatFits(in: CGSize(width: CGFloat.infinity, height: CGFloat.infinity))
+
+    #expect(size.width > 0 && size.width <= 640)
+    #expect(size.height > 0 && size.height <= 560)
 }

@@ -35,15 +35,13 @@ struct TermFinder: View {
                     .background(.quaternary, in: Capsule())
             }
             .padding([.horizontal, .top], Spacing.sheet)
-            // Grouped rows as the other sheets: what is read, then what was
-            // found, to trim before adding.
             Form {
                 documents
-                Section("Or Paste Text") {
+                Section("Or paste text") {
                     TextEditor(text: $pasted)
                         .font(.body)
                         .scrollContentBackground(.hidden)
-                        .frame(height: 56)
+                        .frame(height: 44)
                         .accessibilityLabel("Text to read")
                         // Refused as it arrives: a text view holding this much
                         // freezes the window as it draws.
@@ -81,7 +79,9 @@ struct TermFinder: View {
             .padding(Spacing.sheet)
         }
         .onDisappear { search?.cancel() }
-        .frame(width: 640, height: 640)
+        // Keeps the nested sheet clear of the smallest window's toolbar and foot
+        // while showing all three sections without initial scrolling.
+        .frame(width: 640, height: 550)
         .fileImporter(
             isPresented: $choosing, allowedContentTypes: Documents.readable,
             allowsMultipleSelection: true
@@ -96,8 +96,7 @@ struct TermFinder: View {
         }
     }
 
-    /// The documents chosen, by name, with Add on the title line as the
-    /// recordings waiting have.
+    /// The chosen documents, with Add on the section header.
     private var documents: some View {
         Section {
             if files.isEmpty {
@@ -112,11 +111,14 @@ struct TermFinder: View {
                     Button {
                         files.removeAll { $0 == file }
                     } label: {
-                        Image(systemName: "xmark.circle.fill")
+                        Label(
+                            "Remove \(file.lastPathComponent)", systemImage: "xmark.circle.fill"
+                        )
+                        .labelStyle(.iconOnly)
                     }
                     .buttonStyle(.borderless)
                     .foregroundStyle(.secondary)
-                    .accessibilityLabel("Remove \(file.lastPathComponent)")
+                    .help("Remove \(file.lastPathComponent)")
                 }
             }
         } header: {
@@ -138,11 +140,11 @@ struct TermFinder: View {
                 .font(.body)
                 .autocorrectionDisabled()
                 .scrollContentBackground(.hidden)
-                .frame(minHeight: 140)
+                .frame(minHeight: 100)
                 .accessibilityLabel("Terms found")
         } header: {
             HStack {
-                Text("Terms Found")
+                Text("Terms found")
                 Spacer()
                 if !terms.isEmpty {
                     Text("\(terms.count)").monospacedDigit().foregroundStyle(.secondary)
@@ -189,4 +191,8 @@ struct TermFinder: View {
             }
         }
     }
+}
+
+#Preview {
+    TermFinder(attested: ["Jean Oury", "DSM-5"], add: { _ in })
 }
