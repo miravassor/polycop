@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import AppKit
 import SwiftUI
 
 /// The player at the foot of a transcript, whether or not a file is open.
@@ -146,11 +145,8 @@ struct PlayerBar: View, @MainActor Equatable {
         )
     }
 
-    /// Five seconds back, play, five seconds forward, as plain symbols as in
-    /// the Music player, between the previous and the next paragraph, where
-    /// Music has the previous and next song, each a size under the one it
-    /// surrounds. Stop is in the Playback menu, as a transport keeps to what
-    /// is pressed while listening.
+    /// Stop is in the Playback menu: the bar keeps what is pressed while
+    /// listening.
     private var transport: some View {
         HStack(spacing: 4) {
             paragraph(by: -1)
@@ -240,22 +236,22 @@ struct PlayerBar: View, @MainActor Equatable {
                 selection: $player.speed
             ) {
                 ForEach(Player.speeds, id: \.self) { value in
-                    Text(label(value)).tag(value)
+                    Text(Self.speedLabel(value)).tag(value)
                 }
             }
             .pickerStyle(.inline)
         } label: {
-            Text(label(player.speed))
+            Text(Self.speedLabel(player.speed))
                 .font(.subheadline.monospacedDigit())
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
         .help("Playing speed")
         .accessibilityLabel("Playing speed")
-        .accessibilityValue(label(player.speed))
+        .accessibilityValue(Self.speedLabel(player.speed))
     }
 
-    private func label(_ speed: Float) -> String {
+    nonisolated static func speedLabel(_ speed: Float) -> String {
         "\(Double(speed).formatted(.number.precision(.fractionLength(0...2))))×"
     }
 

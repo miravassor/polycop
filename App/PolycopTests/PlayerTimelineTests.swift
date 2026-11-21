@@ -64,3 +64,15 @@ import Testing
     // A position past an hour in a recording whose length is not known yet.
     #expect(PlayerBar.clock(4000, of: 0) == "1:06:40")
 }
+
+@Test func playbackSpeedsShowAtMostTwoFractionDigits() {
+    let point = Locale.current.decimalSeparator ?? "."
+    #expect(
+        Player.speeds.map(PlayerBar.speedLabel) == [
+            "0\(point)25×", "0\(point)5×", "0\(point)75×",
+            "1×",
+            "1\(point)25×", "1\(point)5×",
+            "2×", "3×", "4×",
+        ]
+    )
+}
