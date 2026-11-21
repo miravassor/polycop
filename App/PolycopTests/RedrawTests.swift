@@ -79,17 +79,30 @@ private func openCounting(_ page: HostedPage) async throws {
 /// those it holds is redrawn with it.
 @MainActor
 private func settle(_ page: HostedPage) async throws {
-    var unsettled: [Redraws.Piece: Set<Redraws.Piece>] = [:]
-    for _ in 0..<100 {
-        unsettled = [:]
-        for piece in Redraws.Piece.allCases {
-            let redrew = try await redrawn(in: page.model) { Redraws.redraw(piece, in: page.model) }
-            if redrew != [piece] { unsettled[piece] = redrew }
-        }
-        if unsettled.isEmpty { return }
+    var unsettled = try await unsettledPieces(of: page)
+    for _ in 0..<100 where !unsettled.isEmpty {
         try await Task.sleep(for: .milliseconds(50))
+        unsettled = try await unsettledPieces(of: page)
     }
-    Issue.record("Run alone, a piece redrew others given nothing new: \(unsettled)")
+    try #require(
+        unsettled.isEmpty,
+        """
+        Redrawn alone, a piece redrew others: \(unsettled). Either SwiftUI has not \
+        settled, or a piece is given something new at each run, such as a closure.
+        """)
+}
+
+/// The pieces that redrew others when redrawn alone, with what they redrew.
+@MainActor
+private func unsettledPieces(of page: HostedPage) async throws
+    -> [Redraws.Piece: Set<Redraws.Piece>]
+{
+    var unsettled: [Redraws.Piece: Set<Redraws.Piece>] = [:]
+    for piece in Redraws.Piece.allCases {
+        let redrew = try await redrawn(in: page.model) { Redraws.redraw(piece, in: page.model) }
+        if redrew != [piece] { unsettled[piece] = redrew }
+    }
+    return unsettled
 }
 
 /// A handover, its write, then Replace All. The first correction changes what
