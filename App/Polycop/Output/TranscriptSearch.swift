@@ -36,14 +36,11 @@ nonisolated enum TranscriptSearch {
 
     /// Whether `range` neither starts nor ends in the middle of a word.
     static func isWholeWord(_ range: NSRange, in text: NSString) -> Bool {
-        func isLetter(at index: Int) -> Bool {
-            guard index >= 0, index < text.length,
-                let scalar = UnicodeScalar(text.character(at: index))
-            else { return false }
-            return CharacterSet.alphanumerics.contains(scalar)
+        func isWord(at index: Int) -> Bool {
+            WordCharacters.contains(characterAt: index, in: text)
         }
         let end = NSMaxRange(range)
-        return !(isLetter(at: range.location - 1) && isLetter(at: range.location))
-            && !(isLetter(at: end - 1) && isLetter(at: end))
+        return !(isWord(at: range.location - 1) && isWord(at: range.location))
+            && !(isWord(at: end - 1) && isWord(at: end))
     }
 }

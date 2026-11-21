@@ -10,7 +10,7 @@ nonisolated enum TimedWords {
     /// Returns nil on a mismatch rather than assigning unsupported sentence times.
     static func sentences(of text: String, timedBy words: [Word]) -> [Segment]? {
         func spelling(_ string: some StringProtocol) -> String {
-            String(string.filter { $0.isLetter || $0.isNumber }).lowercased()
+            String(string.filter(WordCharacters.contains)).lowercased()
         }
         func letters(_ string: some StringProtocol) -> Int { spelling(string).count }
         guard !words.isEmpty, spelling(text) == words.map({ spelling($0.text) }).joined() else {

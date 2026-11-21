@@ -23,6 +23,35 @@ struct ReviewFeaturesTests {
         #expect(TranscriptSearch.matches(in: paragraphs, query: "absent").isEmpty)
     }
 
+    @Test func wholeWordSearchHandlesNonBMPLettersAndDecomposedAccents() {
+        func wholeMatches(in text: String, for query: String) -> [String] {
+            let paragraphs = [Transcript.Paragraph(start: 0, text: text)]
+            let string = text as NSString
+            return TranscriptSearch.matches(in: paragraphs, query: query, wholeWords: true)
+                .map { string.substring(with: $0.range) }
+        }
+
+        // Non-BMP letters and digits continue a word on either side, while emoji do not.
+        #expect(wholeMatches(in: "a\u{1D431}", for: "a").isEmpty)
+        #expect(wholeMatches(in: "\u{1D431}a", for: "a").isEmpty)
+        #expect(wholeMatches(in: "a\u{1D431}b", for: "a").isEmpty)
+        #expect(wholeMatches(in: "a\u{1D431}b", for: "\u{1D431}").isEmpty)
+        #expect(wholeMatches(in: "a \u{1D431} b", for: "\u{1D431}") == ["\u{1D431}"])
+        #expect(wholeMatches(in: "a\u{1D7CF}", for: "a").isEmpty)
+        #expect(wholeMatches(in: "\u{10400}a", for: "a").isEmpty)
+        #expect(wholeMatches(in: "a🧪 et 🧪a", for: "a") == ["a", "a"])
+
+        // Decomposed accents belong to their base letter, not as word breaks or stray letters.
+        #expect(wholeMatches(in: "cafe\u{0301}s", for: "cafe").isEmpty)
+        #expect(wholeMatches(in: "cafe\u{0301}.", for: "cafe") == ["cafe\u{0301}"])
+        #expect(wholeMatches(in: "e\u{0301}cole", for: "cole").isEmpty)
+        #expect(wholeMatches(in: " \u{0301}cafe", for: "cafe") == ["cafe"])
+
+        // A range that splits a composed letter or surrogate pair is not a whole word.
+        #expect(!TranscriptSearch.isWholeWord(NSRange(location: 0, length: 4), in: "cafe\u{0301}"))
+        #expect(!TranscriptSearch.isWholeWord(NSRange(location: 0, length: 1), in: "\u{1D431}"))
+    }
+
     @Test func findStepsRoundTheResultsAndKeepsItsPlaceAfterAnEdit() {
         var paragraphs = [
             Transcript.Paragraph(start: 0, text: "mot un, mot deux"),

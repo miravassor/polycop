@@ -39,12 +39,11 @@ nonisolated enum WordLayout {
         return groups
     }
 
-    /// Finds the words in `text` by aligning both, as a diff does, rather than
-    /// searching word by word, which let a short word such as "de" match far
-    /// ahead and pull the rest of the paragraph out of place. Words are compared
-    /// by their runs of letters and digits, lowercased, as `TimedWords` matches
-    /// them, since an aligner splits "L'encodage" into "L" and "encodage" and
-    /// drops punctuation.
+    /// Aligns `words` to `text` like a diff, so a short word such as "de"
+    /// cannot pull the rest of the paragraph out of place. Words are compared
+    /// by their `WordCharacters` runs, as `TimedWords` matches them, since an
+    /// aligner splits "L'encodage" into "L" and "encodage" and drops
+    /// punctuation.
     ///
     /// Where words said are missing from the text, the text written in their
     /// place takes their time, spread over it, so the word lit goes on through
@@ -52,10 +51,10 @@ nonisolated enum WordLayout {
     /// heard, no word is lit rather than the one before them.
     static func place(_ words: [Segment.Word], in text: String) -> [Placed] {
         var written: [(key: String, range: NSRange)] = []
-        runs(in: text) { written.append(($0, $1)) }
+        WordCharacters.runs(in: text) { written.append(($0, $1)) }
         var spoken: [(key: String, word: Int)] = []
         for (index, word) in words.enumerated() {
-            runs(in: word.text) { key, _ in spoken.append((key, index)) }
+            WordCharacters.runs(in: word.text) { key, _ in spoken.append((key, index)) }
         }
         // Each word found, with the runs of the text it spans.
         var found: [(word: Int, runs: ClosedRange<Int>)] = []
@@ -109,33 +108,6 @@ nonisolated enum WordLayout {
         }
         fill(before: words.count, run: written.count, until: words.last?.end ?? 0)
         return placed
-    }
-
-    /// Visits each run of letters and digits in `text`, lowercased, with its
-    /// range. Scalars are read rather than characters, which is faster; an
-    /// accent written apart is a mark, and stays in the run of its letter.
-    private static func runs(in text: String, _ visit: (String, NSRange) -> Void) {
-        let letters = CharacterSet.alphanumerics
-        let scalars = text.unicodeScalars
-        var start: (index: String.Index, offset: Int)?
-        var offset = 0
-        func close(at end: String.Index) {
-            guard let first = start else { return }
-            visit(
-                text[first.index..<end].lowercased(),
-                NSRange(location: first.offset, length: offset - first.offset))
-            start = nil
-        }
-        for index in scalars.indices {
-            let scalar = scalars[index]
-            if letters.contains(scalar) {
-                if start == nil { start = (index, offset) }
-            } else {
-                close(at: index)
-            }
-            offset += scalar.utf16.count
-        }
-        close(at: scalars.endIndex)
     }
 
     /// The index in `placedIn`, the text the words were placed in, of the
