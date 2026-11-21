@@ -48,10 +48,7 @@ private struct FullScreenPlayer: NSViewRepresentable {
         // Live Text over a frame would take the double click.
         view.allowsVideoFrameAnalysis = false
         view.speeds = Player.speeds.map {
-            AVPlaybackSpeed(
-                rate: $0,
-                localizedName: "\(Double($0).formatted(.number.precision(.fractionLength(0...2))))×"
-            )
+            AVPlaybackSpeed(rate: $0, localizedName: PlayerBar.speedLabel($0))
         }
         return view
     }
