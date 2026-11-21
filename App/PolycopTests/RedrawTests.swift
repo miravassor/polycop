@@ -41,6 +41,8 @@ private let mayRedraw: [Change: Set<Redraws.Piece>] = [
     .write: [.page],
 ]
 
+/// Each change redraws exactly the pieces listed for it. Before any is
+/// counted, each piece redrawn alone redraws none of the pieces it holds.
 @MainActor
 @Test func eachChangeOnThePageRedrawsOnlyTheStructureListedForIt() async throws {
     try await withHostedPage(lecture()) { page in
@@ -70,13 +72,11 @@ private func openCounting(_ page: HostedPage) async throws {
 }
 
 /// Waits until SwiftUI skips a piece given what it was given before, which
-/// every change below relies on. SwiftUI tells whether what a view is given
-/// changed through a description of the view's type, which it makes in the
-/// background the first time it compares one (at once with AttributeGraph's
-/// `AG_ASYNC_LAYOUTS=0`); until then it can take equal values for new ones and
-/// run the body. On a busy Mac, or in the first run after a build, that lasts
-/// into the changes counted. So each piece runs alone, until none of those it
-/// holds runs with it.
+/// every change below relies on. Observed, not documented: soon after a view
+/// appears, and for longer on a busy Mac, SwiftUI can take values equal to the
+/// last for new ones and run the body; those runs stop with AttributeGraph's
+/// private `AG_ASYNC_LAYOUTS=0`. So each piece is redrawn alone until none of
+/// those it holds is redrawn with it.
 @MainActor
 private func settle(_ page: HostedPage) async throws {
     var unsettled: [Redraws.Piece: Set<Redraws.Piece>] = [:]
