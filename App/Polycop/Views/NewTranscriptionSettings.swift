@@ -13,7 +13,7 @@ struct NewTranscriptionSettings: View {
 
     var body: some View {
         Form {
-            Section("Transcription Settings") {
+            Section("Transcription settings") {
                 LabeledContent("Model") {
                     Menu {
                         Picker("Model", selection: $model.selected) {
@@ -64,8 +64,8 @@ struct NewTranscriptionSettings: View {
                     .labelsHidden()
                 } label: {
                     Text(
-                        DecodingSettings.name(of: model.language).map { LocalizedStringKey($0) }
-                            ?? "Automatic")
+                        StartBar.languageName(of: model.language)
+                            ?? String(localized: "Automatic"))
                 }
                 .fixedSize()
             } label: {
@@ -110,7 +110,7 @@ struct NewTranscriptionSettings: View {
                 .disabled(model.stage.isBusy)
         } label: {
             Label {
-                Text("Not on This Mac")
+                Text("Not on this Mac")
                 Text(
                     "\(formattedFileSize(chosen.bytes)) once, then offline. \(chosen.license) license."
                 )

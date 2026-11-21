@@ -87,3 +87,37 @@ private func step(_ model: AppModel, _ id: Entry.ID) throws -> WaitingStep? {
     #expect(Stage.stopping.fraction == nil)
     #expect(Stage.paused(0.5).isPaused && !Stage.transcribing(0.5).isPaused)
 }
+
+@MainActor
+@Test func languageNameAndSummaryCoverKnownAutomaticAndUnknownCodes() {
+    #expect(StartBar.languageName(of: "fr") == "French")
+    #expect(StartBar.languageName(of: "en") == "English")
+    #expect(StartBar.languageName(of: DecodingSettings.automaticLanguage) == nil)
+    #expect(StartBar.languageName(of: "xx") == nil)
+
+    let model = ModelCatalog.turbo
+    func entry(_ language: String) -> Entry {
+        Entry(
+            recording: URL(filePath: "/made/up.wav"), modelFile: model.id, glossary: nil,
+            skipsSilence: false, subtitles: false, language: language)
+    }
+    #expect(StartBar.summary(of: entry("fr")) == "\(model.name) · French")
+    #expect(StartBar.summary(of: entry("en")) == "\(model.name) · English")
+    #expect(StartBar.summary(of: entry(DecodingSettings.automaticLanguage)) == model.name)
+    #expect(StartBar.summary(of: entry("xx")) == "\(model.name) · xx")
+
+    let root = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let app = AppModel(
+        history: root.appending(path: "History"), glossaries: root.appending(path: "Glossaries"),
+        engines: Opener(ScriptedEngine()).engines, defaults: MemoryDefaults())
+    app.selected = model.id
+    app.language = "fr"
+    #expect(StartBar.summary(of: app) == "\(model.name) · French")
+    app.language = "en"
+    #expect(StartBar.summary(of: app) == "\(model.name) · English")
+    app.language = DecodingSettings.automaticLanguage
+    #expect(StartBar.summary(of: app) == model.name)
+    app.language = "xx"
+    #expect(StartBar.summary(of: app) == "\(model.name) · xx")
+}
