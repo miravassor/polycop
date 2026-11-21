@@ -114,27 +114,30 @@ struct EntryFindBar: View {
             Button {
                 navigate(false)
             } label: {
-                Image(systemName: "chevron.up")
+                Label("Previous search result", systemImage: "chevron.up")
+                    .labelStyle(.iconOnly)
             }
             .keyboardShortcut("g", modifiers: [.command, .shift])
             .disabled(find.matches.isEmpty)
-            .accessibilityLabel("Previous search result")
+            .help("Previous search result")
             Button {
                 navigate(true)
             } label: {
-                Image(systemName: "chevron.down")
+                Label("Next search result", systemImage: "chevron.down")
+                    .labelStyle(.iconOnly)
             }
             .keyboardShortcut("g")
             .disabled(find.matches.isEmpty)
-            .accessibilityLabel("Next search result")
+            .help("Next search result")
             Toggle("Replace", isOn: $find.isReplacing)
                 .toggleStyle(.checkbox)
             Button {
                 find.close()
             } label: {
-                Image(systemName: "xmark")
+                Label("Close search", systemImage: "xmark")
+                    .labelStyle(.iconOnly)
             }
-            .accessibilityLabel("Close search")
+            .help("Close search")
         }
     }
 
@@ -184,4 +187,32 @@ struct EntryFindBar: View {
         guard let paragraphs = model.entry(entry.id)?.paragraphs else { return }
         find.showFirst(after: current, replacedBy: find.replacement, in: paragraphs)
     }
+}
+
+#Preview {
+    @Previewable @State var find = TranscriptFind(
+        isShown: true, query: "Freud",
+        matches: [
+            TranscriptSearch.Match(paragraph: 0, range: NSRange(location: 0, length: 5)),
+            TranscriptSearch.Match(paragraph: 1, range: NSRange(location: 12, length: 5)),
+        ],
+        isReplacing: true, replacement: "Froid")
+    @Previewable @FocusState var isFocused: Bool
+    // An empty library and glossaries of its own, never the user's.
+    let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    let entry = Entry(
+        recording: URL(filePath: "/tmp/lecture.m4a"),
+        modelFile: ModelCatalog.recommended.id,
+        glossary: Glossary(name: "Psychologie", text: ""),
+        skipsSilence: false, subtitles: false)
+    EntryFindBar(
+        model: AppModel(
+            history: folder.appending(path: "History"),
+            glossaries: folder.appending(path: "Glossaries"),
+            defaults: MemoryDefaults()),
+        entry: entry, isRunning: false, find: $find, isFocused: $isFocused,
+        navigate: { find.step(forward: $0) }
+    )
+    .padding(Spacing.sheet)
+    .frame(width: 560)
 }
