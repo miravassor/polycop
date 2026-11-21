@@ -57,6 +57,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 * Hiding the library no longer puts the cursor in the text, where the next Space typed instead of playing.
 * A transcript's text no longer opens or shifts a little too high, with the first time out of view, when the window or the scroll bar changes its width, unless the cursor is in a paragraph that has to stay in view.
 * Pasting too much text into Find Terms no longer freezes the window: the text is refused as it arrives, and Find Terms says why.
+* Find Terms leaves out common English words and slide headings such as "The", "This", "However", "Lecture" and "Slide", as it already did in French.
 * Deleting a course keeps it, and says why, when its remembered corrections cannot go to the Trash, rather than leaving them to the next course given its name.
 * The Glossaries window closes even when a glossary cannot be saved: the text is kept, and Retry Saving in the library writes it.
 * A glossary whose file cannot be read, such as one grown too large in another application, is named in the Glossaries window rather than missing from the list without a word.
