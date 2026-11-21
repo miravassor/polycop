@@ -16,8 +16,8 @@ extension Player {
     /// copy with the sound only.
     @concurrent
     nonisolated static func pictureSize(of recording: URL) async -> CGSize? {
-        let asset = Self.asset(for: recording)
-        guard (try? await asset.load(.isPlayable)) == true,
+        guard let asset = try? Self.asset(for: recording),
+            (try? await asset.load(.isPlayable)) == true,
             let track = try? await asset.loadTracks(withMediaType: .video).first,
             let (size, transform) = try? await track.load(.naturalSize, .preferredTransform)
         else { return nil }
@@ -33,7 +33,7 @@ extension Player {
     nonisolated static func frame(of recording: URL, at time: TimeInterval) async throws
         -> CGImage
     {
-        let generator = AVAssetImageGenerator(asset: Self.asset(for: recording))
+        let generator = AVAssetImageGenerator(asset: try Self.asset(for: recording))
         generator.appliesPreferredTrackTransform = true
         // The frame on screen, not the nearest one easy to decode.
         generator.requestedTimeToleranceBefore = .zero

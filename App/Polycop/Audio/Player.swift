@@ -41,12 +41,12 @@ final class Player {
     /// Read by the video view, which draws the picture of what plays.
     private(set) var player: AVPlayer?
     private(set) var recording: URL?
-    /// The last decoded copy, so that playing the same recording again, as
-    /// after leaving its transcript, does not decode it again. One at a
-    /// time, to bound the disk it takes. Managed in `Player+Copies.swift`.
-    @ObservationIgnored var keptCopy: KeptCopy?
+    /// The last decoded copy, kept so returning to a transcript avoids re-decoding.
+    @ObservationIgnored private let copyCache: CopyCache
+    var keptCopy: KeptCopy? { copyCache.kept }
     private var observer: Any?
     private var preparation: Task<Void, Never>?
+    @ObservationIgnored private var durationLoad: Task<Void, Never>?
     /// Where the recording being prepared opens. A later click while it is
     /// prepared moves it rather than starting the preparation over.
     @ObservationIgnored private var preparedStart: TimeInterval = 0
@@ -86,12 +86,9 @@ final class Player {
     /// How long typing must stop before playback it paused resumes, in seconds.
     static let defaultResumeAfterTyping: TimeInterval = 2
 
-    /// Where decoded copies go.
-    @ObservationIgnored let copiesFolder: URL
-
     init(defaults: UserDefaults = MemoryDefaults.forThisRun, copies: URL = Player.copies) {
         self.defaults = defaults
-        copiesFolder = copies
+        copyCache = CopyCache(folder: copies)
         if let remembered = defaults.object(forKey: Self.speedKey) as? Double,
             Self.speeds.contains(Float(remembered))
         {
@@ -132,11 +129,12 @@ final class Player {
         preparedStart = time
         preparation = Task {
             do {
-                let file = try await playable(recording)
+                let file = try await copyCache.playable(recording)
                 // A stop or another recording came first, so this one is not wanted.
                 guard !Task.isCancelled else { return }
+                let asset = try Self.asset(for: file, preciseTiming: true)
                 isPreparing = false
-                open(file, at: preparedStart)
+                open(asset, at: preparedStart)
             } catch {
                 guard !Task.isCancelled else { return }
                 isPreparing = false
@@ -289,6 +287,8 @@ final class Player {
         failure = nil
         preparation?.cancel()
         preparation = nil
+        durationLoad?.cancel()
+        durationLoad = nil
         transition?.cancel()
         transition = nil
         pendingSeek = nil
@@ -314,8 +314,10 @@ final class Player {
         duration = 0
     }
 
-    private func open(_ file: URL, at time: TimeInterval) {
-        let asset = Self.asset(for: file, preciseTiming: true)
+    /// Deletes the kept copy, as at quit.
+    func discardCopy() { copyCache.discard() }
+
+    private func open(_ asset: AVURLAsset, at time: TimeInterval) {
         let item = AVPlayerItem(asset: asset)
         // Speech at half or double speed is unlistenable when the pitch follows.
         item.audioTimePitchAlgorithm = .spectral
@@ -325,16 +327,18 @@ final class Player {
         // Tests play real audio and check what was asked; nobody needs to
         // hear it while working beside them.
         player.isMuted = TestHost.isRunning
-        Task { [weak self] in
+        durationLoad?.cancel()
+        durationLoad = Task { [weak self] in
             do {
                 let length = try await asset.load(.duration)
-                guard let self, self.player === player, length.seconds.isFinite else { return }
+                guard !Task.isCancelled, let self, self.player === player,
+                    length.seconds.isFinite
+                else { return }
                 self.duration = max(0, length.seconds)
                 self.publishNowPlaying()
             } catch is CancellationError {
-                return
             } catch {
-                guard let self, self.player === player else { return }
+                guard !Task.isCancelled, let self, self.player === player else { return }
                 Log.playback.error(
                     "could not read recording duration: \(error, privacy: .private)")
             }

@@ -53,6 +53,10 @@ final class PlaybackInterruptions {
         }
     }
 
+    /// Exposed for tests to check output-device listener registration without
+    /// starting live playback.
+    var isWatchingOutput: Bool { deviceListener != nil }
+
     /// Pauses, and keeps paused what typing was about to resume.
     func interrupt() {
         player?.pause()
