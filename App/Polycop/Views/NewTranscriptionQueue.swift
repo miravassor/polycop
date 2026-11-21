@@ -19,7 +19,7 @@ struct RecordingsQueue: View {
                 HStack(spacing: 12) {
                     Text(
                         model.waiting.count == 1
-                            ? "1 Recording" : "\(model.waiting.count) Recordings")
+                            ? "1 recording" : "\(model.waiting.count) recordings")
                     Spacer(minLength: 12)
                     Button("Add More…", systemImage: "plus", action: choose)
                     Button("Clear", systemImage: "xmark", action: model.clearQueue)
@@ -53,7 +53,7 @@ struct RecordingsQueue: View {
             }
             .buttonStyle(.borderless)
             .foregroundStyle(.secondary)
-            .help("Take it out of the queue")
+            .help("Remove \(entry.name)")
         }
         .contextMenu {
             Button("Remove from Queue") { model.removeEntry(entry.id) }
@@ -104,9 +104,15 @@ struct StartBar: View {
         }
     }
 
+    /// The model selected for new transcriptions, falling back to the
+    /// recommended catalogue model when none is found.
+    static func chosenModel(in model: AppModel) -> Model {
+        model.selectedCatalogue ?? ModelCatalog.recommended
+    }
+
     /// The settings the recordings will be transcribed with, in one line.
     static func summary(of model: AppModel) -> String {
-        let chosen = model.selectedCatalogue ?? ModelCatalog.recommended
+        let chosen = chosenModel(in: model)
         var parts = [chosen.name]
         if let language = model.toldLanguage {
             parts.append(languageName(of: language) ?? language)

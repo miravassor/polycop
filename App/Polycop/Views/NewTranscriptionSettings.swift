@@ -9,7 +9,7 @@ struct NewTranscriptionSettings: View {
     @Bindable var model: AppModel
     @Binding var editingGlossaries: Bool
 
-    private var chosen: Model { model.selectedCatalogue ?? ModelCatalog.recommended }
+    private var chosen: Model { StartBar.chosenModel(in: model) }
 
     var body: some View {
         Form {
