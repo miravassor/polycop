@@ -3,11 +3,13 @@
 import Foundation
 import Observation
 
-/// How many times each view that declares the window's structure ran its
-/// body, for `RedrawTests`, which state what each change on the page may
-/// redraw, and how often the page drew where the pointer is, which they wait
-/// on. An API added for those tests: it counts only in the test host, and a
-/// release build has neither the counts nor the work.
+/// Two APIs added for `RedrawTests`, which state what each change on the page
+/// may redraw: the counts of how many times each view that declares the
+/// window's structure ran its body, with how often the page drew where the
+/// pointer is, which they wait on; and `redraw(_:in:)`, which runs one such
+/// body alone, for them to wait until SwiftUI skips the views it holds. Both
+/// work only in the test host, and a release build has neither the counts nor
+/// the work.
 ///
 /// Counted by the model the window draws, or the pointer of its page, so that
 /// tests hosting pages at the same time each read their own window's counts.
@@ -88,7 +90,8 @@ enum Redraws {
         }
     #endif
 
-    /// Counts a run of the body of `piece` in the window of `model`.
+    /// Counts a run of the body of `piece` in the window of `model`, and makes
+    /// that body observe the requests of `redraw(_:in:)` for it.
     static func count(_ piece: Piece, in model: AppModel) {
         #if DEBUG
             guard TestHost.isRunning else { return }
