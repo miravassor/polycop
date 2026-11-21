@@ -19,9 +19,8 @@ struct RecordingsQueue: View {
                 HStack(spacing: 12) {
                     Text(
                         model.waiting.count == 1
-                            ? "1 Recording" : "\(model.waiting.count) Recordings")
+                            ? "1 recording" : "\(model.waiting.count) recordings")
                     Spacer(minLength: 12)
-                    // Capsules as Start below, the removal last.
                     Button("Add More…", systemImage: "plus", action: choose)
                     Button("Clear", systemImage: "xmark", action: model.clearQueue)
                         .help("Take the recordings waiting out of the library")
@@ -49,12 +48,12 @@ struct RecordingsQueue: View {
             Button {
                 model.removeEntry(entry.id)
             } label: {
-                Image(systemName: "xmark.circle.fill")
+                Label("Remove \(entry.name)", systemImage: "xmark.circle.fill")
+                    .labelStyle(.iconOnly)
             }
             .buttonStyle(.borderless)
             .foregroundStyle(.secondary)
-            .accessibilityLabel("Remove \(entry.name)")
-            .help("Take it out of the queue")
+            .help("Remove \(entry.name)")
         }
         .contextMenu {
             Button("Remove from Queue") { model.removeEntry(entry.id) }
@@ -105,11 +104,19 @@ struct StartBar: View {
         }
     }
 
+    /// The model selected for new transcriptions, falling back to the
+    /// recommended catalogue model when none is found.
+    static func chosenModel(in model: AppModel) -> Model {
+        model.selectedCatalogue ?? ModelCatalog.recommended
+    }
+
     /// The settings the recordings will be transcribed with, in one line.
     static func summary(of model: AppModel) -> String {
-        let chosen = model.selectedCatalogue ?? ModelCatalog.recommended
+        let chosen = chosenModel(in: model)
         var parts = [chosen.name]
-        if let language = model.toldLanguage { parts.append(name(ofLanguage: language)) }
+        if let language = model.toldLanguage {
+            parts.append(languageName(of: language) ?? language)
+        }
         if model.glossaryApplies, let glossary = model.glossaryName {
             parts.append(String(localized: "Glossary \(glossary)"))
         }
@@ -122,13 +129,12 @@ struct StartBar: View {
     /// The settings a scheduled recording keeps, in one line.
     static func summary(of entry: Entry) -> String {
         let model = ModelCatalog.model(entry.modelFile)?.name ?? entry.modelFile
-        return ([model] + (entry.toldLanguage.map { [name(ofLanguage: $0)] } ?? []))
+        return ([model] + (entry.toldLanguage.map { [languageName(of: $0) ?? $0] } ?? []))
             .joined(separator: " · ")
     }
 
-    private static func name(ofLanguage code: String) -> String {
+    static func languageName(of code: String) -> String? {
         DecodingSettings.name(of: code).map { String(localized: String.LocalizationValue($0)) }
-            ?? code
     }
 
     @ViewBuilder private var button: some View {

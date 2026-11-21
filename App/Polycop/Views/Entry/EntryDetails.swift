@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import AppKit
 import SwiftUI
-import UniformTypeIdentifiers
 
 /// The settings a transcript was made with, so a result can be judged later:
 /// a section of the inspector, which shows the details of what is open.
@@ -31,8 +29,8 @@ struct EntryDetails: View {
         }
         if entry.isLanguageDetected {
             LabeledContent("Language", value: "Detected automatically")
-        } else if let code = entry.toldLanguage, let language = DecodingSettings.name(of: code) {
-            LabeledContent("Language") { Text(LocalizedStringKey(language)) }
+        } else if let code = entry.toldLanguage, let language = StartBar.languageName(of: code) {
+            LabeledContent("Language", value: language)
         }
         if let glossary = entry.glossary {
             LabeledContent("Glossary", value: glossary)
