@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import Foundation
+import os
 
 /// Glossaries as plain text files, one per course, in Application Support.
 /// There is no separate index; the directory listing is the library, as for
@@ -8,9 +9,9 @@ import Foundation
 nonisolated enum GlossaryStore {
     static let directory = URL.applicationSupportDirectory.appending(path: "Polycop/Glossaries")
 
-    /// Far above any real glossary (the model reads at most 223 tokens, about
-    /// 700 characters). Keeps a file picked by mistake from being read and
-    /// tokenized whole.
+    /// Far above any real glossary (the model reads at most `Glossary.tokenBudget`
+    /// tokens, about 700 characters). Keeps a file picked by mistake from being
+    /// read and tokenized whole.
     static let largestImport = 100_000
 
     enum ImportError: LocalizedError {
@@ -43,15 +44,25 @@ nonisolated enum GlossaryStore {
 
     static func all(in folder: URL = directory) -> Listing {
         let path = folder.path(percentEncoded: false)
-        guard let files = try? FileManager.default.contentsOfDirectory(atPath: path) else {
+        let files: [String]
+        do {
+            files = try FileManager.default.contentsOfDirectory(atPath: path)
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+            return Listing()
+        } catch {
+            Log.persistence.error(
+                "the glossaries folder could not be read: \(error, privacy: .private)")
             return Listing()
         }
         var listing = Listing()
         for file in files where file.hasSuffix(".txt") {
             let name = (file as NSString).deletingPathExtension
-            if let text = try? contents(of: folder.appending(path: file)) {
+            do {
+                let text = try contents(of: folder.appending(path: file))
                 listing.glossaries.append(Glossary(name: name, text: text))
-            } else {
+            } catch {
+                Log.persistence.error(
+                    "a glossary file could not be read: \(error, privacy: .private)")
                 listing.unreadable.append(name)
             }
         }
@@ -69,14 +80,15 @@ nonisolated enum GlossaryStore {
         try FileManager.default.createDirectory(
             at: folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         try glossary.text.write(
-            to: file(named: glossary.name, in: folder), atomically: true, encoding: .utf8)
+            to: location(of: glossary.name, in: folder), atomically: true, encoding: .utf8)
     }
 
     /// Moves the file to the Trash rather than deleting it outright, since a
     /// glossary is typed by hand and cannot be downloaded again.
     static func delete(named name: String, in folder: URL = directory) throws {
-        try LibrarySnapshots.remove(file(named: name, in: folder))
-        try FileManager.default.trashItem(at: file(named: name, in: folder), resultingItemURL: nil)
+        try LibrarySnapshots.remove(location(of: name, in: folder))
+        try FileManager.default.trashItem(
+            at: location(of: name, in: folder), resultingItemURL: nil)
     }
 
     /// Reads a text file as a new glossary named after it. A prompt sentence
@@ -105,14 +117,14 @@ nonisolated enum GlossaryStore {
         var attempt = 1
         while true {
             let name = attempt == 1 ? stem : "\(stem) \(attempt)"
-            let path = file(named: name, in: folder).path(percentEncoded: false)
+            let path = location(of: name, in: folder).path(percentEncoded: false)
             if !FileManager.default.fileExists(atPath: path) { return name }
             attempt += 1
         }
     }
 
     static func location(of name: String, in folder: URL = directory) -> URL {
-        file(named: name, in: folder)
+        folder.appending(path: name + ".txt")
     }
 
     private static func contents(of file: URL) throws -> String {
@@ -125,9 +137,5 @@ nonisolated enum GlossaryStore {
         guard data.count <= largestImport else { throw ImportError.tooLarge }
         guard let text = TextFile.decode(data) else { throw ImportError.notText }
         return text
-    }
-
-    private static func file(named name: String, in folder: URL) -> URL {
-        folder.appending(path: name + ".txt")
     }
 }
