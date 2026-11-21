@@ -111,10 +111,13 @@ nonisolated enum ModelDownloader {
             // URLSession hands back the bytes it fetched when a transfer fails
             // or is stopped, as by Cancel or Quit, so the next attempt does
             // not start from zero.
-            if let resumeData = (error as NSError).userInfo[NSURLSessionDownloadTaskResumeData]
-                as? Data
-            {
-                try? resumeData.write(to: resumeFile)
+            if let resumeData = resumeData(in: error) {
+                do {
+                    try resumeData.write(to: resumeFile, options: .atomic)
+                } catch let writeError {
+                    Log.models.error(
+                        "could not save download resume data: \(writeError, privacy: .private)")
+                }
             } else if !isStop(error) {
                 // Resume data the server refuses would otherwise fail every retry.
                 try? FileManager.default.removeItem(at: resumeFile)
@@ -169,11 +172,20 @@ nonisolated enum ModelDownloader {
         return destination
     }
 
-    /// A stop asked for, rather than a transfer that failed.
-    private static func carriesResumeData(_ error: any Error) -> Bool {
-        (error as NSError).userInfo[NSURLSessionDownloadTaskResumeData] != nil
+    /// Resume data carried by a stopped or failed transfer, when URLSession
+    /// produced any. Reads `NSError.userInfo` rather than
+    /// `URLError.downloadTaskResumeData` so non-`URLError` failures keep theirs
+    /// too.
+    private static func resumeData(in error: any Error) -> Data? {
+        (error as NSError).userInfo[NSURLSessionDownloadTaskResumeData] as? Data
     }
 
+    /// A failure that brought resume data with it.
+    private static func carriesResumeData(_ error: any Error) -> Bool {
+        resumeData(in: error) != nil
+    }
+
+    /// A stop asked for, rather than a transfer that failed.
     private static func isStop(_ error: any Error) -> Bool {
         error is CancellationError || (error as? URLError)?.code == .cancelled
     }

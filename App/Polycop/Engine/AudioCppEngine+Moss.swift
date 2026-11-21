@@ -35,6 +35,7 @@ nonisolated extension AudioCppEngine {
             }
             var event: OpaquePointer?
             let status = audiocpp_stream_next_event(session, &event)
+            // No status code of its own; AudioCppEngineTests guards "max_tokens".
             if status == AUDIOCPP_ERR_RUNTIME,
                 String(cString: audiocpp_last_error()).contains("max_tokens")
             {

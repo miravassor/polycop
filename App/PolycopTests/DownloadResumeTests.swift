@@ -155,6 +155,49 @@ func aKeptFileThatDoesNotMatchIsDownloadedAgain() async throws {
     #expect(downloadLeftovers(in: folder).isEmpty)
 }
 
+/// A failure writing resume data is logged rather than replacing the stop
+/// error, and a later download still succeeds from scratch.
+@Test(.timeLimit(.minutes(1)))
+func anUnwritableResumePathStillStopsCleanly() async throws {
+    let isFirst = OSAllocatedUnfairLock(initialState: true)
+    let server = try LoopbackServer(body: servedBody) { _ in
+        isFirst.withLock { first in
+            defer { first = false }
+            return first ? .stall(after: servedBody.count / 2) : .file
+        }
+    }
+    defer { server.stop() }
+    let url = try await server.start()
+    let folder = downloadFolder()
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let model = servedModel(of: servedBody)
+    let resumeFile = ModelStore.resumeFile(of: model, in: folder)
+    try FileManager.default.createDirectory(at: resumeFile, withIntermediateDirectories: true)
+
+    let progressed = AsyncStream<Void>.makeStream()
+    let download = Task {
+        try await ModelDownloader.download(model, from: url, in: folder) { _ in
+            progressed.continuation.yield()
+        }
+    }
+    for await _ in progressed.stream { break }
+    download.cancel()
+    do {
+        _ = try await download.value
+        Issue.record("stopping the download should fail")
+    } catch {
+        let isStop = error is CancellationError || (error as? URLError)?.code == .cancelled
+        #expect(isStop)
+    }
+    #expect(try resumeFile.resourceValues(forKeys: [.isDirectoryKey]).isDirectory == true)
+    #expect(downloadLeftovers(in: folder) == [resumeFile.lastPathComponent])
+
+    let file = try await ModelDownloader.download(model, from: url, in: folder)
+    #expect(try Data(contentsOf: file) == servedBody)
+    #expect(server.requests.last?.headers["range"] == nil)
+    #expect(downloadLeftovers(in: folder).isEmpty)
+}
+
 /// Starts a download, waits for its first bytes, then stops it as Cancel does.
 private func stopDownloading(_ model: Model, from url: URL, in folder: URL) async throws {
     let progressed = AsyncStream<Void>.makeStream()

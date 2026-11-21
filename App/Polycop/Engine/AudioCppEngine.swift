@@ -34,6 +34,13 @@ nonisolated final class AudioCppEngine: TranscriptionEngine, @unchecked Sendable
         guard let profile = profile ?? catalogued.engine.audioCpp else {
             throw ModelStore.ImportError.unrecognized
         }
+        let major = audiocpp_abi_version() >> 16
+        guard major == AUDIOCPP_ABI_VERSION_MAJOR else {
+            Log.transcription.error(
+                "audio.cpp ABI version \(major, privacy: .public) does not match \(AUDIOCPP_ABI_VERSION_MAJOR, privacy: .public)"
+            )
+            throw TranscriptionError.modelUnreadable(model)
+        }
         try await ModelStore.verify(catalogued, at: model)
         if let aligner { try await ModelStore.verify(aligner.model, at: aligner.file) }
         try Task.checkCancellation()
@@ -48,9 +55,6 @@ nonisolated final class AudioCppEngine: TranscriptionEngine, @unchecked Sendable
     /// The session keeps the model and the registry alive on its own, so both
     /// are released as soon as it exists (docs/c_api.md, Lifetime).
     private init(model: URL, profile: AudioCppProfile, aligner: URL?) throws {
-        guard audiocpp_abi_version() >> 16 == AUDIOCPP_ABI_VERSION_MAJOR else {
-            throw TranscriptionError.modelUnreadable(model)
-        }
         var registry: OpaquePointer?
         var loaded: OpaquePointer?
         var session: OpaquePointer?

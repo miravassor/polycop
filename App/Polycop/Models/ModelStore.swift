@@ -74,10 +74,6 @@ nonisolated enum ModelStore {
         )
     }
 
-    static func installed() -> [Model] {
-        ModelCatalog.all.filter { isInstalled($0) }
-    }
-
     /// A model file in the store that the catalogue does not claim, such as one
     /// copied there by hand. Imports accept only catalogue files, so the app
     /// never loads it; the model list shows it as unverified, to delete. It is
@@ -242,10 +238,9 @@ nonisolated enum ModelStore {
     private static let hashingQueue = DispatchQueue(
         label: "io.github.miravassor.Polycop.hashing", qos: .userInitiated)
 
-    /// Hashing gigabytes takes seconds. A nonisolated async function inherits
-    /// the actor that called it, so without this hop the check ran on the main
-    /// actor and froze the window at the end of every download. A stop is read
-    /// between blocks, so quitting does not wait for the whole file.
+    /// On its own queue: hashing gigabytes takes seconds, and a nonisolated
+    /// async function runs on its caller's actor. A stop is read between
+    /// blocks, so quitting does not wait for the whole file.
     static func sha256(of file: URL) async throws -> String {
         let cancelled = OSAllocatedUnfairLock(initialState: false)
         return try await withTaskCancellationHandler {
