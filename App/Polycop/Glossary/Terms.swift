@@ -24,10 +24,32 @@ nonisolated enum Terms {
         "Voici", "Cela", "Celui", "Celle", "Ceux", "Contrairement", "Quelques", "Nombreux",
         "Beaucoup", "Premier", "Première", "Deuxième", "Second", "Seconde", "Nouveau",
         "Nouvelle", "Grand", "Grande", "Petit", "Petite", "Trois", "Deux", "Quatre",
+        "The", "This", "That", "These", "Those", "They", "Them", "Their", "Theirs",
+        "She", "Her", "Hers", "Him", "His", "Its", "Our", "Ours", "Your", "Yours",
+        "Who", "Whom", "Whose", "Which", "What", "Where", "When", "Why", "How",
+        "And", "But", "Nor", "Yet", "For", "From", "With", "Without", "Within",
+        "Into", "Onto", "Upon", "About", "Above", "Below", "Under", "Over",
+        "Between", "Among", "Through", "Throughout", "During", "Before", "After",
+        "Since", "Until", "While", "Whilst", "Whereas", "Whether", "Because",
+        "Although", "Though", "Unless", "Despite", "Against", "Towards", "Toward",
+        "Around", "Across", "Behind", "Beyond", "Then", "Than", "Thus", "Hence",
+        "Therefore", "However", "Moreover", "Furthermore", "Nevertheless",
+        "Nonetheless", "Otherwise", "Instead", "Indeed", "Also", "Only", "Even",
+        "Already", "Always", "Never", "Often", "Sometimes", "Usually", "Here",
+        "There", "Now", "Today", "First", "Third", "Finally", "Next", "According",
+        "Contrary", "Unlike", "Similarly", "Some", "Many", "Much", "Most", "Less",
+        "Few", "Each", "Every", "Both", "Either", "Neither", "Such", "Another",
+        "Other", "Others", "All", "Any", "Several", "Various", "Certain", "Enough",
+        "One", "Two", "Three", "Four", "Are", "Was", "Were", "Has", "Have", "Had",
+        "Does", "Did", "Could", "Should", "Would", "Must", "Might", "Shall",
+        "Being", "Been", "Chapter", "Part", "Bibliography", "References", "Course",
+        "Lecture", "Lectures", "Slide", "Slides", "Note", "Example", "Examples",
+        "Questions", "Remark", "Remarks", "University", "Summary", "Overview",
+        "Outline", "Appendix", "Exercise", "Exercises", "Syllabus", "Semester",
     ]
 
     /// Capitals that are never a useful term, such as course-structure words,
-    /// slide furniture, and common French words shouted in a title.
+    /// slide furniture, and common words shouted in a title.
     private static let banalUppercase: Set<String> = [
         "LE", "LA", "LES", "UN", "UNE", "DES", "DU", "DE", "ET", "OU", "EN", "AU", "AUX",
         "PAR", "POUR", "SUR", "DANS", "AVEC", "SANS", "CE", "CES", "QUI", "QUE", "EST",
@@ -42,6 +64,23 @@ nonisolated enum Terms {
         "SONT", "ONT", "QUOI", "DONT", "FIN", "DEBUT", "DÉBUT", "SUITE", "POINT",
         "NIVEAU", "TEXTE", "LIVRE", "TITRE", "PLACE", "FORME", "SENS", "TEMPS", "MONDE",
         "ENFANT", "GROUPE", "OBJET", "SUJET",
+        "THE", "AND", "FOR", "ARE", "BUT", "NOT", "WITH", "FROM", "WITHOUT", "WITHIN",
+        "INTO", "ONTO", "ABOUT", "ABOVE", "BELOW", "UNDER", "OVER", "BETWEEN", "AMONG",
+        "THROUGH", "DURING", "BEFORE", "AFTER", "SINCE", "UNTIL", "WHILE", "WHEN",
+        "WHERE", "WHICH", "WHAT", "WHY", "HOW", "THIS", "THAT", "THESE", "THOSE",
+        "THEIR", "THERE", "THEY", "THEM", "YOUR", "OUR", "HIS", "HER", "ITS", "SOME",
+        "MANY", "MUCH", "MOST", "LESS", "FEW", "EACH", "EVERY", "BOTH", "SUCH",
+        "OTHER", "OTHERS", "ANY", "ONLY", "ALSO", "THEN", "THAN", "THUS", "HENCE",
+        "HOWEVER", "THEREFORE", "ALTHOUGH", "BECAUSE", "FIRST", "SECOND", "THIRD",
+        "ONE", "TWO", "THREE", "FOUR", "HAVE", "HAS", "HAD", "WAS", "WERE", "BEEN",
+        "DOES", "DID", "OF", "TO", "IN", "ON", "AT", "BY", "IS", "BE", "DO", "NO",
+        "SO", "IF", "WE", "HE", "AN", "OR", "LECTURE", "LECTURES", "SLIDE", "SLIDES",
+        "CHAPTER", "PART", "PARTS", "SECTION", "SUMMARY", "OVERVIEW", "OUTLINE",
+        "REFERENCES", "BIBLIOGRAPHY", "UNIVERSITY", "COURSE", "SYLLABUS", "SEMESTER",
+        "APPENDIX", "EXAM", "EXAMS", "QUIZ", "EXERCISE", "EXERCISES", "EXAMPLE",
+        "EXAMPLES", "QUESTION", "QUESTIONS", "REMARK", "REMARKS", "NOTE", "PAGES",
+        "TEXT", "BOOK", "TITLE", "GROUP", "LEVEL", "POINTS", "WEEK", "UNIT", "TOPIC",
+        "TOPICS", "MODULE", "REVIEW",
     ]
 
     // Computed rather than stored: Regex is not Sendable, so it cannot be a
@@ -49,7 +88,7 @@ nonisolated enum Terms {
     // Unicode letter classes, since French writes Œ, œ and Ÿ beyond Latin-1.
     private static var word: Regex<Substring> { /\p{L}[\p{L}'’-]*/ }
     private static var acronym: Regex<Substring> {
-        /\b\p{Lu}[\p{Lu}0-9]+(?:-[\p{Lu}0-9]+)*\b/
+        /\b(?:\p{Lu}[\p{Lu}0-9]+|\p{Ll}{1,3}\p{Lu}[\p{Lu}0-9]+)(?:-[\p{Lu}0-9][\p{L}0-9]*)*\b/
     }
 
     /// The terms of a document, weakest first, since whisper.cpp keeps the end
@@ -179,8 +218,10 @@ nonisolated enum Terms {
     /// A slide title in capitals is not a name; treating it as one would glue
     /// whole sentences together. Acronyms are handled separately.
     private static func capitalised(_ word: String) -> Bool {
-        guard let first = word.first else { return false }
-        return first.isUppercase && word != word.uppercased()
+        guard word.first?.isUppercase == true else { return false }
+        return word.split(separator: "-").allSatisfy { part in
+            part.first?.isUppercase == true && part != part.uppercased()
+        }
     }
 
     private static func acceptable(_ term: String) -> Bool {
