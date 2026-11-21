@@ -254,3 +254,123 @@ private struct Page {
         #expect(size(2, within: 30) == CGSize(width: 40, height: 24))
     }
 }
+
+/// Default folder and importer outcomes when a transcript's recording is missing.
+@MainActor
+@Suite struct LocatingAMissingRecording {
+    private struct PanelFailure: LocalizedError {
+        var errorDescription: String? { "The file panel could not open." }
+    }
+
+    @Test func existingParentFolderIsOffered() throws {
+        let folder = URL.temporaryDirectory.appending(
+            path: UUID().uuidString, directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let recording = folder.appending(path: "lecture.wav")
+        #expect(EntryNotices.locateDirectory(for: recording) == folder)
+    }
+
+    @Test func missingParentFolderFallsBackToNil() throws {
+        let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
+        let missing = folder.appending(path: "Moved/lecture.wav")
+        #expect(EntryNotices.locateDirectory(for: missing) == nil)
+        let remote = try #require(URL(string: "https://example.com/lecture.wav"))
+        #expect(EntryNotices.locateDirectory(for: remote) == nil)
+    }
+
+    @Test func nonDirectoryParentFallsBackToNil() throws {
+        let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let regularFile = folder.appending(path: "not-a-folder")
+        try Data("x".utf8).write(to: regularFile)
+        let underFile = regularFile.appending(path: "lecture.wav")
+        #expect(EntryNotices.locateDirectory(for: underFile) == nil)
+    }
+
+    /// Clean transcripts emit no notice view and add no stack gap; a missing
+    /// recording renders its notice above the text.
+    @Test func cleanNoticesAddNoSpaceAndMissingRecordingRenders() throws {
+        let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let recording = folder.appending(path: "lecture.wav")
+        try Data("audio".utf8).write(to: recording)
+        var entry = Entry(
+            recording: recording, modelFile: ModelCatalog.recommended.id, glossary: nil,
+            skipsSilence: false, subtitles: false)
+        entry.state = .finished
+        let model = AppModel(
+            history: folder.appending(path: "History"), defaults: MemoryDefaults())
+
+        func height(for entry: Entry) -> CGFloat {
+            let stack = VStack(alignment: .leading, spacing: Spacing.block) {
+                Group {
+                    EntryNotices(
+                        entry: entry, findings: entry.findings, canRebuild: false, model: model,
+                        isRunning: false, engine: nil)
+                }
+                .frame(maxWidth: .infinity)
+                Color.clear.frame(width: 100, height: 20)
+            }
+            return NSHostingController(rootView: stack)
+                .sizeThatFits(in: CGSize(width: CGFloat(600), height: .infinity))
+                .height
+        }
+
+        #expect(height(for: entry) == 20)
+
+        try FileManager.default.removeItem(at: recording)
+
+        #expect(height(for: entry) > 20 + Spacing.block)
+    }
+
+    /// An importer error stays on this transcript and clears once the recording
+    /// is located.
+    @Test func importerFailureShowsOnThisTranscriptAndClearsOnRelink() async throws {
+        let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let history = folder.appending(path: "History")
+        var entry = Entry(
+            recording: folder.appending(path: "missing.wav"),
+            modelFile: ModelCatalog.recommended.id, glossary: nil, skipsSilence: false,
+            subtitles: false)
+        entry.state = .finished
+        let other = Entry(
+            recording: folder.appending(path: "other.wav"),
+            modelFile: ModelCatalog.recommended.id, glossary: nil, skipsSilence: false,
+            subtitles: false)
+        try HistoryStore.write(entry, in: history)
+        try HistoryStore.write(other, in: history)
+        let model = AppModel(history: history, defaults: MemoryDefaults())
+        let stored = try #require(model.entry(entry.id))
+        let notices = EntryNotices(
+            entry: stored, findings: stored.findings, canRebuild: false, model: model,
+            isRunning: false, engine: nil)
+
+        notices.applyLocatedRecording(.failure(PanelFailure()))
+
+        #expect(model.failure(for: entry.id) == "The file panel could not open.")
+        #expect(model.failure(for: other.id) == nil)
+        #expect(model.failure == nil)
+
+        // An error for an entry no longer in the library is ignored.
+        let unknown = UUID()
+        model.report(PanelFailure(), for: unknown)
+        #expect(model.failure(for: unknown) == nil)
+        #expect(model.failure(for: entry.id) == "The file panel could not open.")
+
+        let relocated = folder.appending(path: "relocated.wav")
+        try Data("audio".utf8).write(to: relocated)
+        notices.applyLocatedRecording(.success(relocated))
+        await model.finishWrites()
+
+        #expect(model.failure(for: entry.id) == nil)
+        #expect(model.entry(entry.id)?.hasRecording == true)
+        #expect(
+            model.entry(entry.id)?.location.resolvingSymlinksInPath()
+                == relocated.resolvingSymlinksInPath())
+    }
+}

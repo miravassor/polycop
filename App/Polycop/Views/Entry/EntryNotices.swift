@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -15,18 +14,32 @@ struct EntryNotices: View {
     let model: AppModel
     let isRunning: Bool
     let engine: Engine?
+    @State private var isLocating = false
+    @State private var defaultDirectory: URL?
 
     var body: some View {
         let checks = TextChecks(
             entry: entry, findings: findings, canRebuild: canRebuild, model: model,
             isRunning: isRunning, engine: engine
         ).aboveText
-        if !entry.hasRecording || !checks.isEmpty {
-            // Side by side when they fit, for the height of the text.
+        let hasRecording = entry.hasRecording
+        if !hasRecording || !checks.isEmpty {
+            let missingPath = hasRecording ? nil : entry.location.path(percentEncoded: false)
+            // Side by side when they fit, for the height of the text. The file
+            // importer lives here rather than inside ViewThatFits's two
+            // branches so SwiftUI attaches one sheet, and clean transcripts
+            // emit no view.
             ViewThatFits(in: .horizontal) {
-                HStack(spacing: 8) { capsules(checks) }
-                VStack(spacing: 8) { capsules(checks) }
+                HStack(spacing: 8) { capsules(checks, missingPath: missingPath) }
+                VStack(spacing: 8) { capsules(checks, missingPath: missingPath) }
             }
+            .fileImporter(isPresented: $isLocating, allowedContentTypes: [.audio, .movie]) {
+                applyLocatedRecording($0)
+            }
+            .fileDialogDefaultDirectory(defaultDirectory)
+            .fileDialogMessage("Choose the recording this transcript was made from.")
+            .onChange(of: isRunning) { if isRunning { isLocating = false } }
+            .onDisappear { isLocating = false }
         }
         ForEach(
             [model.failure, model.failure(for: entry.id), model.player.failure].compactMap { $0 },
@@ -38,8 +51,8 @@ struct EntryNotices: View {
         }
     }
 
-    @ViewBuilder private func capsules(_ checks: [TextCheck]) -> some View {
-        if !entry.hasRecording { recording }
+    @ViewBuilder private func capsules(_ checks: [TextCheck], missingPath: String?) -> some View {
+        if let missingPath { recording(missingAt: missingPath) }
         if checks.count == 1, let check = checks.first {
             TextCheckRow(check: check).statusCapsule()
         } else if !checks.isEmpty {
@@ -50,30 +63,45 @@ struct EntryNotices: View {
     }
 
     /// The details go in the tooltip: the choosing panel opens where it was.
-    private var recording: some View {
+    private func recording(missingAt path: String) -> some View {
         HStack(spacing: 12) {
             Label("Recording unavailable", systemImage: "questionmark.folder")
                 .notice(.orange)
                 .help(
-                    "The transcript is safe. Listening, transcribing again and repairing the repeats all need the original recording, last at \(entry.location.path(percentEncoded: false))."
+                    "The transcript is safe. Listening, transcribing again and repairing the repeats all need the original recording, last at \(path)."
                 )
-            Button("Locate Recording…") { locateRecording() }
-                .disabled(isRunning)
+            Button("Locate Recording…") {
+                defaultDirectory = Self.locateDirectory(for: entry.location)
+                isLocating = true
+            }
+            .disabled(isRunning)
         }
         .statusCapsule()
     }
 
     /// Where the recording went. Nothing is transcribed again: the transcript
-    /// only needs its audio back to be listened to.
-    private func locateRecording() {
-        let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.audio, .movie]
-        panel.allowsMultipleSelection = false
-        panel.canChooseDirectories = false
-        panel.message = String(localized: "Choose the recording this transcript was made from.")
-        panel.directoryURL = entry.location.deletingLastPathComponent()
-        guard panel.runModal() == .OK, let found = panel.url else { return }
-        model.locateRecording(entry.id, at: found)
+    /// only needs its audio back to be listened to. Internal for tests.
+    func applyLocatedRecording(_ result: Result<URL, any Error>) {
+        switch result {
+        case .success(let found):
+            model.locateRecording(entry.id, at: found)
+        case .failure(let error):
+            model.report(error, for: entry.id)
+        }
+    }
+
+    /// The folder the recording was last seen in, if it still exists as a
+    /// directory. Internal for tests.
+    static func locateDirectory(for location: URL) -> URL? {
+        guard location.isFileURL else { return nil }
+        let directory = location.deletingLastPathComponent()
+        var isDirectory: ObjCBool = false
+        guard
+            FileManager.default.fileExists(
+                atPath: directory.path(percentEncoded: false), isDirectory: &isDirectory),
+            isDirectory.boolValue
+        else { return nil }
+        return directory
     }
 }
 
