@@ -134,3 +134,70 @@ private func isForbiddenReferenceError(_ error: any Error) -> Bool {
     withExtendedLifetime(interruptions) {}
     interruptions = nil
 }
+
+/// Replacing a non-native recording at the same path invalidates `keptCopy`
+/// even when the modification date is preserved, whether replaced atomically
+/// (new file identity) or overwritten in place (different size).
+@MainActor
+@Test func keptCopyInvalidatesWhenFileIsReplacedWithSameModificationDate() async throws {
+    let mkv = formatFixtures.appending(path: "clip.mkv")
+    let videoMkv = formatFixtures.appending(path: "clip-video.mkv")
+    let work = URL.temporaryDirectory.appending(path: "kept-\(UUID().uuidString)")
+    let copies = work.appending(path: "copies")
+    try FileManager.default.createDirectory(at: work, withIntermediateDirectories: true)
+    let recording = work.appending(path: "lecture.mkv")
+    let preservedDate = Date(timeIntervalSince1970: 1_700_000_000)
+    let player = Player(defaults: MemoryDefaults(), copies: copies)
+    defer {
+        player.stop()
+        player.discardCopy()
+        try? FileManager.default.removeItem(at: work)
+    }
+
+    func playAndCollectCopy() async throws -> Player.KeptCopy {
+        player.play(recording, from: 0)
+        for _ in 0..<100 where !(player.isOpen && player.duration > 0) {
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        try #require(player.isOpen)
+        player.stop()
+        return try #require(player.keptCopy)
+    }
+
+    try Data(contentsOf: mkv).write(to: recording)
+    try FileManager.default.setAttributes(
+        [.modificationDate: preservedDate], ofItemAtPath: recording.path(percentEncoded: false))
+
+    let first = try await playAndCollectCopy()
+    #expect(first.identity?.modified == preservedDate)
+    #expect(try await playAndCollectCopy() == first)
+
+    // Atomic replacement: identical size and modification date, new inode.
+    try Data(contentsOf: mkv).write(to: recording, options: .atomic)
+    try FileManager.default.setAttributes(
+        [.modificationDate: preservedDate], ofItemAtPath: recording.path(percentEncoded: false))
+    let replacedIdentity = try #require(Player.FileIdentity(of: recording))
+    #expect(replacedIdentity.modified == preservedDate)
+    #expect(replacedIdentity.size == first.identity?.size)
+    #expect(replacedIdentity != first.identity)
+
+    let second = try await playAndCollectCopy()
+    #expect(second.file != first.file)
+    #expect(!FileManager.default.fileExists(atPath: first.file.path(percentEncoded: false)))
+    #expect(FileManager.default.fileExists(atPath: second.file.path(percentEncoded: false)))
+
+    // In-place overwrite: same inode and modification date, different size.
+    try Data(contentsOf: videoMkv).write(to: recording)
+    try FileManager.default.setAttributes(
+        [.modificationDate: preservedDate], ofItemAtPath: recording.path(percentEncoded: false))
+    let overwrittenIdentity = try #require(Player.FileIdentity(of: recording))
+    #expect(overwrittenIdentity.modified == preservedDate)
+    #expect(overwrittenIdentity.size != second.identity?.size)
+
+    let third = try await playAndCollectCopy()
+    #expect(third.file != second.file)
+    #expect(!FileManager.default.fileExists(atPath: second.file.path(percentEncoded: false)))
+    #expect(FileManager.default.fileExists(atPath: third.file.path(percentEncoded: false)))
+
+    #expect(Player.FileIdentity(of: work.appending(path: "missing.mkv")) == nil)
+}

@@ -4,22 +4,6 @@ import AVFoundation
 import Observation
 import os
 
-nonisolated enum PlaybackError: LocalizedError {
-    case missing(URL)
-    case unplayable(URL)
-
-    var errorDescription: String? {
-        switch self {
-        case .missing(let recording):
-            String(
-                localized: "The recording is no longer where it was: \(recording.lastPathComponent)"
-            )
-        case .unplayable(let recording):
-            String(localized: "The recording could not be played: \(recording.lastPathComponent)")
-        }
-    }
-}
-
 /// Plays a recording at transcript timestamps. A format AVFoundation cannot
 /// play goes through a 16-bit, 16 kHz mono copy (115 MB per hour), kept for
 /// the last such recording while the app runs.
