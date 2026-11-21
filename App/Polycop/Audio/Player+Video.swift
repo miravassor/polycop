@@ -16,13 +16,13 @@ extension Player {
     /// copy with the sound only.
     @concurrent
     nonisolated static func pictureSize(of recording: URL) async -> CGSize? {
-        let asset = AVURLAsset(url: recording)
+        let asset = Self.asset(for: recording)
         guard (try? await asset.load(.isPlayable)) == true,
             let track = try? await asset.loadTracks(withMediaType: .video).first,
-            let geometry = try? await track.load(.naturalSize, .preferredTransform)
+            let (size, transform) = try? await track.load(.naturalSize, .preferredTransform)
         else { return nil }
         // A phone video filmed upright is stored on its side, with a rotation.
-        let shown = CGRect(origin: .zero, size: geometry.0).applying(geometry.1).size
+        let shown = CGRect(origin: .zero, size: size).applying(transform).size
         guard shown.width > 0, shown.height > 0 else { return nil }
         return CGSize(width: abs(shown.width), height: abs(shown.height))
     }
@@ -33,7 +33,7 @@ extension Player {
     nonisolated static func frame(of recording: URL, at time: TimeInterval) async throws
         -> CGImage
     {
-        let generator = AVAssetImageGenerator(asset: AVURLAsset(url: recording))
+        let generator = AVAssetImageGenerator(asset: Self.asset(for: recording))
         generator.appliesPreferredTrackTransform = true
         // The frame on screen, not the nearest one easy to decode.
         generator.requestedTimeToleranceBefore = .zero

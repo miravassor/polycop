@@ -59,14 +59,8 @@ final class Player {
     private(set) var recording: URL?
     /// The last decoded copy, so that playing the same recording again, as
     /// after leaving its transcript, does not decode it again. One at a
-    /// time, to bound the disk it takes.
-    @ObservationIgnored private(set) var keptCopy: KeptCopy?
-
-    struct KeptCopy: Equatable {
-        let recording: URL
-        let modified: Date?
-        let file: URL
-    }
+    /// time, to bound the disk it takes. Managed in `Player+Copies.swift`.
+    @ObservationIgnored var keptCopy: KeptCopy?
     private var observer: Any?
     private var preparation: Task<Void, Never>?
     /// Where the recording being prepared opens. A later click while it is
@@ -109,7 +103,7 @@ final class Player {
     static let defaultResumeAfterTyping: TimeInterval = 2
 
     /// Where decoded copies go.
-    @ObservationIgnored private let copiesFolder: URL
+    @ObservationIgnored let copiesFolder: URL
 
     init(defaults: UserDefaults = MemoryDefaults.forThisRun, copies: URL = Player.copies) {
         self.defaults = defaults
@@ -336,36 +330,8 @@ final class Player {
         duration = 0
     }
 
-    /// The recording itself, the copy kept from an earlier playback, or a new
-    /// one, which replaces it.
-    private func playable(_ recording: URL) async throws -> URL {
-        let modified = try? recording.resourceValues(forKeys: [.contentModificationDateKey])
-            .contentModificationDate
-        if let keptCopy, keptCopy.recording == recording, keptCopy.modified == modified,
-            FileManager.default.fileExists(atPath: keptCopy.file.path(percentEncoded: false))
-        {
-            return keptCopy.file
-        }
-        let file = try await Player.playableFile(for: recording, in: copiesFolder)
-        guard file != recording else { return file }
-        guard !Task.isCancelled else {
-            try? FileManager.default.removeItem(at: file)
-            throw CancellationError()
-        }
-        discardCopy()
-        keptCopy = KeptCopy(recording: recording, modified: modified, file: file)
-        return file
-    }
-
-    /// Deletes the kept copy, as at quit.
-    func discardCopy() {
-        if let keptCopy { try? FileManager.default.removeItem(at: keptCopy.file) }
-        keptCopy = nil
-    }
-
     private func open(_ file: URL, at time: TimeInterval) {
-        let asset = AVURLAsset(
-            url: file, options: [AVURLAssetPreferPreciseDurationAndTimingKey: true])
+        let asset = Self.asset(for: file, preciseTiming: true)
         let item = AVPlayerItem(asset: asset)
         // Speech at half or double speed is unlistenable when the pitch follows.
         item.audioTimePitchAlgorithm = .spectral
@@ -376,11 +342,18 @@ final class Player {
         // hear it while working beside them.
         player.isMuted = TestHost.isRunning
         Task { [weak self] in
-            guard let length = try? await asset.load(.duration),
-                let self, self.player === player, length.seconds.isFinite
-            else { return }
-            self.duration = max(0, length.seconds)
-            self.publishNowPlaying()
+            do {
+                let length = try await asset.load(.duration)
+                guard let self, self.player === player, length.seconds.isFinite else { return }
+                self.duration = max(0, length.seconds)
+                self.publishNowPlaying()
+            } catch is CancellationError {
+                return
+            } catch {
+                guard let self, self.player === player else { return }
+                Log.playback.error(
+                    "could not read recording duration: \(error, privacy: .private)")
+            }
         }
         observer = player.addPeriodicTimeObserver(
             forInterval: CMTime(value: 1, timescale: 4), queue: .main

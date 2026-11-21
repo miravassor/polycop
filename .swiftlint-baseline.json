@@ -75,30 +75,15 @@
         }
     },
     {
-        "text": "final class Player {",
-        "violation": {
-            "location": {
-                "line": 27,
-                "file": "App/Polycop/Audio/Player.swift",
-                "character": 7
-            },
-            "ruleIdentifier": "type_body_length",
-            "reason": "Class body should span 300 lines or less excluding comments and whitespace: currently spans 312 lines",
-            "ruleDescription": "Type bodies should not span too many lines",
-            "ruleName": "Type Body Length",
-            "severity": "warning"
-        }
-    },
-    {
         "text": "}",
         "violation": {
             "location": {
-                "line": 438,
+                "line": 411,
                 "file": "App/Polycop/Audio/Player.swift",
                 "character": 1
             },
             "ruleIdentifier": "file_length",
-            "reason": "File should contain 400 lines or less: currently contains 438",
+            "reason": "File should contain 400 lines or less: currently contains 411",
             "ruleDescription": "Files should not span too many lines.",
             "ruleName": "File Length",
             "severity": "warning"
