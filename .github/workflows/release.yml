@@ -99,6 +99,119 @@ jobs:
             "$folder"/Polycop-"$VERSION".{dmg,zip,dSYM.zip}.sha256 \
             build/notes/notes.md build/upload/
 
+      # Tests run a Debug build inside TestHost, whereas the shipped Release app
+      # drops get-task-allow, compiles in whole-module Release mode without
+      # Polycop.debug.dylib, is archived with ditto, and runs the full startup
+      # path (HistoryStore.claim, sweeps, UserDefaults.standard, UpdatePrompt).
+      # Unpack the zip publish attests and verify the app finishes launching.
+      - name: Launch the packaged app
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          marker="$tmp/started"
+          log="$tmp/launch.log"
+          pid=""
+
+          stop_app() {
+            [ -n "$pid" ] || return 0
+            kill -TERM "$pid" 2>/dev/null || true
+            for _ in {1..10}; do
+              kill -0 "$pid" 2>/dev/null || break
+              sleep 1
+            done
+            if kill -0 "$pid" 2>/dev/null; then
+              kill -KILL "$pid" 2>/dev/null || true
+            fi
+          }
+
+          cleanup() {
+            stop_app
+            if [ -n "$pid" ]; then
+              wait "$pid" 2>/dev/null || true
+            fi
+            rm -rf "$tmp"
+          }
+          trap cleanup EXIT
+
+          report_failure() {
+            local message="$1"
+            local prefix="$2"
+            if [ -s "$log" ]; then
+              cat "$log" 2>&1 || true
+            fi
+            # ReportCrash writes .ips files asynchronously after a crash.
+            local found=0
+            for _ in {1..10}; do
+              for dir in "$HOME/Library/Logs/DiagnosticReports" /Library/Logs/DiagnosticReports; do
+                [ -d "$dir" ] || continue
+                while IFS= read -r -d '' report; do
+                  found=1
+                  echo "::group::Crash report: $(basename "$report")"
+                  cat "$report" 2>&1 || true
+                  echo "::endgroup::"
+                done < <(find "$dir" -maxdepth 1 -name "$prefix-*.ips" -newer "$marker" -print0 2>/dev/null || true)
+              done
+              [ "$found" -eq 1 ] && break
+              sleep 1
+            done
+            echo "::error::$message"
+          }
+
+          ditto -x -k "build/upload/Polycop-$VERSION.zip" "$tmp/unpacked"
+          bundle="$tmp/unpacked/Polycop $VERSION/Polycop.app"
+          app="$bundle/Contents/MacOS/Polycop"
+          helper="$bundle/Contents/Helpers/ffmpeg"
+          if [ ! -x "$app" ]; then
+            echo "::error::Packaged app executable not found: $app"
+            exit 1
+          fi
+          codesign --verify --deep --strict "$bundle"
+
+          touch "$marker"
+          status=0
+          "$helper" -version >"$log" 2>&1 || status=$?
+          if [ "$status" -ne 0 ]; then
+            report_failure "Bundled ffmpeg exited with status $status" ffmpeg
+            exit 1
+          fi
+
+          touch "$marker"
+          "$app" >"$log" 2>&1 &
+          pid=$!
+
+          # Poll until applicationDidFinishLaunching's five-second task records
+          # launchCount in UserDefaults.standard, proving the app did not hang.
+          ready=0
+          for _ in {1..30}; do
+            sleep 1
+            if ! kill -0 "$pid" 2>/dev/null; then
+              status=0
+              wait "$pid" || status=$?
+              pid=""
+              report_failure "Packaged app exited early with status $status" Polycop
+              exit 1
+            fi
+            launches="$(defaults read io.github.miravassor.Polycop launchCount 2>/dev/null || true)"
+            if [[ "$launches" =~ ^[0-9]+$ ]] && [ "$launches" -ge 1 ]; then
+              ready=1
+              break
+            fi
+          done
+          if [ "$ready" -ne 1 ]; then
+            report_failure "Packaged app did not finish launching within 30 seconds" Polycop
+            exit 1
+          fi
+
+          stop_app
+          status=0
+          wait "$pid" || status=$?
+          pid=""
+          # AppKit leaves SIGTERM at its default disposition (status 143).
+          if [ "$status" -ne 0 ] && [ "$status" -ne 143 ]; then
+            report_failure "Packaged app ended with unexpected status $status" Polycop
+            exit 1
+          fi
+
       # GPL directions to the source belong next to the download, and the
       # commit lets anyone match the files to the code.
       - name: Say where the files come from
