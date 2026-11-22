@@ -75,6 +75,13 @@ private func words(_ text: String) -> [String] {
     #expect(cores > 0)
     #expect(cores <= ProcessInfo.processInfo.activeProcessorCount)
     #expect(DecodingSettings().threads == Int32(cores))
+    var expected: Int32 = 0
+    var size = MemoryLayout<Int32>.size
+    if sysctlbyname("hw.perflevel0.logicalcpu", &expected, &size, nil, 0) == 0,
+        size == MemoryLayout<Int32>.size, expected > 0
+    {
+        #expect(cores == Int(expected))
+    }
 }
 
 @Test func silenceDetectorFailurePointsToTranscriptionSettings() throws {

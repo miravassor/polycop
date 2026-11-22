@@ -155,8 +155,8 @@ func aKeptFileThatDoesNotMatchIsDownloadedAgain() async throws {
     #expect(downloadLeftovers(in: folder).isEmpty)
 }
 
-/// A failure writing resume data is logged rather than replacing the stop
-/// error, and a later download still succeeds from scratch.
+/// A failing resume-data write does not replace the stop error or leave
+/// temporary files behind, and a later download still succeeds from scratch.
 @Test(.timeLimit(.minutes(1)))
 func anUnwritableResumePathStillStopsCleanly() async throws {
     let isFirst = OSAllocatedUnfairLock(initialState: true)
@@ -174,21 +174,10 @@ func anUnwritableResumePathStillStopsCleanly() async throws {
     let resumeFile = ModelStore.resumeFile(of: model, in: folder)
     try FileManager.default.createDirectory(at: resumeFile, withIntermediateDirectories: true)
 
-    let progressed = AsyncStream<Void>.makeStream()
-    let download = Task {
-        try await ModelDownloader.download(model, from: url, in: folder) { _ in
-            progressed.continuation.yield()
-        }
-    }
-    for await _ in progressed.stream { break }
-    download.cancel()
-    do {
-        _ = try await download.value
-        Issue.record("stopping the download should fail")
-    } catch {
-        let isStop = error is CancellationError || (error as? URLError)?.code == .cancelled
-        #expect(isStop)
-    }
+    let error = try await stopDownloading(model, from: url, in: folder)
+    let isStop = error is CancellationError || (error as? URLError)?.code == .cancelled
+    #expect(isStop)
+    #expect((error as NSError).userInfo[NSURLSessionDownloadTaskResumeData] is Data)
     #expect(try resumeFile.resourceValues(forKeys: [.isDirectoryKey]).isDirectory == true)
     #expect(downloadLeftovers(in: folder) == [resumeFile.lastPathComponent])
 
@@ -198,8 +187,12 @@ func anUnwritableResumePathStillStopsCleanly() async throws {
     #expect(downloadLeftovers(in: folder).isEmpty)
 }
 
-/// Starts a download, waits for its first bytes, then stops it as Cancel does.
-private func stopDownloading(_ model: Model, from url: URL, in folder: URL) async throws {
+/// Starts a download, waits for its first bytes, then stops it as Cancel does,
+/// returning the error the download threw.
+@discardableResult
+private func stopDownloading(_ model: Model, from url: URL, in folder: URL) async throws
+    -> any Error
+{
     let progressed = AsyncStream<Void>.makeStream()
     let download = Task {
         try await ModelDownloader.download(model, from: url, in: folder) { _ in
@@ -208,5 +201,5 @@ private func stopDownloading(_ model: Model, from url: URL, in folder: URL) asyn
     }
     for await _ in progressed.stream { break }
     download.cancel()
-    await #expect(throws: (any Error).self) { try await download.value }
+    return try await #require(throws: (any Error).self) { try await download.value }
 }

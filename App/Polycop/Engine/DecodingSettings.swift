@@ -60,7 +60,9 @@ nonisolated struct DecodingSettings: Equatable, Sendable {
     static var performanceCores: Int {
         var count: Int32 = 0
         var size = MemoryLayout<Int32>.size
-        if sysctlbyname("hw.perflevel0.logicalcpu", &count, &size, nil, 0) == 0, count > 0 {
+        if sysctlbyname("hw.perflevel0.logicalcpu", &count, &size, nil, 0) == 0,
+            size == MemoryLayout<Int32>.size, count > 0
+        {
             return Int(count)
         }
         return min(4, ProcessInfo.processInfo.activeProcessorCount)
