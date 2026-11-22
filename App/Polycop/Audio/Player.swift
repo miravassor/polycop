@@ -35,9 +35,6 @@ final class Player {
     /// The speeds offered by the player bar and to the system controls.
     nonisolated static let speeds: [Float] = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4]
 
-    /// Decoded copies, emptied at launch in case a run did not quit normally.
-    nonisolated static let copies = URL.temporaryDirectory.appending(path: "Polycop Replay")
-
     /// Read by the video view, which draws the picture of what plays.
     private(set) var player: AVPlayer?
     private(set) var recording: URL?
@@ -140,6 +137,7 @@ final class Player {
                 guard !Task.isCancelled else { return }
                 isPreparing = false
                 self.recording = nil
+                guard !(error is CancellationError) else { return }
                 Log.playback.error("could not open a recording: \(error, privacy: .private)")
                 failure = error.localizedDescription
             }

@@ -29,6 +29,9 @@ nonisolated enum PlaybackError: LocalizedError {
 }
 
 extension Player {
+    /// Decoded copies, emptied at launch in case a run did not quit normally.
+    nonisolated static let copies = URL.temporaryDirectory.appending(path: "Polycop Replay")
+
     /// Snapshot of a recording's resolved target attributes from POSIX `stat`,
     /// used to detect replacements at the same path even when mtime is kept.
     nonisolated struct FileIdentity: Equatable, Sendable {
@@ -112,8 +115,8 @@ extension Player {
         }
     }
 
-    /// Result of POSIX `stat`, which follows symlinks atomically and bypasses
-    /// `URL`'s cached resource values.
+    /// Result of POSIX `stat`, which follows symlinks in one kernel syscall and
+    /// bypasses `URL`'s cached resource values.
     private nonisolated enum FileProbe {
         case regular(FileIdentity)
         case notRegular
@@ -173,14 +176,8 @@ extension Player {
             return true
         }
         guard remainingDepth > 0 else { return false }
-        var children = error.underlyingErrors.map { $0 as NSError }
-        if let underlying = error.userInfo[NSUnderlyingErrorKey] as? NSError,
-            !children.contains(where: { $0 === underlying })
-        {
-            children.append(underlying)
-        }
-        return children.contains {
-            isForbiddenReference($0, remainingDepth: remainingDepth - 1)
+        return error.underlyingErrors.contains {
+            isForbiddenReference($0 as NSError, remainingDepth: remainingDepth - 1)
         }
     }
 

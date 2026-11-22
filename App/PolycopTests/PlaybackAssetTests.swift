@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+// Every test of one subject, kept together.
+// swiftlint:disable file_length
 
 import AVFoundation
 import Foundation
@@ -98,6 +100,10 @@ private func playAndCollectCopy(of recording: URL, on player: Player) async thro
     #expect(
         PlaybackError.unplayable(hostOnly).errorDescription?.contains("https://example.com") == true
     )
+    let slashURL = try #require(URL(string: "https://example.com/"))
+    #expect(
+        PlaybackError.unplayable(slashURL).errorDescription?.contains("https://example.com/")
+            == true)
 }
 
 @Test func playableFileRejectsDirectoriesWithoutCreatingCopies() async throws {
@@ -362,6 +368,36 @@ private func playAndCollectCopy(of recording: URL, on player: Player) async thro
     try FileManager.default.createSymbolicLink(
         atPath: broken.path(percentEncoded: false), withDestinationPath: "missing.mkv")
     #expect(Player.FileIdentity(of: broken) == nil)
+}
+
+@MainActor
+@Test func copyCacheDiscardsObsoleteCopyOnlyWhenSamePathBecomesNative() async throws {
+    let work = URL.temporaryDirectory.appending(path: "native-\(UUID().uuidString)")
+    let copies = work.appending(path: "copies")
+    try FileManager.default.createDirectory(at: work, withIntermediateDirectories: true)
+    let cache = Player.CopyCache(folder: copies)
+    defer {
+        cache.discard()
+        try? FileManager.default.removeItem(at: work)
+    }
+
+    let path = work.appending(path: "lecture.media")
+    try FileManager.default.createSymbolicLink(
+        at: path, withDestinationURL: formatFixtures.appending(path: "clip.mkv"))
+    let cached = try await cache.playable(path)
+    try #require(cache.kept?.file == cached)
+
+    // Playing a different native recording keeps the cached copy intact.
+    let otherNative = formatFixtures.appending(path: "clip.wav")
+    #expect(try await cache.playable(otherNative) == otherNative)
+    #expect(cache.kept?.file == cached)
+
+    // Replacing the cached path itself with a native file discards the stale WAV copy.
+    try FileManager.default.removeItem(at: path)
+    try FileManager.default.createSymbolicLink(at: path, withDestinationURL: otherNative)
+    #expect(try await cache.playable(path) == path)
+    #expect(cache.kept == nil)
+    #expect(!FileManager.default.fileExists(atPath: cached.path(percentEncoded: false)))
 }
 
 /// Discarding the cache while a decode is in flight invalidates the request,
