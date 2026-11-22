@@ -19,7 +19,7 @@ final class PlaybackInterruptions {
     private var output = PlaybackInterruptions.defaultOutput()
 
     /// The default output device is a property of the system object.
-    private static var defaultOutputAddress = AudioObjectPropertyAddress(
+    private static let defaultOutputAddress = AudioObjectPropertyAddress(
         mSelector: kAudioHardwarePropertyDefaultOutputDevice,
         mScope: kAudioObjectPropertyScopeGlobal,
         mElement: kAudioObjectPropertyElementMain)
@@ -43,14 +43,19 @@ final class PlaybackInterruptions {
         let listener: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
             MainActor.assumeIsolated { self?.outputChanged() }
         }
+        var address = Self.defaultOutputAddress
         let status = AudioObjectAddPropertyListenerBlock(
-            AudioObjectID(kAudioObjectSystemObject), &Self.defaultOutputAddress, .main, listener)
+            AudioObjectID(kAudioObjectSystemObject), &address, .main, listener)
         if status == noErr {
             deviceListener = listener
         } else {
             Log.playback.error("could not watch the output device: \(status)")
         }
     }
+
+    /// Exposed for tests to check output-device listener registration without
+    /// starting live playback.
+    var isWatchingOutput: Bool { deviceListener != nil }
 
     /// Pauses, and keeps paused what typing was about to resume.
     func interrupt() {
@@ -73,8 +78,9 @@ final class PlaybackInterruptions {
     private static func defaultOutput() -> AudioDeviceID? {
         var device = AudioDeviceID(kAudioObjectUnknown)
         var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        var address = Self.defaultOutputAddress
         let status = AudioObjectGetPropertyData(
-            AudioObjectID(kAudioObjectSystemObject), &defaultOutputAddress, 0, nil, &size, &device)
+            AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &device)
         return status == noErr && device != kAudioObjectUnknown ? device : nil
     }
 
@@ -100,9 +106,9 @@ final class PlaybackInterruptions {
     isolated deinit {
         if let sleepObserver { center.removeObserver(sleepObserver) }
         if let deviceListener {
+            var address = Self.defaultOutputAddress
             let status = AudioObjectRemovePropertyListenerBlock(
-                AudioObjectID(kAudioObjectSystemObject), &Self.defaultOutputAddress, .main,
-                deviceListener)
+                AudioObjectID(kAudioObjectSystemObject), &address, .main, deviceListener)
             if status != noErr {
                 Log.playback.error("could not stop watching the output device: \(status)")
             }
