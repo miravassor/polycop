@@ -53,11 +53,18 @@ nonisolated enum AudioDecoder {
     private static let queue = DispatchQueue(
         label: "io.github.miravassor.Polycop.audio", qos: .userInitiated)
 
-    /// How much of ffmpeg's diagnostic is kept on disk, and how much of it
-    /// reaches a message. A damaged file can make ffmpeg log a line per
-    /// frame, more than is worth storing or reading.
-    static let logLimit = 4 << 20
-    private static let logTail = 8 << 10
+    /// How much of ffmpeg's diagnostic output is kept in memory for error
+    /// messages and logs. A damaged file can make ffmpeg log a line per
+    /// frame, more than is worth holding or reading.
+    static let logTail = 8 << 10
+
+    /// The only ffmpeg diagnostic text the app reads directly: when a file has
+    /// a video track or metadata and no audio stream, ffmpeg 9.0.2 exits with
+    /// status 234 and prints `"Output file does not contain any stream"`.
+    /// Guarded by `aRecordingWithNoSoundSaysSoRatherThanReadingAsDamaged` in
+    /// `RecoveryTests` and `reportsAVideoOnlyRecordingAsHavingNoAudioTrack` in
+    /// `AudioDecoderTests`.
+    private static let noAudioStreamDiagnostic = "does not contain any stream"
 
     /// How long a stopped ffmpeg is given to end before it is killed. It only
     /// has to close a file and exit; the wait is there so a stop cannot leave a
@@ -72,14 +79,145 @@ nonisolated enum AudioDecoder {
         var process: Process?
     }
 
+    /// Keeps only the last `capacity` bytes appended, overwriting older bytes
+    /// in place once full so memory stays bounded regardless of stream length.
+    private struct RingBuffer {
+        let capacity: Int
+        private var storage: [UInt8] = []
+        private var writeIndex = 0
+
+        mutating func append(_ chunk: Data) {
+            guard !chunk.isEmpty else { return }
+            if chunk.count >= capacity {
+                let start = chunk.index(chunk.endIndex, offsetBy: -capacity)
+                storage = Array(chunk[start...])
+                writeIndex = 0
+                return
+            }
+            var slice = chunk[...]
+            if storage.count < capacity {
+                let take = min(slice.count, capacity - storage.count)
+                let split = slice.index(slice.startIndex, offsetBy: take)
+                storage.append(contentsOf: slice[..<split])
+                slice = slice[split...]
+                if slice.isEmpty { return }
+            }
+            let firstCount = min(slice.count, capacity - writeIndex)
+            let split = slice.index(slice.startIndex, offsetBy: firstCount)
+            storage.replaceSubrange(writeIndex..<(writeIndex + firstCount), with: slice[..<split])
+            let secondCount = slice.count - firstCount
+            if secondCount > 0 {
+                storage.replaceSubrange(0..<secondCount, with: slice[split...])
+            }
+            writeIndex = (writeIndex + slice.count) % capacity
+        }
+
+        var data: Data {
+            if storage.count < capacity || writeIndex == 0 {
+                return Data(storage)
+            }
+            var ordered = Data()
+            ordered.reserveCapacity(capacity)
+            ordered.append(contentsOf: storage[writeIndex...])
+            ordered.append(contentsOf: storage[..<writeIndex])
+            return ordered
+        }
+    }
+
+    /// Drains a pipe's read end on a dedicated background queue until EOF,
+    /// keeping only the last `logTail` bytes in memory so a noisy helper
+    /// cannot fill the pipe buffer or grow memory without bound.
+    struct ErrorTail: Sendable {
+        private let group: DispatchGroup
+        private let result: OSAllocatedUnfairLock<Data>
+
+        private init(group: DispatchGroup, result: OSAllocatedUnfairLock<Data>) {
+            self.group = group
+            self.result = result
+        }
+
+        /// Starts draining `reading` until EOF, then closes it. The draining
+        /// closure owns `reading` exclusively until `wait()` or `finish()`
+        /// returns, and the caller must ensure the write end closes (such as
+        /// by waiting for the child process to exit) before waiting.
+        static func drain(_ reading: FileHandle) -> Self {
+            let group = DispatchGroup()
+            let result = OSAllocatedUnfairLock(initialState: Data())
+            group.enter()
+            errorQueue.async {
+                defer {
+                    try? reading.close()
+                    group.leave()
+                }
+                var buffer = RingBuffer(capacity: logTail)
+                // `read(upToCount:)` coalesces reads up to `logTail` and returns
+                // `nil` at EOF without raising Objective-C exceptions.
+                while let chunk = try? reading.read(upToCount: logTail), !chunk.isEmpty {
+                    buffer.append(chunk)
+                }
+                let kept = buffer.data
+                result.withLock { $0 = kept }
+            }
+            return Self(group: group, result: result)
+        }
+
+        /// Waits until EOF has been read and the underlying handle closed.
+        func wait() {
+            group.wait()
+        }
+
+        /// Waits for EOF and decodes the kept diagnostic tail.
+        func finish() -> String {
+            wait()
+            return String(decoding: result.withLock { $0 }, as: UTF8.self)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+    }
+
     /// Decoding an hour takes seconds and must not hold the window. Cancelling
     /// the task stops ffmpeg itself, rather than leaving it running unwatched.
+    ///
+    /// `maximumDuration` is a test seam for verifying the recording-length
+    /// limit without a four-hour fixture; production callers use the default.
     static func samples(
         of recording: URL, maximumDuration: TimeInterval = longestRecording
     ) async throws
         -> [Float]
     {
-        guard maximumDuration.isFinite, recording.isFileURL else {
+        precondition(
+            maximumDuration.isFinite && maximumDuration >= 0
+                && maximumDuration <= longestRecording,
+            "maximumDuration must be finite and within 0...longestRecording"
+        )
+        try verifyRegularFile(recording)
+        let sampleLimit = Int(maximumDuration * Double(sampleRate))
+        return try await runCancellable { run in
+            try decode(recording, run, sampleLimit: sampleLimit)
+        }
+    }
+
+    /// Writes a 16-bit WAV copy that AVFoundation plays, from ffmpeg straight
+    /// to `file`, so memory stays flat however long the recording. Like a
+    /// decode, it stops ffmpeg when the task is cancelled.
+    static func writePlayableCopy(of recording: URL, to file: URL) async throws {
+        try verifyRegularFile(recording)
+        guard file.isFileURL else {
+            throw AudioError.unreadable(recording, detail: "Expected a local file")
+        }
+        try await runCancellable { run in
+            try withHelper(
+                [
+                    "-i", recording.path(percentEncoded: false),
+                    "-vn", "-ac", "1", "-ar", String(sampleRate),
+                    "-t", String(Int(longestRecording)),
+                    "-c:a", "pcm_s16le", "-f", "wav", "-y", file.path(percentEncoded: false),
+                ], on: recording, run, output: FileHandle.nullDevice
+            ) {}
+        }
+    }
+
+    private static func verifyRegularFile(_ recording: URL) throws {
+        guard recording.isFileURL else {
             throw AudioError.unreadable(recording, detail: "Expected a local file")
         }
         // Only a file that is not there has moved; a folder without access
@@ -96,39 +234,16 @@ nonisolated enum AudioDecoder {
         guard regular else {
             throw AudioError.unreadable(recording, detail: "Expected a regular file")
         }
-        let byteLimit =
-            Int(min(max(maximumDuration, 0), longestRecording) * Double(sampleRate))
-            * MemoryLayout<Float>.size
-        let run = OSAllocatedUnfairLock(initialState: Run())
-        return try await withTaskCancellationHandler {
-            try await queue.run { try decode(recording, run, byteLimit: byteLimit) }
-        } onCancel: {
-            run.withLock {
-                $0.cancelled = true
-                if let process = $0.process { stop(process) }
-            }
-        }
     }
 
-    /// Writes a 16-bit WAV copy that AVFoundation plays, from ffmpeg straight
-    /// to `file`, so memory stays flat however long the recording. Like a
-    /// decode, it stops ffmpeg when the task is cancelled.
-    static func writePlayableCopy(of recording: URL, to file: URL) async throws {
-        guard recording.isFileURL, file.isFileURL else {
-            throw AudioError.unreadable(recording, detail: "Expected a local file")
-        }
+    /// Runs blocking ffmpeg work on the decoding queue and forwards task
+    /// cancellation to the active process under `Run`'s lock.
+    private static func runCancellable<Result: Sendable>(
+        _ work: @escaping @Sendable (OSAllocatedUnfairLock<Run>) throws -> Result
+    ) async throws -> Result {
         let run = OSAllocatedUnfairLock(initialState: Run())
-        try await withTaskCancellationHandler {
-            try await queue.run {
-                try withHelper(
-                    [
-                        "-i", recording.path(percentEncoded: false),
-                        "-vn", "-ac", "1", "-ar", String(sampleRate),
-                        "-t", String(Int(longestRecording)),
-                        "-c:a", "pcm_s16le", "-f", "wav", "-y", file.path(percentEncoded: false),
-                    ], on: recording, run, output: FileHandle.nullDevice
-                ) { _ in }
-            }
+        return try await withTaskCancellationHandler {
+            try await queue.run { try work(run) }
         } onCancel: {
             run.withLock {
                 $0.cancelled = true
@@ -154,8 +269,12 @@ nonisolated enum AudioDecoder {
     private static let stoppingQueue = DispatchQueue(
         label: "io.github.miravassor.Polycop.audio.stop")
 
+    private static let errorQueue = DispatchQueue(
+        label: "io.github.miravassor.Polycop.audio.error", qos: .userInitiated,
+        attributes: .concurrent)
+
     private static func decode(
-        _ recording: URL, _ run: OSAllocatedUnfairLock<Run>, byteLimit: Int
+        _ recording: URL, _ run: OSAllocatedUnfairLock<Run>, sampleLimit: Int
     ) throws -> [Float] {
         let output = Pipe()
         let arguments = [
@@ -163,7 +282,7 @@ nonisolated enum AudioDecoder {
             "-vn", "-ac", "1", "-ar", String(sampleRate),
             "-f", "f32le", "-",
         ]
-        let samples = try withHelper(arguments, on: recording, run, output: output) { process in
+        let samples = try withHelper(arguments, on: recording, run, output: output) {
             // A pipe holds 64 kB and an hour of speech is 230 MB, so the samples
             // are read while ffmpeg writes them. They go straight into the array
             // the engine is given, because holding the bytes and a copy of them
@@ -171,14 +290,11 @@ nonisolated enum AudioDecoder {
             // the four-hour limit.
             var samples: [Float] = []
             var partialSample: [UInt8] = []
-            let sampleLimit = byteLimit / MemoryLayout<Float>.size
             let reading = output.fileHandleForReading
+            defer { try? reading.close() }
             while case let chunk = reading.availableData, !chunk.isEmpty {
-                guard samples.count + chunk.count / MemoryLayout<Float>.size <= sampleLimit
-                else {
-                    stop(process)
-                    try? reading.close()
-                    process.waitUntilExit()
+                let addedSamples = (partialSample.count + chunk.count) / MemoryLayout<Float>.size
+                guard samples.count + addedSamples <= sampleLimit else {
                     throw AudioError.tooLong
                 }
                 collect(chunk, into: &samples, carrying: &partialSample)
@@ -191,12 +307,12 @@ nonisolated enum AudioDecoder {
         return samples
     }
 
-    /// Runs the bundled ffmpeg on `recording` with its errors in a capped log,
-    /// hands the running process to `body`, then turns a stop or a failure
-    /// into the app's errors once it has ended.
+    /// Runs the bundled ffmpeg on `recording` with stderr drained into a
+    /// bounded ring buffer, runs `body` while ffmpeg executes, then turns a
+    /// stop or a failure into the app's errors once it has ended.
     private static func withHelper<Result>(
         _ arguments: [String], on recording: URL, _ run: OSAllocatedUnfairLock<Run>,
-        output: Any, _ body: (Process) throws -> Result
+        output: Any, _ body: () throws -> Result
     ) throws -> Result {
         guard FileManager.default.isExecutableFile(atPath: helper.path) else {
             throw AudioError.helperMissing
@@ -208,17 +324,9 @@ nonisolated enum AudioDecoder {
             ["-nostdin", "-v", "error", "-protocol_whitelist", "file,pipe"] + arguments
         process.standardOutput = output
         process.standardInput = FileHandle.nullDevice
-
-        // Errors go to a file, not to a second pipe, because reading two pipes
-        // from one thread deadlocks as soon as either of them fills.
-        let log = FileManager.default.temporaryDirectory
-            .appending(path: "polycop-\(UUID().uuidString).log")
-        FileManager.default.createFile(
-            atPath: log.path(percentEncoded: false), contents: nil,
-            attributes: [.posixPermissions: 0o600])
-        defer { try? FileManager.default.removeItem(at: log) }
-        let errors = try FileHandle(forWritingTo: log)
-        defer { try? errors.close() }
+        // Passing the `Pipe` itself lets `Process.run()` close the parent's
+        // write end automatically, so draining stderr hits EOF when ffmpeg exits.
+        let errors = Pipe()
         process.standardError = errors
 
         // Launched and published under the lock, so a stop is either seen
@@ -228,24 +336,28 @@ nonisolated enum AudioDecoder {
             try process.run()
             state.process = process
         }
-        defer { run.withLock { $0.process = nil } }
-        let stopCapping = capping(errors)
-        defer { stopCapping() }
+        let errorTail = ErrorTail.drain(errors.fileHandleForReading)
+        var exited = false
+        defer {
+            if !exited {
+                if process.isRunning { stop(process) }
+                process.waitUntilExit()
+            }
+            errorTail.wait()
+            run.withLock { $0.process = nil }
+        }
 
-        let result = try body(process)
+        let result = try body()
         process.waitUntilExit()
+        exited = true
 
         // A stopped process is not treated as a failed decode. The task is not
         // readable from this queue, so the stop is read from the lock that
         // recorded it.
         if run.withLock({ $0.cancelled }) { throw CancellationError() }
         guard process.terminationStatus == 0 else {
-            let detail = tail(of: log)
-            // A file with a picture and no sound makes ffmpeg find nothing to
-            // convert and stop before writing anything. On the bundled ffmpeg
-            // 9.0.2 this exits with status 234 and this message, the only
-            // ffmpeg output text the app reads directly.
-            if detail.contains("does not contain any stream") {
+            let detail = errorTail.finish()
+            if detail.contains(noAudioStreamDiagnostic) {
                 throw AudioError.noAudioTrack(recording)
             }
             Log.media.error(
@@ -276,44 +388,5 @@ nonisolated enum AudioDecoder {
             }
         }
         partial = Array(bytes[whole...])
-    }
-
-    /// Caps the log every second while ffmpeg runs, not only as samples
-    /// arrive: a damaged file can make ffmpeg log every frame while it writes
-    /// nothing for a long time. What it returns stops the checks and waits
-    /// for one under way, so the handle can be closed after it.
-    static func capping(_ errors: FileHandle, every interval: TimeInterval = 1) -> () -> Void {
-        let timer = DispatchSource.makeTimerSource(queue: loggingQueue)
-        timer.schedule(deadline: .now() + interval, repeating: interval)
-        timer.setEventHandler { capLog(errors) }
-        timer.resume()
-        return {
-            timer.cancel()
-            loggingQueue.sync {}
-        }
-    }
-
-    private static let loggingQueue = DispatchQueue(
-        label: "io.github.miravassor.Polycop.audio.log")
-
-    /// Caps the diagnostic log so it does not grow without bound. A file
-    /// damaged frame by frame makes ffmpeg complain about every one of them;
-    /// the last lines are the ones worth reading, and the handle is shared
-    /// with ffmpeg, so rewinding it is what makes it overwrite the older ones.
-    private static func capLog(_ errors: FileHandle) {
-        guard let size = try? errors.offset(), size > logLimit else { return }
-        try? errors.truncate(atOffset: 0)
-        try? errors.seek(toOffset: 0)
-    }
-
-    /// The end of the diagnostic, which is where ffmpeg says what went wrong.
-    private static func tail(of log: URL) -> String {
-        guard let handle = try? FileHandle(forReadingFrom: log) else { return "" }
-        defer { try? handle.close() }
-        let size = (try? handle.seekToEnd()) ?? 0
-        try? handle.seek(toOffset: size > UInt64(logTail) ? size - UInt64(logTail) : 0)
-        let data = (try? handle.readToEnd()) ?? Data()
-        return String(decoding: data, as: UTF8.self)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
