@@ -99,25 +99,14 @@ jobs:
             "$folder"/Polycop-"$VERSION".{dmg,zip,dSYM.zip}.sha256 \
             build/notes/notes.md build/upload/
 
-      # Tests run a Debug build, whereas ad hoc signing and the hardened runtime
-      # apply to the packaged Release app. Start it against the runner's empty
-      # library to catch dynamic-linker, signing or startup crashes before
-      # drafting a release.
+      # Tests run a Debug build inside TestHost, whereas the shipped Release app
+      # drops get-task-allow, compiles in whole-module Release mode without
+      # Polycop.debug.dylib, is archived with ditto, and runs the full startup
+      # path (HistoryStore.claim, sweeps, UserDefaults.standard, UpdatePrompt).
+      # Unpack the zip publish attests and verify the app finishes launching.
       - name: Launch the packaged app
         run: |
           set -euo pipefail
-          bundle="build/releases/Polycop-$VERSION/Polycop.app"
-          app="$bundle/Contents/MacOS/Polycop"
-          helper="$bundle/Contents/Helpers/ffmpeg"
-          if [ ! -x "$app" ]; then
-            echo "::error::Packaged app executable not found: $app"
-            exit 1
-          fi
-          if ! "$helper" -version >/dev/null; then
-            echo "::error::Bundled ffmpeg helper failed to run"
-            exit 1
-          fi
-
           tmp="$(mktemp -d)"
           marker="$tmp/started"
           log="$tmp/launch.log"
@@ -145,37 +134,73 @@ jobs:
           trap cleanup EXIT
 
           report_failure() {
+            local message="$1"
+            local prefix="$2"
             if [ -s "$log" ]; then
-              cat "$log"
+              cat "$log" 2>&1 || true
             fi
             # ReportCrash writes .ips files asynchronously after a crash.
-            sleep 2
-            for dir in "$HOME/Library/Logs/DiagnosticReports" /Library/Logs/DiagnosticReports; do
-              [ -d "$dir" ] || continue
-              while IFS= read -r -d '' report; do
-                echo "::group::Crash report: $(basename "$report")"
-                cat "$report"
-                echo "::endgroup::"
-              done < <(find "$dir" -maxdepth 1 -name 'Polycop-*.ips' -newer "$marker" -print0 2>/dev/null || true)
+            local found=0
+            for _ in {1..10}; do
+              for dir in "$HOME/Library/Logs/DiagnosticReports" /Library/Logs/DiagnosticReports; do
+                [ -d "$dir" ] || continue
+                while IFS= read -r -d '' report; do
+                  found=1
+                  echo "::group::Crash report: $(basename "$report")"
+                  cat "$report" 2>&1 || true
+                  echo "::endgroup::"
+                done < <(find "$dir" -maxdepth 1 -name "$prefix-*.ips" -newer "$marker" -print0 2>/dev/null || true)
+              done
+              [ "$found" -eq 1 ] && break
+              sleep 1
             done
-            echo "::error::$1"
+            echo "::error::$message"
           }
+
+          ditto -x -k "build/upload/Polycop-$VERSION.zip" "$tmp/unpacked"
+          bundle="$tmp/unpacked/Polycop $VERSION/Polycop.app"
+          app="$bundle/Contents/MacOS/Polycop"
+          helper="$bundle/Contents/Helpers/ffmpeg"
+          if [ ! -x "$app" ]; then
+            echo "::error::Packaged app executable not found: $app"
+            exit 1
+          fi
+          codesign --verify --deep --strict "$bundle"
+
+          touch "$marker"
+          status=0
+          "$helper" -version >"$log" 2>&1 || status=$?
+          if [ "$status" -ne 0 ]; then
+            report_failure "Bundled ffmpeg exited with status $status" ffmpeg
+            exit 1
+          fi
 
           touch "$marker"
           "$app" >"$log" 2>&1 &
           pid=$!
 
-          # Stay up past launch and the five-second post-launch task.
-          for _ in {1..20}; do
+          # Poll until applicationDidFinishLaunching's five-second task records
+          # launchCount in UserDefaults.standard, proving the app did not hang.
+          ready=0
+          for _ in {1..30}; do
             sleep 1
             if ! kill -0 "$pid" 2>/dev/null; then
               status=0
               wait "$pid" || status=$?
               pid=""
-              report_failure "Packaged app exited early with status $status"
+              report_failure "Packaged app exited early with status $status" Polycop
               exit 1
             fi
+            launches="$(defaults read io.github.miravassor.Polycop launchCount 2>/dev/null || true)"
+            if [[ "$launches" =~ ^[0-9]+$ ]] && [ "$launches" -ge 1 ]; then
+              ready=1
+              break
+            fi
           done
+          if [ "$ready" -ne 1 ]; then
+            report_failure "Packaged app did not finish launching within 30 seconds" Polycop
+            exit 1
+          fi
 
           stop_app
           status=0
@@ -183,7 +208,7 @@ jobs:
           pid=""
           # AppKit leaves SIGTERM at its default disposition (status 143).
           if [ "$status" -ne 0 ] && [ "$status" -ne 143 ]; then
-            report_failure "Packaged app ended with unexpected status $status"
+            report_failure "Packaged app ended with unexpected status $status" Polycop
             exit 1
           fi
 
