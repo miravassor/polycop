@@ -99,6 +99,94 @@ jobs:
             "$folder"/Polycop-"$VERSION".{dmg,zip,dSYM.zip}.sha256 \
             build/notes/notes.md build/upload/
 
+      # Tests run a Debug build, whereas ad hoc signing and the hardened runtime
+      # apply to the packaged Release app. Start it against the runner's empty
+      # library to catch dynamic-linker, signing or startup crashes before
+      # drafting a release.
+      - name: Launch the packaged app
+        run: |
+          set -euo pipefail
+          bundle="build/releases/Polycop-$VERSION/Polycop.app"
+          app="$bundle/Contents/MacOS/Polycop"
+          helper="$bundle/Contents/Helpers/ffmpeg"
+          if [ ! -x "$app" ]; then
+            echo "::error::Packaged app executable not found: $app"
+            exit 1
+          fi
+          if ! "$helper" -version >/dev/null; then
+            echo "::error::Bundled ffmpeg helper failed to run"
+            exit 1
+          fi
+
+          tmp="$(mktemp -d)"
+          marker="$tmp/started"
+          log="$tmp/launch.log"
+          pid=""
+
+          stop_app() {
+            [ -n "$pid" ] || return 0
+            kill -TERM "$pid" 2>/dev/null || true
+            for _ in {1..10}; do
+              kill -0 "$pid" 2>/dev/null || break
+              sleep 1
+            done
+            if kill -0 "$pid" 2>/dev/null; then
+              kill -KILL "$pid" 2>/dev/null || true
+            fi
+          }
+
+          cleanup() {
+            stop_app
+            if [ -n "$pid" ]; then
+              wait "$pid" 2>/dev/null || true
+            fi
+            rm -rf "$tmp"
+          }
+          trap cleanup EXIT
+
+          report_failure() {
+            if [ -s "$log" ]; then
+              cat "$log"
+            fi
+            # ReportCrash writes .ips files asynchronously after a crash.
+            sleep 2
+            for dir in "$HOME/Library/Logs/DiagnosticReports" /Library/Logs/DiagnosticReports; do
+              [ -d "$dir" ] || continue
+              while IFS= read -r -d '' report; do
+                echo "::group::Crash report: $(basename "$report")"
+                cat "$report"
+                echo "::endgroup::"
+              done < <(find "$dir" -maxdepth 1 -name 'Polycop-*.ips' -newer "$marker" -print0 2>/dev/null || true)
+            done
+            echo "::error::$1"
+          }
+
+          touch "$marker"
+          "$app" >"$log" 2>&1 &
+          pid=$!
+
+          # Stay up past launch and the five-second post-launch task.
+          for _ in {1..20}; do
+            sleep 1
+            if ! kill -0 "$pid" 2>/dev/null; then
+              status=0
+              wait "$pid" || status=$?
+              pid=""
+              report_failure "Packaged app exited early with status $status"
+              exit 1
+            fi
+          done
+
+          stop_app
+          status=0
+          wait "$pid" || status=$?
+          pid=""
+          # AppKit leaves SIGTERM at its default disposition (status 143).
+          if [ "$status" -ne 0 ] && [ "$status" -ne 143 ]; then
+            report_failure "Packaged app ended with unexpected status $status"
+            exit 1
+          fi
+
       # GPL directions to the source belong next to the download, and the
       # commit lets anyone match the files to the code.
       - name: Say where the files come from
