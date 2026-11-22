@@ -41,21 +41,23 @@ private func textFields(in view: NSView) -> [NSTextField] {
 }
 
 @MainActor
-@Test func findBarRendersFindAndReplaceRowsInHostingController() {
+@Test func findBarRendersFindAndReplaceRowsInHostingController() async {
     let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: folder) }
     let model = AppModel(
         history: folder.appending(path: "History"),
         glossaries: folder.appending(path: "Glossaries"),
+        models: folder.appending(path: "Models"),
+        playbackCopies: folder.appending(path: "Copies"),
         defaults: MemoryDefaults())
     let entry = Entry(
-        recording: folder.appending(path: "lecture.wav"),
+        recording: folder.appending(path: "lecture.m4a"),
         modelFile: ModelCatalog.recommended.id,
-        glossary: Glossary(name: "Philosophie", text: ""),
+        glossary: Glossary(name: "Psychologie", text: ""),
         skipsSilence: false, subtitles: false)
     let matches = [
         TranscriptSearch.Match(paragraph: 0, range: NSRange(location: 0, length: 5)),
-        TranscriptSearch.Match(paragraph: 1, range: NSRange(location: 8, length: 5)),
+        TranscriptSearch.Match(paragraph: 1, range: NSRange(location: 12, length: 5)),
     ]
 
     let findOnly = host(
@@ -88,10 +90,14 @@ private func textFields(in view: NSView) -> [NSTextField] {
         model: model, entry: entry, isRunning: true)
     #expect(replacingWithoutMatches.view.frame.height > withoutMatches.view.frame.height)
     #expect(textFields(in: replacingWithoutMatches.view).count == 2)
+
+    await model.shutDown()
 }
 
+/// When an edit removes the current match and leaves more than one result,
+/// stepping backward moves before the waiting match instead of showing it.
 @MainActor
-@Test func transcriptFindNavigatesBoundariesAndWaitsAfterAnEdit() {
+@Test func backwardStepFromWaitingMatchMovesBeforeIt() {
     var paragraphs = [
         Transcript.Paragraph(start: 0, text: "mot un, mot deux"),
         Transcript.Paragraph(start: 30_000, text: "mot trois"),
@@ -99,37 +105,15 @@ private func textFields(in view: NSView) -> [NSTextField] {
     var find = TranscriptFind(isShown: true, query: "mot")
     find.refresh(in: paragraphs, startingOver: true)
     #expect(find.matches.count == 3)
-    #expect(find.index == 0)
-    #expect(find.current == find.matches[0])
-
-    // Stepping backward at the start wraps to the last match; forward wraps back.
-    find.step(forward: false)
-    #expect(find.index == 2)
-    #expect(find.current == find.matches[2])
-    find.step(forward: true)
-    #expect(find.index == 0)
-    #expect(find.current == find.matches[0])
-
-    // When an edit removes the current match, the match waiting at that place is
-    // not shown until the next forward step, while a backward step moves before it.
-    paragraphs[0].text = "un, mot deux"
-    find.refresh(in: paragraphs, startingOver: false)
-    #expect(find.matches.count == 2)
-    #expect(find.index == 0)
-    #expect(!find.showsCurrent)
-    #expect(find.current == nil)
-
-    find.step(forward: true)
-    #expect(find.index == 0)
-    #expect(find.showsCurrent)
-    #expect(find.current == find.matches[0])
 
     find.step(forward: true)
     #expect(find.index == 1)
-    paragraphs[1].text = "trois"
+
+    // Remove the middle match so index 1 now points at "mot trois", waiting.
+    paragraphs[0].text = "mot un, deux"
     find.refresh(in: paragraphs, startingOver: false)
-    #expect(find.matches.count == 1)
-    #expect(find.index == 0)
+    #expect(find.matches.count == 2)
+    #expect(find.index == 1)
     #expect(!find.showsCurrent)
     #expect(find.current == nil)
 

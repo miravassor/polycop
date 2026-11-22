@@ -111,34 +111,26 @@ struct EntryFindBar: View {
                 .onExitCommand { find.close() }
             Text(position)
                 .font(.caption).foregroundStyle(.secondary).fixedSize()
-            Button {
-                navigate(false)
-            } label: {
-                Label("Previous search result", systemImage: "chevron.up")
-                    .labelStyle(.iconOnly)
-            }
-            .keyboardShortcut("g", modifiers: [.command, .shift])
-            .disabled(find.matches.isEmpty)
-            .help("Previous search result")
-            Button {
-                navigate(true)
-            } label: {
-                Label("Next search result", systemImage: "chevron.down")
-                    .labelStyle(.iconOnly)
-            }
-            .keyboardShortcut("g")
-            .disabled(find.matches.isEmpty)
-            .help("Next search result")
+            iconButton("Previous search result", symbol: "chevron.up") { navigate(false) }
+                .keyboardShortcut("g", modifiers: [.command, .shift])
+                .disabled(find.matches.isEmpty)
+            iconButton("Next search result", symbol: "chevron.down") { navigate(true) }
+                .keyboardShortcut("g")
+                .disabled(find.matches.isEmpty)
             Toggle("Replace", isOn: $find.isReplacing)
                 .toggleStyle(.checkbox)
-            Button {
-                find.close()
-            } label: {
-                Label("Close search", systemImage: "xmark")
-                    .labelStyle(.iconOnly)
-            }
-            .help("Close search")
+            iconButton("Close search", symbol: "xmark") { find.close() }
         }
+    }
+
+    private func iconButton(
+        _ title: LocalizedStringKey, symbol: String, action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: symbol)
+                .labelStyle(.iconOnly)
+        }
+        .help(title)
     }
 
     /// Where the reader is among the results, or how many there are while
@@ -189,30 +181,44 @@ struct EntryFindBar: View {
     }
 }
 
-#Preview {
-    @Previewable @State var find = TranscriptFind(
+private struct EntryFindBarPreview: View {
+    // Constructed once for the preview, using isolated folders rather than the user's library.
+    @State private var model: AppModel
+    @State private var find = TranscriptFind(
         isShown: true, query: "Freud",
         matches: [
             TranscriptSearch.Match(paragraph: 0, range: NSRange(location: 0, length: 5)),
             TranscriptSearch.Match(paragraph: 1, range: NSRange(location: 12, length: 5)),
         ],
         isReplacing: true, replacement: "Froid")
-    @Previewable @FocusState var isFocused: Bool
-    // An empty library and glossaries of its own, never the user's.
-    let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
-    let entry = Entry(
+    @FocusState private var isFocused: Bool
+    private let entry = Entry(
         recording: URL(filePath: "/tmp/lecture.m4a"),
         modelFile: ModelCatalog.recommended.id,
         glossary: Glossary(name: "Psychologie", text: ""),
         skipsSilence: false, subtitles: false)
-    EntryFindBar(
-        model: AppModel(
-            history: folder.appending(path: "History"),
-            glossaries: folder.appending(path: "Glossaries"),
-            defaults: MemoryDefaults()),
-        entry: entry, isRunning: false, find: $find, isFocused: $isFocused,
-        navigate: { find.step(forward: $0) }
-    )
-    .padding(Spacing.sheet)
-    .frame(width: 560)
+
+    init() {
+        let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
+        _model = State(
+            initialValue: AppModel(
+                history: folder.appending(path: "History"),
+                glossaries: folder.appending(path: "Glossaries"),
+                models: folder.appending(path: "Models"),
+                playbackCopies: folder.appending(path: "Copies"),
+                defaults: MemoryDefaults()))
+    }
+
+    var body: some View {
+        EntryFindBar(
+            model: model, entry: entry, isRunning: false, find: $find, isFocused: $isFocused,
+            navigate: { find.step(forward: $0) }
+        )
+        .padding(Spacing.sheet)
+        .frame(width: 560)
+    }
+}
+
+#Preview {
+    EntryFindBarPreview()
 }
