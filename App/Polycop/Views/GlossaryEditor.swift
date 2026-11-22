@@ -6,6 +6,9 @@ import UniformTypeIdentifiers
 
 /// Course glossaries: one term per line, saved as it is typed.
 struct GlossaryEditor: View {
+    /// The sheet's size, internal so tests can verify it fits inside the smallest window.
+    static let sheetSize = CGSize(width: 700, height: 500)
+
     let model: AppModel
     @Environment(\.dismiss) private var dismiss
     @State private var selection: String?
@@ -65,7 +68,7 @@ struct GlossaryEditor: View {
             }
         }
         .padding(Spacing.sheet)
-        .frame(width: 700, height: 500)
+        .frame(width: Self.sheetSize.width, height: Self.sheetSize.height)
         .sheet(isPresented: $findingTerms) {
             TermFinder(attested: Set(Glossary.terms(in: text)), add: append)
         }
@@ -125,28 +128,29 @@ struct GlossaryEditor: View {
                     Button("New Course…") { naming = true }
                     Button("Import…") { importing = true }
                 } label: {
-                    Image(systemName: "plus").frame(width: 24, height: 20)
+                    Label("Add a course", systemImage: "plus")
+                        .labelStyle(.iconOnly)
+                        .frame(width: 24, height: 20)
                 }
                 .menuStyle(.borderlessButton)
                 .menuIndicator(.hidden)
                 .fixedSize()
-                .accessibilityLabel("Add a course")
                 .help("New course, or import a text file with one term per line")
                 Divider().frame(height: 16)
                 Button {
                     confirmingDeletion = true
                 } label: {
-                    Image(systemName: "minus").frame(width: 24, height: 20)
+                    Label("Move the course to the Trash", systemImage: "minus")
+                        .labelStyle(.iconOnly)
+                        .frame(width: 24, height: 20)
                 }
                 .buttonStyle(.borderless)
                 .disabled(selection == nil)
-                .accessibilityLabel("Move the course to the Trash")
                 .help("Move the course to the Trash")
             }
             .padding(4)
         }
-        // In one box with the terms' edge, + and − inside its foot, as in
-        // System Settings.
+        // + and − inside the list's edge, the Mac's convention.
         .editorBorder()
         .frame(width: 200)
     }
@@ -265,12 +269,20 @@ struct GlossaryEditor: View {
     /// Keeps the order the finder gave: the terms it trusts most go last,
     /// where whisper.cpp reads them even when a glossary is too long.
     private func append(_ terms: [String]) {
+        guard let merged = Self.appending(terms, to: text) else { return }
+        text = merged
+        save()
+    }
+
+    /// Adds terms not already present (ignoring case) in the order given,
+    /// returning `nil` when nothing is new so untouched text is not rewritten.
+    /// Static so tests can check the rule directly.
+    nonisolated static func appending(_ terms: [String], to text: String) -> String? {
         let existing = Glossary.terms(in: text)
         let known = Set(existing.map { $0.lowercased() })
         let added = terms.filter { !known.contains($0.lowercased()) }
-        guard !added.isEmpty else { return }
-        text = (existing + added).joined(separator: "\n")
-        save()
+        guard !added.isEmpty else { return nil }
+        return (existing + added).joined(separator: "\n")
     }
 
     private func delete() throws {
@@ -309,4 +321,28 @@ struct GlossaryEditor: View {
             GlossaryStore.location(of: name, in: model.glossaryFolder)
         ])
     }
+}
+
+#Preview {
+    // Isolated temporary folders and in-memory settings, never the user's library.
+    let model: AppModel = {
+        let folder = URL.temporaryDirectory.appending(path: "Polycop-GlossaryEditor-Preview")
+        try? FileManager.default.removeItem(at: folder)
+        let glossaries = folder.appending(path: "Glossaries")
+        try? GlossaryStore.save(
+            Glossary(
+                name: "Philosophie",
+                text: "Descartes\nPascal\nMontaigne\ndoute méthodique"),
+            in: glossaries)
+        try? GlossaryStore.save(
+            Glossary(name: "Histoire", text: "Tocqueville\nBraudel\nMarc Bloch"),
+            in: glossaries)
+        return AppModel(
+            history: folder.appending(path: "History"),
+            glossaries: glossaries,
+            models: folder.appending(path: "Models"),
+            playbackCopies: folder.appending(path: "Copies"),
+            defaults: MemoryDefaults())
+    }()
+    GlossaryEditor(model: model)
 }
