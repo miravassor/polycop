@@ -246,7 +246,7 @@ func importingWithAReusedRecordingInheritsNoPriorOrDeletedState(fixture: String)
 /// file on disk is modified at the same path.
 @MainActor
 @Test func playbackCopiesSurviveDeletingAnEntryAndRefreshWhenTheFileChanges() async throws {
-    try await withWorkspaceModel("clip.ogg") { workspace, model in
+    try await withWorkspaceModel("clip.mkv") { workspace, model in
         let first = try await transcribeOne(model, workspace.recording)
         let second = try await transcribeOne(model, workspace.recording)
         try await replayAndStop(model, first.id)
@@ -263,7 +263,7 @@ func importingWithAReusedRecordingInheritsNoPriorOrDeletedState(fixture: String)
 
         // Modifying the recording file at the same path updates its modification
         // date, so playback discards the stale decoded copy and decodes anew.
-        try Data(contentsOf: formats.appending(path: "clip.ogg")).write(to: workspace.recording)
+        try Data(contentsOf: formats.appending(path: "clip.mkv")).write(to: workspace.recording)
         try FileManager.default.setAttributes(
             [.modificationDate: Date.now.addingTimeInterval(10)],
             ofItemAtPath: workspace.recording.path(percentEncoded: false))
