@@ -2,11 +2,8 @@
 
 import SwiftUI
 
-/// What is happening to this transcript, above its text: the work under way
-/// in a capsule, or how it ended when it ended early. A page without text says
-/// the rest in its empty state. The work is read from the model rather than
-/// the entry. Repairing the repeats of a finished transcript leaves it
-/// finished throughout, since its text stays complete.
+/// The job on this transcript, or how it ended if it stopped early. Read from
+/// the model: a repair leaves the entry finished.
 struct EntryProgress: View {
     let model: AppModel
     let entry: Entry
@@ -50,9 +47,7 @@ struct EntryProgress: View {
     }
 }
 
-/// The work under way on one line, centred above the text on the player's
-/// surface, as the player is below it: what runs, in the library's words, how
-/// far, and the buttons that pause and stop it.
+/// The running job's progress and controls, in a floating capsule.
 struct TranscriptionStatus: View {
     let model: AppModel
 
@@ -87,8 +82,6 @@ struct TranscriptionStatus: View {
         }
     }
 
-    /// Icon buttons, as the model download's row on New Transcription; the
-    /// File menu has the same commands.
     @ViewBuilder private var controls: some View {
         Group {
             switch model.stage {
@@ -114,8 +107,45 @@ struct TranscriptionStatus: View {
     private func control(
         _ title: LocalizedStringKey, _ symbol: String, _ action: @escaping () -> Void
     ) -> some View {
-        Button(action: action) { Image(systemName: symbol) }
-            .accessibilityLabel(title)
-            .help(title)
+        Button(action: action) {
+            Label(title, systemImage: symbol).labelStyle(.iconOnly)
+        }
+        .help(title)
     }
+}
+
+#Preview("Progress") {
+    // Empty folders and settings of their own, never the user's.
+    let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    let model = { (stage: AppModel.Stage) -> AppModel in
+        let model = AppModel(
+            history: folder.appending(path: "History"),
+            glossaries: folder.appending(path: "Glossaries"),
+            models: folder.appending(path: "Models"),
+            playbackCopies: folder.appending(path: "Replay"),
+            defaults: MemoryDefaults())
+        model.keepAwake = false
+        model.stage = stage
+        return model
+    }
+    let entry = { (state: Entry.State) -> Entry in
+        var entry = Entry(
+            recording: folder.appending(path: "Lecture.wav"),
+            modelFile: ModelCatalog.recommended.id, glossary: nil, skipsSilence: false,
+            subtitles: false)
+        entry.publish([Segment(start: 0, end: 12, text: "Good morning everyone.")], partial: true)
+        entry.state = state
+        return entry
+    }
+    let idle = model(.waiting)
+    VStack(spacing: Spacing.block) {
+        TranscriptionStatus(model: model(.transcribing(0.42)))
+        TranscriptionStatus(model: model(.paused(0.42)))
+        TranscriptionStatus(model: model(.downloading(0.65)))
+        EntryProgress(model: idle, entry: entry(.stopped), isRunning: false)
+        EntryProgress(
+            model: idle, entry: entry(.failed("The recording could not be read.")),
+            isRunning: false)
+    }
+    .padding(Spacing.sheet)
 }
