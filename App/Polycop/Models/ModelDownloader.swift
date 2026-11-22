@@ -73,7 +73,7 @@ nonisolated enum ModelDownloader {
         if let resumeData = try? Data(contentsOf: resumeFile) {
             do {
                 return try await fetch(model, into: place, resumingFrom: resumeData)
-            } catch let error where !isStop(error) && resumeData(in: error) == nil {
+            } catch let error where !isStop(error) && Self.resumeData(in: error) == nil {
                 // Resume data replays the request it was made from, whose
                 // signed redirect may have expired, the bytes it continues may
                 // be wrong, and the system may have deleted the partial file it
@@ -111,9 +111,9 @@ nonisolated enum ModelDownloader {
             // URLSession hands back the bytes it fetched when a transfer fails
             // or is stopped, as by Cancel or Quit, so the next attempt does
             // not start from zero.
-            if let resumeData = resumeData(in: error) {
+            if let saved = Self.resumeData(in: error) {
                 do {
-                    try resumeData.write(to: resumeFile, options: .atomic)
+                    try saved.write(to: resumeFile, options: .atomic)
                 } catch let writeError {
                     Log.models.error(
                         "could not save download resume data: \(writeError, privacy: .private)")
