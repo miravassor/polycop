@@ -62,6 +62,34 @@ Each update is its own pull request.
 7. Read the draft and publish it. Check for Updates finds a release only once it
    is published.
 
+## Compatibility
+
+* **Backward compatibility:** Every release reads every record written by any
+  earlier release. Stored JSON field names and meanings never change, and new
+  fields are optional. `RecordFormatTests` checks fixtures from every release
+  that changed what is stored (`App/PolycopTests/Fixtures/records/`) and
+  verifies that rewriting an older record drops no key.
+* **Forward compatibility:** `Entry.requires` (absent means format 1) marks
+  records that hold data an older version would lose or misread, and
+  `HistoryStore` records the writing version in `writtenBy`. From 0.5.0 on, a
+  version that encounters a record whose `requires` is above
+  `HistoryStore.knownFormat` leaves the file untouched and lists it as
+  unavailable (`UnavailableRecord`) rather than opening or rewriting it. Going
+  back to an older release is best effort: an earlier version without the guard,
+  or one reading a field that did not raise `requires`, rewrites only the fields
+  it knows and may drop unrecognized ones.
+* **Library snapshots:** At each version change, before the new version reads a
+  non-empty library, `LibrarySnapshots` copies `History/` and `Glossaries/` (as
+  APFS clones when supported) into `Snapshots/`, named with the date and the
+  version about to open it, keeping the last two copies. Restoring an earlier
+  library is a manual quit and swap of `History/` and `Glossaries/` (see
+  [README.md](README.md)). Items deleted permanently from the library are
+  removed from snapshots as well.
+* **Versioning:** Before 1.0, the minor version (`0.Y.0`) may add stored fields
+  or raise `HistoryStore.knownFormat` while keeping backward compatibility.
+  From 1.0 onward, any stored-format migration is rehearsed on a real library
+  snapshot before shipping.
+
 ## Guidelines
 
 The conventions, and what a pull request needs before it is merged, are in
