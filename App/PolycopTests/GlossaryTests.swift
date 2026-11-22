@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+// Every test of one subject, kept together.
+// swiftlint:disable file_length
 
 import Foundation
 import Testing
@@ -94,6 +96,30 @@ private func temporaryFolder() -> URL {
 
     #expect(found.map(\.name) == ["Philosophie"])
     #expect(found.first?.terms == ["Descartes", "Héloïse"])
+}
+
+@Test func listingGlossariesSeparatesUnreadableEntriesAndMissingFolders() throws {
+    let root = temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    let missing = GlossaryStore.all(in: root.appending(path: "Missing"))
+    #expect(missing.glossaries.isEmpty)
+    #expect(missing.unreadable.isEmpty)
+
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    let regularFile = root.appending(path: "file.txt")
+    try Data("Descartes".utf8).write(to: regularFile)
+    let fromFile = GlossaryStore.all(in: regularFile)
+    #expect(fromFile.glossaries.isEmpty)
+    #expect(fromFile.unreadable.isEmpty)
+
+    let folder = root.appending(path: "Glossaries")
+    try GlossaryStore.save(Glossary(name: "Philosophie", text: "Descartes"), in: folder)
+    try FileManager.default.createDirectory(
+        at: folder.appending(path: "Broken.txt"), withIntermediateDirectories: true)
+    let listing = GlossaryStore.all(in: folder)
+    #expect(listing.glossaries == [Glossary(name: "Philosophie", text: "Descartes")])
+    #expect(listing.unreadable == ["Broken"])
 }
 
 /// Importing never replaces a course, and a prompt sentence is stored as one
