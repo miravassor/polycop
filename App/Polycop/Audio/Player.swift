@@ -43,6 +43,7 @@ final class Player {
     private(set) var recording: URL?
     /// The last decoded copy, kept so returning to a transcript avoids re-decoding.
     @ObservationIgnored private let copyCache: CopyCache
+    /// Exposed for tests to inspect the cached decoded copy.
     var keptCopy: KeptCopy? { copyCache.kept }
     private var observer: Any?
     private var preparation: Task<Void, Never>?

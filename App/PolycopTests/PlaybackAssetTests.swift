@@ -38,12 +38,6 @@ private func referenceMovie(pointingTo target: URL) -> Data {
     return quickTimeBox("ftyp", payload: ftyp) + moov
 }
 
-private func isForbiddenReferenceError(_ error: any Error) -> Bool {
-    let nsError = error as NSError
-    return nsError.domain == AVFoundationErrorDomain
-        && nsError.code == AVError.referenceForbiddenByReferencePolicy.rawValue
-}
-
 @MainActor
 private func playAndCollectCopy(of recording: URL, on player: Player) async throws
     -> Player.KeptCopy
@@ -71,6 +65,7 @@ private func playAndCollectCopy(of recording: URL, on player: Player) async thro
 
 @Test func assetAndVideoHelpersRejectRemoteURLs() async throws {
     let remote = try #require(URL(string: "https://example.com/lecture.mp4"))
+    let hostOnly = try #require(URL(string: "https://example.com"))
     let copies = URL.temporaryDirectory.appending(path: "remote-\(UUID().uuidString)")
     defer { try? FileManager.default.removeItem(at: copies) }
 
@@ -100,6 +95,42 @@ private func playAndCollectCopy(of recording: URL, on player: Player) async thro
         Issue.record("Expected PlaybackError.unplayable, got \(error)")
     }
     #expect(!FileManager.default.fileExists(atPath: copies.path(percentEncoded: false)))
+    #expect(
+        PlaybackError.unplayable(hostOnly).errorDescription?.contains("https://example.com") == true
+    )
+}
+
+@Test func playableFileRejectsDirectoriesWithoutCreatingCopies() async throws {
+    let work = URL.temporaryDirectory.appending(path: "dir-\(UUID().uuidString)")
+    let copies = work.appending(path: "copies")
+    try FileManager.default.createDirectory(at: work, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: work) }
+
+    do {
+        _ = try await Player.playableFile(for: work, in: copies)
+        Issue.record("Expected playableFile to reject a directory")
+    } catch PlaybackError.unplayable {
+    } catch {
+        Issue.record("Expected PlaybackError.unplayable, got \(error)")
+    }
+    #expect(!FileManager.default.fileExists(atPath: copies.path(percentEncoded: false)))
+}
+
+@Test func isForbiddenReferenceDetectsDirectAndWrappedErrors() {
+    let forbidden = NSError(
+        domain: AVFoundationErrorDomain,
+        code: AVError.referenceForbiddenByReferencePolicy.rawValue)
+    let wrapped = NSError(
+        domain: NSCocoaErrorDomain, code: 1, userInfo: [NSUnderlyingErrorKey: forbidden])
+    let multiWrapped = NSError(
+        domain: NSCocoaErrorDomain, code: 2,
+        userInfo: [NSMultipleUnderlyingErrorsKey: [NSError(domain: "other", code: 0), wrapped]])
+    let unrelated = NSError(domain: AVFoundationErrorDomain, code: AVError.unknown.rawValue)
+
+    #expect(Player.isForbiddenReference(forbidden))
+    #expect(Player.isForbiddenReference(wrapped))
+    #expect(Player.isForbiddenReference(multiWrapped))
+    #expect(!Player.isForbiddenReference(unrelated))
 }
 
 @Test func assetRejectsExternalLocalReferences() async throws {
@@ -119,7 +150,7 @@ private func playAndCollectCopy(of recording: URL, on player: Player) async thro
         _ = try await Player.asset(for: reference).load(.isPlayable)
         Issue.record("Expected external local reference to be rejected")
     } catch {
-        #expect(isForbiddenReferenceError(error))
+        #expect(Player.isForbiddenReference(error))
     }
 
     #expect(await Player.pictureSize(of: reference) == nil)
@@ -128,7 +159,7 @@ private func playAndCollectCopy(of recording: URL, on player: Player) async thro
         _ = try await Player.frame(of: reference, at: 0)
         Issue.record("Expected frame extraction to reject external local reference")
     } catch {
-        #expect(isForbiddenReferenceError(error))
+        #expect(Player.isForbiddenReference(error))
     }
 
     do {
@@ -138,6 +169,33 @@ private func playAndCollectCopy(of recording: URL, on player: Player) async thro
     } catch {
         Issue.record("Expected PlaybackError.unplayable, got \(error)")
     }
+    #expect(!FileManager.default.fileExists(atPath: copies.path(percentEncoded: false)))
+}
+
+@MainActor
+@Test func playerRefusesExternalLocalReferenceEndToEnd() async throws {
+    let video = formatFixtures.appending(path: "clip-video.mp4")
+    let reference = URL.temporaryDirectory.appending(path: "ref-play-\(UUID().uuidString).mov")
+    let copies = URL.temporaryDirectory.appending(path: "ref-play-copies-\(UUID().uuidString)")
+    try referenceMovie(pointingTo: video).write(to: reference)
+    let player = Player(defaults: MemoryDefaults(), copies: copies)
+    defer {
+        player.stop()
+        player.discardCopy()
+        try? FileManager.default.removeItem(at: reference)
+        try? FileManager.default.removeItem(at: copies)
+    }
+
+    player.play(reference, from: 0)
+    for _ in 0..<100 where player.isPreparing {
+        try await Task.sleep(for: .milliseconds(50))
+    }
+
+    #expect(!player.isPreparing)
+    #expect(!player.isOpen)
+    #expect(!player.isPlaying)
+    #expect(player.failure != nil)
+    #expect(player.keptCopy == nil)
     #expect(!FileManager.default.fileExists(atPath: copies.path(percentEncoded: false)))
 }
 
@@ -168,8 +226,11 @@ private func playAndCollectCopy(of recording: URL, on player: Player) async thro
     #expect(openAsset.referenceRestrictions == .forbidAll)
 }
 
+/// Verifies `PlaybackInterruptions` registers its CoreAudio default-output
+/// listener when `watchesOutput` is enabled and tears down cleanly (deinit
+/// itself only logs non-`noErr` removal statuses).
 @MainActor
-@Test func playbackInterruptionsWatchesAndReleasesDefaultOutput() {
+@Test func playbackInterruptionsRegistersAndTearsDownOutputListener() {
     let player = Player(defaults: MemoryDefaults())
     let inactive = PlaybackInterruptions(
         player: player, center: NotificationCenter(), watchesOutput: false)
@@ -192,7 +253,8 @@ private func playAndCollectCopy(of recording: URL, on player: Player) async thro
     let copies = work.appending(path: "copies")
     try FileManager.default.createDirectory(at: work, withIntermediateDirectories: true)
     let recording = work.appending(path: "lecture.mkv")
-    let preservedDate = Date(timeIntervalSince1970: 1_700_000_000)
+    let preservedSeconds = 1_700_000_000
+    let preservedDate = Date(timeIntervalSince1970: TimeInterval(preservedSeconds))
     let player = Player(defaults: MemoryDefaults(), copies: copies)
     defer {
         player.stop()
@@ -205,7 +267,7 @@ private func playAndCollectCopy(of recording: URL, on player: Player) async thro
         [.modificationDate: preservedDate], ofItemAtPath: recording.path(percentEncoded: false))
 
     let first = try await playAndCollectCopy(of: recording, on: player)
-    #expect(first.identity?.modified == preservedDate)
+    #expect(first.identity?.modifiedSeconds == preservedSeconds)
     #expect(try await playAndCollectCopy(of: recording, on: player) == first)
 
     // Atomic replacement: identical size and modification date, new inode.
@@ -213,7 +275,7 @@ private func playAndCollectCopy(of recording: URL, on player: Player) async thro
     try FileManager.default.setAttributes(
         [.modificationDate: preservedDate], ofItemAtPath: recording.path(percentEncoded: false))
     let replacedIdentity = try #require(Player.FileIdentity(of: recording))
-    #expect(replacedIdentity.modified == preservedDate)
+    #expect(replacedIdentity.modifiedSeconds == preservedSeconds)
     #expect(replacedIdentity.size == first.identity?.size)
     #expect(replacedIdentity != first.identity)
 
@@ -227,7 +289,7 @@ private func playAndCollectCopy(of recording: URL, on player: Player) async thro
     try FileManager.default.setAttributes(
         [.modificationDate: preservedDate], ofItemAtPath: recording.path(percentEncoded: false))
     let overwrittenIdentity = try #require(Player.FileIdentity(of: recording))
-    #expect(overwrittenIdentity.modified == preservedDate)
+    #expect(overwrittenIdentity.modifiedSeconds == preservedSeconds)
     #expect(overwrittenIdentity.size != second.identity?.size)
 
     let third = try await playAndCollectCopy(of: recording, on: player)
@@ -239,18 +301,20 @@ private func playAndCollectCopy(of recording: URL, on player: Player) async thro
     #expect(Player.FileIdentity(of: work) == nil)
 }
 
-/// Replacing the target of a symlinked recording invalidates `keptCopy` even
-/// though the symlink itself keeps the same inode, size, and modification date.
+/// Editing a relative symlink's target or retargeting the symlink to another
+/// file with the same size and modification date invalidates `keptCopy`.
 @MainActor
-@Test func keptCopyInvalidatesWhenSymlinkTargetIsReplaced() async throws {
+@Test func keptCopyInvalidatesWhenSymlinkTargetChangesOrRetargets() async throws {
     let mkv = formatFixtures.appending(path: "clip.mkv")
     let videoMkv = formatFixtures.appending(path: "clip-video.mkv")
     let work = URL.temporaryDirectory.appending(path: "kept-link-\(UUID().uuidString)")
     let copies = work.appending(path: "copies")
     try FileManager.default.createDirectory(at: work, withIntermediateDirectories: true)
     let target = work.appending(path: "target.mkv")
+    let secondTarget = work.appending(path: "target-two.mkv")
     let link = work.appending(path: "lecture.mkv")
-    let preservedDate = Date(timeIntervalSince1970: 1_700_000_000)
+    let preservedSeconds = 1_700_000_000
+    let preservedDate = Date(timeIntervalSince1970: TimeInterval(preservedSeconds))
     let player = Player(defaults: MemoryDefaults(), copies: copies)
     defer {
         player.stop()
@@ -261,13 +325,13 @@ private func playAndCollectCopy(of recording: URL, on player: Player) async thro
     try Data(contentsOf: mkv).write(to: target)
     try FileManager.default.setAttributes(
         [.modificationDate: preservedDate], ofItemAtPath: target.path(percentEncoded: false))
-    try FileManager.default.createSymbolicLink(at: link, withDestinationURL: target)
+    try FileManager.default.createSymbolicLink(
+        atPath: link.path(percentEncoded: false), withDestinationPath: "target.mkv")
 
     let first = try await playAndCollectCopy(of: link, on: player)
     #expect(try await playAndCollectCopy(of: link, on: player) == first)
 
-    // Replace the symlink target in place while keeping the target's mtime and
-    // leaving the symlink itself untouched.
+    // In-place overwrite of the target with preserved mtime; symlink stays untouched.
     try Data(contentsOf: videoMkv).write(to: target)
     try FileManager.default.setAttributes(
         [.modificationDate: preservedDate], ofItemAtPath: target.path(percentEncoded: false))
@@ -277,8 +341,55 @@ private func playAndCollectCopy(of recording: URL, on player: Player) async thro
     #expect(!FileManager.default.fileExists(atPath: first.file.path(percentEncoded: false)))
     #expect(FileManager.default.fileExists(atPath: second.file.path(percentEncoded: false)))
 
+    // Retarget the symlink to a different file with identical size and mtime.
+    try Data(contentsOf: videoMkv).write(to: secondTarget)
+    try FileManager.default.setAttributes(
+        [.modificationDate: preservedDate], ofItemAtPath: secondTarget.path(percentEncoded: false))
+    try FileManager.default.removeItem(at: link)
+    try FileManager.default.createSymbolicLink(
+        atPath: link.path(percentEncoded: false), withDestinationPath: "target-two.mkv")
+    let retargetedIdentity = try #require(Player.FileIdentity(of: link))
+    #expect(retargetedIdentity.size == second.identity?.size)
+    #expect(retargetedIdentity.modifiedSeconds == preservedSeconds)
+    #expect(retargetedIdentity != second.identity)
+
+    let third = try await playAndCollectCopy(of: link, on: player)
+    #expect(third.file != second.file)
+    #expect(!FileManager.default.fileExists(atPath: second.file.path(percentEncoded: false)))
+    #expect(FileManager.default.fileExists(atPath: third.file.path(percentEncoded: false)))
+
     let broken = work.appending(path: "broken.mkv")
     try FileManager.default.createSymbolicLink(
         atPath: broken.path(percentEncoded: false), withDestinationPath: "missing.mkv")
     #expect(Player.FileIdentity(of: broken) == nil)
+}
+
+/// Discarding the cache while a decode is in flight invalidates the request,
+/// leaving `kept` empty and removing any newly decoded file.
+@MainActor
+@Test func copyCacheDiscardDuringInFlightDecodeLeavesNoLeakedCopy() async throws {
+    let mkv = formatFixtures.appending(path: "clip.mkv")
+    let copies = URL.temporaryDirectory.appending(path: "discard-race-\(UUID().uuidString)")
+    let cache = Player.CopyCache(folder: copies)
+    defer {
+        cache.discard()
+        try? FileManager.default.removeItem(at: copies)
+    }
+
+    var started = false
+    let decode = Task {
+        started = true
+        return try await cache.playable(mkv)
+    }
+    while !started { await Task.yield() }
+    cache.discard()
+
+    await #expect(throws: CancellationError.self) {
+        _ = try await decode.value
+    }
+    #expect(cache.kept == nil)
+    let remaining =
+        (try? FileManager.default.contentsOfDirectory(atPath: copies.path(percentEncoded: false)))
+        ?? []
+    #expect(remaining.isEmpty)
 }
