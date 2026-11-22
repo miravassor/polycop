@@ -70,14 +70,15 @@ private func withGlossaryEditor(
     await model.shutDown()
 }
 
-/// The sheet fits inside the smallest window (`ContentView` minimum: 860 by 600)
-/// and shows no terms editor when the library has no courses.
+/// The sheet fits inside the smallest window and shows no terms editor when the
+/// library has no courses.
 @MainActor
 @Test func glossaryEditorFitsInsideSmallestWindowWhenEmpty() async throws {
     try await withGlossaryEditor { _, controller in
         await turns(2)
         let size = controller.view.fittingSize
         #expect(size == GlossaryEditor.sheetSize)
+        // ContentView's minimum window size is 860 by 600.
         #expect(size.width <= 860)
         #expect(size.height <= 600)
         #expect(textViews(in: controller.view).isEmpty)

@@ -6,8 +6,8 @@ import UniformTypeIdentifiers
 
 /// Course glossaries: one term per line, saved as it is typed.
 struct GlossaryEditor: View {
-    /// The sheet's size, kept inside the window's minimum in `ContentView`.
-    nonisolated static let sheetSize = CGSize(width: 700, height: 500)
+    /// The sheet's size, internal so tests can verify it fits inside the smallest window.
+    static let sheetSize = CGSize(width: 700, height: 500)
 
     let model: AppModel
     @Environment(\.dismiss) private var dismiss
@@ -326,7 +326,8 @@ struct GlossaryEditor: View {
 #Preview {
     // Isolated temporary folders and in-memory settings, never the user's library.
     let model: AppModel = {
-        let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
+        let folder = URL.temporaryDirectory.appending(path: "Polycop-GlossaryEditor-Preview")
+        try? FileManager.default.removeItem(at: folder)
         let glossaries = folder.appending(path: "Glossaries")
         try? GlossaryStore.save(
             Glossary(
