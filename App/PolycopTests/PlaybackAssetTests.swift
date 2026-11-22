@@ -381,14 +381,14 @@ private func playAndCollectCopy(of recording: URL, on player: Player) async thro
         try? FileManager.default.removeItem(at: work)
     }
 
-    let path = work.appending(path: "lecture.media")
+    let path = work.appending(path: "lecture.mp4")
     try FileManager.default.createSymbolicLink(
         at: path, withDestinationURL: formatFixtures.appending(path: "clip.mkv"))
     let cached = try await cache.playable(path)
     try #require(cache.kept?.file == cached)
 
     // Playing a different native recording keeps the cached copy intact.
-    let otherNative = formatFixtures.appending(path: "clip.wav")
+    let otherNative = formatFixtures.appending(path: "clip-video.mp4")
     #expect(try await cache.playable(otherNative) == otherNative)
     #expect(cache.kept?.file == cached)
 
