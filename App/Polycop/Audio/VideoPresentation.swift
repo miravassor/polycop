@@ -5,11 +5,42 @@ import AppKit
 import Observation
 import os
 
+/// The surface of `AVPictureInPictureController` that `VideoPresentation`
+/// drives, kept internal so tests can drive `isPictureInPicturePossible` via
+/// KVO without opening a system Picture in Picture window.
+protocol PictureInPictureController: AnyObject {
+    var isPictureInPicturePossible: Bool { get }
+    var isPictureInPictureActive: Bool { get }
+    func observePossible(_ onPossible: @escaping @Sendable () -> Void) -> NSKeyValueObservation
+    func startPictureInPicture()
+    func stopPictureInPicture()
+}
+
+extension AVPictureInPictureController: PictureInPictureController {
+    func observePossible(_ onPossible: @escaping @Sendable () -> Void) -> NSKeyValueObservation {
+        VideoPresentation.observePossible(
+            self, at: \.isPictureInPicturePossible, onPossible: onPossible)
+    }
+}
+
 /// Where the picture of a video shows besides its page: floating in Picture
 /// in Picture, which takes it off the page and gives the text its room, or
 /// filling the screen.
 @Observable
 final class VideoPresentation: NSObject {
+    /// Holds the KVO observation and bounded timeout for one pending start so
+    /// every exit path tears both down together.
+    private struct PendingStart {
+        let attempt: Int
+        let observation: NSKeyValueObservation
+        let timeout: Task<Void, Never>
+
+        func cancel() {
+            observation.invalidate()
+            timeout.cancel()
+        }
+    }
+
     private(set) var isInPictureInPicture = false {
         didSet { followOutsideControls() }
     }
@@ -19,18 +50,60 @@ final class VideoPresentation: NSObject {
 
     /// The layer Picture in Picture floats, which the main window keeps.
     @ObservationIgnored weak var pictureLayer: AVPlayerLayer?
-    @ObservationIgnored private var pictureInPicture: AVPictureInPictureController?
+    @ObservationIgnored private var pictureInPicture: (any PictureInPictureController)?
     /// Waits for Picture in Picture to become possible, then starts it.
-    @ObservationIgnored private var starting: Task<Void, Never>?
+    @ObservationIgnored private var pendingStart: PendingStart?
+    /// Distinguishes each pending start so a queued KVO hop from an earlier
+    /// attempt never acts on a later one.
+    @ObservationIgnored private var startAttempt = 0
     /// Stopped while the system was still floating it up.
     @ObservationIgnored private var stopsOnceStarted = false
     /// The window filling the screen with the picture, made by the page.
     @ObservationIgnored private var fullScreen: NSWindow?
     @ObservationIgnored private var fullScreenObservers: [any NSObjectProtocol] = []
     @ObservationIgnored private let player: Player
+    @ObservationIgnored private let pictureInPictureTimeout: Duration
+    @ObservationIgnored private let makePictureInPicture:
+        @MainActor (AVPlayerLayer, VideoPresentation) -> (any PictureInPictureController)?
 
-    init(player: Player) {
+    /// `pictureInPictureTimeout` and `makePictureInPicture` exist for tests to
+    /// drive `isPictureInPicturePossible` via KVO without floating a system
+    /// Picture in Picture window.
+    init(
+        player: Player,
+        pictureInPictureTimeout: Duration = .seconds(2),
+        makePictureInPicture:
+            @escaping @MainActor (AVPlayerLayer, VideoPresentation) ->
+            (any PictureInPictureController)? = VideoPresentation.makeSystemPictureInPicture
+    ) {
         self.player = player
+        self.pictureInPictureTimeout = pictureInPictureTimeout
+        self.makePictureInPicture = makePictureInPicture
+    }
+
+    isolated deinit {
+        cancelPendingStart()
+    }
+
+    private static func makeSystemPictureInPicture(
+        layer: AVPlayerLayer, delegate: VideoPresentation
+    ) -> (any PictureInPictureController)? {
+        guard AVPictureInPictureController.isPictureInPictureSupported() else { return nil }
+        let controller = AVPictureInPictureController(contentSource: .init(playerLayer: layer))
+        controller.delegate = delegate
+        return controller
+    }
+
+    /// Watches a KVO flag until it becomes true. KVO may deliver notifications
+    /// on any thread, so `onPossible` runs outside the main actor.
+    nonisolated static func observePossible<Observed: NSObject>(
+        _ observed: Observed,
+        at keyPath: KeyPath<Observed, Bool>,
+        onPossible: @escaping @Sendable () -> Void
+    ) -> NSKeyValueObservation {
+        observed.observe(keyPath, options: [.initial, .new]) { _, change in
+            if change.newValue == true { onPossible() }
+        }
     }
 
     /// Picture in Picture as a switch, for the inspector's button. The system
@@ -51,30 +124,35 @@ final class VideoPresentation: NSObject {
         guard let pictureLayer, let playing = player.player, pictureInPicture == nil else { return }
         stopsOnceStarted = false
         pictureLayer.player = playing
-        let controller = AVPictureInPictureController(
-            contentSource: .init(playerLayer: pictureLayer))
-        controller.delegate = self
+        guard let controller = makePictureInPicture(pictureLayer, self) else {
+            pictureLayer.player = nil
+            Log.playback.error("Picture in Picture is not supported")
+            return
+        }
         pictureInPicture = controller
-        starting = Task {
-            // Possible once the controller has looked at the layer, a moment later.
+        if controller.isPictureInPicturePossible {
+            controller.startPictureInPicture()
+            return
+        }
+        // Possible once the controller has looked at the layer; KVO may deliver
+        // on any thread, so hop back to the main actor and bound the wait.
+        startAttempt += 1
+        let attempt = startAttempt
+        let timeoutDuration = pictureInPictureTimeout
+        let timeout = Task { [weak self] in
             do {
-                for _ in 0..<40 where !controller.isPictureInPicturePossible {
-                    try await Task.sleep(for: .milliseconds(50))
-                }
+                try await Task.sleep(for: timeoutDuration)
             } catch {
                 return
             }
-            // Stopped, or replaced, while its sleep had already ended.
-            guard !Task.isCancelled, pictureInPicture === controller else { return }
-            starting = nil
-            guard controller.isPictureInPicturePossible else {
-                pictureInPicture = nil
-                pictureLayer.player = nil
-                Log.playback.error("Picture in Picture was not possible")
-                return
-            }
-            controller.startPictureInPicture()
+            self?.startTimedOut(attempt: attempt)
         }
+        let observation = controller.observePossible { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.pictureInPictureBecamePossible(attempt: attempt)
+            }
+        }
+        pendingStart = PendingStart(attempt: attempt, observation: observation, timeout: timeout)
     }
 
     /// Brings the floating picture back to its page. Stopping a controller
@@ -82,9 +160,8 @@ final class VideoPresentation: NSObject {
     /// floats, and one floating up is stopped once it is.
     func stopPictureInPicture() {
         guard let pictureInPicture else { return }
-        if let starting {
-            starting.cancel()
-            self.starting = nil
+        if pendingStart != nil {
+            cancelPendingStart()
             self.pictureInPicture = nil
             pictureLayer?.player = nil
         } else if pictureInPicture.isPictureInPictureActive {
@@ -92,6 +169,32 @@ final class VideoPresentation: NSObject {
         } else {
             stopsOnceStarted = true
         }
+    }
+
+    private func pictureInPictureBecamePossible(attempt: Int) {
+        guard pendingStart?.attempt == attempt,
+            let pictureInPicture,
+            pictureInPicture.isPictureInPicturePossible
+        else { return }
+        cancelPendingStart()
+        pictureInPicture.startPictureInPicture()
+    }
+
+    private func startTimedOut(attempt: Int) {
+        guard pendingStart?.attempt == attempt else { return }
+        cancelPendingStart()
+        if let pictureInPicture, pictureInPicture.isPictureInPicturePossible {
+            pictureInPicture.startPictureInPicture()
+            return
+        }
+        pictureInPicture = nil
+        pictureLayer?.player = nil
+        Log.playback.error("Picture in Picture was not possible")
+    }
+
+    private func cancelPendingStart() {
+        pendingStart?.cancel()
+        pendingStart = nil
     }
 
     /// Fills the screen with the picture, in a window the page makes for it,
