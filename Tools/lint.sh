@@ -52,12 +52,13 @@ if git grep -nE '—|–' -- '*.md' ':!THIRD_PARTY_NOTICES.md'; then
     failed=1
 fi
 
-# Searches git-tracked files while stripping // comments (preserving :// URLs).
+# Searches git-tracked files, ignoring // comments (preserving :// URLs).
+# Line-based: does not parse string literals or /* ... */ block comments.
 grep_code() {
     local pattern="$1"
     shift
     local matches status=0
-    matches="$(git grep -nE "$pattern" -- "$@")" || status=$?
+    matches="$(git grep --no-column --no-color -nE "$pattern" -- "$@")" || status=$?
     if [ "$status" -gt 1 ]; then
         return "$status"
     fi
@@ -73,36 +74,78 @@ grep_code() {
     '
 }
 
-# WordDocument uses NSAttributedString to write .docx files.
-ui_imports="$(grep_code '(^|[[:space:]])import[[:space:]]+(SwiftUI|AppKit)([^A-Za-z0-9_]|$)' \
-    App/Polycop/Output/ App/Polycop/Engine/ App/Polycop/Models/ App/Polycop/Support/ \
-    ':!App/Polycop/Output/WordDocument.swift')"
-if [ -n "$ui_imports" ]; then
-    printf '%s\n' "$ui_imports"
-    echo "Lower layers must not import SwiftUI or AppKit (WordDocument.swift is the one exception)" >&2
-    failed=1
-fi
+# Checks that files matching a pattern match an explicit allowlist exactly,
+# printing matching lines for unexpected files and names for stale entries.
+check_allowed_files() {
+    local pattern="$1"
+    local allowed="$2"
+    local unexpected_message="$3"
+    local stale_message="$4"
+    shift 4
+
+    local matches found allowed_sorted unexpected stale
+    matches="$(grep_code "$pattern" "$@")"
+    found="$(printf '%s\n' "$matches" | awk -F: 'NF { print $1 }' | LC_ALL=C sort -u)"
+    allowed_sorted="$(printf '%s\n' "$allowed" | sed '/^$/d' | LC_ALL=C sort -u)"
+
+    unexpected="$(LC_ALL=C comm -23 \
+        <(printf '%s\n' "$found" | sed '/^$/d') \
+        <(printf '%s\n' "$allowed_sorted" | sed '/^$/d'))"
+    if [ -n "$unexpected" ]; then
+        printf '%s\n' "$matches" | UNEXPECTED="$unexpected" awk -F: '
+            BEGIN {
+                n = split(ENVIRON["UNEXPECTED"], items, "\n")
+                for (i = 1; i <= n; i++) bad[items[i]] = 1
+            }
+            $1 in bad { print }
+        '
+        echo "$unexpected_message" >&2
+        failed=1
+    fi
+    stale="$(LC_ALL=C comm -13 \
+        <(printf '%s\n' "$found" | sed '/^$/d') \
+        <(printf '%s\n' "$allowed_sorted" | sed '/^$/d'))"
+    if [ -n "$stale" ]; then
+        printf '%s\n' "$stale"
+        echo "$stale_message" >&2
+        failed=1
+    fi
+}
+
+import_kind='((typealias|struct|class|enum|protocol|let|var|func)[[:space:]]+)?'
 
 # TermFinder is the one view still sitting under Glossary/.
-swiftui_imports="$(grep_code '(^|[[:space:]])import[[:space:]]+SwiftUI([^A-Za-z0-9_]|$)' \
-    'App/Polycop/' ':!App/Polycop/Application/' ':!App/Polycop/Views/' \
-    ':!App/Polycop/Glossary/TermFinder.swift')"
-if [ -n "$swiftui_imports" ]; then
-    printf '%s\n' "$swiftui_imports"
-    echo "SwiftUI belongs in Views/ and Application/, not lower layers" >&2
-    failed=1
-fi
+check_allowed_files \
+    "(^|[[:space:]])import[[:space:]]+${import_kind}(SwiftUI|SwiftUICore)([^A-Za-z0-9_]|$)" \
+    "App/Polycop/Glossary/TermFinder.swift" \
+    "SwiftUI belongs in Views/ and Application/, not lower layers" \
+    "Listed as a SwiftUI exception in Tools/lint.sh but no longer imports SwiftUI; remove it from the list" \
+    'App/Polycop/*.swift' ':!App/Polycop/Application/' ':!App/Polycop/Views/'
 
-app_model_refs="$(grep_code '(^|[^A-Za-z0-9_])AppModel([^A-Za-z0-9_]|$)' \
-    'App/Polycop/' ':!App/Polycop/Application/' ':!App/Polycop/Views/')"
-if [ -n "$app_model_refs" ]; then
-    printf '%s\n' "$app_model_refs"
-    echo "Lower layers must not depend on AppModel" >&2
-    failed=1
-fi
+# Existing lower-layer files that import AppKit; new ones belong in Views/ or Application/.
+appkit_allowed="$(printf '%s\n' \
+    App/Polycop/Audio/PlaybackInterruptions.swift \
+    App/Polycop/Audio/VideoPresentation.swift \
+    App/Polycop/Glossary/Documents.swift \
+    App/Polycop/History/TranscriptImport.swift \
+    App/Polycop/Output/WordDocument.swift)"
+check_allowed_files \
+    "(^|[[:space:]])import[[:space:]]+${import_kind}(AppKit|Cocoa)([^A-Za-z0-9_]|$)" \
+    "$appkit_allowed" \
+    "AppKit belongs in Views/ and Application/, not lower layers (review before listing an exception)" \
+    "Listed as an AppKit exception in Tools/lint.sh but no longer imports AppKit; remove it from the list" \
+    'App/Polycop/*.swift' ':!App/Polycop/Application/' ':!App/Polycop/Views/'
 
-# Every file in the app target that touches raw pointers or unmanaged memory is
-# listed here so that a new one gets a second reading and a sanitizer run.
+check_allowed_files \
+    '(^|[^A-Za-z0-9_])AppModel([^A-Za-z0-9_]|$)' \
+    "" \
+    "Lower layers must not depend on AppModel" \
+    "" \
+    'App/Polycop/*.swift' ':!App/Polycop/Application/' ':!App/Polycop/Views/'
+
+# Files in the app target calling explicit unsafe Swift or C memory APIs.
+# Implicit & C pointer bridging is not caught by text search; list every file
+# matched here so that a new one gets a second reading and a sanitizer run.
 unsafe_allowed="$(printf '%s\n' \
     App/Polycop/Audio/AudioDecoder.swift \
     App/Polycop/Engine/AudioCppEngine+Moss.swift \
@@ -110,21 +153,13 @@ unsafe_allowed="$(printf '%s\n' \
     App/Polycop/Engine/AudioCppEngine+Voxtral.swift \
     App/Polycop/Engine/AudioCppEngine.swift \
     App/Polycop/Engine/WhisperEngine+Speech.swift \
-    App/Polycop/Engine/WhisperEngine.swift | LC_ALL=C sort -u)"
-unsafe_pattern='(^|[^A-Za-z0-9_])((Autoreleasing)?Unsafe(Mutable)?(Raw)?(Buffer)?Pointer|UnsafeContinuation|withUnsafe[A-Za-z]+|Unmanaged|unsafeBitCast|unsafeDowncast|OpaquePointer|assumingMemoryBound|bindMemory)([^A-Za-z0-9_]|$)'
-unsafe_found="$(grep_code "$unsafe_pattern" App/Polycop/ | awk -F: '{print $1}' | LC_ALL=C sort -u)"
-
-unexpected_unsafe="$(LC_ALL=C comm -23 <(printf '%s\n' "$unsafe_found") <(printf '%s\n' "$unsafe_allowed") | sed '/^$/d')"
-if [ -n "$unexpected_unsafe" ]; then
-    printf '%s\n' "$unexpected_unsafe"
-    echo "Unsafe code outside the reviewed list in Tools/lint.sh; review the C boundary and run sanitizers before listing it" >&2
-    failed=1
-fi
-stale_unsafe="$(LC_ALL=C comm -13 <(printf '%s\n' "$unsafe_found") <(printf '%s\n' "$unsafe_allowed") | sed '/^$/d')"
-if [ -n "$stale_unsafe" ]; then
-    printf '%s\n' "$stale_unsafe"
-    echo "Listed as unsafe in Tools/lint.sh but no longer uses unsafe APIs; remove it from the list" >&2
-    failed=1
-fi
+    App/Polycop/Engine/WhisperEngine.swift)"
+unsafe_pattern='(^|[^A-Za-z0-9_])((Autoreleasing)?Unsafe(Mutable)?(Raw)?(Buffer)?Pointer|UnsafeContinuation|UnsafeCurrentTask|CVaListPointer|withUnsafe[A-Za-z0-9_]+|unsafeUninitializedCapacity|Unmanaged|unsafeBitCast|unsafeDowncast|unsafeLoad(Unaligned)?|unsafelyUnwrapped|OpaquePointer|assumingMemoryBound|bindMemory|withMemoryRebound|withUTF8|withCString|withContiguous(Mutable)?StorageIfAvailable|bytesNoCopy)([^A-Za-z0-9_]|$)|(^|[^A-Za-z0-9_])(strdup|malloc|calloc|realloc|free|memcpy|memmove|memset)[[:space:]]*\('
+check_allowed_files \
+    "$unsafe_pattern" \
+    "$unsafe_allowed" \
+    "Unsafe code outside the reviewed list in Tools/lint.sh; review the C boundary and run sanitizers before listing it" \
+    "Listed as unsafe in Tools/lint.sh but no longer uses unsafe APIs; remove it from the list" \
+    'App/Polycop/*.swift'
 
 exit "$failed"
