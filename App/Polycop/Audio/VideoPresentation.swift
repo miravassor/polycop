@@ -66,7 +66,8 @@ final class VideoPresentation: NSObject {
     @ObservationIgnored private let makePictureInPicture:
         @MainActor (AVPlayerLayer, VideoPresentation) -> (any PictureInPictureController)?
 
-    /// `pictureInPictureTimeout` and `makePictureInPicture` exist for tests to
+    /// `pictureInPictureTimeout` (defaulting to the 2-second ceiling while AVKit
+    /// inspects the player layer) and `makePictureInPicture` exist for tests to
     /// drive `isPictureInPicturePossible` via KVO without floating a system
     /// Picture in Picture window.
     init(
@@ -79,10 +80,6 @@ final class VideoPresentation: NSObject {
         self.player = player
         self.pictureInPictureTimeout = pictureInPictureTimeout
         self.makePictureInPicture = makePictureInPicture
-    }
-
-    isolated deinit {
-        cancelPendingStart()
     }
 
     private static func makeSystemPictureInPicture(
@@ -145,6 +142,7 @@ final class VideoPresentation: NSObject {
             } catch {
                 return
             }
+            guard !Task.isCancelled else { return }
             self?.startTimedOut(attempt: attempt)
         }
         let observation = controller.observePossible { [weak self] in
@@ -184,6 +182,8 @@ final class VideoPresentation: NSObject {
         guard pendingStart?.attempt == attempt else { return }
         cancelPendingStart()
         if let pictureInPicture, pictureInPicture.isPictureInPicturePossible {
+            Log.playback.warning(
+                "Picture in Picture became possible without a KVO notification")
             pictureInPicture.startPictureInPicture()
             return
         }

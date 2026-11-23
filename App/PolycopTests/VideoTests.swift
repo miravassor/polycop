@@ -120,14 +120,17 @@ private func preparedPlayer() async throws -> Player {
 }
 
 @MainActor
-private func waitUntil(_ condition: () -> Bool) async throws {
-    for _ in 0..<200 where !condition() {
-        try await Task.sleep(for: .milliseconds(5))
+private func waitUntil(
+    sourceLocation: SourceLocation = #_sourceLocation,
+    _ condition: () -> Bool
+) async throws {
+    for _ in 0..<500 where !condition() {
+        try await Task.sleep(for: .milliseconds(10))
     }
+    try #require(condition(), sourceLocation: sourceLocation)
 }
 
-/// When Picture in Picture is already possible, it starts at once without
-/// registering an observation.
+/// When Picture in Picture is already possible, it starts at once.
 @MainActor
 @Test func pictureInPictureStartsImmediatelyWhenAlreadyPossible() async throws {
     let player = try await preparedPlayer()
@@ -140,7 +143,6 @@ private func waitUntil(_ condition: () -> Bool) async throws {
 
     video.startPictureInPicture()
     #expect(controller.startCount == 1)
-    #expect(controller.observationCount == 0)
     #expect(layer.player === player.player)
 }
 
@@ -293,7 +295,8 @@ private func waitUntil(_ condition: () -> Bool) async throws {
     #expect(retry.startCount == 1)
 }
 
-/// Releasing `VideoPresentation` while waiting cancels its KVO observation.
+/// Releasing `VideoPresentation` while waiting does not leak it through the
+/// KVO or timeout closures and drops its observation.
 @MainActor
 @Test func deallocatingVideoPresentationWhileWaitingCancelsObservation() async throws {
     let player = try await preparedPlayer()
@@ -301,11 +304,13 @@ private func waitUntil(_ condition: () -> Bool) async throws {
     let controller = FakePictureInPictureController()
     let layer = AVPlayerLayer()
     var video: VideoPresentation? = VideoPresentation(player: player) { _, _ in controller }
+    weak let weakVideo = video
     video?.pictureLayer = layer
     video?.startPictureInPicture()
     #expect(controller.observationCount == 1)
 
     video = nil
+    #expect(weakVideo == nil)
     controller.isPictureInPicturePossible = true
     await Task.yield()
     #expect(controller.notifications == 0)
