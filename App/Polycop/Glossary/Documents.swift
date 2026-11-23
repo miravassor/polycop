@@ -30,7 +30,6 @@ nonisolated enum DocumentError: LocalizedError {
 nonisolated enum Documents {
     static let wordProcessing = UTType("org.openxmlformats.wordprocessingml.document")
 
-    /// Ordered roughly by frequency: PDF slides first, plain-text notes second.
     static var readable: [UTType] {
         [.pdf, .plainText, .rtf] + [wordProcessing].compactMap { $0 }
     }
@@ -47,32 +46,17 @@ nonisolated enum Documents {
     static let largestSource = 5 << 20
 
     @concurrent
-    static func pages(of file: URL, limit: Int = largest) async throws -> [String] {
+    static func pages(of file: URL) async throws -> [String] {
         guard file.isFileURL,
             let values = try? file.resourceValues(forKeys: [
                 .isRegularFileKey, .fileSizeKey, .contentTypeKey,
             ]), values.isRegularFile == true, let size = values.fileSize
         else { throw DocumentError.unreadable(file) }
-        guard size <= limit else { throw DocumentError.tooLarge(file) }
+        guard size <= largest else { throw DocumentError.tooLarge(file) }
         let type =
             values.contentType ?? UTType(filenameExtension: file.pathExtension) ?? .data
 
-        if type.conforms(to: .pdf) {
-            guard let document = PDFDocument(url: file) else {
-                throw DocumentError.unreadable(file)
-            }
-            guard document.pageCount <= 2000 else { throw DocumentError.tooLarge(file) }
-            var pages: [String] = []
-            var bytes = 0
-            for index in 0..<document.pageCount {
-                try Task.checkCancellation()
-                guard let text = document.page(at: index)?.string else { continue }
-                bytes += text.utf8.count
-                guard bytes <= largestText else { throw DocumentError.tooLarge(file) }
-                pages.append(text)
-            }
-            return pages
-        }
+        if type.conforms(to: .pdf) { return try pdfPages(of: file) }
         if let kind = reader(for: type) {
             guard size <= largestSource else { throw DocumentError.tooLarge(file) }
             // The type is named rather than sniffed, so a file that claims to
@@ -85,7 +69,24 @@ nonisolated enum Documents {
             return blocks(of: text)
         }
         guard type.conforms(to: .text) else { throw DocumentError.unreadable(file) }
-        return blocks(of: try text(of: file, limit: min(limit, largestText)))
+        return blocks(of: try text(of: file))
+    }
+
+    private static func pdfPages(of file: URL) throws -> [String] {
+        guard let document = PDFDocument(url: file) else {
+            throw DocumentError.unreadable(file)
+        }
+        guard document.pageCount <= 2000 else { throw DocumentError.tooLarge(file) }
+        var pages: [String] = []
+        var bytes = 0
+        for index in 0..<document.pageCount {
+            try Task.checkCancellation()
+            guard let text = document.page(at: index)?.string else { continue }
+            bytes += text.utf8.count
+            guard bytes <= largestText else { throw DocumentError.tooLarge(file) }
+            pages.append(text)
+        }
+        return pages
     }
 
     private static func reader(for type: UTType) -> NSAttributedString.DocumentType? {
@@ -106,11 +107,11 @@ nonisolated enum Documents {
         }
     }
 
-    private static func text(of file: URL, limit: Int) throws -> String {
+    private static func text(of file: URL) throws -> String {
         let handle = try FileHandle(forReadingFrom: file)
         defer { try? handle.close() }
-        let data = try handle.read(upToCount: limit + 1) ?? Data()
-        guard data.count <= limit else { throw DocumentError.tooLarge(file) }
+        let data = try handle.read(upToCount: largestText + 1) ?? Data()
+        guard data.count <= largestText else { throw DocumentError.tooLarge(file) }
         guard let text = TextFile.decode(data) else { throw DocumentError.unreadable(file) }
         return text
     }
