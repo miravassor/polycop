@@ -17,7 +17,7 @@ struct ContentView: View {
     @State private var folderName = ""
     @State private var renamedEntry: Entry.ID?
     @State private var entryName = ""
-    @State private var reverting: Entry?
+    @State private var reverting: Entry.ID?
     @State private var tagging: [Entry.ID] = []
     @State private var importingTranscript = false
 
@@ -31,7 +31,7 @@ struct ContentView: View {
     /// Room for the library, the page with its player and the inspector, so
     /// that nothing is cut; hiding the inspector narrows it.
     private var minimumWidth: CGFloat {
-        guard layout.showsInspector, selected.count <= 1 else { return 860 }
+        guard layout.showsInspector, selectedEntryCount <= 1 else { return 860 }
         // At its widest: macOS squeezes a column below its minimum otherwise.
         let library = layout.showsLibrary ? Self.libraryWidths.upperBound : 0
         return max(860, library + PlayerBar.narrowest + 2 * Spacing.page + layout.inspectorWidth)
@@ -65,7 +65,6 @@ struct ContentView: View {
             LibrarySidebar(
                 model: model,
                 selection: $selection,
-                selected: selected,
                 removing: $removing,
                 moving: $moving,
                 destinationFolder: $destinationFolder,
@@ -85,9 +84,9 @@ struct ContentView: View {
             )
         } detail: {
             Group {
-                if selected.count > 1 {
+                if selectedEntryCount > 1 {
                     SelectionView(
-                        model: model, selected: selected,
+                        model: model, selection: selection,
                         move: { ids in
                             destinationFolder = nil
                             moving = ids
@@ -98,11 +97,9 @@ struct ContentView: View {
                     .libraryWarnings(model)
                 } else if let page = UnavailableRecordPage(model: model) {
                     page.libraryWarnings(model)
-                } else if case .entry(let id) = model.pane, let entry = model.entry(id) {
-                    EntryView(
-                        model: model, entry: entry
-                    )
-                    .id(id)
+                } else if case .entry(let id) = model.pane {
+                    EntryView(model: model, id: id)
+                        .id(id)
                 } else {
                     NewTranscriptionView(model: model)
                 }
@@ -111,7 +108,6 @@ struct ContentView: View {
             // under the text, and the page's margins.
             .minimumSize(width: PlayerBar.narrowest + 2 * Spacing.page, height: 450)
         }
-        .focusedSceneValue(\.selectedTranscripts, activeTranscripts)
         .onChange(of: selection) { _, chosen in
             // Several rows are a selection to act on, not a page to show, so
             // the window only follows a single one.
@@ -122,17 +118,6 @@ struct ContentView: View {
             let expected: Set<AppModel.Pane> = pane == .new ? [] : [pane]
             guard selection != expected else { return }
             selection = expected
-        }
-        .onChange(of: model.visibleSelectablePanes) { _, visiblePanes in
-            guard selection.count > 1 else { return }
-            let kept = selection.intersection(visiblePanes)
-            if kept.isEmpty {
-                selection =
-                    (model.pane != .new && visiblePanes.contains(model.pane))
-                    ? [model.pane] : []
-            } else if kept != selection {
-                selection = kept
-            }
         }
         .task(id: model.newTranscriptionRequest) {
             guard model.newTranscriptionRequest != nil else { return }
@@ -206,7 +191,7 @@ struct ContentView: View {
                 isPresented: Binding(get: { reverting != nil }, set: { if !$0 { reverting = nil } })
             ) {
                 Button("Revert to Original", role: .destructive) {
-                    if let reverting { model.revert(reverting.id) }
+                    if let reverting { model.revert(reverting) }
                     reverting = nil
                 }
             } message: {
@@ -260,15 +245,12 @@ extension ContentView {
         namingFolder = true
     }
 
-    /// The visible transcripts selected, in the order the sidebar shows them.
-    private var selected: [Entry.ID] {
-        model.visibleEntryOrder.filter { selection.contains(.entry($0)) }
-    }
-
-    private var activeTranscripts: [Entry.ID] {
-        if selected.count > 1 { return selected }
-        guard case .entry(let id) = model.pane, model.entry(id) != nil else { return [] }
-        return [id]
+    /// The transcripts selected in the sidebar, counted without reading the
+    /// library so edits do not redraw the window root.
+    private var selectedEntryCount: Int {
+        selection.reduce(0) { count, pane in
+            if case .entry = pane { count + 1 } else { count }
+        }
     }
 
     private func attempt(_ action: () throws -> Void) {

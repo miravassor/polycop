@@ -3,10 +3,33 @@
 import Observation
 import SwiftUI
 
-/// One transcript: keeps what is derived from its segments and hands
-/// `EntryPage` facts a correction typed in the text leaves equal, so the
-/// page's title, toolbar, inspector and focused values skip their body.
+/// One transcript: reads its record below `ContentView`, so edits do not
+/// redraw the window's split view, and hands `LoadedEntryView` the record.
 struct EntryView: View {
+    let model: AppModel
+    let id: Entry.ID
+
+    /// Resizable as the library is: from the narrowest that keeps every label
+    /// whole to room for a larger picture.
+    static let inspectorWidths: ClosedRange<CGFloat> = 360...520
+    static let idealInspectorWidth: CGFloat = 380
+
+    /// About 75 characters a line, times included, at a text size.
+    static func readingWidth(textSize: Double) -> CGFloat { 40 * textSize + 160 }
+
+    var body: some View {
+        if let entry = model.entry(id) {
+            LoadedEntryView(model: model, entry: entry)
+        } else {
+            NewTranscriptionView(model: model)
+        }
+    }
+}
+
+/// Keeps what is derived from a transcript's segments and hands `EntryPage`
+/// facts a correction typed in the text leaves equal, so the page's title,
+/// toolbar, inspector and focused values skip their body.
+private struct LoadedEntryView: View {
     let model: AppModel
     let entry: Entry
     /// Derived segment data kept off `EntryPage.Facts`, so typing neither
@@ -18,14 +41,6 @@ struct EntryView: View {
     @State private var canRebuild: Bool?
 
     private var isRunning: Bool { model.busyEntry == entry.id }
-
-    /// Resizable as the library is: from the narrowest that keeps every label
-    /// whole to room for a larger picture.
-    static let inspectorWidths: ClosedRange<CGFloat> = 360...520
-    static let idealInspectorWidth: CGFloat = 380
-
-    /// About 75 characters a line, times included, at a text size.
-    static func readingWidth(textSize: Double) -> CGFloat { 40 * textSize + 160 }
 
     var body: some View {
         let currentFindings = segments.loadedInputs == nil ? entry.findings : segments.findings
@@ -59,7 +74,7 @@ struct EntryView: View {
     }
 }
 
-extension EntryView {
+extension LoadedEntryView {
     /// All that `AppModel.canRebuildParagraphs` and offering a rebuild read.
     /// Paragraph text is carried only when a rebuild could still depend on
     /// matching course corrections, so ordinary edits compare empty arrays.

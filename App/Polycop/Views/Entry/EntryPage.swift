@@ -66,9 +66,11 @@ struct EntryPage: View {
         .toolbar { pageTools }
         .modifier(InspectorToggle(isShown: Bindable(model.layout).showsInspector))
         .inspector(isPresented: Bindable(model.layout).showsInspector) { inspector }
-        // The Playback menu's steps, which work with the inspector hidden.
+        // The Playback menu's steps and File menu transcript commands, which
+        // work with the inspector and sidebar hidden.
         .focusedSceneValue(\.paragraphSteps, steps)
         .focusedSceneValue(\.comparesOriginal, Bindable(reading).isComparing)
+        .focusedSceneValue(\.selectedTranscripts, [facts.id])
         .onChange(of: find.query) { refreshSearch() }
         .onChange(of: find.isShown) { _, isShown in
             if isShown { isSearchFocused = true } else { find.close() }
@@ -295,5 +297,5 @@ private struct EntryText: View {
     entry.publish([Segment(start: 0, end: 4, text: "Bonjour à tous.")], partial: false)
     entry.state = .finished
     model.entries = [entry]
-    return EntryView(model: model, entry: entry)
+    return EntryView(model: model, id: entry.id)
 }
