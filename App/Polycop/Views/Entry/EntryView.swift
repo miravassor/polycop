@@ -57,8 +57,13 @@ struct EntryView: View {
         .libraryWarnings(model)
         .navigationTitle(entry.name)
         .toolbar { pageTools }
-        .modifier(InspectorToggle(isShown: Bindable(model.layout).showsInspector))
-        .inspector(isPresented: Bindable(model.layout).showsInspector) { inspector }
+        .modifier(
+            InspectorToggle(
+                isShown: Bindable(model.layout).isInspectorShown,
+                canToggle: model.layout.canShowLibrary
+            )
+        )
+        .inspector(isPresented: Bindable(model.layout).isInspectorShown) { inspector }
         // The Playback menu's steps, which work with the inspector hidden.
         .focusedSceneValue(\.paragraphSteps, steps)
         .focusedSceneValue(\.comparesOriginal, Bindable(reading).isComparing)
@@ -169,7 +174,7 @@ struct EntryView: View {
     /// Resizable as the library is: from the narrowest that keeps every label
     /// whole to room for a larger picture.
     static let inspectorWidths: ClosedRange<CGFloat> = 360...520
-    static let idealInspectorWidth: CGFloat = 380
+    static let idealInspectorWidth: CGFloat = 360
 
     /// Saving is the rule and goes unsaid; a library that could not be
     /// written says so.

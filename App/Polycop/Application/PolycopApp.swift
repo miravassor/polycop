@@ -97,23 +97,25 @@ struct PolycopApp: App {
             .contains { $0.processIdentifier != current }
     }
 
+    @State private var windowReset = WindowResetCoordinator()
+
     var body: some Scene {
         // One transcript window, not a group: a second one would load its own copy of the
         // weights, which the memory budget for small machines does not allow.
         Window("Polycop", id: "main") {
             ContentView(model: model)
+                .background {
+                    MainWindowBridge { windowReset.attach($0) }
+                        .frame(width: 0, height: 0)
+                        .accessibilityHidden(true)
+                }
                 .onAppear { delegate.model = model }
         }
         .defaultAppStorage(Self.settings)
         // The library, the text at its reading width with its margins, and the
         // inspector, side by side on first launch; macOS keeps the size after.
-        .defaultSize(
-            width: ContentView.idealLibraryWidth
-                + EntryView.readingWidth(textSize: ReadingSettings.defaultTextSize)
-                + 2 * Spacing.page
-                + EntryView.idealInspectorWidth,
-            height: 880
-        )
+        .defaultSize(WindowLayout.defaultSize)
+        .defaultPosition(.center)
         // No title beside the page's tools: a recording's name is long, and
         // the tools must fit above the text of a split screen window. The
         // name stays the window's, in the Window menu, and the selected row
@@ -166,6 +168,13 @@ struct PolycopApp: App {
             SidebarCommands()
             InspectorCommands()
             CompareCommand()
+            CommandGroup(after: .windowSize) {
+                Button("Reset to Default Size") {
+                    windowReset.reset(layout: model.layout) {
+                        openWindow(id: "main")
+                    }
+                }
+            }
             CommandGroup(after: .help) {
                 Button("Keyboard Shortcuts…") { openWindow(id: "shortcuts") }
                     .keyboardShortcut("/", modifiers: [.command, .option])

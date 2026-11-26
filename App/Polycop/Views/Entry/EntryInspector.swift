@@ -63,16 +63,21 @@ struct EntryInspector: View {
 struct InspectorColumn: ViewModifier {
     let layout: WindowLayout
 
+    private var maxWidth: CGFloat {
+        layout.isResettingSize ? EntryView.idealInspectorWidth : layout.maxInspectorColumnWidth
+    }
+
     func body(content: Content) -> some View {
         content
             .onGeometryChange(for: CGFloat.self) {
                 $0.size.width
             } action: {
-                layout.inspectorWidth = max($0, EntryView.inspectorWidths.lowerBound)
+                layout.recordInspectorWidth($0)
             }
             .inspectorColumnWidth(
-                min: EntryView.inspectorWidths.lowerBound, ideal: layout.inspectorWidth,
-                max: EntryView.inspectorWidths.upperBound
+                min: EntryView.inspectorWidths.lowerBound,
+                ideal: min(CGFloat(layout.inspectorWidth), maxWidth),
+                max: maxWidth
             )
     }
 }
@@ -86,6 +91,7 @@ struct InspectorColumn: ViewModifier {
 /// where an availability check needs macOS 14.5.
 struct InspectorToggle: ViewModifier {
     @Binding var isShown: Bool
+    var canToggle = true
 
     func body(content: Content) -> some View {
         if #available(macOS 26, *) {
@@ -108,6 +114,7 @@ struct InspectorToggle: ViewModifier {
         } label: {
             Label("Inspector", systemImage: "sidebar.trailing")
         }
+        .disabled(!canToggle)
         .help(isShown ? "Hide the inspector" : "Show the inspector")
     }
 }

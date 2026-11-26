@@ -30,9 +30,11 @@ call an engine or the decoder; stores and engines never know about views or
 `AppModel`. `Output/` and `Glossary/Terms` are pure and hold no state, which is
 why most tests live there.
 
-Two parts sit beside `AppModel` rather than under it. The update check
-(`UpdatePrompt`, `UpdateCheck`) is started from the app's menu and settings, and
-Find Terms (`TermFinder`) reads the chosen documents itself, through `Documents`.
+Three parts sit beside `AppModel` rather than under it. The update check
+(`UpdatePrompt`, `UpdateCheck`) is started from the app's menu and settings,
+Find Terms (`TermFinder`) reads the chosen documents itself, through `Documents`,
+and `WindowResetCoordinator` in `PolycopApp` handles Window > Reset to Default
+Size.
 
 ## State
 
@@ -43,15 +45,21 @@ Find Terms (`TermFinder`) reads the chosen documents itself, through `Documents`
   behaviour, never stored state.
 * `WindowLayout`, on `AppModel`, keeps how the reader left the window across
   launches: the library and the inspector, their widths, the folders open, and
-  how transcripts are sorted. `AppModel+Pane` reopens the transcript left open.
+  how transcripts are sorted. `windowWidth` (which folds the inspector first
+  and then the library below narrow thresholds without changing the stored show
+  preferences) and `resetToDefaultSize()` also live on `WindowLayout`.
+  `PolycopApp` owns `WindowResetCoordinator`, which tracks the main window,
+  centres it on Window > Reset to Default Size, calls `resetToDefaultSize()`,
+  and snaps the AppKit split dividers once the panes settle. `AppModel+Pane`
+  reopens the transcript left open.
 * `Entry` is a value: one recording, its settings, the segments the engine
   wrote, the paragraphs as corrected, and where the reader left it. Every
   change to an entry goes through `AppModel.updateEntry`, which writes it to
   disk; a new entry is written by the action that makes it (adding, retrying,
   duplicating or importing).
 * `Player` owns playback state (position, playing, speed) and is owned by
-  `AppModel`. Views read it; `AppModel`, the player bar and the pause for
-  typing in `EntryView` change it.
+  `AppModel`. Views read it and change it, as does typing pausing in
+  `EntryView`, `NowPlaying`, and `PlaybackInterruptions`.
 * Views keep only presentation state (`@State`: hover, popovers, scroll
   frames). What must survive a view going away belongs to `AppModel`.
 * Text being typed lives in the paragraph's `NSTextView` until
