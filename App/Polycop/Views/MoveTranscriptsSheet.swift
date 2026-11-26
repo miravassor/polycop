@@ -7,12 +7,12 @@ struct MoveTranscriptsSheet: View {
     let model: AppModel
     @Binding var moving: [Entry.ID]
     @Binding var destinationFolder: UUID?
-    /// Called with the folder they went into, so the sidebar can open it.
-    let opened: (UUID) -> Void
+    /// Called with the destination folder (`nil` for Unfiled) so the sidebar can open it.
+    let opened: (UUID?) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            Text(moving.count > 1 ? "Move transcripts" : "Move transcript")
+        VStack(alignment: .leading, spacing: Spacing.block) {
+            Text(moving.count > 1 ? "Move Transcripts" : "Move Transcript")
                 .font(.sheetTitle)
             Text(
                 moving.count > 1
@@ -23,8 +23,11 @@ struct MoveTranscriptsSheet: View {
             .truncationMode(.middle)
             Picker("Folder", selection: $destinationFolder) {
                 Text("Unfiled").tag(UUID?.none)
-                ForEach(model.folders) { folder in
+                ForEach(model.rootFolders) { folder in
                     Text(folder.name).tag(UUID?.some(folder.id))
+                    ForEach(model.subfolders(of: folder.id)) { subfolder in
+                        Text("\(folder.name) / \(subfolder.name)").tag(UUID?.some(subfolder.id))
+                    }
                 }
             }
             HStack {
@@ -32,10 +35,11 @@ struct MoveTranscriptsSheet: View {
                 Button("Cancel", role: .cancel) { moving = [] }
                     .keyboardShortcut(.cancelAction)
                 Button("Move") {
-                    for id in moving { model.moveEntry(id, to: destinationFolder) }
-                    if let destinationFolder { opened(destinationFolder) }
+                    model.moveEntries(moving, to: destinationFolder)
+                    opened(destinationFolder)
                     moving = []
                 }
+                .buttonStyle(.borderedProminent)
                 .keyboardShortcut(.defaultAction)
             }
         }

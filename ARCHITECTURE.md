@@ -42,8 +42,11 @@ Find Terms (`TermFinder`) reads the chosen documents itself, through `Documents`
   extensions (`AppModel+Transcription`, `+Editing`, `+Library`, ...) add
   behaviour, never stored state.
 * `WindowLayout`, on `AppModel`, keeps how the reader left the window across
-  launches: the library and the inspector, their widths, the folders open, and
-  how transcripts are sorted. `AppModel+Pane` reopens the transcript left open.
+  launches: the library and the inspector, their widths, the folders open,
+  which sidebar sections are expanded (`Pinned`, `Unfiled`, `Folders`,
+  `Recently Deleted`), and how transcripts are sorted. Transient library search
+  text and active flair or colour filters also live on `WindowLayout`.
+  `AppModel+Pane` reopens the transcript left open.
 * `Entry` is a value: one recording, its settings, the segments the engine
   wrote, the paragraphs as corrected, and where the reader left it. Every
   change to an entry goes through `AppModel.updateEntry`, which writes it to
@@ -145,7 +148,7 @@ Everything lives in `~/Library/Application Support/Polycop/`:
 
 | Folder | Content | Owner |
 |---|---|---|
-| `History/` | one JSON file per entry | `HistoryStore` |
+| `History/` | one JSON file per entry, plus `folders.json` and `folder-details.json` | `HistoryStore` |
 | `Glossaries/` | one text file per course, and its remembered corrections | `GlossaryStore`, `CourseCorrections` |
 | `Models/` | downloaded or imported weights | `ModelStore`, `ModelDownloader` |
 | `Snapshots/` | copies of `History/` and `Glossaries/` from before a new version opened them | `LibrarySnapshots` |

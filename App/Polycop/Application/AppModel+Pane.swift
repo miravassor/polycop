@@ -34,6 +34,24 @@ extension AppModel {
                 .flatMap(UUID.init(uuidString:)), let entry = entry(id)
         else { return }
         pane = .entry(id)
-        if let folder = entry.folderID { layout.openFolders.insert(folder) }
+        if entry.isPinned == true {
+            layout.showsPinned = true
+        } else if let folder = entry.folderID {
+            if self.folder(folder) != nil {
+                revealFolder(folder)
+            } else {
+                layout.openFolders.insert(folder)
+                layout.showsUnfiled = true
+            }
+        } else {
+            layout.showsUnfiled = true
+        }
+    }
+
+    /// Shows the New Transcription page and clears any multi-selection in the window.
+    func openNewTranscription() {
+        guard !isShuttingDown else { return }
+        pane = .new
+        newTranscriptionRequest = UUID()
     }
 }

@@ -15,9 +15,23 @@ extension AppModel {
         return url
     }
 
-    func addFolder() {
+    /// A folder the window is asked to name: a new one, inside `parent` when
+    /// it has one, or one to rename.
+    enum FolderRequest: Equatable {
+        case new(parent: UUID?)
+        case rename(UUID)
+    }
+
+    /// Asks the window for the name of a new folder, inside `parent` when given.
+    func addFolder(in parent: UUID? = nil) {
         guard !isShuttingDown else { return }
-        folderRequest = UUID()
+        folderRequest = .new(parent: parent)
+    }
+
+    /// Asks the window for a new name of the folder `id`.
+    func askToRenameFolder(_ id: UUID) {
+        guard !isShuttingDown else { return }
+        folderRequest = .rename(id)
     }
 
     /// How long a removed transcript stays in Recently Deleted.
@@ -43,7 +57,7 @@ extension AppModel {
             undoSteps[id] = nil
             pendingSaves.remove(id)
             if !hasUnsavedHistory { storageFailure = nil }
-            if pane == .entry(id) { pane = .new }
+            if pane == .entry(id) { openNewTranscription() }
         } catch {
             failure = error.localizedDescription
         }
@@ -56,6 +70,15 @@ extension AppModel {
             return
         }
         entry.removed = nil
+        if var flairs = entry.flairs {
+            let existing = customFlairs
+            for index in flairs.indices where flairs[index].kind == nil {
+                if let match = existing.first(where: { $0.matchesIdentity(of: flairs[index]) }) {
+                    flairs[index] = match
+                }
+            }
+            entry.flairs = flairs
+        }
         do {
             try historyWriter.write(entry)
             recentlyDeleted.removeAll { $0.id == id }
@@ -98,7 +121,9 @@ extension AppModel {
     func removeEntries(_ ids: [Entry.ID]) {
         guard !isShuttingDown else { return }
         let busy = ids.contains { $0 == busyEntry }
-        for id in ids where id != busyEntry { removeEntry(id) }
+        withFlairSync {
+            for id in ids where id != busyEntry { removeEntry(id) }
+        }
         if busy {
             failure = String(
                 localized:
@@ -107,16 +132,19 @@ extension AppModel {
     }
 
     @discardableResult
-    func createFolder(named name: String) throws -> UUID {
+    func createFolder(named name: String, in parentID: UUID? = nil) throws -> UUID {
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { throw CocoaError(.fileWriteInvalidFileName) }
         try refuseDamagedFolders()
+        if let parentID, !canAddSubfolder(to: parentID) {
+            throw CocoaError(.fileWriteInvalidFileName)
+        }
         if let existing = folders.first(where: {
-            $0.name.localizedCaseInsensitiveCompare(name) == .orderedSame
+            $0.parentID == parentID && $0.name.localizedCaseInsensitiveCompare(name) == .orderedSame
         }) {
             return existing.id
         }
-        let folder = TranscriptFolder(id: UUID(), name: name)
+        let folder = TranscriptFolder(id: UUID(), name: name, parentID: parentID)
         let updated = Self.sorted(folders + [folder])
         try HistoryStore.writeFolders(updated, in: history)
         folders = updated
@@ -148,7 +176,9 @@ extension AppModel {
         guard !foldersAreDamaged else { return false }
         let moved = ids.filter { id in entries.contains { $0.id == id } }
         guard !moved.isEmpty else { return false }
-        for id in moved { moveEntry(id, to: folderID) }
+        withFlairSync {
+            for id in moved { moveEntry(id, to: folderID) }
+        }
         return true
     }
 
@@ -156,9 +186,11 @@ extension AppModel {
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty, let index = folders.firstIndex(where: { $0.id == id }) else { return }
         try refuseDamagedFolders()
+        let parentID = folders[index].parentID
         guard
             !folders.contains(where: {
-                $0.id != id && $0.name.localizedCaseInsensitiveCompare(name) == .orderedSame
+                $0.id != id && $0.parentID == parentID
+                    && $0.name.localizedCaseInsensitiveCompare(name) == .orderedSame
             })
         else {
             throw CocoaError(.fileWriteFileExists)
@@ -170,12 +202,35 @@ extension AppModel {
         folders = updated
     }
 
-    /// The transcripts a place in the library holds: those of a folder, or with
-    /// `nil` those in no folder this library knows, in the reader's chosen order.
+    func setFolderColor(_ id: UUID, to color: FolderColor?) throws {
+        guard let index = folders.firstIndex(where: { $0.id == id }) else { return }
+        try refuseDamagedFolders()
+        var updated = folders
+        updated[index].color = color
+        try HistoryStore.writeFolders(updated, in: history)
+        folders = updated
+    }
+
+    /// The unpinned transcripts a place in the library holds: those of a folder,
+    /// or with `nil` those in no folder this library knows, matching the active
+    /// sidebar filter in the reader's chosen order.
     func entries(in folder: UUID?) -> [Entry] {
         let known = folder == nil ? Set(folders.map(\.id)) : []
         return layout.sort.sorted(
-            entries.filter { belongs($0.folderID, to: folder, known: known) })
+            entries.filter {
+                $0.isPinned != true
+                    && belongs($0.folderID, to: folder, known: known)
+                    && matchesLibraryFilter($0)
+            })
+    }
+
+    func hasEntries(in folder: UUID?) -> Bool {
+        let known = folder == nil ? Set(folders.map(\.id)) : []
+        return entries.contains {
+            $0.isPinned != true
+                && belongs($0.folderID, to: folder, known: known)
+                && matchesLibraryFilter($0)
+        }
     }
 
     /// The records a place in the library holds that this version cannot read:
@@ -189,7 +244,7 @@ extension AppModel {
         }
     }
 
-    private func belongs(_ folderID: UUID?, to folder: UUID?, known: Set<UUID>) -> Bool {
+    func belongs(_ folderID: UUID?, to folder: UUID?, known: Set<UUID>) -> Bool {
         if let folder { return folderID == folder }
         return folderID.map { !known.contains($0) } ?? true
     }
@@ -199,9 +254,12 @@ extension AppModel {
         unavailable.filter(\.isUnidentified).map(\.file)
     }
 
-    /// Whether a folder lists anything, including what cannot be read.
+    /// Whether a folder lists anything, including subfolders and what cannot be
+    /// read.
     func holdsTranscripts(_ folder: UUID) -> Bool {
-        entries.contains { $0.folderID == folder } || !unavailable(in: folder).isEmpty
+        entries.contains { $0.folderID == folder }
+            || !unavailable(in: folder).isEmpty
+            || folders.contains { $0.parentID == folder }
     }
 
     func removeFolder(_ id: UUID) throws {
@@ -213,9 +271,18 @@ extension AppModel {
         layout.openFolders.remove(id)
     }
 
-    /// Folders in Finder-style alphabetical order, tie-broken by identifier.
+    /// Folders in Finder-style alphabetical order within two levels: any folder
+    /// whose parent does not exist or has a parent of its own becomes top-level.
     static func sorted(_ folders: [TranscriptFolder]) -> [TranscriptFolder] {
-        folders.sorted { first, second in
+        let roots = Set(folders.filter { $0.parentID == nil }.map(\.id))
+        return folders.map { folder in
+            var copy = folder
+            if let parentID = copy.parentID, parentID == copy.id || !roots.contains(parentID) {
+                copy.parentID = nil
+            }
+            return copy
+        }
+        .sorted { first, second in
             let order = first.name.localizedStandardCompare(second.name)
             if order != .orderedSame { return order == .orderedAscending }
             return first.id.uuidString < second.id.uuidString

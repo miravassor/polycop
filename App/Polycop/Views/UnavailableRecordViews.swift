@@ -64,11 +64,11 @@ struct UnavailableRows: View {
     let folder: UUID?
 
     var body: some View {
-        if folder == nil, !model.unidentifiedFiles.isEmpty {
-            UnavailableRecordRow(unidentified: model.unidentifiedFiles)
+        if folder == nil, !model.visibleUnidentifiedFiles.isEmpty {
+            UnavailableRecordRow(unidentified: model.visibleUnidentifiedFiles)
                 .tag(AppModel.Pane.unidentifiedFiles)
         }
-        ForEach(model.unavailable(in: folder)) { record in
+        ForEach(model.visibleUnavailable(in: folder)) { record in
             UnavailableRecordRow(record).tag(AppModel.Pane.unavailable(record.id))
         }
     }

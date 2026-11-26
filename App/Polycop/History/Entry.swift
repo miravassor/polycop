@@ -104,6 +104,8 @@ nonisolated struct Entry: Identifiable, Equatable, Codable, Sendable {
     var savedDigests: [String] = []
     var isSaved = false
     var folderID: UUID?
+    var isPinned: Bool?
+    var flairs: [TranscriptFlair]?
     /// When the transcript went to Recently Deleted. It is deleted for good
     /// once `AppModel.keepsDeleted` has passed.
     var removed: Date?
@@ -159,9 +161,8 @@ nonisolated struct Entry: Identifiable, Equatable, Codable, Sendable {
     }
 
     /// Queues the same recording again with the same settings (model,
-    /// glossary, language, silence policy, and folder). Discards everything
-    /// the previous attempt produced, since this starts a fresh run rather
-    /// than copying its result.
+    /// glossary, language, silence policy, folder, pin, and flairs). Discards
+    /// everything the previous attempt produced.
     func retrying() -> Entry {
         var again = self
         again.id = UUID()

@@ -34,8 +34,9 @@ nonisolated enum HistoryStore {
         } catch {
             return Library(isUnlisted: true)
         }
-        // `folders.json` lives in the same folder but is not an entry; isRecord
-        // filters it out so it is never reported as a damaged record.
+        // `folders.json` and `folder-details.json` live in the same folder but are
+        // not entries; isRecord filters them out so they are never reported as
+        // damaged records.
         let records = names.filter(isRecord).sorted()
         // Decoding is nearly all of a launch, and records do not depend on one
         // another, so they are decoded on every core at once.
@@ -185,21 +186,81 @@ nonisolated enum HistoryStore {
         }
     }
 
+    /// Only `id` and `name` go into `folders.json` so earlier releases never
+    /// overwrite folder hierarchy or colours when saving folder renames.
+    private struct StoredFolder: Codable {
+        let id: UUID
+        var name: String
+    }
+
+    private struct FolderDetails: Codable {
+        let id: UUID
+        var parentID: UUID?
+        var color: String?
+    }
+
+    /// Folder read error preserving base folder names when only
+    /// `folder-details.json` could not be read.
+    struct FolderReadError: Error {
+        let fileName: String
+        let preservedFolders: [TranscriptFolder]
+        let underlying: any Error
+
+        var localizedMessage: String {
+            fileName == "folder-details.json"
+                ? String(
+                    localized:
+                        "Folder colors and subfolders could not be read. The file has been left untouched."
+                )
+                : String(
+                    localized:
+                        "The list of your folders could not be read. It has been left untouched."
+                )
+        }
+    }
+
     /// Missing files mean no folders yet. Other read errors must block writes
     /// so creating a folder cannot overwrite unreadable existing names.
     static func folders(in directory: URL = directory) throws -> [TranscriptFolder] {
+        let decoded: [StoredFolder]
         do {
             let data = try Data(contentsOf: directory.appending(path: "folders.json"))
-            let folders = try JSONDecoder().decode([TranscriptFolder].self, from: data)
-            guard Set(folders.map(\.id)).count == folders.count else {
+            decoded = try JSONDecoder().decode([StoredFolder].self, from: data)
+            guard Set(decoded.map(\.id)).count == decoded.count else {
                 throw CocoaError(.fileReadCorruptFile)
             }
-            return folders
         } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
             return []
         } catch {
             Log.persistence.error("the list of folders could not be read")
-            throw error
+            throw FolderReadError(fileName: "folders.json", preservedFolders: [], underlying: error)
+        }
+        let baseFolders = decoded.map { TranscriptFolder(id: $0.id, name: $0.name) }
+        do {
+            let details = try folderDetails(in: directory)
+            return decoded.map { item in
+                let detail = details[item.id]
+                return TranscriptFolder(
+                    id: item.id, name: item.name,
+                    parentID: detail?.parentID,
+                    color: detail?.color.flatMap(FolderColor.init(rawValue:)))
+            }
+        } catch {
+            Log.persistence.error("the folder details could not be read")
+            throw FolderReadError(
+                fileName: "folder-details.json", preservedFolders: baseFolders, underlying: error)
+        }
+    }
+
+    private static func folderDetails(in directory: URL) throws -> [UUID: FolderDetails] {
+        do {
+            let data = try Data(contentsOf: directory.appending(path: "folder-details.json"))
+            let details = try JSONDecoder().decode([FolderDetails].self, from: data)
+            return Dictionary(
+                details.map { ($0.id, $0) },
+                uniquingKeysWith: { _, latest in latest })
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+            return [:]
         }
     }
 
@@ -207,8 +268,39 @@ nonisolated enum HistoryStore {
         try FileManager.default.createDirectory(
             at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700]
         )
-        try JSONEncoder().encode(folders).write(
-            to: directory.appending(path: "folders.json"), options: .atomic)
+        let encoder = JSONEncoder()
+        let foldersURL = directory.appending(path: "folders.json")
+        let previousFolders: Data?
+        do {
+            previousFolders = try Data(contentsOf: foldersURL)
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+            previousFolders = nil
+        }
+        let base = folders.map { StoredFolder(id: $0.id, name: $0.name) }
+        try encoder.encode(base).write(to: foldersURL, options: .atomic)
+        let details = folders.compactMap { folder -> FolderDetails? in
+            guard folder.parentID != nil || folder.color != nil else { return nil }
+            return FolderDetails(
+                id: folder.id, parentID: folder.parentID, color: folder.color?.rawValue)
+        }
+        let detailsURL = directory.appending(path: "folder-details.json")
+        do {
+            if details.isEmpty {
+                do {
+                    try FileManager.default.removeItem(at: detailsURL)
+                } catch let error as CocoaError where error.code == .fileNoSuchFile {
+                }
+            } else {
+                try encoder.encode(details).write(to: detailsURL, options: .atomic)
+            }
+        } catch {
+            if let previousFolders {
+                try? previousFolders.write(to: foldersURL, options: .atomic)
+            } else {
+                try? FileManager.default.removeItem(at: foldersURL)
+            }
+            throw error
+        }
     }
 
     private static func file(for id: Entry.ID, in folder: URL) -> URL {
