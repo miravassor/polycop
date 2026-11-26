@@ -66,6 +66,11 @@ Tools/                 build, fixture and packaging scripts
 
 * Swift 6 language mode, main actor by default. Engine and value types are `nonisolated`.
 * `@Observable` classes hold state, structs carry values, caseless enums group pure functions.
+* **Observed state changes only when its value does.** An observed collection is changed
+  in place (`insert`, `remove`, a subscript) only when the result differs, since such a
+  change notifies its readers whatever it did; an assignment of an equal value does not.
+  What changes at each edit (`undoSteps`) is kept unobserved, apart from the coarse
+  observed state views read (`undoable`).
 * Names follow the Swift API Design Guidelines: explicit, no abbreviations, and
   Booleans that read as assertions (`isEditable`, `showsChanges`). Stored names of
   persisted types are the exception: they never change.
@@ -213,6 +218,17 @@ Every page speaks the same visual language. The shared pieces live in
   while the reader types: SwiftUI redoes such a view at every update of its parent. A
   setting the transcript page reads belongs in `ReadingSettings`, or `WindowLayout` for
   how the window was left, on the model.
+* **Window structure reads no record.** A view that declares window structure (the split
+  view or one of its columns, an inspector, toolbar items, menu commands, a focused scene
+  value, the window's title) is `ContentView`, `LibrarySidebar`, `EntryPage`, `EntryTools`,
+  `EntryInspector`, `FileCommands`, `LibraryTranscriptCommands` or `PlaybackCommands`. It
+  reads identities, the layout, and facts that a change of the text leaves equal, as
+  `EntryTools.Facts` and `LibraryItem` do; never a record's text, nor `entries`. The record
+  is read by the leaf that draws it (`EntryText`), and an action reads it from the model
+  when it runs. SwiftUI runs a body again when an observed value it read changes, makes
+  again with it the content of every inspector, toolbar item and menu it declares, then
+  updates and lays out each hosting view below. `RedrawTests` fails when a change of the
+  text reaches such a view; a new one counts itself there.
 
 ## Things that break silently
 
