@@ -4,24 +4,20 @@ import SwiftUI
 
 /// A transcript in the sidebar: its name, flairs, and where its work stands.
 struct EntryRow: View {
-    let entry: Entry
+    let item: LibraryItem
     let stage: AppModel.Stage?
     var folderName: String?
-
-    private var flairs: [TranscriptFlair] {
-        (entry.flairs ?? []).sorted(by: TranscriptFlair.areInDisplayOrder)
-    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
             HStack(spacing: Spacing.icon) {
-                Text(entry.name)
+                Text(item.name)
                     .lineLimit(1)
                     .truncationMode(.middle)
-                if !flairs.isEmpty {
+                if !item.flairs.isEmpty {
                     Spacer(minLength: 0)
-                    FlairIcons(flairs: flairs, maxCount: 4)
-                        .accessibilityHidden(stage == nil && entry.state == .finished)
+                    FlairIcons(flairs: item.flairs, maxCount: 4)
+                        .accessibilityHidden(stage == nil && item.state == .finished)
                 }
             }
             status
@@ -35,7 +31,7 @@ struct EntryRow: View {
 
     @ViewBuilder
     private var status: some View {
-        switch entry.state {
+        switch item.state {
         case .waiting:
             Text(joinedStatus(stage.map(\.line) ?? String(localized: "Waiting")))
         case .running:
@@ -62,8 +58,8 @@ struct EntryRow: View {
     private var finishedSummary: String {
         var parts: [String] = []
         if let folderName { parts.append(folderName) }
-        if !flairs.isEmpty {
-            parts.append(contentsOf: flairs.map(\.displayTitle))
+        if !item.flairs.isEmpty {
+            parts.append(contentsOf: item.flairs.map(\.displayTitle))
         } else if folderName == nil {
             parts.append(String(localized: "Ready to review"))
         }

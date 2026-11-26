@@ -20,9 +20,9 @@ struct SelectionView: View {
 
     var body: some View {
         let selected = self.selected
-        let isAnyFiled = selected.contains { model.entry($0)?.folderID != nil }
+        let isAnyFiled = selected.contains { model.libraryItem($0)?.folderID != nil }
         let areAllPinned =
-            !selected.isEmpty && selected.allSatisfy { model.entry($0)?.isPinned == true }
+            !selected.isEmpty && selected.allSatisfy { model.libraryItem($0)?.isPinned == true }
         VStack(spacing: Spacing.block) {
             Text(
                 "Shift or command click to change the selection. Drag them onto a folder to file them."

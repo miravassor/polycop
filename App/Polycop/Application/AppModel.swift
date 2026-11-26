@@ -49,12 +49,12 @@ final class AppModel {
     /// progress tick does not notify views that ask only whether work is active.
     private(set) var isBusy = false
     /// Every recording given to the app, newest first.
-    var entries: [Entry] = [] { didSet { flairCache.sync(entries, folders) } }
-    @ObservationIgnored let flairCache = LibraryFlairCache()
+    var entries: [Entry] = [] { didSet { library.sync(entries, folders) } }
+    @ObservationIgnored let library = LibraryFacts()
     /// Transcripts removed from the library in the last `keepsDeleted`, most
     /// recent first, so that a removal can be taken back.
     var recentlyDeleted: [Entry] = []
-    var folders: [TranscriptFolder] = []
+    var folders: [TranscriptFolder] = [] { didSet { library.syncFolders(entries, folders) } }
     /// The entry being transcribed, or paused part way through.
     var running: Entry.ID?
     /// The entry whose repeats are being transcribed again. Kept apart from

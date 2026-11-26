@@ -36,8 +36,8 @@ private let mayRedraw: [Change: Set<Redraws.Piece>] = [
     .pointer: [],
     .wordHeard: [],
     .click: [],
-    .handover: [.library],
-    .replaceAll: [.library],
+    .handover: [],
+    .replaceAll: [],
     .write: [],
 ]
 

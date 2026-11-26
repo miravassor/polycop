@@ -92,8 +92,13 @@ nonisolated enum LibrarySort: String, Sendable {
     case oldestFirst
     case name
 
-    /// Whether `first` appears before `second` in the sidebar.
-    func areInIncreasingOrder(_ first: Entry, _ second: Entry) -> Bool {
+    private struct SortKey {
+        let added: Date
+        let name: String
+        let id: Entry.ID
+    }
+
+    private func areInIncreasingOrder(_ first: SortKey, _ second: SortKey) -> Bool {
         switch self {
         case .newestFirst:
             if first.added != second.added { return first.added > second.added }
@@ -107,8 +112,25 @@ nonisolated enum LibrarySort: String, Sendable {
         return first.id.uuidString < second.id.uuidString
     }
 
+    /// Whether `first` appears before `second` in the sidebar.
+    func areInIncreasingOrder(_ first: Entry, _ second: Entry) -> Bool {
+        areInIncreasingOrder(
+            SortKey(added: first.added, name: first.name, id: first.id),
+            SortKey(added: second.added, name: second.name, id: second.id))
+    }
+
+    func areInIncreasingOrder(_ first: LibraryItem, _ second: LibraryItem) -> Bool {
+        areInIncreasingOrder(
+            SortKey(added: first.added, name: first.name, id: first.id),
+            SortKey(added: second.added, name: second.name, id: second.id))
+    }
+
     func sorted(_ entries: [Entry]) -> [Entry] {
         entries.sorted(by: areInIncreasingOrder)
+    }
+
+    func sorted(_ items: [LibraryItem]) -> [LibraryItem] {
+        items.sorted(by: areInIncreasingOrder)
     }
 }
 

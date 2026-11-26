@@ -24,7 +24,7 @@ struct LibrarySidebar: View {
     var selected: [Entry.ID] {
         model.visibleEntryOrder.filter { selection.contains(.entry($0)) }
     }
-    private var pinnedEntries: [Entry] { model.pinnedEntries }
+    private var pinnedEntries: [LibraryItem] { model.pinnedEntries }
     private var visibleRoots: [TranscriptFolder] {
         model.rootFolders.filter { model.shouldShowFolder($0.id) }
     }

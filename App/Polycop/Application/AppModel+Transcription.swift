@@ -124,7 +124,9 @@ extension AppModel {
     /// them has been transcribed, so removing them loses no work.
     func clearQueue() {
         guard !isShuttingDown else { return }
-        for entry in waiting { removeEntry(entry.id) }
+        withLibrarySync {
+            for entry in waiting { removeEntry(entry.id) }
+        }
     }
 
     /// Transcribes the recording again exactly as this entry was transcribed.

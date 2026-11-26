@@ -3,29 +3,29 @@
 import SwiftUI
 
 extension LibrarySidebar {
-    func row(_ entry: Entry, folderName: String?) -> some View {
-        let targets = targets(of: entry)
-        let isWorking = entry.id == model.busyEntry || model.isWaitingForDownload(entry)
-        return EntryRow(entry: entry, stage: isWorking ? model.stage : nil, folderName: folderName)
-            .tag(AppModel.Pane.entry(entry.id))
+    func row(_ item: LibraryItem, folderName: String?) -> some View {
+        let targets = targets(of: item)
+        let isWorking = item.id == model.busyEntry || model.isWaitingForDownload(item)
+        return EntryRow(item: item, stage: isWorking ? model.stage : nil, folderName: folderName)
+            .tag(AppModel.Pane.entry(item.id))
             .draggable(DraggedTranscripts(ids: targets))
-            .contextMenu { rowContextMenu(entry, targets: targets) }
+            .contextMenu { rowContextMenu(item, targets: targets) }
     }
 
     @ViewBuilder
-    private func rowContextMenu(_ entry: Entry, targets: [Entry.ID]) -> some View {
-        let allPinned = targets.allSatisfy { model.entry($0)?.isPinned == true }
+    private func rowContextMenu(_ item: LibraryItem, targets: [Entry.ID]) -> some View {
+        let allPinned = targets.allSatisfy { model.libraryItem($0)?.isPinned == true }
         Button(allPinned ? "Unpin" : "Pin") {
             model.setPinned(targets, to: !allPinned)
         }
         TranscriptFlairMenu(model: model, targets: targets) { tagging = targets }
         Divider()
         Button("Move to Folder…") {
-            destinationFolder = entry.folderID
+            destinationFolder = item.folderID
             moving = targets
         }
         .disabled(model.foldersAreDamaged)
-        if targets.contains(where: { model.entry($0)?.folderID != nil }) {
+        if targets.contains(where: { model.libraryItem($0)?.folderID != nil }) {
             Button("Remove from Folder") {
                 model.moveEntries(targets, to: nil)
             }
@@ -36,15 +36,15 @@ extension LibrarySidebar {
         if targets.count == 1 {
             Divider()
             Button("Rename Transcript…") {
-                entryName = entry.name
-                renamedEntry = entry.id
+                entryName = item.name
+                renamedEntry = item.id
             }
-            Button("Undo Last Correction") { model.undo(entry.id) }
-                .disabled(!model.canUndo(entry.id) || entry.id == model.busyEntry)
-            Button("Revert to Original…") { reverting = entry.id }
-                .disabled(!entry.isEdited || entry.id == model.busyEntry)
-            Button("Duplicate Transcript") { model.duplicate(entry.id) }
-                .disabled(entry.paragraphs.isEmpty || entry.id == model.busyEntry)
+            Button("Undo Last Correction") { model.undo(item.id) }
+                .disabled(!model.canUndo(item.id) || item.id == model.busyEntry)
+            Button("Revert to Original…") { reverting = item.id }
+                .disabled(!item.isEdited || item.id == model.busyEntry)
+            Button("Duplicate Transcript") { model.duplicate(item.id) }
+                .disabled(!item.hasText || item.id == model.busyEntry)
         }
         Divider()
         Button("Remove from Library…", role: .destructive) { removing = targets }
@@ -56,8 +56,8 @@ extension LibrarySidebar {
     /// The transcripts an action on this row applies to: the whole selection
     /// when the row is part of it, so one menu acts on everything selected, and
     /// the row alone otherwise.
-    private func targets(of entry: Entry) -> [Entry.ID] {
-        guard selection.contains(.entry(entry.id)), selected.count > 1 else { return [entry.id] }
+    private func targets(of item: LibraryItem) -> [Entry.ID] {
+        guard selection.contains(.entry(item.id)), selected.count > 1 else { return [item.id] }
         return selected
     }
 

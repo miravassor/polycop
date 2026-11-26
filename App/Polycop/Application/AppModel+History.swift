@@ -18,9 +18,7 @@ extension AppModel {
         var updated = before
         update(&updated)
         guard updated != before else { return }
-        if before.flairs == updated.flairs && before.folderID == updated.folderID {
-            withFlairSync(deferred: false) { entries[index] = updated }
-        } else {
+        library.update(at: index, to: updated, entries: { entries }, folders: { folders }) {
             entries[index] = updated
         }
         if whileTyping {
