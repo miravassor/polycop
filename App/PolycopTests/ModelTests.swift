@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+import AppKit
 import CryptoKit
 import Foundation
+import SwiftUI
 import Testing
 import os
 
@@ -355,4 +357,21 @@ func launchStartsOnTheRecommendedModelOrAnInstalledOne(installed: [String], expe
     let defaults = MemoryDefaults()
     AppModel(history: history, defaults: defaults).language = "zh"
     #expect(AppModel(history: history, defaults: defaults).language == "zh")
+}
+
+/// The models sheet asks for a size that leaves margin inside the smallest
+/// window (860 by 600 below its toolbar). Actual sheet placement over the
+/// window is verified on captures.
+@MainActor
+@Test func modelManagerFitsInsideTheSmallestWindow() async {
+    let root = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let model = AppModel(
+        history: root.appending(path: "History"), glossaries: root.appending(path: "Glossaries"),
+        models: root.appending(path: "Models"), playbackCopies: root.appending(path: "Replay"),
+        defaults: MemoryDefaults())
+    let size = NSHostingView(rootView: ModelManagerView(model: model)).fittingSize
+    await model.shutDown()
+    #expect(size.width > 0 && size.width <= 640)
+    #expect(size.height > 0 && size.height <= 560)
 }
