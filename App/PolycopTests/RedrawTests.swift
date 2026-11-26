@@ -38,7 +38,7 @@ private let mayRedraw: [Change: Set<Redraws.Piece>] = [
     .click: [.page, .tools],
     .handover: [.window, .library, .page, .inspector],
     .replaceAll: [.window, .library, .page, .inspector],
-    .write: [.page],
+    .write: [],
 ]
 
 /// Each change redraws exactly the pieces listed for it. Before any is

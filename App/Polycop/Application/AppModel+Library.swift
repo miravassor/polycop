@@ -52,9 +52,9 @@ extension AppModel {
                 recentlyDeleted.insert(entry, at: 0)
             }
             entries.removeAll { $0.id == id }
-            unsavedHistory.remove(id)
+            if unsavedHistory.contains(id) { unsavedHistory.remove(id) }
             scheduled.remove(id)
-            undoSteps[id] = nil
+            clearUndo(id)
             pendingSaves.remove(id)
             if !hasUnsavedHistory { storageFailure = nil }
             if pane == .entry(id) { openNewTranscription() }

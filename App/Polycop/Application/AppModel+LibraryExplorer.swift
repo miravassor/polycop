@@ -69,6 +69,10 @@ final class LibraryFlairCache {
 // MARK: Nested folders, pins, flairs, and sidebar search
 
 extension AppModel {
+    /// Sorted unique custom tags and per-folder flair summaries, kept in sync on changes.
+    var customFlairs: [TranscriptFlair] { flairCache.custom }
+    var folderFlairs: [UUID: [TranscriptFlair]] { flairCache.folders }
+
     func folder(_ id: UUID) -> TranscriptFolder? {
         folders.first { $0.id == id }
     }

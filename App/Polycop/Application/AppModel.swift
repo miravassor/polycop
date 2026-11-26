@@ -44,9 +44,6 @@ final class AppModel {
     }
     /// Every recording given to the app, newest first.
     var entries: [Entry] = [] { didSet { flairCache.sync(entries, folders) } }
-    /// Sorted unique custom tags and per-folder flair summaries, kept in sync on changes.
-    var customFlairs: [TranscriptFlair] { flairCache.custom }
-    var folderFlairs: [UUID: [TranscriptFlair]] { flairCache.folders }
     @ObservationIgnored let flairCache = LibraryFlairCache()
     /// Transcripts removed from the library in the last `keepsDeleted`, most
     /// recent first, so that a removal can be taken back.
@@ -224,8 +221,10 @@ final class AppModel {
     var unsavedGlossaries: [String: Glossary] = [:]
     /// What each transcript was before its corrections, oldest first, so one
     /// can be stepped back. It lives as long as the app does: what is on disk
-    /// is what was last seen.
-    var undoSteps: [Entry.ID: [Entry.Revision]] = [:]
+    /// is what was last seen. Unobserved so adding later steps does not notify
+    /// views reading `canUndo`, which observe `undoable` instead.
+    @ObservationIgnored var undoSteps: [Entry.ID: [Entry.Revision]] = [:]
+    var undoable: Set<Entry.ID> = []
     /// Entries typed into and not written yet, and the write waiting for a
     /// pause in the typing.
     @ObservationIgnored var pendingSaves: Set<Entry.ID> = []

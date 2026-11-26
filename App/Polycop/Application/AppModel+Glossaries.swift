@@ -56,10 +56,12 @@ extension AppModel {
     func saveGlossary(_ glossary: Glossary) throws {
         do {
             try GlossaryStore.save(glossary, in: glossaryFolder)
-            unsavedGlossaries[glossary.name] = nil
+            if unsavedGlossaries[glossary.name] != nil { unsavedGlossaries[glossary.name] = nil }
             if !hasUnsavedHistory { storageFailure = nil }
         } catch {
-            unsavedGlossaries[glossary.name] = glossary
+            if unsavedGlossaries[glossary.name] != glossary {
+                unsavedGlossaries[glossary.name] = glossary
+            }
             storageFailure = error.localizedDescription
             throw error
         }
@@ -83,7 +85,7 @@ extension AppModel {
         try CourseCorrections.delete(for: name, in: glossaryFolder)
         try GlossaryStore.delete(named: name, in: glossaryFolder)
         readCourseCorrections[name] = nil
-        unsavedGlossaries[name] = nil
+        if unsavedGlossaries[name] != nil { unsavedGlossaries[name] = nil }
         if !hasUnsavedHistory { storageFailure = nil }
     }
 

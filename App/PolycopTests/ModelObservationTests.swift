@@ -9,15 +9,16 @@ import os
 
 // What the model tells the views that read it. A view told runs its body
 // again, with everything it declares: each change of what it reads must tell
-// it, and nothing else should. Where a write that changes nothing still tells,
-// a known issue says so, until such writes tell no view.
+// it, and nothing else should.
 
 /// Whether `change` tells the readers of what `read` reads.
 @MainActor
-private func tells(_ read: () -> Void, when change: () async -> Void) async -> Bool {
+private func tells(
+    _ read: () -> Void, when change: () async throws -> Void
+) async rethrows -> Bool {
     let told = OSAllocatedUnfairLock(initialState: false)
     withObservationTracking(read) { told.withLock { $0 = true } }
-    await change()
+    try await change()
     return told.withLock { $0 }
 }
 
@@ -62,9 +63,12 @@ private func withLibrary(_ body: (AppModel, Entry.ID, URL) async throws -> Void)
         }
 
         let saved = await tells(read, when: write)
-        withKnownIssue("A write that succeeds removes an id the unsaved ones lack, and tells") {
-            #expect(!saved)
+        #expect(!saved)
+
+        let glossarySaved = try await tells(read) {
+            try model.saveGlossary(Glossary(name: "Cours", text: "Mot"))
         }
+        #expect(!glossarySaved)
 
         try FileManager.default.setAttributes(
             [.posixPermissions: 0o500], ofItemAtPath: history.path)
@@ -91,13 +95,13 @@ private func withLibrary(_ body: (AppModel, Entry.ID, URL) async throws -> Void)
         let first = await tells(read) { model.edit(id, paragraphAt: 0, text: "Premier.") }
         #expect(first)
         let second = await tells(read) { model.edit(id, paragraphAt: 0, text: "Deuxième.") }
-        withKnownIssue("Each correction adds a step to the undo steps every reader reads") {
-            #expect(!second)
-        }
+        #expect(!second)
         model.undo(id)
         let last = await tells(read) { model.undo(id) }
         #expect(last)
         #expect(!model.canUndo(id))
+        let alreadyEmpty = await tells(read) { model.clearUndo(id) }
+        #expect(!alreadyEmpty)
     }
 }
 
