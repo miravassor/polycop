@@ -19,6 +19,8 @@ struct EntryView: View {
     @State private var words: [[Segment.Word]] = []
     /// The notices' findings, worked out when the segments change.
     @State private var findings: Entry.Findings?
+    /// Stretches with no text, worked out when what they hang on changes.
+    @State private var textGaps: [ClosedRange<TimeInterval>]?
     /// Whether what a warning offers to rebuild can be. Worked out as what it
     /// hangs on changes, since the answer can run the course corrections over
     /// the whole text, which neither hovering nor the warnings' two views repeat.
@@ -37,6 +39,7 @@ struct EntryView: View {
         // For RedrawTests, in the test host only, with the pointer they move.
         let _ = Redraws.count(.page, in: model)
         let _ = Redraws.keep(pointer, of: model)
+        let lastExport = model.lastExport(of: entry)
         VStack(alignment: .leading, spacing: Spacing.block) {
             Group {
                 EntryProgress(model: model, entry: entry, isRunning: isRunning)
@@ -56,9 +59,11 @@ struct EntryView: View {
         .padding(.top, Spacing.block)
         .libraryWarnings(model)
         .navigationTitle(entry.name)
-        .toolbar { pageTools }
+        .toolbar { pageTools(lastExport: lastExport) }
         .modifier(InspectorToggle(isShown: Bindable(model.layout).showsInspector))
-        .inspector(isPresented: Bindable(model.layout).showsInspector) { inspector }
+        .inspector(isPresented: Bindable(model.layout).showsInspector) {
+            inspector(lastExport: lastExport)
+        }
         // The Playback menu's steps, which work with the inspector hidden.
         .focusedSceneValue(\.paragraphSteps, steps)
         .focusedSceneValue(\.comparesOriginal, Bindable(reading).isComparing)
@@ -82,6 +87,7 @@ struct EntryView: View {
             regroupWords()
             findings = entry.findings
         }
+        .onChange(of: textGapInputs, initial: true) { textGaps = entry.textGaps }
         .onChange(of: rebuildFacts, initial: true) {
             canRebuild = rebuildFacts.offersRebuild && model.canRebuildParagraphs(of: entry)
         }
@@ -192,21 +198,21 @@ struct EntryView: View {
 
     /// Above the text they act on, the inspector's button alone at the
     /// trailing edge.
-    @ToolbarContentBuilder private var pageTools: some ToolbarContent {
+    @ToolbarContentBuilder private func pageTools(lastExport: URL?) -> some ToolbarContent {
         ToolbarItemGroup(placement: .principal) {
             EntryTools(
-                model: model, id: entry.id, facts: toolFacts, page: page,
+                model: model, id: entry.id, facts: toolFacts(lastExport: lastExport), page: page,
                 find: $find, isSearchFocused: $isSearchFocused,
                 confirmingRevert: $confirmingRevert, confirmingRemoval: $confirmingRemoval)
         }
     }
 
-    private var toolFacts: EntryTools.Facts {
+    private func toolFacts(lastExport: URL?) -> EntryTools.Facts {
         EntryTools.Facts(
             paragraphCount: entry.paragraphs.count, flagged: entry.reviewParagraphs.sorted(),
             canUndo: model.canUndo(entry.id), isEdited: entry.isEdited,
             hasRecording: entry.hasRecording, hasTimedWords: hasTimedWords,
-            hasExport: model.lastExport(of: entry) != nil,
+            hasExport: lastExport != nil,
             isRunning: isRunning)
     }
 
@@ -253,14 +259,32 @@ extension EntryView {
             isRunning: isRunning, offersRebuild: findings?.offersRebuild ?? false)
     }
 
+    /// All that `Entry.textGaps` reads.
+    private struct TextGapInputs: Equatable {
+        let decoded: [Segment]
+        let state: Entry.State
+        let skipsSilence: Bool
+        let duration: TimeInterval?
+    }
+
+    private var textGapInputs: TextGapInputs {
+        TextGapInputs(
+            decoded: entry.decoded, state: entry.state, skipsSilence: entry.skipsSilence,
+            duration: entry.duration)
+    }
+
     /// The recording, the warnings and the export, beside the text in the
     /// system's inspector, which the reader hides or shows.
-    private var inspector: some View {
-        EntryInspector(
-            model: model, entry: entry, findings: findings ?? entry.findings,
-            canRebuild: canRebuild, isRunning: isRunning, engine: engine
-        )
-        .modifier(InspectorColumn(layout: model.layout))
+    private func inspector(lastExport: URL?) -> some View {
+        EntryInspector(model: model, facts: inspectorFacts(lastExport: lastExport))
+            .modifier(InspectorColumn(layout: model.layout))
+    }
+
+    private func inspectorFacts(lastExport: URL?) -> EntryInspector.Facts {
+        EntryInspector.Facts(
+            entry: entry, findings: findings ?? entry.findings,
+            textGaps: textGaps ?? entry.textGaps, canRebuild: canRebuild, lastExport: lastExport,
+            model: model)
     }
 
     private var hasTimedWords: Bool { words.contains { !$0.isEmpty } }

@@ -40,8 +40,14 @@ final class AppModel {
     // The setter of these is internal rather than private: extensions in the
     // other AppModel+*.swift files assign them directly.
     var stage = Stage.waiting {
-        didSet { holdActivity(while: stage.isRunning) }
+        didSet {
+            if isBusy != stage.isBusy { isBusy = stage.isBusy }
+            holdActivity(while: stage.isRunning)
+        }
     }
+    /// Whether any work is under way or paused. Kept apart from `stage` so a
+    /// progress tick does not notify views that ask only whether work is active.
+    private(set) var isBusy = false
     /// Every recording given to the app, newest first.
     var entries: [Entry] = [] { didSet { flairCache.sync(entries, folders) } }
     @ObservationIgnored let flairCache = LibraryFlairCache()
@@ -182,14 +188,6 @@ final class AppModel {
         didSet { defaults.set(glossaryName, forKey: Self.glossaryKey) }
     }
 
-    var selectedCatalogue: Model? { ModelCatalog.model(selected) }
-    /// A glossary only applies to a model that reads one.
-    var glossaryApplies: Bool { selectedCatalogue?.readsGlossary ?? true }
-    /// A language only applies to a model that is told it; the others detect it.
-    var languageApplies: Bool { selectedCatalogue?.engine.detectsLanguage != true }
-    /// Silence removal only applies to an engine that does it.
-    var silenceApplies: Bool { selectedCatalogue?.engine.skipsSilence ?? true }
-
     /// Recordings being transcribed or waiting their turn.
     var hasWork: Bool { running != nil || !waiting.isEmpty }
 
@@ -323,10 +321,6 @@ final class AppModel {
         alignerInstalled = ModelStore.isInstalled(ModelCatalog.qwenAligner, in: modelFolder)
         imported = ModelStore.imported(in: modelFolder)
         if selectedCatalogue == nil { selected = ModelCatalog.recommended.id }
-    }
-
-    func isInstalled(_ id: String) -> Bool {
-        installed.contains(id)
     }
 
     func entry(_ id: Entry.ID) -> Entry? {
