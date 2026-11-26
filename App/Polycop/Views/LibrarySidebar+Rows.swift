@@ -3,8 +3,8 @@
 import SwiftUI
 
 extension LibrarySidebar {
-    func row(_ item: LibraryItem, folderName: String?) -> some View {
-        let targets = targets(of: item)
+    func row(_ item: LibraryItem, folderName: String?, selected: [Entry.ID]) -> some View {
+        let targets = targets(of: item, selected: selected)
         let isWorking = item.id == model.busyEntry || model.isWaitingForDownload(item)
         return EntryRow(item: item, stage: isWorking ? model.stage : nil, folderName: folderName)
             .tag(AppModel.Pane.entry(item.id))
@@ -56,8 +56,10 @@ extension LibrarySidebar {
     /// The transcripts an action on this row applies to: the whole selection
     /// when the row is part of it, so one menu acts on everything selected, and
     /// the row alone otherwise.
-    private func targets(of item: LibraryItem) -> [Entry.ID] {
-        guard selection.contains(.entry(item.id)), selected.count > 1 else { return [item.id] }
+    private func targets(of item: LibraryItem, selected: [Entry.ID]) -> [Entry.ID] {
+        guard selection.count > 1, selection.contains(.entry(item.id)), selected.count > 1 else {
+            return [item.id]
+        }
         return selected
     }
 

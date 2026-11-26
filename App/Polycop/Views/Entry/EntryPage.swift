@@ -174,9 +174,7 @@ private struct EntryText: View {
             VStack(alignment: .leading, spacing: Spacing.block) {
                 Group {
                     EntryProgress(model: model, entry: entry, isRunning: isRunning)
-                    EntryNotices(
-                        entry: entry, checks: checks, hasRecording: steps.hasRecording,
-                        model: model)
+                    EntryNotices(checks: checks, hasRecording: steps.hasRecording, model: model)
                     unsaved(for: entry, isRunning: isRunning)
                 }
                 .frame(maxWidth: .infinity)
@@ -204,9 +202,6 @@ private struct EntryText: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             playerBar(for: entry).padding(.bottom, PlayerBar.foot)
         } else {
-            let words =
-                segments.loadedInputs == nil
-                ? WordLayout.grouped(entry.shown, into: entry.paragraphs) : segments.words
             TranscriptView(
                 paragraphs: entry.paragraphs, resumed: entry.resumedParagraphs,
                 player: model.player, isEditable: !isRunning,
@@ -229,7 +224,7 @@ private struct EntryText: View {
                 review: entry.reviewParagraphs,
                 toggleReview: { model.toggleReview(entry.id, paragraphAt: $0) },
                 matches: find.matches, currentMatch: find.current,
-                words: words,
+                words: segments.words,
                 showsUncertainWords: reading.showsUncertainWords,
                 cursorFollows: following == .cursor
             )

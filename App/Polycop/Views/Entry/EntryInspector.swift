@@ -69,7 +69,6 @@ extension EntryInspector.Facts {
         canRebuild: Bool, lastExport: URL?, model: AppModel
     ) {
         let isRunning = model.busyEntry == entry.id
-        let engine = ModelCatalog.model(entry.modelFile)?.engine
         self.init(
             id: entry.id,
             recording: entry.recording,
@@ -77,12 +76,8 @@ extension EntryInspector.Facts {
             export: EntryExportSection.Facts(
                 entry: entry, isRunning: isRunning, lastExport: lastExport),
             checks: TextChecks.Facts(
-                id: entry.id, glossaryWarning: entry.glossaryWarning, findings: findings,
-                resumedAt: entry.resumedAt, textGaps: textGaps, leftOut: entry.leftOut,
-                duration: entry.duration, skipsSilence: entry.skipsSilence,
-                dismissedWarnings: entry.dismissedWarnings, canRebuild: canRebuild,
-                isRunning: isRunning, isBusy: model.isBusy,
-                engineSkipsSilence: engine?.skipsSilence == true),
+                entry: entry, findings: findings, textGaps: textGaps, canRebuild: canRebuild,
+                isRunning: isRunning, model: model),
             details: EntryDetails.Facts(entry))
     }
 }

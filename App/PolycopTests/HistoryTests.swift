@@ -663,7 +663,7 @@ func automaticIsADetectedLanguage(chosen: Model) {
     let duplicateOlder = entry("Notes.m4a", in: directory, added: base.addingTimeInterval(10))
     let duplicateNewer = entry("Notes.m4a", in: directory, added: base.addingTimeInterval(300))
 
-    let sample = [older, middle, renamedFirst, duplicateOlder, duplicateNewer]
+    let sample = [older, middle, renamedFirst, duplicateOlder, duplicateNewer].map(LibraryItem.init)
     #expect(
         LibrarySort.newestFirst.sorted(sample).map(\.id)
             == [duplicateNewer.id, renamedFirst.id, middle.id, duplicateOlder.id, older.id]
@@ -677,8 +677,8 @@ func automaticIsADetectedLanguage(chosen: Model) {
             == [renamedFirst.id, older.id, middle.id, duplicateNewer.id, duplicateOlder.id]
     )
 
-    let sameTimeA = entry("Same.m4a", in: directory, added: base)
-    let sameTimeB = entry("Same.m4a", in: directory, added: base)
+    let sameTimeA = LibraryItem(entry("Same.m4a", in: directory, added: base))
+    let sameTimeB = LibraryItem(entry("Same.m4a", in: directory, added: base))
     let expectedByID = [sameTimeA, sameTimeB].sorted { $0.id.uuidString < $1.id.uuidString }
         .map(\.id)
     for order in [LibrarySort.newestFirst, .oldestFirst, .name] {

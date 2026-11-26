@@ -122,16 +122,16 @@ one decision it makes for a recording.
 
 ## Editing and playback
 
-* The transcript page is three views, so that the text redraws alone. `EntryView`
-  reads the record and works out what is derived from its segments; it gives
-  `EntryPage` the id and `EntryPage.Facts`, which a correction leaves equal.
-  `EntryPage` declares the title, the toolbar (`EntryTools`), the inspector
-  (`EntryInspector`), the focused values and the dialogs, and keeps the page's
-  own state. `EntryText` below it reads the record again and draws progress,
-  notices, Find, the text and the player. Where the reader is focused and
-  scrolled is `PageNavigationState`, an object of the page that the text and the
-  Playback menu read, and `EntryPage` does not, so moving between paragraphs does
-  not run `EntryPage`.
+* The transcript page is four views, so that the text redraws alone. `EntryView`
+  resolves `model.entry(id)` so changes to other records stop there and hands
+  the record to `LoadedEntryView`. `LoadedEntryView` updates `PageSegments`
+  synchronously when its inputs change and builds `EntryPage.Facts`, which a
+  correction leaves equal. `EntryPage` owns the page structure, title, toolbar
+  (`EntryTools`), inspector (`EntryInspector`), focused values, dialogs and
+  `PageNavigationState`. `EntryText` below it reads the record again and draws
+  progress, notices, Find, the text and the player. `PageNavigationState` is an
+  object of the page that the text and the Playback menu read, and `EntryPage`
+  does not, so moving between paragraphs does not run `EntryPage`.
 * A paragraph is an `NSTextView` (`ParagraphEditor`) inside a lazy list
   (`TranscriptView`). Word times come from `WordLayout`, which places the
   engine's timed words on the corrected text with a word diff (`Edits`). The

@@ -9,22 +9,21 @@ import UniformTypeIdentifiers
 /// work until they are dealt with. The checks show as one, or as how many,
 /// less those dismissed, which stay in the inspector.
 struct EntryNotices: View {
-    let entry: Entry
     let checks: TextChecks.Facts
     let hasRecording: Bool
     let model: AppModel
 
     var body: some View {
-        let checks = TextChecks(facts: checks, model: model).aboveText
-        if !hasRecording || !checks.isEmpty {
+        let aboveText = TextChecks(facts: checks, model: model).aboveText
+        if !hasRecording || !aboveText.isEmpty {
             // Side by side when they fit, for the height of the text.
             ViewThatFits(in: .horizontal) {
-                HStack(spacing: 8) { capsules(checks) }
-                VStack(spacing: 8) { capsules(checks) }
+                HStack(spacing: 8) { capsules(aboveText) }
+                VStack(spacing: 8) { capsules(aboveText) }
             }
         }
         ForEach(
-            [model.failure, model.failure(for: entry.id), model.player.failure].compactMap { $0 },
+            [model.failure, model.failure(for: checks.id), model.player.failure].compactMap { $0 },
             id: \.self
         ) { failure in
             Notice(failure, .failure)
@@ -33,25 +32,29 @@ struct EntryNotices: View {
         }
     }
 
-    @ViewBuilder private func capsules(_ checks: [TextCheck]) -> some View {
+    @ViewBuilder private func capsules(_ visible: [TextCheck]) -> some View {
         if !hasRecording { recording }
-        if checks.count == 1, let check = checks.first {
+        if visible.count == 1, let check = visible.first {
             TextCheckRow(check: check).statusCapsule()
-        } else if !checks.isEmpty {
-            TextChecksButton(checks: checks) {
-                model.setDismissed(checks.map(\.warning), true, on: entry.id)
+        } else if !visible.isEmpty {
+            TextChecksButton(checks: visible) {
+                model.setDismissed(visible.map(\.warning), true, on: checks.id)
             }
         }
     }
 
     /// The details go in the tooltip: the choosing panel opens where it was.
     private var recording: some View {
-        HStack(spacing: 12) {
+        let help: LocalizedStringKey =
+            if let location = model.entry(checks.id)?.location {
+                "The transcript is safe. Listening, transcribing again and repairing the repeats all need the original recording, last at \(location.path(percentEncoded: false))."
+            } else {
+                "The transcript is safe. Listening, transcribing again and repairing the repeats all need the original recording."
+            }
+        return HStack(spacing: 12) {
             Label("Recording unavailable", systemImage: "questionmark.folder")
                 .notice(.orange)
-                .help(
-                    "The transcript is safe. Listening, transcribing again and repairing the repeats all need the original recording, last at \(entry.location.path(percentEncoded: false))."
-                )
+                .help(help)
             Button("Locate Recording…") { locateRecording() }
                 .disabled(checks.isRunning)
         }
@@ -66,9 +69,9 @@ struct EntryNotices: View {
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
         panel.message = String(localized: "Choose the recording this transcript was made from.")
-        panel.directoryURL = entry.location.deletingLastPathComponent()
+        panel.directoryURL = model.entry(checks.id)?.location.deletingLastPathComponent()
         guard panel.runModal() == .OK, let found = panel.url else { return }
-        model.locateRecording(entry.id, at: found)
+        model.locateRecording(checks.id, at: found)
     }
 }
 

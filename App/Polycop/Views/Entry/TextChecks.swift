@@ -178,19 +178,18 @@ struct TextChecks {
     }
 }
 
-extension TextChecks {
+extension TextChecks.Facts {
     init(
-        entry: Entry, findings: Entry.Findings, canRebuild: Bool, model: AppModel,
-        isRunning: Bool, engine: Engine?
+        entry: Entry, findings: Entry.Findings, textGaps: [ClosedRange<TimeInterval>],
+        canRebuild: Bool, isRunning: Bool, model: AppModel
     ) {
+        let engine = ModelCatalog.model(entry.modelFile)?.engine
         self.init(
-            facts: Facts(
-                id: entry.id, glossaryWarning: entry.glossaryWarning, findings: findings,
-                resumedAt: entry.resumedAt, textGaps: entry.textGaps, leftOut: entry.leftOut,
-                duration: entry.duration, skipsSilence: entry.skipsSilence,
-                dismissedWarnings: entry.dismissedWarnings, canRebuild: canRebuild,
-                isRunning: isRunning, isBusy: model.isBusy,
-                engineSkipsSilence: engine?.skipsSilence == true),
-            model: model)
+            id: entry.id, glossaryWarning: entry.glossaryWarning, findings: findings,
+            resumedAt: entry.resumedAt, textGaps: textGaps, leftOut: entry.leftOut,
+            duration: entry.duration, skipsSilence: entry.skipsSilence,
+            dismissedWarnings: entry.dismissedWarnings, canRebuild: canRebuild,
+            isRunning: isRunning, isBusy: model.isBusy,
+            engineSkipsSilence: engine?.skipsSilence == true)
     }
 }

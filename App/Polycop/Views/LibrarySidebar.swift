@@ -20,10 +20,6 @@ struct LibrarySidebar: View {
     @State private var highlightsUnfiled = false
 
     var layout: WindowLayout { model.layout }
-    /// The visible transcripts selected, in the order the sidebar shows them.
-    var selected: [Entry.ID] {
-        model.visibleEntryOrder.filter { selection.contains(.entry($0)) }
-    }
     private var pinnedEntries: [LibraryItem] { model.pinnedEntries }
     private var visibleRoots: [TranscriptFolder] {
         model.rootFolders.filter { model.shouldShowFolder($0.id) }
@@ -52,6 +48,10 @@ struct LibrarySidebar: View {
     var body: some View {
         // For RedrawTests, in the test host only.
         let _ = Redraws.count(.library, in: model)
+        // Computed once per sidebar draw, and skipped when 0 or 1 row is selected.
+        let selected =
+            selection.count > 1
+            ? model.visibleEntryOrder.filter { selection.contains(.entry($0)) } : []
         VStack(spacing: 0) {
             VStack(spacing: 6) {
                 newTranscriptionButton
@@ -64,9 +64,9 @@ struct LibrarySidebar: View {
 
             List(selection: $selection) {
                 if layout.filter != .all { filterBanner }
-                if !pinnedEntries.isEmpty { pinnedSection }
-                if showsUnfiledSection { unfiledSection }
-                if showsFoldersSection { foldersSection }
+                if !pinnedEntries.isEmpty { pinnedSection(selected: selected) }
+                if showsUnfiledSection { unfiledSection(selected: selected) }
+                if showsFoldersSection { foldersSection(selected: selected) }
                 if hasNoMatches { emptyNote("No matching transcripts") }
                 RecentlyDeletedSection(model: model)
             }
@@ -101,11 +101,11 @@ struct LibrarySidebar: View {
         .padding(.vertical, 2)
     }
 
-    private var pinnedSection: some View {
+    private func pinnedSection(selected: [Entry.ID]) -> some View {
         Section {
             if model.isFilteringLibrary || layout.showsPinned {
                 ForEach(pinnedEntries) { entry in
-                    row(entry, folderName: model.folderPath(of: entry.folderID))
+                    row(entry, folderName: model.folderPath(of: entry.folderID), selected: selected)
                 }
             }
         } header: {
@@ -118,7 +118,7 @@ struct LibrarySidebar: View {
         }
     }
 
-    private var unfiledSection: some View {
+    private func unfiledSection(selected: [Entry.ID]) -> some View {
         Section {
             if model.isFilteringLibrary || layout.showsUnfiled {
                 let entries = model.entries(in: nil)
@@ -130,7 +130,7 @@ struct LibrarySidebar: View {
                             ? "Pinned above" : "Nothing outside a folder")
                 }
                 UnavailableRows(model: model, folder: nil)
-                ForEach(entries) { entry in row(entry, folderName: nil) }
+                ForEach(entries) { entry in row(entry, folderName: nil, selected: selected) }
             }
         } header: {
             LibrarySectionHeader(
@@ -148,7 +148,7 @@ struct LibrarySidebar: View {
         }
     }
 
-    private var foldersSection: some View {
+    private func foldersSection(selected: [Entry.ID]) -> some View {
         Section {
             if model.isFilteringLibrary || layout.showsFolders {
                 if model.folders.isEmpty, !model.isFilteringLibrary {
@@ -160,10 +160,11 @@ struct LibrarySidebar: View {
                     folderGroup(root) {
                         ForEach(subfolders) { subfolder in
                             folderGroup(subfolder) {
-                                folderItems(subfolder.id, hasSubfolders: false)
+                                folderItems(subfolder.id, hasSubfolders: false, selected: selected)
                             }
                         }
-                        folderItems(root.id, hasSubfolders: !subfolders.isEmpty)
+                        folderItems(
+                            root.id, hasSubfolders: !subfolders.isEmpty, selected: selected)
                     }
                 }
             }
@@ -204,7 +205,9 @@ struct LibrarySidebar: View {
     }
 
     @ViewBuilder
-    private func folderItems(_ folderID: UUID, hasSubfolders: Bool) -> some View {
+    private func folderItems(
+        _ folderID: UUID, hasSubfolders: Bool, selected: [Entry.ID]
+    ) -> some View {
         let entries = model.entries(in: folderID)
         let unavailable = model.visibleUnavailable(in: folderID)
         if entries.isEmpty, unavailable.isEmpty, !hasSubfolders {
@@ -219,7 +222,7 @@ struct LibrarySidebar: View {
             emptyNote(emptyLabel)
         }
         UnavailableRows(model: model, folder: folderID)
-        ForEach(entries) { entry in row(entry, folderName: nil) }
+        ForEach(entries) { entry in row(entry, folderName: nil, selected: selected) }
     }
 
     private func folderLabel(_ folder: TranscriptFolder) -> some View {

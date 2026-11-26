@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+// Every test of one subject, kept together.
+// swiftlint:disable file_length
 
 import Foundation
 import Observation
@@ -24,6 +26,27 @@ private func sampleEntry(
             Segment(start: 0, end: 3, text: "Le concept est clair."),
             Segment(start: 5, end: 8, text: "Ce concept revient souvent."),
         ], partial: false)
+    entry.state = .finished
+    return entry
+}
+
+@MainActor
+private func creditedEntryWithGap() -> Entry {
+    var entry = Entry(
+        recording: URL(filePath: "/nowhere/lecture.wav"),
+        modelFile: ModelCatalog.recommended.id, glossary: nil,
+        skipsSilence: false, subtitles: false, language: "fr")
+    let creditText = Credits.lines.sorted()[0]
+    entry.publish(
+        [
+            Segment(
+                start: 0, end: 2, text: " \(creditText)",
+                words: [.init(text: "Crédit", start: 0, end: 1, confidence: 0.9)]),
+            Segment(
+                start: 5, end: 8, text: " Le concept est clair.",
+                words: [.init(text: "Le", start: 5, end: 5.5, confidence: 0.9)]),
+        ], partial: false)
+    entry.duration = 200
     entry.state = .finished
     return entry
 }
@@ -315,13 +338,15 @@ private func with<T>(_ value: T, _ edit: (inout T) -> Void) -> T {
             model.edit(id, paragraphAt: 0, text: "Le concept est très clair.")
             @MainActor func pageFacts() throws -> EntryPage.Facts {
                 let current = try #require(model.entry(id))
+                let segments = PageSegments()
+                segments.update(for: current, model: model)
                 let inspector = EntryInspector.Facts(
-                    entry: current, findings: current.findings, textGaps: current.textGaps,
-                    canRebuild: model.canRebuildParagraphs(of: current),
+                    entry: current, findings: segments.findings, textGaps: segments.textGaps,
+                    canRebuild: segments.canRebuild,
                     lastExport: model.lastExport(of: current), model: model)
                 return EntryPage.Facts(
                     entry: current, hasRecording: current.hasRecording,
-                    hasTimedWords: PageSegments.initialHasTimedWords(for: current),
+                    hasTimedWords: segments.hasTimedWords,
                     inspector: inspector, model: model)
             }
 
@@ -380,6 +405,59 @@ private func with<T>(_ value: T, _ edit: (inout T) -> Void) -> T {
             #expect(
                 tells({ _ = steps.isFollowSuspended }, when: { state.isFollowSuspended = false }))
             #expect(!steps.isFollowSuspended)
+        }
+    }
+}
+
+extension EntryFactsTests {
+    /// `PageSegments` computes derived segment data on first update, updates
+    /// in place when credits are put back, and leaves them alone on text edits.
+    @Test func pageSegmentsUpdateSynchronouslyAndSkipPlainEdits() async throws {
+        try await withModel { model, _ in
+            let entry = creditedEntryWithGap()
+            model.entries = [entry]
+            let id = entry.id
+
+            let segments = PageSegments()
+            segments.update(for: entry, model: model)
+            let initialWords = segments.words
+            let initialFindings = segments.findings
+            let initialGaps = segments.textGaps
+            #expect(initialWords == WordLayout.grouped(entry.shown, into: entry.paragraphs))
+            #expect(segments.hasTimedWords)
+            #expect(initialFindings == entry.findings)
+            #expect(!initialFindings.hiddenCredits.isEmpty)
+            #expect(initialGaps == entry.textGaps)
+            #expect(!initialGaps.isEmpty)
+            #expect(segments.canRebuild)
+
+            model.edit(id, paragraphAt: 0, text: "Le concept est très clair.")
+            segments.update(for: try #require(model.entry(id)), model: model)
+            #expect(segments.words == initialWords)
+            #expect(segments.findings == initialFindings)
+            #expect(segments.textGaps == initialGaps)
+            #expect(segments.hasTimedWords)
+            #expect(!segments.canRebuild)
+
+            model.undo(id)
+            segments.update(for: try #require(model.entry(id)), model: model)
+            #expect(segments.canRebuild)
+
+            model.putBackCredits(id)
+            let restored = try #require(model.entry(id))
+            #expect(restored.showsCredits)
+            #expect(restored.paragraphs.count == entry.paragraphs.count + 1)
+            segments.update(for: restored, model: model)
+            #expect(segments.words == WordLayout.grouped(restored.shown, into: restored.paragraphs))
+            #expect(segments.words.count == restored.paragraphs.count)
+            #expect(segments.words != initialWords)
+            #expect(segments.findings.hiddenCredits.isEmpty)
+            #expect(!segments.canRebuild)
+
+            // Switching to another record refreshes every derived field.
+            segments.update(for: sampleEntry(), model: model)
+            #expect(!segments.hasTimedWords)
+            #expect(segments.textGaps.isEmpty)
         }
     }
 }
