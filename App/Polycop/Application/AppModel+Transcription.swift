@@ -116,8 +116,8 @@ extension AppModel {
 
     /// Whether anything is waiting to be started.
     var canStart: Bool {
-        !isShuttingDown && !stage.isBusy && busyEntry == nil && !hasUnsavedHistory
-            && !waiting.isEmpty
+        !isShuttingDown && !isBusy && busyEntry == nil && !hasUnsavedHistory
+            && library.hasWaiting
     }
 
     /// Takes every recording that has not started out of the library. None of

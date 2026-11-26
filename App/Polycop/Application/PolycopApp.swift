@@ -31,23 +31,6 @@ struct PolycopApp: App {
                 playbackCopies: Self.playbackCopies, defaults: Self.settings))
     }
 
-    /// The transcript on screen, when it has text to export and is not being
-    /// transcribed.
-    private var openTranscript: Entry? {
-        guard case .entry(let id) = model.pane, model.busyEntry != id,
-            let entry = model.entry(id), !entry.paragraphs.isEmpty
-        else { return nil }
-        return entry
-    }
-
-    /// A new copy each time, where the user chooses: corrections are saved in
-    /// the library, so an export is never updated in place.
-    private func exportOpenTranscript() {
-        TypingBuffer.flush()
-        guard let entry = openTranscript else { return }
-        EntryExportSection.exportAs(entry, with: model)
-    }
-
     static var isHostingTests: Bool { TestHost.isRunning }
 
     /// Whether another copy of the app has the user's library. Each copy
@@ -123,45 +106,7 @@ struct PolycopApp: App {
             CommandGroup(after: .appInfo) {
                 Button("Check for Updates…") { UpdatePrompt.checkForUpdates() }
             }
-            // The File menu of an app without documents: what the window can do
-            // from anywhere, with the shortcuts a Mac user expects.
-            CommandGroup(replacing: .newItem) {
-                Button("New Transcription") { model.openNewTranscription() }
-                    .keyboardShortcut("n")
-                Button("Add Recordings…") { model.chooseRecordings() }
-                    .keyboardShortcut("o")
-                Button("Import Transcript and Recording…") { model.chooseTranscriptImport() }
-                    .keyboardShortcut("o", modifiers: [.command, .shift])
-                    .disabled(model.stage.isBusy)
-                Button("Start Transcription") {
-                    if case .entry(let id) = model.pane, model.isScheduled(id) {
-                        model.continueQueue()
-                    } else {
-                        model.start()
-                    }
-                }
-                .keyboardShortcut("r")
-                .disabled(!model.canStart)
-                Button(model.stage.isPaused ? "Resume Transcription" : "Pause Transcription") {
-                    if model.stage.isPaused { model.resume() } else { model.pause() }
-                }
-                .disabled(!model.stage.isPaused && !model.stage.isTranscribing)
-                Button("Stop Transcription") { model.cancel() }
-                    .disabled(model.busyEntry == nil || model.stage == .stopping)
-                Divider()
-                Button("New Folder…") { model.addFolder() }
-                    .keyboardShortcut("n", modifiers: [.command, .shift])
-                    .disabled(model.foldersAreDamaged)
-                Button("Manage Glossaries…") { model.manageGlossaries() }
-                    .keyboardShortcut("g", modifiers: [.command, .option])
-                Divider()
-                LibraryTranscriptCommands(model: model)
-                Divider()
-                // Typing not yet handed to the model is flushed first.
-                Button("Export…") { exportOpenTranscript() }
-                    .keyboardShortcut("s")
-                    .disabled(openTranscript == nil)
-            }
+            FileCommands(model: model)
             PlaybackCommands(reading: model.reading)
             // Show and hide the library, with Control-Command-S, and the
             // inspector, with Control-Command-I.
@@ -357,5 +302,66 @@ private struct PlaybackSettings: View {
             }
         }
         .disabled(!pausesWhileTyping)
+    }
+}
+
+/// The File menu of an app without documents: reads library facts so transcript
+/// edits do not re-evaluate the scene's commands.
+private struct FileCommands: Commands {
+    let model: AppModel
+
+    private var canExportOpenTranscript: Bool {
+        guard case .entry(let id) = model.pane, model.busyEntry != id else { return false }
+        return model.libraryItem(id)?.hasText == true
+    }
+
+    /// A new copy each time, where the user chooses: corrections are saved in
+    /// the library, so an export is never updated in place.
+    private func exportOpenTranscript() {
+        TypingBuffer.flush()
+        guard case .entry(let id) = model.pane, model.busyEntry != id,
+            let entry = model.entry(id), !entry.paragraphs.isEmpty
+        else { return }
+        EntryExportSection.exportAs(entry, with: model)
+    }
+
+    var body: some Commands {
+        CommandGroup(replacing: .newItem) {
+            Button("New Transcription") { model.openNewTranscription() }
+                .keyboardShortcut("n")
+            Button("Add Recordings…") { model.chooseRecordings() }
+                .keyboardShortcut("o")
+            Button("Import Transcript and Recording…") { model.chooseTranscriptImport() }
+                .keyboardShortcut("o", modifiers: [.command, .shift])
+                .disabled(model.isBusy)
+            Button("Start Transcription") {
+                if case .entry(let id) = model.pane, model.isScheduled(id) {
+                    model.continueQueue()
+                } else {
+                    model.start()
+                }
+            }
+            .keyboardShortcut("r")
+            .disabled(!model.canStart)
+            Button(model.stage.isPaused ? "Resume Transcription" : "Pause Transcription") {
+                if model.stage.isPaused { model.resume() } else { model.pause() }
+            }
+            .disabled(!model.stage.isPaused && !model.stage.isTranscribing)
+            Button("Stop Transcription") { model.cancel() }
+                .disabled(model.busyEntry == nil || model.stage == .stopping)
+            Divider()
+            Button("New Folder…") { model.addFolder() }
+                .keyboardShortcut("n", modifiers: [.command, .shift])
+                .disabled(model.foldersAreDamaged)
+            Button("Manage Glossaries…") { model.manageGlossaries() }
+                .keyboardShortcut("g", modifiers: [.command, .option])
+            Divider()
+            LibraryTranscriptCommands(model: model)
+            Divider()
+            // Typing not yet handed to the model is flushed first.
+            Button("Export…") { exportOpenTranscript() }
+                .keyboardShortcut("s")
+                .disabled(!canExportOpenTranscript)
+        }
     }
 }
