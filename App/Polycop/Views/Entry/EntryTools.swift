@@ -6,10 +6,11 @@ import SwiftUI
 /// shortcut; the actions on the whole transcript in its More menu.
 ///
 /// A redrawn tool makes AppKit rebuild its toolbar item and menu, so these must
-/// not be redrawn when a correction changes only the text. The toolbar redoes
-/// this view at each update of the page whatever it is given, so every tool is
-/// a view of its own, given what it shows rather than the transcript. Actions
-/// read the transcript from the model when chosen.
+/// not be redrawn when a correction changes only the text. The page makes this
+/// view again at each of its updates, and SwiftUI runs its body only when what
+/// it is given changed: so it is given what the tools show rather than the
+/// transcript, and each tool is a view of its own, compared on its own when
+/// this body runs. Actions read the transcript from the model when chosen.
 struct EntryTools: View {
     let model: AppModel
     let id: Entry.ID

@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import Foundation
+import Observation
 
-/// How many times each view that declares the window's structure ran its
-/// body, for `RedrawTests`, which state what each change on the page may
-/// redraw, and how often the page drew where the pointer is, which they wait
-/// on. An API added for those tests: it counts only in the test host, and a
-/// release build has neither the counts nor the work.
+/// Two APIs added for `RedrawTests`, which state what each change on the page
+/// may redraw: the counts of how many times each view that declares the
+/// window's structure ran its body, with how often the page drew where the
+/// pointer is, which they wait on; and `redraw(_:in:)`, which runs one such
+/// body alone, for them to wait until SwiftUI skips the views it holds. Both
+/// work only in the test host, and a release build has neither the counts nor
+/// the work.
 ///
 /// Counted by the model the window draws, or the pointer of its page, so that
 /// tests hosting pages at the same time each read their own window's counts.
@@ -25,9 +28,25 @@ enum Redraws {
     }
 
     #if DEBUG
-        /// What a window counted, in a value its table can hold.
+        /// What a window counted, in a value its table can hold, and what
+        /// runs each of its pieces again.
         private final class Runs {
             var counts: [Piece: Int] = [:]
+            private var requests: [Piece: Requests] = [:]
+
+            func requests(of piece: Piece) -> Requests {
+                if let requested = requests[piece] { return requested }
+                let requested = Requests()
+                requests[piece] = requested
+                return requested
+            }
+        }
+
+        /// Read by the body of one piece alone, so that a change of it runs
+        /// that body and nothing else of the window. Not private: the
+        /// conformance `@Observable` adds is declared outside `Redraws`.
+        @Observable fileprivate final class Requests {
+            var count = 0
         }
 
         /// How often a page drew where its pointer is.
@@ -47,6 +66,20 @@ enum Redraws {
             runs.object(forKey: model)?.counts ?? [:]
         }
 
+        /// Runs the body of `piece` in the window of `model` again, as a change
+        /// only it reads would: a piece it holds runs too only if SwiftUI finds
+        /// what that piece is given changed.
+        static func redraw(_ piece: Piece, in model: AppModel) {
+            runs(in: model).requests(of: piece).count += 1
+        }
+
+        private static func runs(in model: AppModel) -> Runs {
+            if let window = runs.object(forKey: model) { return window }
+            let window = Runs()
+            runs.setObject(window, forKey: model)
+            return window
+        }
+
         /// The pointer of the page the window of `model` shows.
         static func pointer(of model: AppModel) -> ParagraphPointer? {
             pointers.object(forKey: model)
@@ -59,13 +92,15 @@ enum Redraws {
         }
     #endif
 
-    /// Counts a run of the body of `piece` in the window of `model`.
+    /// Counts a run of the body of `piece` in the window of `model`, and makes
+    /// that body observe the requests of `redraw(_:in:)` for it.
     static func count(_ piece: Piece, in model: AppModel) {
         #if DEBUG
             guard TestHost.isRunning else { return }
-            let window = runs.object(forKey: model) ?? Runs()
+            let window = runs(in: model)
             window.counts[piece, default: 0] += 1
-            runs.setObject(window, forKey: model)
+            // Read, so that `redraw(_:in:)` runs this body again.
+            _ = window.requests(of: piece).count
         #endif
     }
 

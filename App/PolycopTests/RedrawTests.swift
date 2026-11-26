@@ -41,10 +41,13 @@ private let mayRedraw: [Change: Set<Redraws.Piece>] = [
     .write: [.page],
 ]
 
+/// Each change redraws exactly the pieces listed for it. Before any is
+/// counted, each piece redrawn alone redraws none of the pieces it holds.
 @MainActor
 @Test func eachChangeOnThePageRedrawsOnlyTheStructureListedForIt() async throws {
     try await withHostedPage(lecture()) { page in
         try await openCounting(page)
+        try await settle(page)
         var redrew = try await corrections(on: page)
         redrew.merge(try await editing(on: page)) { $1 }
         redrew.merge(try await listening(on: page)) { $1 }
@@ -66,6 +69,40 @@ private func openCounting(_ page: HostedPage) async throws {
     for piece in Redraws.Piece.allCases {
         #expect(opened[piece, default: 0] > closed[piece, default: 0], "\(piece) never ran")
     }
+}
+
+/// Waits until SwiftUI skips a piece given what it was given before, which
+/// every change below relies on. Observed, not documented: soon after a view
+/// appears, and for longer on a busy Mac, SwiftUI can take values equal to the
+/// last for new ones and run the body; those runs stop with AttributeGraph's
+/// private `AG_ASYNC_LAYOUTS=0`. So each piece is redrawn alone until none of
+/// those it holds is redrawn with it.
+@MainActor
+private func settle(_ page: HostedPage) async throws {
+    var unsettled = try await unsettledPieces(of: page)
+    for _ in 0..<100 where !unsettled.isEmpty {
+        try await Task.sleep(for: .milliseconds(50))
+        unsettled = try await unsettledPieces(of: page)
+    }
+    try #require(
+        unsettled.isEmpty,
+        """
+        Redrawn alone, a piece redrew others: \(unsettled). Either SwiftUI has not \
+        settled, or a piece is given something new at each run, such as a closure.
+        """)
+}
+
+/// The pieces that redrew others when redrawn alone, with what they redrew.
+@MainActor
+private func unsettledPieces(of page: HostedPage) async throws
+    -> [Redraws.Piece: Set<Redraws.Piece>]
+{
+    var unsettled: [Redraws.Piece: Set<Redraws.Piece>] = [:]
+    for piece in Redraws.Piece.allCases {
+        let redrew = try await redrawn(in: page.model) { Redraws.redraw(piece, in: page.model) }
+        if redrew != [piece] { unsettled[piece] = redrew }
+    }
+    return unsettled
 }
 
 /// A handover, its write, then Replace All. The first correction changes what

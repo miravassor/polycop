@@ -186,3 +186,33 @@ private final class Drop: NSObject, NSDraggingInfo {
     #expect(second.selectedRange() == NSRange(location: 0, length: 7))
     #expect(first.selectedRange().length == 0)
 }
+
+/// A drag that scrolls its paragraph far out of sight hides that paragraph,
+/// which takes the focus from it while AppKit goes on selecting in it. Hidden
+/// at the release, it keeps nothing selected for when it comes back; back in
+/// sight, it has the focus again with what the reader selected.
+@MainActor
+@Test func aParagraphLeftDuringADragKeepsItsSelectionOnlyInSight() {
+    let window = NSWindow(
+        contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled],
+        backing: .buffered, defer: false)
+    window.isReleasedWhenClosed = false
+    defer { window.close() }
+    defer { WordTextView.lostCursor = false }
+    let (first, _) = twoParagraphs(in: window)
+    let selected = NSRange(location: 0, length: 7)
+
+    window.makeFirstResponder(first)
+    first.isHidden = true
+    first.setSelectedRange(selected)
+    first.pressEnded()
+    #expect(window.firstResponder !== first)
+    #expect(first.selectedRange().length == 0)
+
+    first.isHidden = false
+    first.setSelectedRange(selected)
+    first.pressEnded()
+    #expect(window.firstResponder === first)
+    #expect(first.selectedRange() == selected)
+    #expect(!WordTextView.lostCursor)
+}
