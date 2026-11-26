@@ -48,9 +48,9 @@ nonisolated struct AudioCppProfile: Sendable {
         family: "qwen3_asr", window: 30, cutsAtSilence: false, feed: .whole, setsLanguage: true,
         readsHotwords: false,
         options: ["audio_chunk_mode": "none", "max_tokens": "1024"])
-    /// Five minutes per window. audio.cpp
-    /// reserves the cache for every token allowed, so the official 65536 for
-    /// long audio would hold gigabytes for nothing.
+    /// Five minutes per window. audio.cpp reserves the cache for every token
+    /// allowed, so the official 65536 for long audio would hold gigabytes for
+    /// nothing.
     static let moss = AudioCppProfile(
         family: "moss_transcribe_diarize", window: 300, cutsAtSilence: true, feed: .text,
         setsLanguage: false,

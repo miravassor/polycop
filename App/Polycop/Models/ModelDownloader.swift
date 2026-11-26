@@ -73,14 +73,14 @@ nonisolated enum ModelDownloader {
         if let resumeData = try? Data(contentsOf: resumeFile) {
             do {
                 return try await fetch(model, into: place, resumingFrom: resumeData)
-            } catch let error where !isStop(error) && !carriesResumeData(error) {
+            } catch let error where !isStop(error) && Self.resumeData(in: error) == nil {
                 // Resume data replays the request it was made from, whose
                 // signed redirect may have expired, the bytes it continues may
                 // be wrong, and the system may have deleted the partial file it
                 // points to. Once, the download starts over from the pinned
                 // address instead. A transfer cut again keeps its new resume data.
                 Log.models.notice(
-                    "a resumed download failed, starting over: \(error, privacy: .public)")
+                    "a resumed download failed, starting over: \(error, privacy: .private)")
                 try? FileManager.default.removeItem(at: resumeFile)
             }
         }
@@ -111,10 +111,13 @@ nonisolated enum ModelDownloader {
             // URLSession hands back the bytes it fetched when a transfer fails
             // or is stopped, as by Cancel or Quit, so the next attempt does
             // not start from zero.
-            if let resumeData = (error as NSError).userInfo[NSURLSessionDownloadTaskResumeData]
-                as? Data
-            {
-                try? resumeData.write(to: resumeFile)
+            if let saved = Self.resumeData(in: error) {
+                do {
+                    try saved.write(to: resumeFile, options: .atomic)
+                } catch let writeError {
+                    Log.models.error(
+                        "could not save download resume data: \(writeError, privacy: .private)")
+                }
             } else if !isStop(error) {
                 // Resume data the server refuses would otherwise fail every retry.
                 try? FileManager.default.removeItem(at: resumeFile)
@@ -169,11 +172,15 @@ nonisolated enum ModelDownloader {
         return destination
     }
 
-    /// A stop asked for, rather than a transfer that failed.
-    private static func carriesResumeData(_ error: any Error) -> Bool {
-        (error as NSError).userInfo[NSURLSessionDownloadTaskResumeData] != nil
+    /// Resume data carried by a stopped or failed transfer, when URLSession
+    /// produced any. Reads `NSError.userInfo` rather than
+    /// `URLError.downloadTaskResumeData` so non-`URLError` failures keep theirs
+    /// too.
+    private static func resumeData(in error: any Error) -> Data? {
+        (error as NSError).userInfo[NSURLSessionDownloadTaskResumeData] as? Data
     }
 
+    /// A stop asked for, rather than a transfer that failed.
     private static func isStop(_ error: any Error) -> Bool {
         error is CancellationError || (error as? URLError)?.code == .cancelled
     }

@@ -70,6 +70,26 @@ private func words(_ text: String) -> [String] {
     }
 }
 
+@Test func performanceCoresFitsWithinActiveProcessors() {
+    let cores = DecodingSettings.performanceCores
+    #expect(cores > 0)
+    #expect(cores <= ProcessInfo.processInfo.activeProcessorCount)
+    #expect(DecodingSettings().threads == Int32(cores))
+    var expected: Int32 = 0
+    var size = MemoryLayout<Int32>.size
+    if sysctlbyname("hw.perflevel0.logicalcpu", &expected, &size, nil, 0) == 0,
+        size == MemoryLayout<Int32>.size, expected > 0
+    {
+        #expect(cores == Int(expected))
+    }
+}
+
+@Test func silenceDetectorFailurePointsToTranscriptionSettings() throws {
+    let message = try #require(TranscriptionError.detectorUnavailable.errorDescription)
+    #expect(message.contains("transcription settings"))
+    #expect(!message.contains("advanced settings"))
+}
+
 /// Tests that load a model run one at a time, because each holds close to
 /// 3 GB on the GPU, more than parallel runs can share.
 @Suite(.serialized) struct LoadingAModel {}

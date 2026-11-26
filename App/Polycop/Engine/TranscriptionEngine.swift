@@ -45,10 +45,8 @@ nonisolated extension TranscriptionEngine {
         return Int(min(Double(count), max(0, start * Double(AudioDecoder.sampleRate))))
     }
 
-    /// The two refusals that need nothing but the file's name and the
-    /// catalogue, a model that is not there, and one this Mac cannot hold.
-    /// They come before any reading, since proving the contents of a model
-    /// this Mac cannot run would be wasted time.
+    /// Fails before hashing when the file is missing or the model needs more
+    /// memory than this Mac recommends.
     static func refuse(_ model: URL, _ catalogued: Model?) throws {
         guard FileManager.default.fileExists(atPath: model.path(percentEncoded: false)) else {
             throw TranscriptionError.modelMissing(model)
@@ -125,7 +123,7 @@ nonisolated enum TranscriptionError: LocalizedError {
         case .detectorUnavailable:
             return String(
                 localized:
-                    "The silence detector could not be started. Turn off Skip silences in the advanced settings and transcribe again."
+                    "The silence detector could not be started. Turn off Skip silences in the transcription settings and transcribe again."
             )
 
         case .invalidStart:

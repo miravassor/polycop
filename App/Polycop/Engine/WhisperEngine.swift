@@ -36,19 +36,16 @@ nonisolated final class WhisperEngine: TranscriptionEngine, @unchecked Sendable 
         try await ModelStore.verify(catalogued, at: model)
         try Task.checkCancellation()
         return try await loadingQueue.run {
-            try WhisperEngine(model: model, expecting: catalogued)
+            try WhisperEngine(model: model)
         }
     }
 
     private static let loadingQueue = DispatchQueue(
         label: "io.github.miravassor.Polycop.engine.load", qos: .userInitiated)
 
-    /// Checks what whisper.cpp cannot report. It returns a null context for a
-    /// missing file, a damaged one and a Mac short of memory alike. The first
-    /// two are told apart before the call, and the message names the rest.
-    private init(model: URL, expecting catalogued: Model? = nil) throws {
-        try WhisperEngine.refuse(model, catalogued)
-
+    /// whisper.cpp returns nil for any failure. `load` has already ruled out a
+    /// missing or damaged file, so nil here most likely means memory.
+    private init(model: URL) throws {
         var parameters = whisper_context_default_params()
         parameters.use_gpu = true
         parameters.flash_attn = true

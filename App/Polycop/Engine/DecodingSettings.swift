@@ -39,9 +39,9 @@ nonisolated struct DecodingSettings: Equatable, Sendable {
     }
 
     /// Beam search width, and the candidates kept when a window is decoded
-    /// again at a higher temperature. Both are live. Under beam search
-    /// whisper.cpp allocates `max(best_of, beam_size)` decoders and uses
-    /// `best_of` above temperature zero (`whisper_full_with_state`, v1.9.4).
+    /// again at a higher temperature. Under beam search whisper.cpp allocates
+    /// `max(best_of, beam_size)` decoders and uses `best_of` above temperature
+    /// zero (`whisper_full_with_state`, v1.9.4).
     var beamSize: Int32 = 5
     var bestOf: Int32 = 5
 
@@ -53,22 +53,24 @@ nonisolated struct DecodingSettings: Equatable, Sendable {
     var logProbabilityThreshold: Float = -1
     var noSpeechThreshold: Float = 0.6
 
-    /// The performance cores, asked of the machine rather than assumed. It
-    /// changes little, since most of the work runs on the GPU. `whisper-cli`
-    /// uses `min(4, hardware_concurrency)`.
+    /// The performance cores. It matters little: most of the work runs on the
+    /// GPU. `whisper-cli` uses `min(4, hardware_concurrency)`.
     var threads = Int32(DecodingSettings.performanceCores)
 
     static var performanceCores: Int {
-        var count = 0
-        var size = MemoryLayout<Int>.size
-        if sysctlbyname("hw.perflevel0.logicalcpu", &count, &size, nil, 0) == 0, count > 0 {
-            return count
+        var count: Int32 = 0
+        var size = MemoryLayout<Int32>.size
+        if sysctlbyname("hw.perflevel0.logicalcpu", &count, &size, nil, 0) == 0,
+            size == MemoryLayout<Int32>.size, count > 0
+        {
+            return Int(count)
         }
         return min(4, ProcessInfo.processInfo.activeProcessorCount)
     }
 
     /// The glossary sentence, prepended to every window so that a lecture of
-    /// one hour keeps its vocabulary. Only the last 223 tokens are read.
+    /// one hour keeps its vocabulary. Only the last `Glossary.tokenBudget`
+    /// tokens are read.
     var prompt: String?
 
     /// How many tokens of earlier text a window reads, glossary included. The
