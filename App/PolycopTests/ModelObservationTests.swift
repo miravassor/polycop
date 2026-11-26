@@ -110,9 +110,7 @@ private func withLibrary(_ body: (AppModel, Entry.ID, URL) async throws -> Void)
         @MainActor func read() { _ = model.entries }
 
         let unchanged = await tells(read) { model.rememberPlace(in: .entry(id)) }
-        withKnownIssue("An update changes the record in place before comparing it, and tells") {
-            #expect(!unchanged)
-        }
+        #expect(!unchanged)
         let corrected = await tells(read) { model.edit(id, paragraphAt: 0, text: "Corrigé.") }
         #expect(corrected)
     }
