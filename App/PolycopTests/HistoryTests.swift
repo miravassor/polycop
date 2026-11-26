@@ -1183,7 +1183,7 @@ func automaticIsADetectedLanguage(chosen: Model) {
     #expect(reloaded.customFlairs.isEmpty)
 
     reloaded.addFolder()
-    #expect(reloaded.folderRequest != nil)
+    #expect(reloaded.folderRequest == .new(parent: nil))
 
     await reloaded.finishWrites()
 }

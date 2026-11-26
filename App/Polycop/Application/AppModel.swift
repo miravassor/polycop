@@ -157,10 +157,11 @@ final class AppModel {
     var entryFailure: EntryFailure?
 
     /// A menu command cannot reach the state of a view, so it leaves a token
-    /// here. The view that owns the sheet acts on a new one and clears it.
+    /// here, as the library's column does, given no closure to reach it. The
+    /// view that owns the sheet acts on a new one and clears it.
     var recordingsRequest: UUID?
     var newTranscriptionRequest: UUID?
-    var folderRequest: UUID?
+    var folderRequest: FolderRequest?
     var glossariesRequest: UUID?
     var transcriptImportRequest: UUID?
     var storageFailure: String?

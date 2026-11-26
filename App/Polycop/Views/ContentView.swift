@@ -72,9 +72,7 @@ struct ContentView: View {
                 tagging: $tagging,
                 renamedEntry: $renamedEntry,
                 entryName: $entryName,
-                reverting: $reverting,
-                newFolder: { startNewFolder(in: $0) },
-                renameFolder: { startRenameFolder($0) }
+                reverting: $reverting
             )
             .onGeometryChange(for: CGFloat.self) {
                 $0.size.width
@@ -144,9 +142,14 @@ struct ContentView: View {
         }
         .background { PictureInPictureSource(model: model) }
         .task(id: model.folderRequest) {
-            guard model.folderRequest != nil else { return }
+            guard let request = model.folderRequest else { return }
             model.folderRequest = nil
-            startNewFolder()
+            switch request {
+            case .new(let parent):
+                startNewFolder(in: parent)
+            case .rename(let id):
+                if let folder = model.folder(id) { startRenameFolder(folder) }
+            }
         }
         .task(id: model.transcriptImportRequest) {
             guard model.transcriptImportRequest != nil else { return }
@@ -243,7 +246,7 @@ struct ContentView: View {
 
 // Folder actions and selection helpers.
 extension ContentView {
-    private func startNewFolder(in parent: UUID? = nil) {
+    private func startNewFolder(in parent: UUID?) {
         renamedFolder = nil
         parentFolder = parent
         folderName = ""

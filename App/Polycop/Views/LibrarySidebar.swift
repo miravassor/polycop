@@ -3,6 +3,8 @@
 import SwiftUI
 
 /// Sidebar list of pinned transcripts, unfiled items, folders, search, and filters.
+/// Given no closure, which SwiftUI may take as new at each run of the window and
+/// run this body for: its folder actions ask the model.
 struct LibrarySidebar: View {
     let model: AppModel
     @Binding var selection: Set<AppModel.Pane>
@@ -14,8 +16,6 @@ struct LibrarySidebar: View {
     @Binding var renamedEntry: Entry.ID?
     @Binding var entryName: String
     @Binding var reverting: Entry?
-    let newFolder: (UUID?) -> Void
-    let renameFolder: (TranscriptFolder) -> Void
 
     @State private var highlighted: UUID?
     @State private var highlightsUnfiled = false
@@ -161,7 +161,7 @@ struct LibrarySidebar: View {
                 isCollapsible: !model.isFilteringLibrary
             ) {
                 Button {
-                    newFolder(nil)
+                    model.addFolder()
                 } label: {
                     Label("New Folder…", systemImage: "folder.badge.plus")
                         .labelStyle(.iconOnly)
@@ -244,13 +244,13 @@ struct LibrarySidebar: View {
     @ViewBuilder
     private func folderContextMenu(_ folder: TranscriptFolder) -> some View {
         if model.canAddSubfolder(to: folder.id) {
-            Button("New Subfolder…") { newFolder(folder.id) }
+            Button("New Subfolder…") { model.addFolder(in: folder.id) }
                 .disabled(model.foldersAreDamaged)
         }
         FolderColorMenu(model: model, folderID: folder.id, selected: folder.color)
             .disabled(model.foldersAreDamaged)
         Divider()
-        Button("Rename Folder…") { renameFolder(folder) }
+        Button("Rename Folder…") { model.askToRenameFolder(folder.id) }
             .disabled(model.foldersAreDamaged)
         Button("Delete Empty Folder", role: .destructive) {
             attempt { try model.removeFolder(folder.id) }
@@ -391,8 +391,7 @@ extension LibrarySidebar {
             removing: .constant([]), moving: .constant([]),
             destinationFolder: .constant(nil), tagging: .constant([]),
             renamedEntry: .constant(nil), entryName: .constant(""),
-            reverting: .constant(nil),
-            newFolder: { _ in }, renameFolder: { _ in }
+            reverting: .constant(nil)
         )
     } detail: {
         Text("Detail")

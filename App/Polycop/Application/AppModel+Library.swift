@@ -15,9 +15,23 @@ extension AppModel {
         return url
     }
 
-    func addFolder() {
+    /// A folder the window is asked to name: a new one, inside `parent` when
+    /// it has one, or one to rename.
+    enum FolderRequest: Equatable {
+        case new(parent: UUID?)
+        case rename(UUID)
+    }
+
+    /// Asks the window for the name of a new folder, inside `parent` when given.
+    func addFolder(in parent: UUID? = nil) {
         guard !isShuttingDown else { return }
-        folderRequest = UUID()
+        folderRequest = .new(parent: parent)
+    }
+
+    /// Asks the window for a new name of the folder `id`.
+    func askToRenameFolder(_ id: UUID) {
+        guard !isShuttingDown else { return }
+        folderRequest = .rename(id)
     }
 
     /// How long a removed transcript stays in Recently Deleted.
