@@ -10,18 +10,13 @@ import UniformTypeIdentifiers
 /// less those dismissed, which stay in the inspector.
 struct EntryNotices: View {
     let entry: Entry
-    let findings: Entry.Findings
-    let canRebuild: Bool
+    let checks: TextChecks.Facts
+    let hasRecording: Bool
     let model: AppModel
-    let isRunning: Bool
-    let engine: Engine?
 
     var body: some View {
-        let checks = TextChecks(
-            entry: entry, findings: findings, canRebuild: canRebuild, model: model,
-            isRunning: isRunning, engine: engine
-        ).aboveText
-        if !entry.hasRecording || !checks.isEmpty {
+        let checks = TextChecks(facts: checks, model: model).aboveText
+        if !hasRecording || !checks.isEmpty {
             // Side by side when they fit, for the height of the text.
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 8) { capsules(checks) }
@@ -39,7 +34,7 @@ struct EntryNotices: View {
     }
 
     @ViewBuilder private func capsules(_ checks: [TextCheck]) -> some View {
-        if !entry.hasRecording { recording }
+        if !hasRecording { recording }
         if checks.count == 1, let check = checks.first {
             TextCheckRow(check: check).statusCapsule()
         } else if !checks.isEmpty {
@@ -58,7 +53,7 @@ struct EntryNotices: View {
                     "The transcript is safe. Listening, transcribing again and repairing the repeats all need the original recording, last at \(entry.location.path(percentEncoded: false))."
                 )
             Button("Locate Recording…") { locateRecording() }
-                .disabled(isRunning)
+                .disabled(checks.isRunning)
         }
         .statusCapsule()
     }

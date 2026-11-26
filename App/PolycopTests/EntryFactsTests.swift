@@ -7,48 +7,56 @@ import os
 
 @testable import Polycop
 
-/// Every field of the inspector's facts types, and that corrections typed in
-/// the text or replaced across it leave them equal so the inspector skips its
-/// body.
 @MainActor
-@Suite struct EntryFactsTests {
-    private func sampleEntry(
-        recording: URL = URL(filePath: "/nowhere/lecture.wav"),
-        modelFile: String = ModelCatalog.recommended.id,
-        glossary: Glossary? = Glossary(name: "Droit", text: "Mot"),
-        skipsSilence: Bool = false,
-        language: String = "fr",
-        added: Date = Date(timeIntervalSinceReferenceDate: 1_000)
-    ) -> Entry {
-        var entry = Entry(
-            recording: recording, modelFile: modelFile, glossary: glossary,
-            skipsSilence: skipsSilence, subtitles: false, language: language, added: added)
-        entry.publish(
-            [
-                Segment(start: 0, end: 3, text: "Le concept est clair."),
-                Segment(start: 5, end: 8, text: "Ce concept revient souvent."),
-            ], partial: false)
-        entry.state = .finished
-        return entry
-    }
+private func sampleEntry(
+    recording: URL = URL(filePath: "/nowhere/lecture.wav"),
+    modelFile: String = ModelCatalog.recommended.id,
+    glossary: Glossary? = Glossary(name: "Droit", text: "Mot"),
+    skipsSilence: Bool = false,
+    language: String = "fr",
+    added: Date = Date(timeIntervalSinceReferenceDate: 1_000)
+) -> Entry {
+    var entry = Entry(
+        recording: recording, modelFile: modelFile, glossary: glossary,
+        skipsSilence: skipsSilence, subtitles: false, language: language, added: added)
+    entry.publish(
+        [
+            Segment(start: 0, end: 3, text: "Le concept est clair."),
+            Segment(start: 5, end: 8, text: "Ce concept revient souvent."),
+        ], partial: false)
+    entry.state = .finished
+    return entry
+}
 
-    private func withModel(_ body: (AppModel, URL) async throws -> Void) async throws {
-        let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
-        let model = AppModel(
-            history: folder.appending(path: "History"),
-            glossaries: folder.appending(path: "Glossaries"),
-            playbackCopies: folder.appending(path: "Copies"))
-        do {
-            try await body(model, folder)
-        } catch {
-            await model.shutDown()
-            try? FileManager.default.removeItem(at: folder)
-            throw error
-        }
+@MainActor
+private func withModel(_ body: (AppModel, URL) async throws -> Void) async throws {
+    let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    let model = AppModel(
+        history: folder.appending(path: "History"),
+        glossaries: folder.appending(path: "Glossaries"),
+        playbackCopies: folder.appending(path: "Copies"))
+    do {
+        try await body(model, folder)
+    } catch {
         await model.shutDown()
         try? FileManager.default.removeItem(at: folder)
+        throw error
     }
+    await model.shutDown()
+    try? FileManager.default.removeItem(at: folder)
+}
 
+private func with<T>(_ value: T, _ edit: (inout T) -> Void) -> T {
+    var copy = value
+    edit(&copy)
+    return copy
+}
+
+/// Every field of the page and inspector facts types, and that corrections
+/// typed in the text or replaced across it leave them equal so the page's
+/// structure and inspector skip their bodies.
+@MainActor
+@Suite struct EntryFactsTests {
     /// Every field of `EntryExportSection.Facts` changes equality and matches
     /// what the export section reads from a record.
     @Test func exportFactsTrackEveryShownField() {
@@ -62,42 +70,22 @@ import os
         #expect(base.coversHesitations)
         #expect(!base.removesHesitations)
         #expect(base.lastExport == nil)
-
-        var changed = base
-        changed.id = UUID()
-        #expect(changed != base)
-
-        changed = base
-        changed.canExport = false
-        #expect(changed != base)
         #expect(!EntryExportSection.Facts(entry: entry, isRunning: true, lastExport: nil).canExport)
-
-        changed = base
-        changed.exportFormat = .markdown
-        #expect(changed != base)
-
-        changed = base
-        changed.exportsTimes = !base.exportsTimes
-        #expect(changed != base)
-
-        changed = base
-        changed.formats = [.plainText]
-        #expect(changed != base)
-
-        let german = sampleEntry(language: "de")
-        let germanFacts = EntryExportSection.Facts(entry: german, isRunning: false, lastExport: nil)
+        let germanFacts = EntryExportSection.Facts(
+            entry: sampleEntry(language: "de"), isRunning: false, lastExport: nil)
         #expect(!germanFacts.coversHesitations)
-        changed = base
-        changed.coversHesitations = false
-        #expect(changed != base)
 
-        changed = base
-        changed.removesHesitations = true
-        #expect(changed != base)
-
-        changed = base
-        changed.lastExport = URL(filePath: "/nowhere/export.txt")
-        #expect(changed != base)
+        let variants: [EntryExportSection.Facts] = [
+            with(base) { $0.id = UUID() },
+            with(base) { $0.canExport = false },
+            with(base) { $0.exportFormat = .markdown },
+            with(base) { $0.exportsTimes.toggle() },
+            with(base) { $0.formats = [.plainText] },
+            with(base) { $0.coversHesitations = false },
+            with(base) { $0.removesHesitations = true },
+            with(base) { $0.lastExport = URL(filePath: "/nowhere/export.txt") },
+        ]
+        for variant in variants { #expect(variant != base) }
     }
 
     /// Every field of `EntryDetails.Facts` changes equality and matches what
@@ -118,34 +106,19 @@ import os
         let detected = EntryDetails.Facts(sampleEntry(language: DecodingSettings.automaticLanguage))
         #expect(detected.isLanguageDetected)
         #expect(detected.language == nil)
+        #expect(EntryDetails.Facts(sampleEntry(modelFile: "custom.bin")).modelName == "custom.bin")
 
-        let custom = EntryDetails.Facts(sampleEntry(modelFile: "custom.bin"))
-        #expect(custom.modelName == "custom.bin")
-
-        var changed = base
-        changed.added = entry.added.addingTimeInterval(60)
-        #expect(changed != base)
-        changed = base
-        changed.importSource = "notes.srt"
-        #expect(changed != base)
-        changed = base
-        changed.modelName = "Other"
-        #expect(changed != base)
-        changed = base
-        changed.transcribedIn = 99
-        #expect(changed != base)
-        changed = base
-        changed.isLanguageDetected = true
-        #expect(changed != base)
-        changed = base
-        changed.language = "English"
-        #expect(changed != base)
-        changed = base
-        changed.glossary = "Physique"
-        #expect(changed != base)
-        changed = base
-        changed.skipsSilence = true
-        #expect(changed != base)
+        let variants: [EntryDetails.Facts] = [
+            with(base) { $0.added = entry.added.addingTimeInterval(60) },
+            with(base) { $0.importSource = "notes.srt" },
+            with(base) { $0.modelName = "Other" },
+            with(base) { $0.transcribedIn = 99 },
+            with(base) { $0.isLanguageDetected = true },
+            with(base) { $0.language = "English" },
+            with(base) { $0.glossary = "Physique" },
+            with(base) { $0.skipsSilence = true },
+        ]
+        for variant in variants { #expect(variant != base) }
     }
 
     /// Every field of `TextChecks.Facts` changes equality, and `TextChecks`
@@ -276,9 +249,137 @@ import os
         }
     }
 
-    private func with<T>(_ value: T, _ edit: (inout T) -> Void) -> T {
-        var copy = value
-        edit(&copy)
-        return copy
+    /// Every field of `EntryTools.Facts` changes equality and matches what the
+    /// page's tools read from a record.
+    @Test func toolFactsTrackEveryField() async throws {
+        try await withModel { model, _ in
+            let entry = sampleEntry()
+            let base = EntryTools.Facts(
+                entry: entry, hasRecording: true, hasTimedWords: true, hasExport: false,
+                model: model)
+            #expect(base.paragraphCount == 2)
+            #expect(base.flagged.isEmpty)
+            #expect(!base.canUndo)
+            #expect(!base.isEdited)
+            #expect(base.hasRecording)
+            #expect(base.hasTimedWords)
+            #expect(!base.hasExport)
+            #expect(!base.isRunning)
+            #expect(base.hasText)
+
+            let variants: [EntryTools.Facts] = [
+                with(base) { $0.paragraphCount = 0 },
+                with(base) { $0.flagged = [1] },
+                with(base) { $0.canUndo = true },
+                with(base) { $0.isEdited = true },
+                with(base) { $0.hasRecording = false },
+                with(base) { $0.hasTimedWords = false },
+                with(base) { $0.hasExport = true },
+                with(base) { $0.isRunning = true },
+            ]
+            for variant in variants {
+                #expect(variant != base)
+            }
+        }
+    }
+
+    /// Every field of `ParagraphSteps.Facts` changes equality and matches what
+    /// the Playback menu reads from a record.
+    @Test func paragraphStepFactsTrackEveryField() {
+        let entry = sampleEntry()
+        let base = ParagraphSteps.Facts(entry: entry, hasRecording: true, hasTimedWords: false)
+        #expect(base.id == entry.id)
+        #expect(base.hasText)
+        #expect(base.hasRecording)
+        #expect(!base.hasTimedWords)
+
+        let variants: [ParagraphSteps.Facts] = [
+            with(base) { $0.id = UUID() },
+            with(base) { $0.hasText = false },
+            with(base) { $0.hasRecording = false },
+            with(base) { $0.hasTimedWords = true },
+        ]
+        for variant in variants {
+            #expect(variant != base)
+        }
+    }
+
+    /// Every field of `EntryPage.Facts` changes equality, and edits after the
+    /// first correction leave the page's facts equal.
+    @Test func pageFactsTrackEveryFieldAndStayEqualAcrossEdits() async throws {
+        try await withModel { model, _ in
+            let entry = sampleEntry()
+            model.entries = [entry]
+            let id = entry.id
+
+            model.edit(id, paragraphAt: 0, text: "Le concept est très clair.")
+            @MainActor func pageFacts() throws -> EntryPage.Facts {
+                let current = try #require(model.entry(id))
+                let inspector = EntryInspector.Facts(
+                    entry: current, findings: current.findings, textGaps: current.textGaps,
+                    canRebuild: model.canRebuildParagraphs(of: current),
+                    lastExport: model.lastExport(of: current), model: model)
+                return EntryPage.Facts(
+                    entry: current, hasRecording: current.hasRecording,
+                    hasTimedWords: PageSegments.initialHasTimedWords(for: current),
+                    inspector: inspector, model: model)
+            }
+
+            let base = try pageFacts()
+            let variants: [EntryPage.Facts] = [
+                with(base) { $0.id = UUID() },
+                with(base) { $0.name = "Autre.wav" },
+                with(base) { $0.tools.flagged = [0] },
+                with(base) { $0.inspector.resume = 12 },
+                with(base) { $0.steps.hasTimedWords = true },
+            ]
+            for variant in variants {
+                #expect(variant != base)
+            }
+
+            model.edit(id, paragraphAt: 0, text: "Le concept est vraiment clair.")
+            #expect(try pageFacts() == base)
+
+            let paragraphs = try #require(model.entry(id)?.paragraphs)
+            let matches = TranscriptSearch.matches(in: paragraphs, query: "concept")
+            try #require(!matches.isEmpty)
+            model.replace(id, matches: matches, with: "notion")
+            #expect(try pageFacts() == base)
+        }
+    }
+
+    /// `ParagraphSteps` notifies commands only when replayability or follow
+    /// suspension changes, not when moving the cursor between paragraphs.
+    @Test func paragraphStepsObserveReplayAndFollowSuspensionOnlyWhenTheyChange() async throws {
+        try await withModel { model, _ in
+            let state = PageNavigationState()
+            let steps = ParagraphSteps(
+                model: model,
+                facts: ParagraphSteps.Facts(
+                    entry: sampleEntry(), hasRecording: true, hasTimedWords: false),
+                state: state)
+
+            @MainActor func tells(_ read: () -> Void, when change: () -> Void) -> Bool {
+                let told = OSAllocatedUnfairLock(initialState: false)
+                withObservationTracking(read) { told.withLock { $0 = true } }
+                change()
+                return told.withLock { $0 }
+            }
+
+            #expect(!steps.canReplay)
+            #expect(tells({ _ = steps.canReplay }, when: { state.activeParagraph = 1 }))
+            #expect(steps.canReplay)
+            #expect(!tells({ _ = steps.canReplay }, when: { state.activeParagraph = 4 }))
+            #expect(tells({ _ = steps.canReplay }, when: { state.activeParagraph = nil }))
+            #expect(!steps.canReplay)
+
+            #expect(!steps.isFollowSuspended)
+            #expect(
+                tells({ _ = steps.isFollowSuspended }, when: { state.isFollowSuspended = true }))
+            #expect(steps.isFollowSuspended)
+            #expect(
+                tells({ _ = steps.isFollowSuspended }, when: { state.isFollowSuspended = false }))
+            #expect(!steps.isFollowSuspended)
+        }
     }
 }

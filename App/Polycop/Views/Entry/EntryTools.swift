@@ -56,6 +56,23 @@ struct EntryTools: View {
     }
 }
 
+extension EntryTools.Facts {
+    init(
+        entry: Entry, hasRecording: Bool, hasTimedWords: Bool, hasExport: Bool,
+        model: AppModel
+    ) {
+        self.init(
+            paragraphCount: entry.paragraphs.count,
+            flagged: entry.reviewParagraphs.sorted(),
+            canUndo: model.canUndo(entry.id),
+            isEdited: entry.isEdited,
+            hasRecording: hasRecording,
+            hasTimedWords: hasTimedWords,
+            hasExport: hasExport,
+            isRunning: model.busyEntry == entry.id)
+    }
+}
+
 /// One switch rather than two choices: the original beside the text, or not.
 private struct CompareToggle: View {
     @Bindable var reading: ReadingSettings

@@ -19,7 +19,7 @@ enum Redraws {
         case window
         /// `LibrarySidebar`: the library's column, its search, sections and rows.
         case library
-        /// `EntryView`: the page's title, toolbar, inspector and focused values.
+        /// `EntryPage`: the page's title, toolbar, inspector and focused values.
         case page
         /// `EntryTools`: the page's tools in the toolbar.
         case tools
