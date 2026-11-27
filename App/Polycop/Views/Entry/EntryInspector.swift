@@ -7,11 +7,7 @@ import SwiftUI
 /// the transcript was made with. Each section folds.
 struct EntryInspector: View {
     let model: AppModel
-    let entry: Entry
-    let findings: Entry.Findings
-    let canRebuild: Bool
-    let isRunning: Bool
-    let engine: Engine?
+    let facts: Facts
     /// The size of the recording's picture, nil for sound alone.
     @State private var picture: CGSize?
     /// Where the recording is, found once rather than at each redraw.
@@ -21,25 +17,33 @@ struct EntryInspector: View {
     /// settings room at the smallest window, an upright video included.
     private static let pictureShare = 0.55
 
+    /// What the inspector shows of the transcript, which a correction typed in
+    /// the text leaves as it is.
+    struct Facts: Equatable {
+        var id: Entry.ID
+        var recording: URL
+        var resume: TimeInterval
+        var export: EntryExportSection.Facts
+        var checks: TextChecks.Facts
+        var details: EntryDetails.Facts
+    }
+
     var body: some View {
         // For RedrawTests, in the test host only.
         let _ = Redraws.count(.inspector, in: model)
         VStack(spacing: 0) {
             if let picture, let source {
                 VideoSection(
-                    model: model, id: entry.id, source: source, picture: picture,
-                    resume: entry.playbackPosition ?? 0,
+                    model: model, id: facts.id, source: source, picture: picture,
+                    resume: facts.resume,
                     tallest: height.map { $0 * Self.pictureShare })
             }
             Form {
-                EntryExportSection(model: model, entry: entry, isRunning: isRunning)
+                EntryExportSection(model: model, facts: facts.export)
                 WarningsSection(
-                    checks: TextChecks(
-                        entry: entry, findings: findings, canRebuild: canRebuild, model: model,
-                        isRunning: isRunning, engine: engine
-                    ).all,
+                    checks: TextChecks(facts: facts.checks, model: model).all,
                     reading: model.reading)
-                EntryDetails(entry: entry, reading: model.reading)
+                EntryDetails(facts: facts.details, reading: model.reading)
             }
             .formStyle(.grouped)
         }
@@ -48,13 +52,33 @@ struct EntryInspector: View {
         } action: {
             height = $0
         }
-        .task(id: entry.recording) {
+        .task(id: facts.recording) {
+            guard let entry = model.entry(facts.id) else { return }
             let recording = model.recording(of: entry)
             source = recording
             picture = await Player.pictureSize(of: recording)
             // The picture shows where the reader left off, before playing.
-            if picture != nil { model.player.prepare(recording, at: entry.playbackPosition ?? 0) }
+            if picture != nil { model.player.prepare(recording, at: facts.resume) }
         }
+    }
+}
+
+extension EntryInspector.Facts {
+    init(
+        entry: Entry, findings: Entry.Findings, textGaps: [ClosedRange<TimeInterval>],
+        canRebuild: Bool, lastExport: URL?, model: AppModel
+    ) {
+        let isRunning = model.busyEntry == entry.id
+        self.init(
+            id: entry.id,
+            recording: entry.recording,
+            resume: entry.playbackPosition ?? 0,
+            export: EntryExportSection.Facts(
+                entry: entry, isRunning: isRunning, lastExport: lastExport),
+            checks: TextChecks.Facts(
+                entry: entry, findings: findings, textGaps: textGaps, canRebuild: canRebuild,
+                isRunning: isRunning, model: model),
+            details: EntryDetails.Facts(entry))
     }
 }
 

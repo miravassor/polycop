@@ -52,9 +52,21 @@ Find Terms (`TermFinder`) reads the chosen documents itself, through `Documents`
   change to an entry goes through `AppModel.updateEntry`, which writes it to
   disk; a new entry is written by the action that makes it (adding, retrying,
   duplicating or importing).
+* What the views that declare the window's structure read, by the rule
+  "Window structure reads no record" in `AGENTS.md`:
+  * `AppModel.library` (`LibraryFacts`) keeps a `LibraryItem` per record (name,
+    state, folder, pin, flairs, whether it has text or was edited) and
+    `hasWaiting`, derived from `entries` and `folders` and set only when a
+    value differs. The sidebar, the selection page and the File menu read it.
+  * `isBusy` is whether work is under way or paused, kept apart from `stage`,
+    whose progress changes at each tick.
+  * `undoable` is the set of transcripts with a step to take back, which
+    `canUndo(_:)` reads. `undoSteps`, which grows at each correction, is
+    unobserved, so only a transcript gaining its first step or losing its last
+    notifies. `AGENTS.md` gives the rules.
 * `Player` owns playback state (position, playing, speed) and is owned by
   `AppModel`. Views read it; `AppModel`, the player bar and the pause for
-  typing in `EntryView` change it.
+  typing in `EntryText` change it.
 * Views keep only presentation state (`@State`: hover, popovers, scroll
   frames). What must survive a view going away belongs to `AppModel`.
 * Text being typed lives in the paragraph's `NSTextView` until
@@ -109,6 +121,18 @@ one decision it makes for a recording.
 
 ## Editing and playback
 
+* The transcript page is four views, so that the text redraws alone. `EntryView`
+  resolves `model.entry(id)` so changes to other records stop there and hands
+  the record to `LoadedEntryView`. `LoadedEntryView` updates `PageSegments`
+  synchronously when its inputs change and builds `EntryPage.Facts`, which a
+  correction leaves equal. `EntryPage` owns the page structure, title, toolbar
+  (`EntryTools`), inspector (`EntryInspector`), focused values, dialogs,
+  `PageNavigationState` and `TranscriptFind`. `EntryText` below it reads the
+  record again and draws progress, notices, Find, the text and the player.
+  `PageNavigationState`, which the text and the Playback menu read, and
+  `TranscriptFind`, which the text and the tools read, are objects of the page
+  that `EntryPage` does not read, so moving between paragraphs or searching
+  does not run it.
 * A paragraph is an `NSTextView` (`ParagraphEditor`) inside a lazy list
   (`TranscriptView`). Word times come from `WordLayout`, which places the
   engine's timed words on the corrected text with a word diff (`Edits`). The
@@ -122,8 +146,9 @@ one decision it makes for a recording.
   in the background.
 * The player bar, floating over the foot of the text, and `SpaceToPlay` drive
   `Player`. The bar's paragraph steps and the way back to playback
-  (`ParagraphSteps`) also reach the Playback menu as a focused value, with their
-  shortcuts. The paragraph under the pointer, by its time in the text or on the
+  (`ParagraphSteps`, given the id and `ParagraphSteps.Facts`, which read the
+  paragraphs when they act) also reach the Playback menu as a focused value,
+  with their shortcuts. The paragraph under the pointer, by its time in the text or on the
   bar's timeline (`PlayerTimeline`), belongs to the page (`ParagraphPointer`), which
   hands it to both; only what draws it reads it. The inspector beside
   the text (`EntryInspector`) holds the video, above a grouped form so that it takes the

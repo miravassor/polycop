@@ -41,13 +41,41 @@ struct TextCheck: Identifiable {
 /// The checks on a transcript's text, which the page shows above it and the
 /// inspector beside it.
 struct TextChecks {
-    let entry: Entry
-    let findings: Entry.Findings
-    /// Whether what a warning offers to rebuild can be, which the page works out.
-    let canRebuild: Bool
+    /// What the warnings read of the transcript and the model, which a
+    /// correction typed in the text and a progress tick leave as they are.
+    struct Facts: Equatable {
+        var id: Entry.ID
+        var glossaryWarning: String?
+        var findings: Entry.Findings
+        var resumedAt: [TimeInterval]?
+        var textGaps: [ClosedRange<TimeInterval>]
+        var leftOut: TimeInterval?
+        var duration: TimeInterval?
+        var skipsSilence: Bool
+        var dismissedWarnings: Set<String>?
+        /// Whether what a warning offers to rebuild can be, which the page works out.
+        var canRebuild: Bool
+        var isRunning: Bool
+        /// Whether other work is under way, which the repeats' fix waits for.
+        /// False where that fix does not show, so that work starting or ending
+        /// on another recording leaves these facts equal.
+        var isBusy: Bool
+        var engineSkipsSilence: Bool
+
+        /// Whether the repeats can be transcribed again: only the corrections
+        /// then decide whether they may be.
+        var offersRepeatsRepair: Bool {
+            findings.repetitionWarning != nil && !findings.repeats.isEmpty
+                && engineSkipsSilence
+        }
+
+        func isDismissed(_ warning: Entry.Warning) -> Bool {
+            dismissedWarnings?.contains(warning.rawValue) == true
+        }
+    }
+
+    let facts: Facts
     let model: AppModel
-    let isRunning: Bool
-    let engine: Engine?
 
     /// What shows above the text, the rest staying in the inspector.
     var aboveText: [TextCheck] { all.filter { !$0.isDismissed } }
@@ -55,13 +83,13 @@ struct TextChecks {
     /// In the order they matter to reading the text.
     var all: [TextCheck] {
         var checks: [TextCheck] = []
-        if let warning = entry.glossaryWarning {
+        if let warning = facts.glossaryWarning {
             checks.append(check(.glossary, symbol: NoticeState.warning.symbol, text: warning))
         }
-        if let warning = findings.repetitionWarning {
+        if let warning = facts.findings.repetitionWarning {
             checks.append(repetition(warning))
         }
-        if let times = entry.resumedAt, !times.isEmpty {
+        if let times = facts.resumedAt, !times.isEmpty {
             checks.append(
                 check(
                     .resumed, symbol: "arrow.clockwise",
@@ -73,11 +101,12 @@ struct TextChecks {
                         TextCheck.Time(
                             title: Transcript.clock(Int(time * 1000)),
                             help: "Listen from ten seconds before",
-                            listen: { model.replay(entry.id, from: max(0, time - 10)) })
+                            listen: { [model, id = facts.id] in
+                                model.replay(id, from: max(0, time - 10))
+                            })
                     }))
         }
-        let gaps = entry.textGaps
-        if !gaps.isEmpty {
+        if !facts.textGaps.isEmpty {
             checks.append(
                 check(
                     .gaps, symbol: "text.badge.xmark",
@@ -85,20 +114,22 @@ struct TextChecks {
                         localized:
                             "No text for a minute or more from these points. A long pause, or speech the model missed: listen to check, or transcribe again with another model."
                     ),
-                    times: gaps.map { gap in
+                    times: facts.textGaps.map { gap in
                         TextCheck.Time(
                             title:
                                 "\(Transcript.clock(Int(gap.lowerBound * 1000))) to \(Transcript.clock(Int(gap.upperBound * 1000)))",
                             help: "Listen from the start of this stretch",
-                            listen: { model.replay(entry.id, from: gap.lowerBound) })
+                            listen: { [model, id = facts.id] in
+                                model.replay(id, from: gap.lowerBound)
+                            })
                     }))
         }
-        if let leftOut = entry.leftOut, let duration = entry.duration {
+        if let leftOut = facts.leftOut, let duration = facts.duration {
             let (left, whole) = (formattedDuration(leftOut), formattedDuration(duration))
             checks.append(
                 check(
                     .leftOut, symbol: "waveform",
-                    text: entry.skipsSilence
+                    text: facts.skipsSilence
                         ? String(
                             localized:
                                 "Skip silences left \(left) of this \(whole) recording out of the transcript. Some of it may have been speech."
@@ -108,10 +139,10 @@ struct TextChecks {
                                 "Repairing the repeats left \(left) of this \(whole) recording out of the transcript. Some of it may have been speech."
                         )))
         }
-        if let text = Credits.notice(findings.hiddenCredits) {
+        if let text = Credits.notice(facts.findings.hiddenCredits) {
             checks.append(setAside(.credits, text: text))
         }
-        if let text = Degeneration.loopNotice(findings.shortenedLoops) {
+        if let text = Degeneration.loopNotice(facts.findings.shortenedLoops) {
             checks.append(setAside(.loops, text: text))
         }
         return checks
@@ -123,8 +154,8 @@ struct TextChecks {
     ) -> TextCheck {
         TextCheck(
             warning: warning, symbol: symbol, text: text, times: times, action: action,
-            isDismissed: entry.isDismissed(warning), canChangeDismissal: !isRunning,
-            setDismissed: { [model, id = entry.id] in model.setDismissed([warning], $0, on: id) })
+            isDismissed: facts.isDismissed(warning), canChangeDismissal: !facts.isRunning,
+            setDismissed: { [model, id = facts.id] in model.setDismissed([warning], $0, on: id) })
     }
 
     /// Lines kept out of the text, which can be put back.
@@ -133,26 +164,41 @@ struct TextChecks {
             warning, symbol: "eye.slash", text: text,
             action: TextCheck.Action(
                 title: "Put Back",
-                help: canRebuild
+                help: facts.canRebuild
                     ? nil : Text("Putting the lines back would undo your corrections."),
-                isDisabled: !canRebuild,
-                perform: { [model, id = entry.id] in model.putBackCredits(id) }))
+                isDisabled: !facts.canRebuild,
+                perform: { [model, id = facts.id] in model.putBackCredits(id) }))
     }
 
-    /// The repeats and the engine are checked here, so only the corrections
-    /// decide whether they can be transcribed again.
     private func repetition(_ warning: String) -> TextCheck {
         var action: TextCheck.Action?
-        if !findings.repeats.isEmpty, engine?.skipsSilence == true {
+        if facts.offersRepeatsRepair {
             action = TextCheck.Action(
                 title: "Transcribe the Repeats Again",
-                help: canRebuild
+                help: facts.canRebuild
                     ? Text("Skips the silences over those passages only.")
                     : Text("Transcribing them again would undo your corrections."),
-                isDisabled: isRunning || !canRebuild || model.stage.isBusy,
-                perform: { [model, id = entry.id] in model.repairRepeats(id) })
+                isDisabled: facts.isRunning || !facts.canRebuild || facts.isBusy,
+                perform: { [model, id = facts.id] in model.repairRepeats(id) })
         }
         return check(
             .repeats, symbol: NoticeState.warning.symbol, text: warning, action: action)
+    }
+}
+
+extension TextChecks.Facts {
+    init(
+        entry: Entry, findings: Entry.Findings, textGaps: [ClosedRange<TimeInterval>],
+        canRebuild: Bool, isRunning: Bool, model: AppModel
+    ) {
+        let engine = ModelCatalog.model(entry.modelFile)?.engine
+        self.init(
+            id: entry.id, glossaryWarning: entry.glossaryWarning, findings: findings,
+            resumedAt: entry.resumedAt, textGaps: textGaps, leftOut: entry.leftOut,
+            duration: entry.duration, skipsSilence: entry.skipsSilence,
+            dismissedWarnings: entry.dismissedWarnings, canRebuild: canRebuild,
+            isRunning: isRunning, isBusy: false,
+            engineSkipsSilence: engine?.skipsSilence == true)
+        if offersRepeatsRepair { isBusy = model.isBusy }
     }
 }

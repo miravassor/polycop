@@ -2,241 +2,102 @@
 
 import SwiftUI
 
-/// One transcript: the settings it came from, its progress while it runs, and
-/// once done its text to listen to, correct and save.
+/// One transcript: reads its record below `ContentView`, so edits do not
+/// redraw the window's split view, and hands `LoadedEntryView` the record.
 struct EntryView: View {
     let model: AppModel
-    let entry: Entry
-    @State private var pointer = ParagraphPointer()
-    @State private var activeParagraph: Int?
-    @State private var find = TranscriptFind()
-    @FocusState private var isSearchFocused: Bool
-    @State private var isFollowSuspended = false
-    @State private var jump: Int?
-    @State private var showAtTop: Int?
-    /// The timed words of each paragraph, grouped when the paragraphs change
-    /// rather than on every update of the page.
-    @State private var words: [[Segment.Word]] = []
-    /// The notices' findings, worked out when the segments change.
-    @State private var findings: Entry.Findings?
-    /// Whether what a warning offers to rebuild can be. Worked out as what it
-    /// hangs on changes, since the answer can run the course corrections over
-    /// the whole text, which neither hovering nor the warnings' two views repeat.
-    @State private var canRebuild = false
-
-    private var original: [Transcript.Paragraph] { entry.original }
-    @State private var confirmingRemoval = false
-    @State private var confirmingRevert = false
-
-    private var isRunning: Bool { model.busyEntry == entry.id }
-    private var reading: ReadingSettings { model.reading }
-    /// What transcribed this entry, which decides what can be done with it.
-    private var engine: Engine? { ModelCatalog.model(entry.modelFile)?.engine }
-
-    var body: some View {
-        // For RedrawTests, in the test host only, with the pointer they move.
-        let _ = Redraws.count(.page, in: model)
-        let _ = Redraws.keep(pointer, of: model)
-        VStack(alignment: .leading, spacing: Spacing.block) {
-            Group {
-                EntryProgress(model: model, entry: entry, isRunning: isRunning)
-                EntryNotices(
-                    entry: entry, findings: findings ?? entry.findings, canRebuild: canRebuild,
-                    model: model, isRunning: isRunning, engine: engine)
-                unsaved
-            }
-            .frame(maxWidth: .infinity)
-            if !entry.paragraphs.isEmpty { findBar }
-            transcript
-        }
-        // A reading column: a wide window adds margins, not longer lines.
-        .frame(maxWidth: readingWidth)
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, Spacing.page)
-        .padding(.top, Spacing.block)
-        .libraryWarnings(model)
-        .navigationTitle(entry.name)
-        .toolbar { pageTools }
-        .modifier(InspectorToggle(isShown: Bindable(model.layout).showsInspector))
-        .inspector(isPresented: Bindable(model.layout).showsInspector) { inspector }
-        // The Playback menu's steps, which work with the inspector hidden.
-        .focusedSceneValue(\.paragraphSteps, steps)
-        .focusedSceneValue(\.comparesOriginal, Bindable(reading).isComparing)
-        .onChange(of: find.query) { refreshSearch() }
-        .onChange(of: find.isShown) { _, isShown in
-            if isShown { isSearchFocused = true } else { find.close() }
-        }
-        .onChange(of: model.player.isOpen) { _, isOpen in
-            if !isOpen { isFollowSuspended = false }
-        }
-        // A choice made while the page stood still is a request to follow.
-        .onChange(of: reading.following) { isFollowSuspended = false }
-        // Words hang on the segments and on where paragraphs open, which
-        // typing leaves alone, so they are not regrouped at each key.
-        .onChange(of: entry.paragraphs.map(\.start), initial: true) { regroupWords() }
-        .onChange(of: entry.decoded, initial: true) {
-            regroupWords()
-            findings = entry.findings
-        }
-        .onChange(of: entry.showsCredits) {
-            regroupWords()
-            findings = entry.findings
-        }
-        .onChange(of: rebuildFacts, initial: true) {
-            canRebuild = rebuildFacts.offersRebuild && model.canRebuildParagraphs(of: entry)
-        }
-        .onChange(of: entry.paragraphs) {
-            // Nothing to find: left as it is, so that typing does not update
-            // what reads it, the toolbar's Find among them.
-            if !find.query.isEmpty { refreshSearch(navigate: false) }
-            if let activeParagraph, !entry.paragraphs.indices.contains(activeParagraph) {
-                self.activeParagraph = nil
-            }
-        }
-        .confirmationDialog(
-            "Throw away every correction of this transcript?", isPresented: $confirmingRevert
-        ) {
-            Button("Revert to Original", role: .destructive) { model.revert(entry.id) }
-        } message: {
-            Text(
-                "The text goes back to what the engine wrote. Files already exported stay as they are, and a correction can be stepped back one at a time instead."
-            )
-        }
-        .confirmationDialog(
-            "Remove this transcript from the library?", isPresented: $confirmingRemoval
-        ) {
-            Button("Remove Transcript", role: .destructive) { model.removeEntry(entry.id) }
-        } message: {
-            Text(
-                "It moves to Recently Deleted, with its corrections, for 30 days. Audio files and exports are kept."
-            )
-        }
-    }
-
-    @ViewBuilder private var transcript: some View {
-        if entry.paragraphs.isEmpty {
-            EntryEmptyState(model: model, entry: entry, isRunning: isRunning)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            playerBar.padding(.bottom, PlayerBar.foot)
-        } else {
-            TranscriptView(
-                paragraphs: entry.paragraphs, resumed: entry.resumedParagraphs,
-                player: model.player, isEditable: !isRunning,
-                play: { model.replay(entry.id, from: $0) },
-                edit: { model.edit(entry.id, paragraphAt: $0, text: $1) },
-                typing: { model.player.pauseForTyping() },
-                original: original, isComparing: reading.isComparing,
-                isFollowing: following != .off && !isFollowSuspended,
-                suspendFollowing: page.suspendFollowing,
-                suspendForEditing: {
-                    if following.stopsWhenEditing { page.suspendFollowing() }
-                },
-                jump: $jump, showAtTop: $showAtTop, start: entry.readingParagraph,
-                scrolled: { model.readingParagraph = $0 }, pointer: pointer, size: reading.textSize,
-                active: activeParagraph,
-                activate: { if activeParagraph != $0 { activeParagraph = $0 } },
-                review: entry.reviewParagraphs,
-                toggleReview: { model.toggleReview(entry.id, paragraphAt: $0) },
-                matches: find.matches, currentMatch: find.current,
-                words: words,
-                showsUncertainWords: reading.showsUncertainWords,
-                cursorFollows: following == .cursor
-            )
-            // As in Music, the player floats at the foot of the text, which
-            // scrolls under it; Find stays at the top, away from it.
-            .floatingBar { playerBar.padding(.bottom, PlayerBar.foot) }
-        }
-    }
-
-    private var playerBar: some View {
-        PlayerBar(
-            player: model.player,
-            marks: entry.paragraphs.map(\.seconds),
-            pointer: pointer,
-            isFollowSuspended: isFollowSuspended,
-            length: entry.duration ?? 0,
-            resume: entry.playbackPosition ?? 0,
-            play: { model.replay(entry.id, from: $0, leadIn: 0) },
-            jump: { jump = $0 },
-            // Steps read the paragraph starts, which the player compares, so
-            // one kept from an earlier draw steps through the same paragraphs.
-            step: { steps.step(by: $0) },
-            returnToPlayback: { steps.returnToPlayback() }
-        )
-        .equatable()
-    }
+    let id: Entry.ID
 
     /// Resizable as the library is: from the narrowest that keeps every label
     /// whole to room for a larger picture.
     static let inspectorWidths: ClosedRange<CGFloat> = 360...520
     static let idealInspectorWidth: CGFloat = 380
 
-    /// Saving is the rule and goes unsaid; a library that could not be
-    /// written says so.
-    @ViewBuilder private var unsaved: some View {
-        if !isRunning && !entry.paragraphs.isEmpty && model.hasUnsavedHistory
-            && model.storageFailure == nil
-        {
-            Notice("Library has unsaved changes", .warning)
-                .statusCapsule()
-        }
-    }
-
-    /// Twice the reading width when the original shows beside the text.
-    private var readingWidth: CGFloat {
-        Self.readingWidth(textSize: reading.textSize) * (reading.isComparing ? 2 : 1)
-    }
-
     /// About 75 characters a line, times included, at a text size.
     static func readingWidth(textSize: Double) -> CGFloat { 40 * textSize + 160 }
 
-    /// Above the text they act on, the inspector's button alone at the
-    /// trailing edge.
-    @ToolbarContentBuilder private var pageTools: some ToolbarContent {
-        ToolbarItemGroup(placement: .principal) {
-            EntryTools(
-                model: model, id: entry.id, facts: toolFacts, page: page,
-                find: $find, isSearchFocused: $isSearchFocused,
-                confirmingRevert: $confirmingRevert, confirmingRemoval: $confirmingRemoval)
+    var body: some View {
+        if let entry = model.entry(id) {
+            LoadedEntryView(model: model, entry: entry)
+        } else {
+            NewTranscriptionView(model: model)
         }
-    }
-
-    private var toolFacts: EntryTools.Facts {
-        EntryTools.Facts(
-            paragraphCount: entry.paragraphs.count, flagged: entry.reviewParagraphs.sorted(),
-            canUndo: model.canUndo(entry.id), isEdited: entry.isEdited,
-            hasRecording: entry.hasRecording, hasTimedWords: hasTimedWords,
-            hasExport: model.lastExport(of: entry) != nil,
-            isRunning: isRunning)
-    }
-
-    @ViewBuilder private var findBar: some View {
-        if find.isShown {
-            EntryFindBar(
-                model: model, entry: entry, isRunning: isRunning, find: $find,
-                isFocused: $isSearchFocused, navigate: { navigateMatch(forward: $0) })
-        }
-    }
-
-    private func refreshSearch(navigate: Bool = true) {
-        find.refresh(in: entry.paragraphs, startingOver: navigate)
-        if navigate, let current = find.current { page.show(current.paragraph) }
-    }
-
-    private func regroupWords() {
-        words = WordLayout.grouped(entry.shown, into: entry.paragraphs)
-    }
-
-    private func navigateMatch(forward: Bool) {
-        guard !find.matches.isEmpty else { return }
-        find.step(forward: forward)
-        if let current = find.current { page.show(current.paragraph) }
     }
 }
 
-extension EntryView {
+/// Keeps what is derived from a transcript's segments and hands `EntryPage`
+/// facts a correction typed in the text leaves equal, so the page's title,
+/// toolbar, inspector and focused values skip their body.
+private struct LoadedEntryView: View {
+    let model: AppModel
+    let entry: Entry
+    /// Derived segment data kept off `EntryPage.Facts`, so typing neither
+    /// recomputes it nor compares word arrays on the page's structure.
+    @State private var segments = PageSegments()
+
+    var body: some View {
+        // In the body, not in `onChange`, which runs after it and would pair
+        // this record with what an earlier one yielded: `segments` is no
+        // observed state, so writing it tells no view, and it works out again
+        // only what its inputs changed. `EntryText` reads it later in the same
+        // update.
+        segments.update(for: entry, model: model)
+        let inspectorFacts = EntryInspector.Facts(
+            entry: entry, findings: segments.findings, textGaps: segments.textGaps,
+            canRebuild: segments.canRebuild, lastExport: segments.lastExport, model: model)
+        let pageFacts = EntryPage.Facts(
+            entry: entry, hasRecording: segments.hasRecording,
+            hasTimedWords: segments.hasTimedWords, inspector: inspectorFacts, model: model)
+        return EntryPage(model: model, facts: pageFacts, segments: segments)
+    }
+}
+
+/// What a transcript's segments yield for the page: grouped timed words,
+/// notices' findings, text gaps, whether any word is timed, and whether a
+/// warning's rebuild can run; with whether its recording and its last export
+/// are on disk. Updated synchronously by `LoadedEntryView` as its inputs
+/// change and read by `LoadedEntryView` and `EntryText`, never by `EntryPage`.
+final class PageSegments {
+    /// All fields of a record that `words`, `findings`, or `textGaps` depend on.
+    struct Inputs: Equatable {
+        let id: Entry.ID
+        let paragraphStarts: [Int]
+        let decoded: [Segment]
+        let showsCredits: Bool
+        let state: Entry.State
+        let skipsSilence: Bool
+        let duration: TimeInterval?
+
+        init(_ entry: Entry) {
+            id = entry.id
+            paragraphStarts = entry.paragraphs.map(\.start)
+            decoded = entry.decoded
+            showsCredits = entry.showsCredits
+            state = entry.state
+            skipsSilence = entry.skipsSilence
+            duration = entry.duration
+        }
+
+        func wordsChanged(from other: Inputs) -> Bool {
+            id != other.id || paragraphStarts != other.paragraphStarts || decoded != other.decoded
+                || showsCredits != other.showsCredits
+        }
+
+        func findingsChanged(from other: Inputs) -> Bool {
+            id != other.id || decoded != other.decoded || showsCredits != other.showsCredits
+        }
+
+        func gapsChanged(from other: Inputs) -> Bool {
+            id != other.id || decoded != other.decoded || state != other.state
+                || skipsSilence != other.skipsSilence || duration != other.duration
+        }
+    }
+
     /// All that `AppModel.canRebuildParagraphs` and offering a rebuild read.
+    /// Paragraph text is carried only when a rebuild could still depend on
+    /// matching course corrections, so ordinary edits compare empty arrays.
     private struct RebuildFacts: Equatable {
+        let id: Entry.ID
         let paragraphs: [Transcript.Paragraph]
         let original: [Transcript.Paragraph]
         let isEdited: Bool
@@ -244,42 +105,93 @@ extension EntryView {
         let canUndo: Bool
         let isRunning: Bool
         let offersRebuild: Bool
+
+        init(entry: Entry, canUndo: Bool, isRunning: Bool, offersRebuild: Bool) {
+            id = entry.id
+            let needsText =
+                offersRebuild && !isRunning && !canUndo && entry.isEdited
+                && !(entry.courseCorrections ?? []).isEmpty
+            paragraphs = needsText ? entry.paragraphs : []
+            original = needsText ? entry.original : []
+            isEdited = entry.isEdited
+            courseCorrections = needsText ? entry.courseCorrections : nil
+            self.canUndo = canUndo
+            self.isRunning = isRunning
+            self.offersRebuild = offersRebuild
+        }
     }
 
-    private var rebuildFacts: RebuildFacts {
-        RebuildFacts(
-            paragraphs: entry.paragraphs, original: original, isEdited: entry.isEdited,
-            courseCorrections: entry.courseCorrections, canUndo: model.canUndo(entry.id),
-            isRunning: isRunning, offersRebuild: findings?.offersRebuild ?? false)
+    /// What the page looks for its recording and its last export again on: a
+    /// change of the record's files, or one of the moments `FileChanges`
+    /// counts, among them an export written again where the last one was,
+    /// which leaves the record's files as they were.
+    private struct Files: Equatable {
+        let id: Entry.ID
+        let recording: URL
+        let bookmark: Data?
+        let saved: [URL]
+        let changes: Int
+
+        init(_ entry: Entry, changes: Int) {
+            id = entry.id
+            recording = entry.recording
+            bookmark = entry.bookmark
+            saved = entry.saved
+            self.changes = changes
+        }
     }
 
-    /// The recording, the warnings and the export, beside the text in the
-    /// system's inspector, which the reader hides or shows.
-    private var inspector: some View {
-        EntryInspector(
-            model: model, entry: entry, findings: findings ?? entry.findings,
-            canRebuild: canRebuild, isRunning: isRunning, engine: engine
-        )
-        .modifier(InspectorColumn(layout: model.layout))
-    }
+    private(set) var words: [[Segment.Word]] = []
+    private(set) var findings = Entry.Findings(
+        repetitionWarning: nil, repeats: [], hiddenCredits: [], shortenedLoops: [])
+    private(set) var textGaps: [ClosedRange<TimeInterval>] = []
+    private(set) var hasTimedWords = false
+    /// Whether what a warning offers to rebuild can be. Worked out as what it
+    /// hangs on changes, since the answer can run the course corrections over
+    /// the whole text, which neither hovering nor the warnings' two views repeat.
+    private(set) var canRebuild = false
+    /// Whether the recording is where the record says, and the file the last
+    /// export wrote while it is still there. Looked for again when the record's
+    /// files change and when a file may have come back (`FileChanges`), not
+    /// at each draw: looking resolves the recording's bookmark.
+    private(set) var hasRecording = false
+    private(set) var lastExport: URL?
+    private var loadedInputs: Inputs?
+    private var loadedRebuild: RebuildFacts?
+    private var loadedFiles: Files?
 
-    private var hasTimedWords: Bool { words.contains { !$0.isEmpty } }
-    private var following: Following {
-        reading.following.effective(hasTimedWords: hasTimedWords)
-    }
+    func update(for entry: Entry, model: AppModel) {
+        // Besides the record, what whether a warning's rebuild can run hangs on.
+        let isRunning = model.busyEntry == entry.id
+        let canUndo = model.canUndo(entry.id)
+        let inputs = Inputs(entry)
+        let previous = loadedInputs
+        if previous?.wordsChanged(from: inputs) ?? true {
+            words = WordLayout.grouped(entry.shown, into: entry.paragraphs)
+            hasTimedWords = words.contains { !$0.isEmpty }
+        }
+        if previous?.findingsChanged(from: inputs) ?? true {
+            findings = entry.findings
+        }
+        if previous?.gapsChanged(from: inputs) ?? true {
+            textGaps = entry.textGaps
+        }
+        loadedInputs = inputs
 
-    private var page: PageNavigation {
-        PageNavigation(
-            activeParagraph: $activeParagraph, jump: $jump,
-            isFollowSuspended: $isFollowSuspended, following: following,
-            player: model.player)
-    }
+        let files = Files(entry, changes: model.fileChanges.count)
+        if loadedFiles != files {
+            loadedFiles = files
+            hasRecording = entry.hasRecording
+            lastExport = model.lastExport(of: entry)
+        }
 
-    private var steps: ParagraphSteps {
-        ParagraphSteps(
-            model: model, entry: entry, activeParagraph: $activeParagraph, jump: $jump,
-            showAtTop: $showAtTop, isFollowSuspended: $isFollowSuspended,
-            hasTimedWords: hasTimedWords)
+        let rebuild = RebuildFacts(
+            entry: entry, canUndo: canUndo, isRunning: isRunning,
+            offersRebuild: findings.offersRebuild)
+        if loadedRebuild != rebuild {
+            loadedRebuild = rebuild
+            canRebuild = rebuild.offersRebuild && model.canRebuildParagraphs(of: entry)
+        }
     }
 }
 

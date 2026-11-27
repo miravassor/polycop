@@ -17,7 +17,7 @@ struct MoveTranscriptsSheet: View {
             Text(
                 moving.count > 1
                     ? "\(moving.count) transcripts"
-                    : (moving.first.flatMap { model.entry($0)?.name } ?? "")
+                    : (moving.first.flatMap { model.libraryItem($0)?.name } ?? "")
             )
             .lineLimit(2)
             .truncationMode(.middle)

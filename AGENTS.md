@@ -66,10 +66,18 @@ Tools/                 build, fixture and packaging scripts
 
 * Swift 6 language mode, main actor by default. Engine and value types are `nonisolated`.
 * `@Observable` classes hold state, structs carry values, caseless enums group pure functions.
+* Observed state changes only when its value does. An observed collection is changed
+  in place (`insert`, `remove`, a subscript) only when the result differs, since such a
+  change notifies its readers whatever it did; an assignment of an equal value does not.
+  What changes at each edit (`undoSteps`) is kept unobserved, apart from the coarse
+  observed state views read (`undoable`).
 * Names follow the Swift API Design Guidelines: explicit, no abbreviations, and
   Booleans that read as assertions (`isEditable`, `showsChanges`). Stored names of
   persisted types are the exception: they never change.
-* Views bind to `AppModel` through `@Bindable`, never through hand-written `Binding(get:set:)`.
+* A binding to a property of an `@Observable` object is `@Bindable`'s, never a hand-written
+  `Binding(get:set:)` that only reads and writes that property. A choice stored in a record
+  is shown from its facts and changed through the model's method for it, so its binding is
+  written by hand: the getter reads the fact, the setter calls that one method.
 * A `nonisolated async` function runs on its caller's actor (approachable concurrency),
   so blocking work in it blocks the main actor. Such work goes in a `@concurrent`
   function, or on a queue through `DispatchQueue.run` for a long C call.
@@ -213,6 +221,20 @@ Every page speaks the same visual language. The shared pieces live in
   while the reader types: SwiftUI redoes such a view at every update of its parent. A
   setting the transcript page reads belongs in `ReadingSettings`, or `WindowLayout` for
   how the window was left, on the model.
+* Window structure reads no record. A view declares window structure when it declares
+  the split view or one of its columns, the window's title, an inspector, toolbar items, a
+  focused scene value or menu commands. It reads identities, the layout, and facts that a
+  change of the text leaves equal, as `EntryTools.Facts` and `LibraryItem` do; never a
+  record's text, nor `entries`, which `NewTranscriptionView` alone still reads, through the
+  recordings waiting. The record is read by the leaf that draws it, as `EntryText` does,
+  and an action reads it from the model when it runs. SwiftUI runs a body again when an
+  observed value it read changes, makes again with it the content of every inspector,
+  toolbar item and menu it declares, then updates and lays out each hosting view below.
+  `RedrawTests` counts how many times the body of each such view in the window and on the
+  transcript page runs, and fails when a change of the text runs one, or a change of what
+  one shows no longer does; a new one counts itself there. Its window has no menu bar:
+  `LibraryFactsTests` checks that the library facts the menu commands read stay equal
+  through a change of the text.
 
 ## Things that break silently
 

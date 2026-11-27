@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+import AppKit
 import Foundation
 import Testing
 
@@ -55,6 +56,21 @@ private func finished(_ recording: URL, in history: URL) throws -> Entry {
     #expect(model.player.failure != nil)
     #expect(!model.player.isPlaying)
     model.player.stop()
+}
+
+/// A disk mounted or unmounted, and the app made active again, are each a
+/// moment a file may have come back, when the page looks for it again.
+@MainActor
+@Test func disksAndTheAppMadeActiveCountAsFileChanges() async throws {
+    let (workspace, application) = (NotificationCenter(), NotificationCenter())
+    let changes = FileChanges(workspace: workspace, application: application)
+    workspace.post(name: NSWorkspace.didMountNotification, object: nil)
+    workspace.post(name: NSWorkspace.didUnmountNotification, object: nil)
+    application.post(name: NSApplication.didBecomeActiveNotification, object: nil)
+    for _ in 0..<100 where changes.count < 3 {
+        try await Task.sleep(for: .milliseconds(10))
+    }
+    #expect(changes.count == 3)
 }
 
 @MainActor

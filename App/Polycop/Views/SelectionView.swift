@@ -6,22 +6,23 @@ import SwiftUI
 /// can be done to all of them, rather than one of them at random.
 struct SelectionView: View {
     let model: AppModel
-    /// The transcripts selected, in the order the list shows them.
-    let selected: [Entry.ID]
+    /// What the sidebar has selected, ordered here so `ContentView` does not
+    /// read the library.
+    let selection: Set<AppModel.Pane>
     let move: ([Entry.ID]) -> Void
     let remove: ([Entry.ID]) -> Void
     let tag: ([Entry.ID]) -> Void
 
-    /// Whether any of them is in a folder, to be taken out of it.
-    private var isAnyFiled: Bool {
-        selected.contains { model.entry($0)?.folderID != nil }
-    }
-
-    private var areAllPinned: Bool {
-        !selected.isEmpty && selected.allSatisfy { model.entry($0)?.isPinned == true }
+    /// The visible transcripts selected, in the order the sidebar shows them.
+    private var selected: [Entry.ID] {
+        model.visibleEntryOrder.filter { selection.contains(.entry($0)) }
     }
 
     var body: some View {
+        let selected = self.selected
+        let isAnyFiled = selected.contains { model.libraryItem($0)?.folderID != nil }
+        let areAllPinned =
+            !selected.isEmpty && selected.allSatisfy { model.libraryItem($0)?.isPinned == true }
         VStack(spacing: Spacing.block) {
             Text(
                 "Shift or command click to change the selection. Drag them onto a folder to file them."
@@ -51,5 +52,6 @@ struct SelectionView: View {
         .padding(Spacing.page)
         .frame(maxWidth: .infinity)
         .navigationTitle("\(selected.count) Transcripts Selected")
+        .focusedSceneValue(\.selectedTranscripts, selected)
     }
 }

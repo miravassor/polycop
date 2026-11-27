@@ -3,13 +3,13 @@
 import Foundation
 import Observation
 
-/// Two APIs added for `RedrawTests`, which state what each change on the page
+/// APIs added for `RedrawTests`, which state what each change on the page
 /// may redraw: the counts of how many times each view that declares the
 /// window's structure ran its body, with how often the page drew where the
-/// pointer is, which they wait on; and `redraw(_:in:)`, which runs one such
-/// body alone, for them to wait until SwiftUI skips the views it holds. Both
-/// work only in the test host, and a release build has neither the counts nor
-/// the work.
+/// pointer is, which they wait on; `redraw(_:in:)`, which runs one such
+/// body alone, for them to wait until SwiftUI skips the views it holds; and the
+/// page's pointer and Find, which they change as the reader does. All work only
+/// in the test host, and a release build has neither the counts nor the work.
 ///
 /// Counted by the model the window draws, or the pointer of its page, so that
 /// tests hosting pages at the same time each read their own window's counts.
@@ -19,7 +19,7 @@ enum Redraws {
         case window
         /// `LibrarySidebar`: the library's column, its search, sections and rows.
         case library
-        /// `EntryView`: the page's title, toolbar, inspector and focused values.
+        /// `EntryPage`: the page's title, toolbar, inspector and focused values.
         case page
         /// `EntryTools`: the page's tools in the toolbar.
         case tools
@@ -59,6 +59,7 @@ enum Redraws {
         // model made where one gone was starts from nothing.
         private static let runs = NSMapTable<AppModel, Runs>.weakToStrongObjects()
         private static let pointers = NSMapTable<AppModel, ParagraphPointer>.weakToWeakObjects()
+        private static let finds = NSMapTable<AppModel, TranscriptFind>.weakToWeakObjects()
         private static let greys = NSMapTable<ParagraphPointer, Greys>.weakToStrongObjects()
 
         /// The runs of each piece of the window of `model` so far.
@@ -83,6 +84,11 @@ enum Redraws {
         /// The pointer of the page the window of `model` shows.
         static func pointer(of model: AppModel) -> ParagraphPointer? {
             pointers.object(forKey: model)
+        }
+
+        /// Find on the page the window of `model` shows.
+        static func find(of model: AppModel) -> TranscriptFind? {
+            finds.object(forKey: model)
         }
 
         /// How many times the rows of the page holding `pointer` drew where it
@@ -121,6 +127,17 @@ enum Redraws {
         #if DEBUG
             guard TestHost.isRunning else { return }
             pointers.setObject(pointer, forKey: model)
+        #endif
+    }
+
+    /// Keeps Find of the page the window of `model` shows, which a test opens
+    /// and types in as the toolbar and the find field do: the page keeps it to
+    /// itself, and the toolbar item SwiftUI hosts for it offers a test no
+    /// button, action or accessibility element to press.
+    static func keep(_ find: TranscriptFind, of model: AppModel) {
+        #if DEBUG
+            guard TestHost.isRunning else { return }
+            finds.setObject(find, forKey: model)
         #endif
     }
 }

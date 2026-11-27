@@ -8,20 +8,19 @@ import SwiftUI
 struct LibrarySidebar: View {
     let model: AppModel
     @Binding var selection: Set<AppModel.Pane>
-    let selected: [Entry.ID]
     @Binding var removing: [Entry.ID]
     @Binding var moving: [Entry.ID]
     @Binding var destinationFolder: UUID?
     @Binding var tagging: [Entry.ID]
     @Binding var renamedEntry: Entry.ID?
     @Binding var entryName: String
-    @Binding var reverting: Entry?
+    @Binding var reverting: Entry.ID?
 
     @State private var highlighted: UUID?
     @State private var highlightsUnfiled = false
 
-    private var layout: WindowLayout { model.layout }
-    private var pinnedEntries: [Entry] { model.pinnedEntries }
+    var layout: WindowLayout { model.layout }
+    private var pinnedEntries: [LibraryItem] { model.pinnedEntries }
     private var visibleRoots: [TranscriptFolder] {
         model.rootFolders.filter { model.shouldShowFolder($0.id) }
     }
@@ -49,6 +48,10 @@ struct LibrarySidebar: View {
     var body: some View {
         // For RedrawTests, in the test host only.
         let _ = Redraws.count(.library, in: model)
+        // Computed once per sidebar draw, and skipped when 0 or 1 row is selected.
+        let selected =
+            selection.count > 1
+            ? model.visibleEntryOrder.filter { selection.contains(.entry($0)) } : []
         VStack(spacing: 0) {
             VStack(spacing: 6) {
                 newTranscriptionButton
@@ -61,9 +64,9 @@ struct LibrarySidebar: View {
 
             List(selection: $selection) {
                 if layout.filter != .all { filterBanner }
-                if !pinnedEntries.isEmpty { pinnedSection }
-                if showsUnfiledSection { unfiledSection }
-                if showsFoldersSection { foldersSection }
+                if !pinnedEntries.isEmpty { pinnedSection(selected: selected) }
+                if showsUnfiledSection { unfiledSection(selected: selected) }
+                if showsFoldersSection { foldersSection(selected: selected) }
                 if hasNoMatches { emptyNote("No matching transcripts") }
                 RecentlyDeletedSection(model: model)
             }
@@ -71,6 +74,17 @@ struct LibrarySidebar: View {
         }
         .contextMenu { libraryMenu }
         .modifier(LibraryToolbar(model: model))
+        .onChange(of: model.visibleSelectablePanes) { _, visiblePanes in
+            guard selection.count > 1 else { return }
+            let kept = selection.intersection(visiblePanes)
+            if kept.isEmpty {
+                selection =
+                    (model.pane != .new && visiblePanes.contains(model.pane))
+                    ? [model.pane] : []
+            } else if kept != selection {
+                selection = kept
+            }
+        }
     }
 
     private var filterBanner: some View {
@@ -87,11 +101,11 @@ struct LibrarySidebar: View {
         .padding(.vertical, 2)
     }
 
-    private var pinnedSection: some View {
+    private func pinnedSection(selected: [Entry.ID]) -> some View {
         Section {
             if model.isFilteringLibrary || layout.showsPinned {
                 ForEach(pinnedEntries) { entry in
-                    row(entry, folderName: model.folderPath(of: entry.folderID))
+                    row(entry, folderName: model.folderPath(of: entry.folderID), selected: selected)
                 }
             }
         } header: {
@@ -104,7 +118,7 @@ struct LibrarySidebar: View {
         }
     }
 
-    private var unfiledSection: some View {
+    private func unfiledSection(selected: [Entry.ID]) -> some View {
         Section {
             if model.isFilteringLibrary || layout.showsUnfiled {
                 let entries = model.entries(in: nil)
@@ -116,7 +130,7 @@ struct LibrarySidebar: View {
                             ? "Pinned above" : "Nothing outside a folder")
                 }
                 UnavailableRows(model: model, folder: nil)
-                ForEach(entries) { entry in row(entry, folderName: nil) }
+                ForEach(entries) { entry in row(entry, folderName: nil, selected: selected) }
             }
         } header: {
             LibrarySectionHeader(
@@ -134,7 +148,7 @@ struct LibrarySidebar: View {
         }
     }
 
-    private var foldersSection: some View {
+    private func foldersSection(selected: [Entry.ID]) -> some View {
         Section {
             if model.isFilteringLibrary || layout.showsFolders {
                 if model.folders.isEmpty, !model.isFilteringLibrary {
@@ -146,10 +160,11 @@ struct LibrarySidebar: View {
                     folderGroup(root) {
                         ForEach(subfolders) { subfolder in
                             folderGroup(subfolder) {
-                                folderItems(subfolder.id, hasSubfolders: false)
+                                folderItems(subfolder.id, hasSubfolders: false, selected: selected)
                             }
                         }
-                        folderItems(root.id, hasSubfolders: !subfolders.isEmpty)
+                        folderItems(
+                            root.id, hasSubfolders: !subfolders.isEmpty, selected: selected)
                     }
                 }
             }
@@ -190,7 +205,9 @@ struct LibrarySidebar: View {
     }
 
     @ViewBuilder
-    private func folderItems(_ folderID: UUID, hasSubfolders: Bool) -> some View {
+    private func folderItems(
+        _ folderID: UUID, hasSubfolders: Bool, selected: [Entry.ID]
+    ) -> some View {
         let entries = model.entries(in: folderID)
         let unavailable = model.visibleUnavailable(in: folderID)
         if entries.isEmpty, unavailable.isEmpty, !hasSubfolders {
@@ -205,7 +222,7 @@ struct LibrarySidebar: View {
             emptyNote(emptyLabel)
         }
         UnavailableRows(model: model, folder: folderID)
-        ForEach(entries) { entry in row(entry, folderName: nil) }
+        ForEach(entries) { entry in row(entry, folderName: nil, selected: selected) }
     }
 
     private func folderLabel(_ folder: TranscriptFolder) -> some View {
@@ -265,116 +282,8 @@ struct LibrarySidebar: View {
             .contextMenu { libraryMenu }
     }
 
-    private var libraryMenu: some View {
+    var libraryMenu: some View {
         LibraryMenu(model: model)
-    }
-}
-
-extension LibrarySidebar {
-    private func row(_ entry: Entry, folderName: String?) -> some View {
-        let targets = targets(of: entry)
-        let isWorking = entry.id == model.busyEntry || model.isWaitingForDownload(entry)
-        return EntryRow(entry: entry, stage: isWorking ? model.stage : nil, folderName: folderName)
-            .tag(AppModel.Pane.entry(entry.id))
-            .draggable(DraggedTranscripts(ids: targets))
-            .contextMenu { rowContextMenu(entry, targets: targets) }
-    }
-
-    @ViewBuilder
-    private func rowContextMenu(_ entry: Entry, targets: [Entry.ID]) -> some View {
-        let allPinned = targets.allSatisfy { model.entry($0)?.isPinned == true }
-        Button(allPinned ? "Unpin" : "Pin") {
-            model.setPinned(targets, to: !allPinned)
-        }
-        TranscriptFlairMenu(model: model, targets: targets) { tagging = targets }
-        Divider()
-        Button("Move to Folder…") {
-            destinationFolder = entry.folderID
-            moving = targets
-        }
-        .disabled(model.foldersAreDamaged)
-        if targets.contains(where: { model.entry($0)?.folderID != nil }) {
-            Button("Remove from Folder") {
-                model.moveEntries(targets, to: nil)
-            }
-            .disabled(model.foldersAreDamaged)
-        }
-        // What belongs to one transcript is offered for one: undoing or
-        // reverting several at once is not what a right click means.
-        if targets.count == 1 {
-            Divider()
-            Button("Rename Transcript…") {
-                entryName = entry.name
-                renamedEntry = entry.id
-            }
-            Button("Undo Last Correction") { model.undo(entry.id) }
-                .disabled(!model.canUndo(entry.id) || entry.id == model.busyEntry)
-            Button("Revert to Original…") { reverting = entry }
-                .disabled(!entry.isEdited || entry.id == model.busyEntry)
-            Button("Duplicate Transcript") { model.duplicate(entry.id) }
-                .disabled(entry.paragraphs.isEmpty || entry.id == model.busyEntry)
-        }
-        Divider()
-        Button("Remove from Library…", role: .destructive) { removing = targets }
-            .disabled(targets == [model.busyEntry])
-        Divider()
-        libraryMenu
-    }
-
-    /// The transcripts an action on this row applies to: the whole selection
-    /// when the row is part of it, so one menu acts on everything selected, and
-    /// the row alone otherwise.
-    private func targets(of entry: Entry) -> [Entry.ID] {
-        guard selection.contains(.entry(entry.id)), selected.count > 1 else { return [entry.id] }
-        return selected
-    }
-
-    private func drop(_ items: [DraggedTranscripts], into folder: UUID?) -> Bool {
-        guard model.moveEntries(items.flatMap(\.ids), to: folder) else { return false }
-        if let folder {
-            model.revealFolder(folder)
-        } else {
-            layout.showsUnfiled = true
-        }
-        return true
-    }
-
-    private func attempt(_ action: () throws -> Void) {
-        do { try action() } catch { model.report(error) }
-    }
-
-    private var newTranscriptionButton: some View {
-        let isSelected = model.pane == .new && selection.isEmpty
-        return Button {
-            selection.removeAll()
-            model.pane = .new
-        } label: {
-            HStack(spacing: Spacing.icon) {
-                Image(systemName: "plus")
-                Text("New Transcription").fontWeight(.medium)
-                Spacer(minLength: 0)
-            }
-            .sidebarRowSelection(isSelected)
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
-    }
-
-    private var searchField: some View {
-        HStack(spacing: Spacing.icon) {
-            Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-            TextField("Filter library", text: Bindable(layout).searchQuery).textFieldStyle(.plain)
-            if !layout.searchQuery.isEmpty {
-                Button(action: { layout.searchQuery = "" }) {
-                    Label("Clear Search", systemImage: "xmark.circle.fill")
-                        .labelStyle(.iconOnly)
-                }
-                .buttonStyle(.borderless)
-                .foregroundStyle(.secondary)
-                .help("Clear Search")
-            }
-        }
-        .sidebarSearchField()
     }
 }
 
@@ -387,7 +296,7 @@ extension LibrarySidebar {
                 history: folder.appending(path: "History"),
                 glossaries: folder.appending(path: "Glossaries"),
                 defaults: MemoryDefaults()),
-            selection: .constant([]), selected: [],
+            selection: .constant([]),
             removing: .constant([]), moving: .constant([]),
             destinationFolder: .constant(nil), tagging: .constant([]),
             renamedEntry: .constant(nil), entryName: .constant(""),

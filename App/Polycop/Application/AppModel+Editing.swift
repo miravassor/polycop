@@ -62,6 +62,7 @@ extension AppModel {
         steps.append(entry.revision)
         // Bound undo snapshots; unchanged strings share their storage.
         undoSteps[entry.id] = steps.suffix(200)
+        if !undoable.contains(entry.id) { undoable.insert(entry.id) }
     }
 
     func toggleReview(_ id: Entry.ID, paragraphAt index: Int) {
@@ -71,7 +72,7 @@ extension AppModel {
         updateEntry(id) { $0.toggleReview(paragraphAt: index) }
     }
 
-    func canUndo(_ id: Entry.ID) -> Bool { !(undoSteps[id] ?? []).isEmpty }
+    func canUndo(_ id: Entry.ID) -> Bool { undoable.contains(id) }
 
     /// Steps one correction back, as far as the text the engine wrote. A
     /// revert stepped back brings back the course corrections it cleared.
@@ -79,8 +80,14 @@ extension AppModel {
         guard id != busyEntry, !isShuttingDown, var steps = undoSteps[id],
             let previous = steps.popLast()
         else { return }
-        undoSteps[id] = steps
+        undoSteps[id] = steps.isEmpty ? nil : steps
+        if steps.isEmpty, undoable.contains(id) { undoable.remove(id) }
         updateEntry(id) { $0.restore(previous) }
+    }
+
+    func clearUndo(_ id: Entry.ID) {
+        undoSteps[id] = nil
+        if undoable.contains(id) { undoable.remove(id) }
     }
 
     /// Throws every correction away and shows the transcript as it came out of
@@ -154,7 +161,7 @@ extension AppModel {
         // The paragraphs are rebuilt around the lines that came back, so the
         // corrections recorded against the old ones no longer fit. A refusal
         // changes nothing and keeps them.
-        if restored { undoSteps[id] = nil }
+        if restored { clearUndo(id) }
     }
 
     /// The export's format and whether it times its paragraphs, remembered

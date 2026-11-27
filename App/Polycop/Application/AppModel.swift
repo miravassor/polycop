@@ -40,18 +40,21 @@ final class AppModel {
     // The setter of these is internal rather than private: extensions in the
     // other AppModel+*.swift files assign them directly.
     var stage = Stage.waiting {
-        didSet { holdActivity(while: stage.isRunning) }
+        didSet {
+            if isBusy != stage.isBusy { isBusy = stage.isBusy }
+            holdActivity(while: stage.isRunning)
+        }
     }
+    /// Whether any work is under way or paused. Kept apart from `stage` so a
+    /// progress tick does not notify views that ask only whether work is active.
+    private(set) var isBusy = false
     /// Every recording given to the app, newest first.
-    var entries: [Entry] = [] { didSet { flairCache.sync(entries, folders) } }
-    /// Sorted unique custom tags and per-folder flair summaries, kept in sync on changes.
-    var customFlairs: [TranscriptFlair] { flairCache.custom }
-    var folderFlairs: [UUID: [TranscriptFlair]] { flairCache.folders }
-    @ObservationIgnored let flairCache = LibraryFlairCache()
+    var entries: [Entry] = [] { didSet { library.sync(entries, folders) } }
+    @ObservationIgnored let library = LibraryFacts()
     /// Transcripts removed from the library in the last `keepsDeleted`, most
     /// recent first, so that a removal can be taken back.
     var recentlyDeleted: [Entry] = []
-    var folders: [TranscriptFolder] = []
+    var folders: [TranscriptFolder] = [] { didSet { library.syncFolders(entries, folders) } }
     /// The entry being transcribed, or paused part way through.
     var running: Entry.ID?
     /// The entry whose repeats are being transcribed again. Kept apart from
@@ -175,6 +178,8 @@ final class AppModel {
     /// The folder storage file that failed to decode, revealed by Show in Finder.
     private(set) var damagedFolderFile: String?
     private(set) var isShuttingDown = false
+    /// The moments a file a record points to may have come or gone.
+    @ObservationIgnored let fileChanges = FileChanges()
     var hasUnsavedHistory: Bool { !unsavedHistory.isEmpty || !unsavedGlossaries.isEmpty }
 
     /// Course glossaries, and the one sent with the next recordings added.
@@ -184,14 +189,6 @@ final class AppModel {
     var glossaryName: String? {
         didSet { defaults.set(glossaryName, forKey: Self.glossaryKey) }
     }
-
-    var selectedCatalogue: Model? { ModelCatalog.model(selected) }
-    /// A glossary only applies to a model that reads one.
-    var glossaryApplies: Bool { selectedCatalogue?.readsGlossary ?? true }
-    /// A language only applies to a model that is told it; the others detect it.
-    var languageApplies: Bool { selectedCatalogue?.engine.detectsLanguage != true }
-    /// Silence removal only applies to an engine that does it.
-    var silenceApplies: Bool { selectedCatalogue?.engine.skipsSilence ?? true }
 
     /// Recordings being transcribed or waiting their turn.
     var hasWork: Bool { running != nil || !waiting.isEmpty }
@@ -224,8 +221,10 @@ final class AppModel {
     var unsavedGlossaries: [String: Glossary] = [:]
     /// What each transcript was before its corrections, oldest first, so one
     /// can be stepped back. It lives as long as the app does: what is on disk
-    /// is what was last seen.
-    var undoSteps: [Entry.ID: [Entry.Revision]] = [:]
+    /// is what was last seen. Unobserved so adding later steps does not notify
+    /// views reading `canUndo`, which observe `undoable` instead.
+    @ObservationIgnored var undoSteps: [Entry.ID: [Entry.Revision]] = [:]
+    var undoable: Set<Entry.ID> = []
     /// Entries typed into and not written yet, and the write waiting for a
     /// pause in the typing.
     @ObservationIgnored var pendingSaves: Set<Entry.ID> = []
@@ -324,10 +323,6 @@ final class AppModel {
         alignerInstalled = ModelStore.isInstalled(ModelCatalog.qwenAligner, in: modelFolder)
         imported = ModelStore.imported(in: modelFolder)
         if selectedCatalogue == nil { selected = ModelCatalog.recommended.id }
-    }
-
-    func isInstalled(_ id: String) -> Bool {
-        installed.contains(id)
     }
 
     func entry(_ id: Entry.ID) -> Entry? {

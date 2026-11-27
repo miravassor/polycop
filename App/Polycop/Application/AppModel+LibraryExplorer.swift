@@ -1,74 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import Foundation
-import Observation
-
-/// Equality-guarded cache of sidebar custom tags and per-folder flair summaries.
-/// Owned by `AppModel` so transcript text edits do not re-scan the library or
-/// notify observers whose flairs did not change.
-@Observable
-final class LibraryFlairCache {
-    private(set) var custom: [TranscriptFlair] = []
-    private(set) var folders: [UUID: [TranscriptFlair]] = [:]
-    @ObservationIgnored private var suppressesSync = false
-
-    func sync(_ entries: [Entry], _ libraryFolders: [TranscriptFolder]) {
-        guard !suppressesSync else { return }
-        refresh(entries, libraryFolders)
-    }
-
-    func withSync(
-        deferred: Bool = true,
-        entries: () -> [Entry],
-        folders libraryFolders: () -> [TranscriptFolder],
-        _ work: () -> Void
-    ) {
-        let wasSuppressed = suppressesSync
-        suppressesSync = true
-        defer {
-            suppressesSync = wasSuppressed
-            if deferred, !wasSuppressed { refresh(entries(), libraryFolders()) }
-        }
-        work()
-    }
-
-    private func refresh(_ entries: [Entry], _ libraryFolders: [TranscriptFolder]) {
-        let parents = Dictionary(
-            libraryFolders.map { ($0.id, $0.parentID) }, uniquingKeysWith: { first, _ in first }
-        )
-        var tags: [TranscriptFlair] = []
-        var byFolder: [UUID: [TranscriptFlair]] = [:]
-        for entry in entries {
-            guard let entryFlairs = entry.flairs, !entryFlairs.isEmpty else { continue }
-            for flair in entryFlairs where flair.kind == nil && !flair.title.isEmpty {
-                Self.appendUnique(flair, to: &tags)
-            }
-            guard let folderID = entry.folderID, let parentID = parents[folderID] else { continue }
-            for flair in entryFlairs {
-                Self.appendUnique(flair, to: &byFolder[folderID, default: []])
-                if let parentID {
-                    Self.appendUnique(flair, to: &byFolder[parentID, default: []])
-                }
-            }
-        }
-        let nextCustom = tags.sorted(by: TranscriptFlair.areInDisplayOrder)
-        if nextCustom != custom { custom = nextCustom }
-        let nextFolders = byFolder.mapValues { $0.sorted(by: TranscriptFlair.areInDisplayOrder) }
-        if nextFolders != folders { folders = nextFolders }
-    }
-
-    private static func appendUnique(
-        _ flair: TranscriptFlair, to target: inout [TranscriptFlair]
-    ) {
-        if !target.contains(where: { $0.matchesIdentity(of: flair) }) {
-            target.append(flair)
-        }
-    }
-}
 
 // MARK: Nested folders, pins, flairs, and sidebar search
 
 extension AppModel {
+    /// Per-record sidebar facts and flair summaries, kept in sync on changes.
+    func libraryItem(_ id: Entry.ID) -> LibraryItem? { library.item(id) }
+    var customFlairs: [TranscriptFlair] { library.customFlairs }
+    var folderFlairs: [UUID: [TranscriptFlair]] { library.folderFlairs }
+
     func folder(_ id: UUID) -> TranscriptFolder? {
         folders.first { $0.id == id }
     }
@@ -87,10 +28,10 @@ extension AppModel {
 
     func revealFolder(_ id: UUID) {
         layout.showsFolders = true
-        layout.openFolders.insert(id)
-        if let parentID = folder(id)?.parentID {
-            layout.openFolders.insert(parentID)
-        }
+        var opened = layout.openFolders
+        opened.insert(id)
+        if let parentID = folder(id)?.parentID { opened.insert(parentID) }
+        if opened != layout.openFolders { layout.openFolders = opened }
     }
 
     func folderPath(of folderID: UUID?) -> String? {
@@ -105,11 +46,13 @@ extension AppModel {
         guard !isShuttingDown else { return }
         if isPinned, !ids.isEmpty { layout.showsPinned = true }
         let value: Bool? = isPinned ? true : nil
-        for id in ids { updateEntry(id) { $0.isPinned = value } }
+        withLibrarySync {
+            for id in ids { updateEntry(id) { $0.isPinned = value } }
+        }
     }
 
-    func withFlairSync(deferred: Bool = true, _ work: () -> Void) {
-        flairCache.withSync(deferred: deferred, entries: { entries }, folders: { folders }, work)
+    func withLibrarySync(_ work: () -> Void) {
+        library.withSync(entries: { entries }, folders: { folders }, work)
     }
 
     func toggleFlair(_ flair: TranscriptFlair, on ids: [Entry.ID]) {
@@ -119,7 +62,7 @@ extension AppModel {
         let removes = existing.allSatisfy {
             $0.flairs?.contains { $0.matchesIdentity(of: flair) } == true
         }
-        withFlairSync {
+        withLibrarySync {
             for id in existing.map(\.id) {
                 updateEntry(id) { entry in
                     var current = entry.flairs ?? []
@@ -140,7 +83,7 @@ extension AppModel {
         guard !title.isEmpty else { return }
         let tag = TranscriptFlair(title: title, color: color)
         let targetSet = Set(ids)
-        withFlairSync {
+        withLibrarySync {
             for item in entries {
                 let hasMatchingTag = item.flairs?.contains { $0.matchesIdentity(of: tag) } == true
                 guard targetSet.contains(item.id) || hasMatchingTag else { continue }
@@ -156,7 +99,7 @@ extension AppModel {
 
     func clearFlairs(on ids: [Entry.ID]) {
         guard !isShuttingDown else { return }
-        withFlairSync {
+        withLibrarySync {
             for id in ids { updateEntry(id) { $0.flairs = nil } }
         }
     }
@@ -169,8 +112,8 @@ extension AppModel {
         layout.filter != .all || !trimmedSearchQuery.isEmpty
     }
 
-    var pinnedEntries: [Entry] {
-        layout.sort.sorted(entries.filter { $0.isPinned == true && matchesLibraryFilter($0) })
+    var pinnedEntries: [LibraryItem] {
+        layout.sort.sorted(library.items.filter { $0.isPinned && matchesLibraryFilter($0) })
     }
 
     /// Deduplicated flairs inside `folderID` and any subfolders for collapsed folder rows.
@@ -235,8 +178,8 @@ extension AppModel {
 
     func hasPinnedEntries(in folderID: UUID?) -> Bool {
         let known = folderID == nil ? Set(folders.map(\.id)) : []
-        return entries.contains {
-            $0.isPinned == true && belongs($0.folderID, to: folderID, known: known)
+        return library.items.contains {
+            $0.isPinned && belongs($0.folderID, to: folderID, known: known)
         }
     }
 
@@ -304,9 +247,13 @@ extension AppModel {
     }
 
     func matchesLibraryFilter(_ entry: Entry) -> Bool {
-        guard matches(entry, filter: layout.filter) else { return false }
+        matchesLibraryFilter(LibraryItem(entry))
+    }
+
+    func matchesLibraryFilter(_ item: LibraryItem) -> Bool {
+        guard matches(item, filter: layout.filter) else { return false }
         let query = trimmedSearchQuery
-        return query.isEmpty || matches(entry, query: query)
+        return query.isEmpty || matches(item, query: query)
     }
 
     private func appending(
@@ -324,21 +271,20 @@ extension AppModel {
         return updated
     }
 
-    private func matches(_ entry: Entry, filter: LibraryFilter) -> Bool {
-        let flairs = entry.flairs ?? []
+    private func matches(_ item: LibraryItem, filter: LibraryFilter) -> Bool {
         switch filter {
         case .all: return true
-        case .pinned: return entry.isPinned == true
-        case .unreviewed: return !flairs.contains { $0.kind == .done }
-        case .flair(let kind): return flairs.contains { $0.kind == kind }
+        case .pinned: return item.isPinned
+        case .unreviewed: return !item.flairs.contains { $0.kind == .done }
+        case .flair(let kind): return item.flairs.contains { $0.kind == kind }
         case .tag(let title):
-            return flairs.contains {
+            return item.flairs.contains {
                 $0.kind == nil
                     && $0.title.localizedCaseInsensitiveCompare(title) == .orderedSame
             }
         case .color(let color):
-            return flairs.contains { $0.color == color }
-                || folderColors(of: entry.folderID).contains(color)
+            return item.flairs.contains { $0.color == color }
+                || folderColors(of: item.folderID).contains(color)
         }
     }
 
@@ -348,12 +294,12 @@ extension AppModel {
         return [target.color, parentColor].compactMap { $0 }
     }
 
-    private func matches(_ entry: Entry, query: String) -> Bool {
-        if entry.name.localizedStandardContains(query) { return true }
-        if let path = folderPath(of: entry.folderID), path.localizedStandardContains(query) {
+    private func matches(_ item: LibraryItem, query: String) -> Bool {
+        if item.name.localizedStandardContains(query) { return true }
+        if let path = folderPath(of: item.folderID), path.localizedStandardContains(query) {
             return true
         }
-        return (entry.flairs ?? []).contains {
+        return item.flairs.contains {
             $0.displayTitle.localizedStandardContains(query)
                 || $0.color.title.localizedStandardContains(query)
         }

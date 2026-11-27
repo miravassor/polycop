@@ -116,7 +116,8 @@ struct LibraryTranscriptCommands: View {
     }
 
     var body: some View {
-        let allPinned = !targets.isEmpty && targets.allSatisfy { model.entry($0)?.isPinned == true }
+        let allPinned =
+            !targets.isEmpty && targets.allSatisfy { model.libraryItem($0)?.isPinned == true }
         Button(allPinned ? "Unpin" : "Pin") {
             model.setPinned(targets, to: !allPinned)
         }
@@ -135,13 +136,13 @@ struct TranscriptFlairMenu: View {
     var newTag: (() -> Void)? = nil
 
     private var hasAnyFlair: Bool {
-        targets.contains { !(model.entry($0)?.flairs ?? []).isEmpty }
+        targets.contains { !(model.libraryItem($0)?.flairs ?? []).isEmpty }
     }
 
     private func isSet(_ flair: TranscriptFlair) -> Bool {
-        let entries = targets.compactMap { model.entry($0) }
-        return !entries.isEmpty
-            && entries.allSatisfy { $0.flairs?.contains { $0.matchesIdentity(of: flair) } == true }
+        let items = targets.compactMap { model.libraryItem($0) }
+        return !items.isEmpty
+            && items.allSatisfy { $0.flairs.contains { $0.matchesIdentity(of: flair) } }
     }
 
     var body: some View {

@@ -52,9 +52,9 @@ extension AppModel {
                 recentlyDeleted.insert(entry, at: 0)
             }
             entries.removeAll { $0.id == id }
-            unsavedHistory.remove(id)
-            scheduled.remove(id)
-            undoSteps[id] = nil
+            if unsavedHistory.contains(id) { unsavedHistory.remove(id) }
+            if scheduled.contains(id) { scheduled.remove(id) }
+            clearUndo(id)
             pendingSaves.remove(id)
             if !hasUnsavedHistory { storageFailure = nil }
             if pane == .entry(id) { openNewTranscription() }
@@ -121,7 +121,7 @@ extension AppModel {
     func removeEntries(_ ids: [Entry.ID]) {
         guard !isShuttingDown else { return }
         let busy = ids.contains { $0 == busyEntry }
-        withFlairSync {
+        withLibrarySync {
             for id in ids where id != busyEntry { removeEntry(id) }
         }
         if busy {
@@ -176,7 +176,7 @@ extension AppModel {
         guard !foldersAreDamaged else { return false }
         let moved = ids.filter { id in entries.contains { $0.id == id } }
         guard !moved.isEmpty else { return false }
-        withFlairSync {
+        withLibrarySync {
             for id in moved { moveEntry(id, to: folderID) }
         }
         return true
@@ -214,11 +214,11 @@ extension AppModel {
     /// The unpinned transcripts a place in the library holds: those of a folder,
     /// or with `nil` those in no folder this library knows, matching the active
     /// sidebar filter in the reader's chosen order.
-    func entries(in folder: UUID?) -> [Entry] {
+    func entries(in folder: UUID?) -> [LibraryItem] {
         let known = folder == nil ? Set(folders.map(\.id)) : []
         return layout.sort.sorted(
-            entries.filter {
-                $0.isPinned != true
+            library.items.filter {
+                !$0.isPinned
                     && belongs($0.folderID, to: folder, known: known)
                     && matchesLibraryFilter($0)
             })
@@ -226,8 +226,8 @@ extension AppModel {
 
     func hasEntries(in folder: UUID?) -> Bool {
         let known = folder == nil ? Set(folders.map(\.id)) : []
-        return entries.contains {
-            $0.isPinned != true
+        return library.items.contains {
+            !$0.isPinned
                 && belongs($0.folderID, to: folder, known: known)
                 && matchesLibraryFilter($0)
         }
@@ -257,7 +257,7 @@ extension AppModel {
     /// Whether a folder lists anything, including subfolders and what cannot be
     /// read.
     func holdsTranscripts(_ folder: UUID) -> Bool {
-        entries.contains { $0.folderID == folder }
+        library.items.contains { $0.folderID == folder }
             || !unavailable(in: folder).isEmpty
             || folders.contains { $0.parentID == folder }
     }

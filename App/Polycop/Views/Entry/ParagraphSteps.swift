@@ -6,38 +6,45 @@ import SwiftUI
 /// paragraph, playing the one before or after, or taking the page back to what
 /// plays. The player, the page and the Playback menu share it.
 struct ParagraphSteps {
-    let model: AppModel
-    let entry: Entry
-    @Binding var activeParagraph: Int?
-    @Binding var jump: Int?
-    @Binding var showAtTop: Int?
-    @Binding var isFollowSuspended: Bool
-    /// Whether any word has a time, which the highlight and the cursor need.
-    let hasTimedWords: Bool
+    /// What the Playback menu and step helpers read of the transcript, which a
+    /// correction typed in the text leaves as it is.
+    struct Facts: Equatable {
+        var id: Entry.ID
+        var hasText: Bool
+        var hasRecording: Bool
+        /// Whether any word has a time, which the highlight and the cursor need.
+        var hasTimedWords: Bool
+    }
 
-    var canReplay: Bool { activeParagraph != nil && entry.hasRecording }
+    let model: AppModel
+    let facts: Facts
+    let state: PageNavigationState
+
+    var isFollowSuspended: Bool { state.isFollowSuspended }
+    var canReplay: Bool { state.hasActiveParagraph && facts.hasRecording }
     var canStop: Bool { model.player.isOpen || model.player.isPreparing }
 
     /// Stops and closes the recording.
     func stop() { model.player.stop() }
-    var canStep: Bool { entry.hasRecording && !entry.paragraphs.isEmpty }
+    var canStep: Bool { facts.hasRecording && facts.hasText }
 
     /// Whether the text is there but no word has a time, which Follow's choice says.
-    var lacksTimedWords: Bool { !entry.paragraphs.isEmpty && !hasTimedWords }
+    var lacksTimedWords: Bool { facts.hasText && !facts.hasTimedWords }
 
     /// Follows playback again after the reader looked elsewhere, with the
     /// paragraph playing at the top even if it was in view.
     func returnToPlayback() {
-        isFollowSuspended = false
-        showAtTop = TranscriptNavigation.paragraph(
+        guard let entry = model.entry(facts.id) else { return }
+        state.isFollowSuspended = false
+        state.showAtTop = TranscriptNavigation.paragraph(
             returningTo: model.player.position, starts: entry.paragraphs.map(\.seconds))
     }
 
     /// Replays the active paragraph with two seconds of context.
     func replay() {
-        guard let activeParagraph, entry.paragraphs.indices.contains(activeParagraph) else {
-            return
-        }
+        guard let activeParagraph = state.activeParagraph, let entry = model.entry(facts.id),
+            entry.paragraphs.indices.contains(activeParagraph)
+        else { return }
         model.replay(
             entry.id, from: max(0, entry.paragraphs[activeParagraph].seconds - 2), leadIn: 0)
     }
@@ -45,6 +52,7 @@ struct ParagraphSteps {
     /// Plays the next or previous paragraph, counted from the one playing. A
     /// step back while one plays first goes to its start.
     func step(by offset: Int) {
+        guard let entry = model.entry(facts.id) else { return }
         let starts = entry.paragraphs.map(\.seconds)
         let player = model.player
         let next =
@@ -54,13 +62,23 @@ struct ParagraphSteps {
                 TranscriptNavigation.paragraph(
                     from: player.isOpen
                         ? TranscriptNavigation.paragraph(playingAt: player.position, starts: starts)
-                        : activeParagraph,
+                        : state.activeParagraph,
                     offset: offset, count: starts.count)
             }
         guard let next else { return }
-        activeParagraph = next
-        jump = next
+        state.activeParagraph = next
+        state.jump = next
         model.replay(entry.id, from: starts[next])
+    }
+}
+
+extension ParagraphSteps.Facts {
+    init(entry: Entry, hasRecording: Bool, hasTimedWords: Bool) {
+        self.init(
+            id: entry.id,
+            hasText: !entry.paragraphs.isEmpty,
+            hasRecording: hasRecording,
+            hasTimedWords: hasTimedWords)
     }
 }
 
@@ -96,7 +114,7 @@ struct PlaybackCommands: Commands {
                 .disabled(steps?.canStep != true)
             Divider()
             FollowChoice(reading: reading, lacksTimedWords: steps?.lacksTimedWords == true)
-                .disabled(steps?.entry.paragraphs.isEmpty != false)
+                .disabled(steps?.facts.hasText != true)
             Button("Return to Playback") { steps?.returnToPlayback() }
                 .keyboardShortcut("l", modifiers: [.command, .option])
                 .disabled(steps?.isFollowSuspended != true)

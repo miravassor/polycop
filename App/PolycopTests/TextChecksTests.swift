@@ -28,9 +28,11 @@ private struct Page {
         entry.state = .finished
         change(&entry)
         return TextChecks(
-            entry: entry, findings: entry.findings,
-            canRebuild: model.canRebuildParagraphs(of: entry), model: model, isRunning: isRunning,
-            engine: nil)
+            facts: TextChecks.Facts(
+                entry: entry, findings: entry.findings, textGaps: entry.textGaps,
+                canRebuild: model.canRebuildParagraphs(of: entry), isRunning: isRunning,
+                model: model),
+            model: model)
     }
 
     func clear() { try? FileManager.default.removeItem(at: folder) }
@@ -189,8 +191,10 @@ private struct Page {
         func checks() throws -> TextChecks {
             let entry = try #require(model.entry(written.id))
             return TextChecks(
-                entry: entry, findings: entry.findings, canRebuild: true, model: model,
-                isRunning: false, engine: nil)
+                facts: TextChecks.Facts(
+                    entry: entry, findings: entry.findings, textGaps: entry.textGaps,
+                    canRebuild: true, isRunning: false, model: model),
+                model: model)
         }
         #expect(try checks().aboveText.map(\.warning) == [.glossary, .resumed])
 

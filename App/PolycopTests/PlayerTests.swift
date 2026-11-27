@@ -368,22 +368,17 @@ func onlyAVideoAVFoundationPlaysHasAPicture(name: String, hasPicture: Bool) asyn
 @Test func thePageStopsFollowingOnlyWhileARecordingIsOpen() async throws {
     let player = Player(defaults: Settings())
     defer { player.stop() }
-    var isSuspended = false
+    let state = PageNavigationState()
     func page(following: Following) -> PageNavigation {
-        PageNavigation(
-            activeParagraph: .constant(nil), jump: .constant(nil),
-            isFollowSuspended: Binding(
-                get: { isSuspended },
-                set: { isSuspended = $0 }),
-            following: following, player: player)
+        PageNavigation(state: state, following: following, player: player)
     }
 
     page(following: .page).suspendFollowing()
-    #expect(!isSuspended)
+    #expect(!state.isFollowSuspended)
 
     try await open(player)
     page(following: .off).suspendFollowing()
-    #expect(!isSuspended)
+    #expect(!state.isFollowSuspended)
     page(following: .page).suspendFollowing()
-    #expect(isSuspended)
+    #expect(state.isFollowSuspended)
 }

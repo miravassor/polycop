@@ -18,9 +18,7 @@ extension AppModel {
         var updated = before
         update(&updated)
         guard updated != before else { return }
-        if before.flairs == updated.flairs && before.folderID == updated.folderID {
-            withFlairSync(deferred: false) { entries[index] = updated }
-        } else {
+        library.update(at: index, to: updated, entries: { entries }, folders: { folders }) {
             entries[index] = updated
         }
         if whileTyping {
@@ -66,18 +64,19 @@ extension AppModel {
     private func written(_ id: Entry.ID, _ result: Result<Void, any Error>) {
         // Removed since: nothing is left to save.
         guard entries.contains(where: { $0.id == id }) else {
-            unsavedHistory.remove(id)
+            if unsavedHistory.contains(id) { unsavedHistory.remove(id) }
             return
         }
         switch result {
         case .success:
-            let recovered = unsavedHistory.remove(id) != nil
+            let recovered = unsavedHistory.contains(id)
+            if recovered { unsavedHistory.remove(id) }
             if !hasUnsavedHistory {
                 storageFailure = nil
                 if recovered { startNext() }
             }
         case .failure(let error):
-            unsavedHistory.insert(id)
+            if !unsavedHistory.contains(id) { unsavedHistory.insert(id) }
             storageFailure = error.localizedDescription
         }
     }

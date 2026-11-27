@@ -43,6 +43,7 @@ All notable changes are listed here. Versions follow [Semantic Versioning](https
 * The text keeps a reading width of about 75 characters a line, so a wide window adds margins.
 * The widths of the library and the inspector, whether the library shows, and Compare are remembered across launches.
 * Renamed: Import Transcript and Audio is now Import Transcript and Recording, Leave out hesitations is now Remove filler words, and "Word following" is now "Word timings".
+* Correcting a long transcript, and clicking from one paragraph to another, are faster.
 
 ### Removed
 

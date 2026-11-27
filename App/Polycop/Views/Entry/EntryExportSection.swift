@@ -9,38 +9,50 @@ import UniformTypeIdentifiers
 /// a copy to share or keep; the corrections themselves live in the library.
 struct EntryExportSection: View {
     let model: AppModel
-    let entry: Entry
-    let isRunning: Bool
+    let facts: Facts
+
+    /// What the export section shows of the transcript, which a correction
+    /// typed in the text leaves as it is.
+    struct Facts: Equatable {
+        var id: Entry.ID
+        var canExport: Bool
+        var exportFormat: Transcript.Format
+        var exportsTimes: Bool
+        var formats: [Transcript.Format]
+        var coversHesitations: Bool
+        var removesHesitations: Bool
+        var lastExport: URL?
+    }
 
     var body: some View {
-        if !isRunning && !entry.paragraphs.isEmpty {
+        if facts.canExport {
             FoldingSection(.export, reading: model.reading) {
                 Picker(
                     "Format",
                     selection: Binding(
-                        get: { entry.exportFormat },
-                        set: { model.setExport($0, times: entry.exportsTimes, for: entry.id) })
+                        get: { facts.exportFormat },
+                        set: { model.setExport($0, times: facts.exportsTimes, for: facts.id) })
                 ) {
-                    ForEach(Self.formats(for: entry), id: \.self) {
+                    ForEach(facts.formats, id: \.self) {
                         Text(Self.title(of: $0)).tag($0)
                     }
                 }
                 // Subtitles keep the model's words and timings, as they are.
-                if entry.exportFormat != .subtitles {
+                if facts.exportFormat != .subtitles {
                     Toggle(
                         "Timecodes",
                         isOn: Binding(
-                            get: { entry.exportsTimes },
-                            set: { model.setExport(entry.exportFormat, times: $0, for: entry.id) })
+                            get: { facts.exportsTimes },
+                            set: { model.setExport(facts.exportFormat, times: $0, for: facts.id) })
                     )
                     .help("Write each paragraph's time before it")
                     // Said under its name, as in Settings: what it removes
                     // is not obvious.
-                    if Hesitations.cover(entry) {
+                    if facts.coversHesitations {
                         Toggle(
                             isOn: Binding(
-                                get: { entry.removesHesitations ?? false },
-                                set: { model.setRemovesHesitations($0, for: entry.id) })
+                                get: { facts.removesHesitations },
+                                set: { model.setRemovesHesitations($0, for: facts.id) })
                         ) {
                             Text("Remove filler words")
                             Text("Euh, hum and the like.")
@@ -49,7 +61,9 @@ struct EntryExportSection: View {
                 }
                 lastExport
                 Button {
-                    Self.exportAs(entry, with: model)
+                    if let entry = model.entry(facts.id) {
+                        Self.exportAs(entry, with: model)
+                    }
                 } label: {
                     Text("Export…").frame(maxWidth: .infinity)
                 }
@@ -58,7 +72,7 @@ struct EntryExportSection: View {
             } footer: {
                 // Only what a student could not guess: that subtitles leave
                 // the corrections out.
-                if entry.exportFormat == .subtitles {
+                if facts.exportFormat == .subtitles {
                     Text(
                         "Subtitles keep the model's words and timings; corrections go into the text formats."
                     )
@@ -68,10 +82,13 @@ struct EntryExportSection: View {
     }
 
     @ViewBuilder private var lastExport: some View {
-        if let file = model.lastExport(of: entry) {
+        if let file = facts.lastExport {
             LabeledContent {
                 Button("Show in Finder") {
-                    NSWorkspace.shared.activateFileViewerSelecting(model.existingExports(of: entry))
+                    if let entry = model.entry(facts.id) {
+                        NSWorkspace.shared.activateFileViewerSelecting(
+                            model.existingExports(of: entry))
+                    }
                 }
             } label: {
                 Text("Last Export")
@@ -114,5 +131,19 @@ struct EntryExportSection: View {
         panel.canCreateDirectories = true
         guard panel.runModal() == .OK, let destination = panel.url else { return }
         model.export(entry.id, to: destination)
+    }
+}
+
+extension EntryExportSection.Facts {
+    init(entry: Entry, isRunning: Bool, lastExport: URL?) {
+        self.init(
+            id: entry.id,
+            canExport: !isRunning && !entry.paragraphs.isEmpty,
+            exportFormat: entry.exportFormat,
+            exportsTimes: entry.exportsTimes,
+            formats: EntryExportSection.formats(for: entry),
+            coversHesitations: Hesitations.cover(entry),
+            removesHesitations: entry.removesHesitations ?? false,
+            lastExport: lastExport)
     }
 }

@@ -6,6 +6,18 @@ import os
 // MARK: Models and downloads
 
 extension AppModel {
+    var selectedCatalogue: Model? { ModelCatalog.model(selected) }
+    /// A glossary only applies to a model that reads one.
+    var glossaryApplies: Bool { selectedCatalogue?.readsGlossary ?? true }
+    /// A language only applies to a model that is told it; the others detect it.
+    var languageApplies: Bool { selectedCatalogue?.engine.detectsLanguage != true }
+    /// Silence removal only applies to an engine that does it.
+    var silenceApplies: Bool { selectedCatalogue?.engine.skipsSilence ?? true }
+
+    func isInstalled(_ id: String) -> Bool {
+        installed.contains(id)
+    }
+
     /// In the models' sheet while it is open. A download can outlive the sheet
     /// or start without it, and then the page says so.
     private func showModelFailure(_ message: String?) {

@@ -16,7 +16,7 @@ struct EntryTools: View {
     let id: Entry.ID
     let facts: Facts
     let page: PageNavigation
-    @Binding var find: TranscriptFind
+    let find: TranscriptFind
     var isSearchFocused: FocusState<Bool>.Binding
     @Binding var confirmingRevert: Bool
     @Binding var confirmingRemoval: Bool
@@ -46,13 +46,30 @@ struct EntryTools: View {
         if facts.hasText {
             CompareToggle(reading: model.reading)
             ReviewMenu(facts: facts, page: page)
-            FindToggle(find: $find)
+            FindToggle(find: find)
             TextMenu(
-                model: model, id: id, facts: facts, find: $find, isSearchFocused: isSearchFocused)
+                model: model, id: id, facts: facts, find: find, isSearchFocused: isSearchFocused)
         }
         EntryActionsMenu(
             model: model, id: id, facts: facts,
             confirmingRevert: $confirmingRevert, confirmingRemoval: $confirmingRemoval)
+    }
+}
+
+extension EntryTools.Facts {
+    init(
+        entry: Entry, hasRecording: Bool, hasTimedWords: Bool, hasExport: Bool,
+        model: AppModel
+    ) {
+        self.init(
+            paragraphCount: entry.paragraphs.count,
+            flagged: entry.reviewParagraphs.sorted(),
+            canUndo: model.canUndo(entry.id),
+            isEdited: entry.isEdited,
+            hasRecording: hasRecording,
+            hasTimedWords: hasTimedWords,
+            hasExport: hasExport,
+            isRunning: model.busyEntry == entry.id)
     }
 }
 
@@ -102,7 +119,7 @@ private struct ReviewMenu: View {
 /// Pressed while the find bar shows, so a second click closes it; Command-F,
 /// in the Text menu, only ever opens it.
 private struct FindToggle: View {
-    @Binding var find: TranscriptFind
+    @Bindable var find: TranscriptFind
 
     var body: some View {
         Toggle(isOn: $find.isShown) {
@@ -117,7 +134,7 @@ private struct TextMenu: View {
     let model: AppModel
     let id: Entry.ID
     let facts: EntryTools.Facts
-    @Binding var find: TranscriptFind
+    let find: TranscriptFind
     var isSearchFocused: FocusState<Bool>.Binding
 
     var body: some View {

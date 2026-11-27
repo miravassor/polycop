@@ -91,7 +91,7 @@ extension AppModel {
                         speech, duration: duration, replacing: from...to, with: again.kept)
                     stage = .repairing(Double(done + 1) / Double(ranges.count))
                 }
-                undoSteps[id] = nil
+                clearUndo(id)
                 updateEntry(id) {
                     $0.publish(repaired, partial: entry.isPartial)
                     $0.speech = speech
