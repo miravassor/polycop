@@ -87,14 +87,14 @@ extension AppModel {
             }
             // Written again where an earlier one was, it leaves the record's
             // exports as they were: the page looks for them again.
-            filesMayHaveChanged()
+            fileChanges.note()
         } catch let partial as Transcript.PartialSave {
             updateEntry(id) {
                 $0.saved = partial.written
                 $0.savedDigests = Array(digests.prefix(partial.written.count))
                 $0.isSaved = false
             }
-            filesMayHaveChanged()
+            fileChanges.note()
             entryFailure = EntryFailure(id: id, message: partial.localizedDescription)
         } catch {
             Log.persistence.error("an export could not be written: \(error, privacy: .private)")

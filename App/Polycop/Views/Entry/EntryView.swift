@@ -122,7 +122,7 @@ final class PageSegments {
     }
 
     /// What the page looks for its recording and its last export again on: a
-    /// change of the record's files, or one of the moments `AppModel.fileChanges`
+    /// change of the record's files, or one of the moments `FileChanges`
     /// counts, among them an export written again where the last one was,
     /// which leaves the record's files as they were.
     private struct Files: Equatable {
@@ -152,9 +152,8 @@ final class PageSegments {
     private(set) var canRebuild = false
     /// Whether the recording is where the record says, and the file the last
     /// export wrote while it is still there. Looked for again when the record's
-    /// files change and when the system says a file may have come back
-    /// (`AppModel.fileChanges`), not at each draw: looking resolves the
-    /// recording's bookmark.
+    /// files change and when a file may have come back (`FileChanges`), not
+    /// at each draw: looking resolves the recording's bookmark.
     private(set) var hasRecording = false
     private(set) var lastExport: URL?
     private var loadedInputs: Inputs?
@@ -179,7 +178,7 @@ final class PageSegments {
         }
         loadedInputs = inputs
 
-        let files = Files(entry, changes: model.fileChanges)
+        let files = Files(entry, changes: model.fileChanges.count)
         if loadedFiles != files {
             loadedFiles = files
             hasRecording = entry.hasRecording

@@ -178,10 +178,8 @@ final class AppModel {
     /// The folder storage file that failed to decode, revealed by Show in Finder.
     private(set) var damagedFolderFile: String?
     private(set) var isShuttingDown = false
-    /// Counts the times a file a record points to may have come or gone: a
-    /// disk mounted or unmounted, the app made active, an export written. The
-    /// page looks for its recording and export again then, not at each draw.
-    private(set) var fileChanges = 0
+    /// The moments a file a record points to may have come or gone.
+    @ObservationIgnored let fileChanges = FileChanges()
     var hasUnsavedHistory: Bool { !unsavedHistory.isEmpty || !unsavedGlossaries.isEmpty }
 
     /// Course glossaries, and the one sent with the next recordings added.
@@ -326,9 +324,6 @@ final class AppModel {
         imported = ModelStore.imported(in: modelFolder)
         if selectedCatalogue == nil { selected = ModelCatalog.recommended.id }
     }
-
-    /// Asks the pages to look again for the files their records point to.
-    func filesMayHaveChanged() { fileChanges += 1 }
 
     func entry(_ id: Entry.ID) -> Entry? {
         entries.first { $0.id == id }

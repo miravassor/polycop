@@ -262,10 +262,10 @@ private func disks(on page: HostedPage, holding recording: URL) async throws
     let kept = recording.deletingLastPathComponent().appending(path: "kept.wav")
     try FileManager.default.copyItem(at: recording, to: kept)
     try FileManager.default.removeItem(at: recording)
-    redrew[.recordingGone] = try await redrawn(in: model) { model.filesMayHaveChanged() }
+    redrew[.recordingGone] = try await redrawn(in: model) { model.fileChanges.note() }
     try FileManager.default.copyItem(at: kept, to: recording)
-    redrew[.recordingBack] = try await redrawn(in: model) { model.filesMayHaveChanged() }
-    redrew[.filesUnchanged] = try await redrawn(in: model) { model.filesMayHaveChanged() }
+    redrew[.recordingBack] = try await redrawn(in: model) { model.fileChanges.note() }
+    redrew[.filesUnchanged] = try await redrawn(in: model) { model.fileChanges.note() }
     return redrew
 }
 
@@ -281,7 +281,7 @@ private func exports(on page: HostedPage, beside recording: URL) async throws
     let export = recording.deletingLastPathComponent().appending(path: "cours.txt")
     redrew[.exportWritten] = try await redrawn(in: model) { model.export(id, to: export) }
     try FileManager.default.removeItem(at: export)
-    redrew[.exportGone] = try await redrawn(in: model) { model.filesMayHaveChanged() }
+    redrew[.exportGone] = try await redrawn(in: model) { model.fileChanges.note() }
 
     let second = try #require(model.entry(id)?.paragraphs[1].text)
     model.edit(id, paragraphAt: 1, text: second + " !")
