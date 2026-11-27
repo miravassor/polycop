@@ -178,9 +178,9 @@ final class AppModel {
     /// The folder storage file that failed to decode, revealed by Show in Finder.
     private(set) var damagedFolderFile: String?
     private(set) var isShuttingDown = false
-    /// Counts the times the system said a file a record points to may have
-    /// come or gone: a disk mounted or unmounted, the app made active. The page
-    /// looks for its recording again then, rather than at each draw.
+    /// Counts the times a file a record points to may have come or gone: a
+    /// disk mounted or unmounted, the app made active, an export written. The
+    /// page looks for its recording and export again then, not at each draw.
     private(set) var fileChanges = 0
     var hasUnsavedHistory: Bool { !unsavedHistory.isEmpty || !unsavedGlossaries.isEmpty }
 

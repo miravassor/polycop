@@ -121,7 +121,10 @@ final class PageSegments {
         }
     }
 
-    /// All that whether the recording and the last export are on disk hangs on.
+    /// What the page looks for its recording and its last export again on: a
+    /// change of the record's files, or one of the moments `AppModel.fileChanges`
+    /// counts, among them an export written again where the last one was,
+    /// which leaves the record's files as they were.
     private struct Files: Equatable {
         let id: Entry.ID
         let recording: URL

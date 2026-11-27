@@ -53,6 +53,12 @@ private enum Change: CaseIterable {
     case recordingBack
     /// The app made active again, every file where it was.
     case filesUnchanged
+    /// The transcript exported.
+    case exportWritten
+    /// Its export moved away, and the app made active again.
+    case exportGone
+    /// After a correction, exported again where the last one was.
+    case exportWrittenAgain
 }
 
 /// What each change redraws of the structure. A change that reaches a piece
@@ -79,6 +85,9 @@ private let mayRedraw: [Change: Set<Redraws.Piece>] = [
     .recordingGone: [.page, .tools],
     .recordingBack: [.page, .tools],
     .filesUnchanged: [],
+    .exportWritten: [.page, .tools, .inspector],
+    .exportGone: [.page, .tools, .inspector],
+    .exportWrittenAgain: [.page, .tools, .inspector],
 ]
 
 /// Each change redraws exactly the pieces listed for it. Before any is
@@ -97,6 +106,7 @@ private let mayRedraw: [Change: Set<Redraws.Piece>] = [
         var redrew = try await corrections(on: page)
         redrew.merge(try await shownFacts(on: page)) { $1 }
         redrew.merge(try await disks(on: page, holding: recording)) { $1 }
+        redrew.merge(try await exports(on: page, beside: recording)) { $1 }
         redrew.merge(try await editing(on: page)) { $1 }
         redrew.merge(try await listening(on: page)) { $1 }
         redrew.merge(try await finding(on: page)) { $1 }
@@ -237,6 +247,31 @@ private func disks(on page: HostedPage, holding recording: URL) async throws
     try FileManager.default.copyItem(at: kept, to: recording)
     redrew[.recordingBack] = try await redrawn(in: model) { model.filesMayHaveChanged() }
     redrew[.filesUnchanged] = try await redrawn(in: model) { model.filesMayHaveChanged() }
+    return redrew
+}
+
+/// An export written, moved away while the app was in the background, then
+/// written again where it was after a correction, which leaves the record's
+/// exports as they were.
+@MainActor
+private func exports(on page: HostedPage, beside recording: URL) async throws
+    -> [Change: Set<Redraws.Piece>]
+{
+    let (model, id) = (page.model, page.id)
+    var redrew: [Change: Set<Redraws.Piece>] = [:]
+    let export = recording.deletingLastPathComponent().appending(path: "cours.txt")
+    redrew[.exportWritten] = try await redrawn(in: model) { model.export(id, to: export) }
+    try FileManager.default.removeItem(at: export)
+    redrew[.exportGone] = try await redrawn(in: model) { model.filesMayHaveChanged() }
+
+    let second = try #require(model.entry(id)?.paragraphs[1].text)
+    model.edit(id, paragraphAt: 1, text: second + " !")
+    for _ in 0..<20 where !page.shown.contains(second + " !") { await turns(1) }
+    model.savePending()
+    await model.finishWrites()
+    await turns(2)
+    redrew[.exportWrittenAgain] = try await redrawn(in: model) { model.export(id, to: export) }
+    await model.finishWrites()
     return redrew
 }
 
