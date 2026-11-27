@@ -30,7 +30,8 @@ import Testing
         try #require(page.window.title == "2 Transcripts Selected")
 
         model.layout.showsLibrary = false
-        await turns(2)
+        for _ in 0..<20 where !list.isHiddenOrHasHiddenAncestor { await turns(1) }
+        try #require(list.isHiddenOrHasHiddenAncestor, "the library still shows")
         model.layout.filter = .flair(.done)
         for _ in 0..<20 where page.window.title != "Cours de mardi" { await turns(1) }
         #expect(page.window.title == "Cours de mardi")
