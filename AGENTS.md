@@ -74,7 +74,10 @@ Tools/                 build, fixture and packaging scripts
 * Names follow the Swift API Design Guidelines: explicit, no abbreviations, and
   Booleans that read as assertions (`isEditable`, `showsChanges`). Stored names of
   persisted types are the exception: they never change.
-* Views bind to `AppModel` through `@Bindable`, never through hand-written `Binding(get:set:)`.
+* A binding to a property of an `@Observable` object is `@Bindable`'s, never a hand-written
+  `Binding(get:set:)` that only reads and writes that property. A choice stored in a record
+  is shown from its facts and changed through the model's method for it, so its binding is
+  written by hand: the getter reads the fact, the setter calls that one method.
 * A `nonisolated async` function runs on its caller's actor (approachable concurrency),
   so blocking work in it blocks the main actor. Such work goes in a `@concurrent`
   function, or on a queue through `DispatchQueue.run` for a long C call.
