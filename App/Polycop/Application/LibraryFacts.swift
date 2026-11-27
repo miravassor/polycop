@@ -77,8 +77,12 @@ final class LibraryFacts {
     }
 
     /// Runs a single-record write to `entries[index]` and updates only that
-    /// item's facts in O(1), returning without touching observed state when the
-    /// record's `LibraryItem` is unchanged.
+    /// item's facts, returning without touching observed state when the
+    /// record's `LibraryItem` is unchanged. That takes the same time whatever
+    /// the library's size, but for a flair or folder edit, which gathers the
+    /// flairs of every record again, a record leaving the waiting list, which
+    /// looks for another still waiting, and a write at an index that holds
+    /// another record or none, which derives every item again.
     func update(
         at index: Int, to updated: Entry, entries: () -> [Entry],
         folders libraryFolders: () -> [TranscriptFolder], _ write: () -> Void

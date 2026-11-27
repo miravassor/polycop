@@ -52,9 +52,8 @@ Find Terms (`TermFinder`) reads the chosen documents itself, through `Documents`
   change to an entry goes through `AppModel.updateEntry`, which writes it to
   disk; a new entry is written by the action that makes it (adding, retrying,
   duplicating or importing).
-* Views that declare the window's structure never read a record's text nor
-  `entries`, so that a correction typed in the text does not run them and
-  everything they declare. They read what a change of the text leaves equal:
+* What the views that declare the window's structure read, by the rule
+  "Window structure reads no record" in `AGENTS.md`:
   * `AppModel.library` (`LibraryFacts`) keeps a `LibraryItem` per record (name,
     state, folder, pin, flairs, whether it has text or was edited) and
     `hasWaiting`, derived from `entries` and `folders` and set only when a
@@ -127,11 +126,13 @@ one decision it makes for a recording.
   the record to `LoadedEntryView`. `LoadedEntryView` updates `PageSegments`
   synchronously when its inputs change and builds `EntryPage.Facts`, which a
   correction leaves equal. `EntryPage` owns the page structure, title, toolbar
-  (`EntryTools`), inspector (`EntryInspector`), focused values, dialogs and
-  `PageNavigationState`. `EntryText` below it reads the record again and draws
-  progress, notices, Find, the text and the player. `PageNavigationState` is an
-  object of the page that the text and the Playback menu read, and `EntryPage`
-  does not, so moving between paragraphs does not run `EntryPage`.
+  (`EntryTools`), inspector (`EntryInspector`), focused values, dialogs,
+  `PageNavigationState` and `TranscriptFind`. `EntryText` below it reads the
+  record again and draws progress, notices, Find, the text and the player.
+  `PageNavigationState`, which the text and the Playback menu read, and
+  `TranscriptFind`, which the text and the tools read, are objects of the page
+  that `EntryPage` does not read, so moving between paragraphs or searching
+  does not run it.
 * A paragraph is an `NSTextView` (`ParagraphEditor`) inside a lazy list
   (`TranscriptView`). Word times come from `WordLayout`, which places the
   engine's timed words on the corrected text with a word diff (`Edits`). The

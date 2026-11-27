@@ -66,7 +66,7 @@ Tools/                 build, fixture and packaging scripts
 
 * Swift 6 language mode, main actor by default. Engine and value types are `nonisolated`.
 * `@Observable` classes hold state, structs carry values, caseless enums group pure functions.
-* **Observed state changes only when its value does.** An observed collection is changed
+* Observed state changes only when its value does. An observed collection is changed
   in place (`insert`, `remove`, a subscript) only when the result differs, since such a
   change notifies its readers whatever it did; an assignment of an equal value does not.
   What changes at each edit (`undoSteps`) is kept unobserved, apart from the coarse
@@ -218,17 +218,18 @@ Every page speaks the same visual language. The shared pieces live in
   while the reader types: SwiftUI redoes such a view at every update of its parent. A
   setting the transcript page reads belongs in `ReadingSettings`, or `WindowLayout` for
   how the window was left, on the model.
-* **Window structure reads no record.** A view that declares window structure (the split
-  view or one of its columns, an inspector, toolbar items, menu commands, a focused scene
-  value, the window's title) is `ContentView`, `LibrarySidebar`, `EntryPage`, `EntryTools`,
-  `EntryInspector`, `FileCommands`, `LibraryTranscriptCommands` or `PlaybackCommands`. It
-  reads identities, the layout, and facts that a change of the text leaves equal, as
-  `EntryTools.Facts` and `LibraryItem` do; never a record's text, nor `entries`. The record
-  is read by the leaf that draws it (`EntryText`), and an action reads it from the model
-  when it runs. SwiftUI runs a body again when an observed value it read changes, makes
-  again with it the content of every inspector, toolbar item and menu it declares, then
-  updates and lays out each hosting view below. `RedrawTests` fails when a change of the
-  text reaches such a view; a new one counts itself there.
+* Window structure reads no record. A view declares window structure when it declares
+  the split view or one of its columns, the window's title, an inspector, toolbar items, a
+  focused scene value or menu commands. It reads identities, the layout, and facts that a
+  change of the text leaves equal, as `EntryTools.Facts` and `LibraryItem` do; never a
+  record's text, nor `entries`. The record is read by the leaf that draws it, as `EntryText`
+  does, and an action reads it from the model when it runs. SwiftUI runs a body again when
+  an observed value it read changes, makes again with it the content of every inspector,
+  toolbar item and menu it declares, then updates and lays out each hosting view below.
+  `RedrawTests` counts those of the window and of the transcript page, and fails when a
+  change of the text reaches one, or a change of what one shows no longer does; a new one
+  counts itself there. Its window has no menu bar: `LibraryFactsTests` checks that the
+  library facts the menu commands read stay equal through a change of the text.
 
 ## Things that break silently
 

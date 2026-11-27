@@ -220,6 +220,8 @@ private struct EntryText: View {
                 review: entry.reviewParagraphs,
                 toggleReview: { model.toggleReview(entry.id, paragraphAt: $0) },
                 matches: find.matches, currentMatch: find.current,
+                // Relies on `LoadedEntryView`, above, having updated `segments`
+                // for this record earlier in the same update.
                 words: segments.words,
                 showsUncertainWords: reading.showsUncertainWords,
                 cursorFollows: following == .cursor

@@ -36,6 +36,11 @@ private struct LoadedEntryView: View {
     @State private var segments = PageSegments()
 
     var body: some View {
+        // In the body, not in `onChange`, which runs after it and would pair
+        // this record with what an earlier one yielded: `segments` is no
+        // observed state, so writing it tells no view, and it works out again
+        // only what its inputs changed. `EntryText` reads it later in the same
+        // update.
         segments.update(for: entry, model: model)
         let inspectorFacts = EntryInspector.Facts(
             entry: entry, findings: segments.findings, textGaps: segments.textGaps,
@@ -154,7 +159,7 @@ final class PageSegments {
     private var loadedFiles: Files?
 
     func update(for entry: Entry, model: AppModel) {
-        // Always read so `LoadedEntryView.body` observes `busyEntry` and `undoable`.
+        // Besides the record, what whether a warning's rebuild can run hangs on.
         let isRunning = model.busyEntry == entry.id
         let canUndo = model.canUndo(entry.id)
         let inputs = Inputs(entry)
