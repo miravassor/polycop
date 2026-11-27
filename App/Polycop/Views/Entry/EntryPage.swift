@@ -51,10 +51,11 @@ struct EntryPage: View {
         // For RedrawTests, in the test host only, with the pointer they move.
         let _ = Redraws.count(.page, in: model)
         let _ = Redraws.keep(pointer, of: model)
+        let _ = Redraws.keep(find, of: model)
         EntryText(
             model: model, checks: facts.inspector.checks, steps: facts.steps,
             segments: segments, pointer: pointer, navigation: navigation,
-            find: $find, isSearchFocused: $isSearchFocused
+            find: find, isSearchFocused: $isSearchFocused
         )
         // A reading column: a wide window adds margins, not longer lines.
         .frame(maxWidth: readingWidth)
@@ -71,10 +72,6 @@ struct EntryPage: View {
         .focusedSceneValue(\.paragraphSteps, steps)
         .focusedSceneValue(\.comparesOriginal, Bindable(reading).isComparing)
         .focusedSceneValue(\.selectedTranscripts, [facts.id])
-        .onChange(of: find.query) { refreshSearch() }
-        .onChange(of: find.isShown) { _, isShown in
-            if isShown { isSearchFocused = true } else { find.close() }
-        }
         .onChange(of: model.player.isOpen) { _, isOpen in
             if !isOpen { navigation.isFollowSuspended = false }
         }
@@ -106,7 +103,7 @@ struct EntryPage: View {
         ToolbarItemGroup(placement: .principal) {
             EntryTools(
                 model: model, id: facts.id, facts: facts.tools, page: page,
-                find: $find, isSearchFocused: $isSearchFocused,
+                find: find, isSearchFocused: $isSearchFocused,
                 confirmingRevert: $confirmingRevert, confirmingRemoval: $confirmingRemoval)
         }
     }
@@ -116,12 +113,6 @@ struct EntryPage: View {
     private var inspector: some View {
         EntryInspector(model: model, facts: facts.inspector)
             .modifier(InspectorColumn(layout: model.layout))
-    }
-
-    private func refreshSearch() {
-        guard let paragraphs = model.entry(facts.id)?.paragraphs else { return }
-        find.refresh(in: paragraphs, startingOver: true)
-        if let current = find.current { page.show(current.paragraph) }
     }
 }
 
@@ -152,7 +143,7 @@ private struct EntryText: View {
     let segments: PageSegments
     let pointer: ParagraphPointer
     let navigation: PageNavigationState
-    @Binding var find: TranscriptFind
+    let find: TranscriptFind
     var isSearchFocused: FocusState<Bool>.Binding
 
     private var reading: ReadingSettings { model.reading }
@@ -182,8 +173,7 @@ private struct EntryText: View {
                 transcript(for: entry, isRunning: isRunning)
             }
             .onChange(of: entry.paragraphs) {
-                // Nothing to find: left as it is, so that typing does not update
-                // what reads it, the toolbar's Find among them.
+                // Nothing to find: no search to run again at each edit.
                 if !find.query.isEmpty {
                     find.refresh(in: entry.paragraphs, startingOver: false)
                 }
@@ -192,6 +182,12 @@ private struct EntryText: View {
                 {
                     navigation.activeParagraph = nil
                 }
+            }
+            // Here, where Find is drawn, rather than on the page: a key in the
+            // field then runs this view and not the toolbar or the inspector.
+            .onChange(of: find.query) { refreshSearch() }
+            .onChange(of: find.isShown) { _, isShown in
+                if isShown { isSearchFocused.wrappedValue = true } else { find.close() }
             }
         }
     }
@@ -266,9 +262,15 @@ private struct EntryText: View {
     @ViewBuilder private func findBar(for entry: Entry, isRunning: Bool) -> some View {
         if find.isShown {
             EntryFindBar(
-                model: model, entry: entry, isRunning: isRunning, find: $find,
+                model: model, entry: entry, isRunning: isRunning, find: find,
                 isFocused: isSearchFocused, navigate: { navigateMatch(forward: $0) })
         }
+    }
+
+    private func refreshSearch() {
+        guard let paragraphs = model.entry(steps.id)?.paragraphs else { return }
+        find.refresh(in: paragraphs, startingOver: true)
+        if let current = find.current { page.show(current.paragraph) }
     }
 
     private func navigateMatch(forward: Bool) {

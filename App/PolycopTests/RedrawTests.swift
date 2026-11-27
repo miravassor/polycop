@@ -26,6 +26,10 @@ private enum Change: CaseIterable {
     case replaceAll
     /// The record written once typing stops.
     case write
+    /// A key typed in Find, which shows what it finds.
+    case findKey
+    /// Typing handed to the model while Find shows its results.
+    case handoverWhileFinding
 }
 
 /// What each change may redraw of the structure today. A change that reaches
@@ -39,6 +43,8 @@ private let mayRedraw: [Change: Set<Redraws.Piece>] = [
     .handover: [],
     .replaceAll: [],
     .write: [],
+    .findKey: [],
+    .handoverWhileFinding: [],
 ]
 
 /// Each change redraws exactly the pieces listed for it. Before any is
@@ -51,6 +57,7 @@ private let mayRedraw: [Change: Set<Redraws.Piece>] = [
         var redrew = try await corrections(on: page)
         redrew.merge(try await editing(on: page)) { $1 }
         redrew.merge(try await listening(on: page)) { $1 }
+        redrew.merge(try await finding(on: page)) { $1 }
         for change in Change.allCases {
             #expect(redrew[change] == mayRedraw[change], "\(change)")
         }
@@ -212,6 +219,52 @@ private func listening(on page: HostedPage) async throws -> [Change: Set<Redraws
         pointer.point(at: 3)
     }
     return redrew
+}
+
+/// Find opened on a word, as its button and its field do, then a key typed in
+/// it, and a correction handed over that moves the results it shows.
+@MainActor
+private func finding(on page: HostedPage) async throws -> [Change: Set<Redraws.Piece>] {
+    let (model, id) = (page.model, page.id)
+    let find = try #require(Redraws.find(of: model))
+    let text = try #require(model.entry(id)?.paragraphs[0].text)
+    func firstResult() -> Int? {
+        page.textViews.first { $0.string == text }.flatMap(results(in:))?.first?.length
+    }
+    find.isShown = true
+    find.query = "conce"
+    for _ in 0..<20 where firstResult() != 5 { await turns(1) }
+    try #require(firstResult() == 5, "Find shows no result")
+    try await settle(page)
+    var redrew: [Change: Set<Redraws.Piece>] = [:]
+
+    redrew[.findKey] = try await redrawn(in: model, drawn: { firstResult() == 7 }) {
+        find.query = "concept"
+    }
+
+    let corrected = "Bien." + text
+    redrew[.handoverWhileFinding] = try await redrawn(
+        in: model, drawn: { page.shown.contains(corrected) }
+    ) {
+        model.edit(id, paragraphAt: 0, text: corrected)
+    }
+    model.savePending()
+    await model.finishWrites()
+    return redrew
+}
+
+/// The stretches a paragraph's text view marks as results of Find, with a
+/// background in its text.
+@MainActor
+private func results(in view: WordTextView) -> [NSRange]? {
+    guard let storage = view.textStorage else { return nil }
+    var marked: [NSRange] = []
+    storage.enumerateAttribute(
+        .backgroundColor, in: NSRange(location: 0, length: storage.length)
+    ) { value, range, _ in
+        if value != nil { marked.append(range) }
+    }
+    return marked
 }
 
 /// The word a paragraph's text view shows as heard: the stretch its editor

@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import Foundation
+import Observation
 import Testing
+import os
 
 @testable import Polycop
 
@@ -28,7 +30,7 @@ struct ReviewFeaturesTests {
             Transcript.Paragraph(start: 0, text: "mot un, mot deux"),
             Transcript.Paragraph(start: 30_000, text: "mot trois"),
         ]
-        var find = TranscriptFind()
+        let find = TranscriptFind()
         find.query = "mot"
         find.refresh(in: paragraphs, startingOver: true)
         #expect(find.matches.count == 3)
@@ -69,7 +71,7 @@ struct ReviewFeaturesTests {
             Transcript.Paragraph(start: 0, text: "froid un, froid deux, froid trois"),
             Transcript.Paragraph(start: 30_000, text: "froid quatre"),
         ]
-        var find = TranscriptFind()
+        let find = TranscriptFind()
         find.query = "froid"
         find.refresh(in: paragraphs, startingOver: true)
         find.step(forward: true)
@@ -102,7 +104,7 @@ struct ReviewFeaturesTests {
             Transcript.Paragraph(start: 0, text: "freud et freud"),
             Transcript.Paragraph(start: 30_000, text: "encore freud"),
         ]
-        var find = TranscriptFind()
+        let find = TranscriptFind()
         find.query = "freud"
         find.refresh(in: paragraphs, startingOver: true)
         let first = try #require(find.current)
@@ -118,6 +120,34 @@ struct ReviewFeaturesTests {
         // The refresh that follows the edit changes nothing.
         find.refresh(in: paragraphs, startingOver: false)
         #expect(find.current?.paragraph == 1)
+    }
+
+    /// Find runs its search again at each correction: one that leaves the
+    /// results as they were tells nothing to the find bar and the text that
+    /// show them, one that moves a result does.
+    @Test func findTellsItsReadersOnlyOfResultsThatChanged() {
+        var paragraphs = [
+            Transcript.Paragraph(start: 0, text: "mot un, mot deux"),
+            Transcript.Paragraph(start: 30_000, text: "mot trois"),
+        ]
+        let find = TranscriptFind()
+        find.query = "mot"
+        find.refresh(in: paragraphs, startingOver: true)
+        func tells(_ edit: () -> Void) -> Bool {
+            let told = OSAllocatedUnfairLock(initialState: false)
+            withObservationTracking {
+                _ = find.matches
+                _ = find.current
+            } onChange: {
+                told.withLock { $0 = true }
+            }
+            edit()
+            find.refresh(in: paragraphs, startingOver: false)
+            return told.withLock { $0 }
+        }
+
+        #expect(!tells { paragraphs[1].text = "mot quatre" })
+        #expect(tells { paragraphs[1].text = "un mot quatre" })
     }
 
     @Test func reviewFlagsPersistWithoutChangingTextOrExports() async throws {

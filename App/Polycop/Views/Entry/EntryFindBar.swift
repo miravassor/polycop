@@ -3,22 +3,27 @@
 import SwiftUI
 
 /// What Find and Replace holds for one transcript: the text looked for, its
-/// results and the one shown, and the replacement.
-struct TranscriptFind {
+/// results and the one shown, and the replacement. An object of the page, so
+/// that each value is observed by the views that draw it alone: a search run
+/// again as the text changes tells the find bar and the text, never the page's
+/// toolbar or inspector. Its values are assigned whole, and an equal one tells
+/// no view.
+@Observable
+final class TranscriptFind {
     var isShown = false
     var query = ""
-    var matches: [TranscriptSearch.Match] = []
-    var index = 0
+    private(set) var matches: [TranscriptSearch.Match] = []
+    private(set) var index = 0
     /// False once an edit has taken the result shown away. The result at that
     /// place waits for the reader to step to it, so that typing never makes
     /// the page scroll to another paragraph.
-    var showsCurrent = true
+    private(set) var showsCurrent = true
     var isReplacing = false
     var replacement = ""
     var remembersReplacement = false
     /// The length of each paragraph searched, to follow a result that an edit
-    /// before it has moved.
-    private var lengths: [Int] = []
+    /// before it has moved. Read by no view, and new at almost every edit.
+    @ObservationIgnored private var lengths: [Int] = []
 
     var current: TranscriptSearch.Match? {
         showsCurrent && matches.indices.contains(index) ? matches[index] : nil
@@ -27,7 +32,7 @@ struct TranscriptFind {
     /// Looks for the query again. Starting over shows the first result.
     /// Otherwise an edit that adds or removes no result keeps the one shown;
     /// one that does keeps the place rather than the position.
-    mutating func refresh(in paragraphs: [Transcript.Paragraph], startingOver: Bool) {
+    func refresh(in paragraphs: [Transcript.Paragraph], startingOver: Bool) {
         let previous = matches
         let previousLengths = lengths
         matches = TranscriptSearch.matches(in: paragraphs, query: query)
@@ -53,7 +58,7 @@ struct TranscriptFind {
 
     /// Shows the next or the previous result, going round at either end. The
     /// first step after an edit took the result away shows the one waiting.
-    mutating func step(forward: Bool) {
+    func step(forward: Bool) {
         guard !matches.isEmpty else { return }
         if showsCurrent || !forward {
             index = (index + (forward ? 1 : matches.count - 1)) % matches.count
@@ -63,7 +68,7 @@ struct TranscriptFind {
 
     /// After a replacement, shows the first result past it: one that still
     /// matches, as when only case or accents changed, is not shown again.
-    mutating func showFirst(
+    func showFirst(
         after match: TranscriptSearch.Match, replacedBy replacement: String,
         in paragraphs: [Transcript.Paragraph]
     ) {
@@ -72,7 +77,7 @@ struct TranscriptFind {
         index = first(from: match.paragraph, at: end) ?? 0
     }
 
-    mutating func close() {
+    func close() {
         isShown = false
         query = ""
     }
@@ -90,7 +95,7 @@ struct EntryFindBar: View {
     let model: AppModel
     let entry: Entry
     let isRunning: Bool
-    @Binding var find: TranscriptFind
+    @Bindable var find: TranscriptFind
     var isFocused: FocusState<Bool>.Binding
     /// Shows the next result when true, the previous one when false.
     let navigate: (Bool) -> Void
