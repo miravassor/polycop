@@ -222,14 +222,16 @@ Every page speaks the same visual language. The shared pieces live in
   the split view or one of its columns, the window's title, an inspector, toolbar items, a
   focused scene value or menu commands. It reads identities, the layout, and facts that a
   change of the text leaves equal, as `EntryTools.Facts` and `LibraryItem` do; never a
-  record's text, nor `entries`. The record is read by the leaf that draws it, as `EntryText`
-  does, and an action reads it from the model when it runs. SwiftUI runs a body again when
-  an observed value it read changes, makes again with it the content of every inspector,
+  record's text, nor `entries`, which `NewTranscriptionView` alone still reads, through the
+  recordings waiting. The record is read by the leaf that draws it, as `EntryText` does,
+  and an action reads it from the model when it runs. SwiftUI runs a body again when an
+  observed value it read changes, makes again with it the content of every inspector,
   toolbar item and menu it declares, then updates and lays out each hosting view below.
-  `RedrawTests` counts those of the window and of the transcript page, and fails when a
-  change of the text reaches one, or a change of what one shows no longer does; a new one
-  counts itself there. Its window has no menu bar: `LibraryFactsTests` checks that the
-  library facts the menu commands read stay equal through a change of the text.
+  `RedrawTests` counts how many times the body of each such view in the window and on the
+  transcript page runs, and fails when a change of the text runs one, or a change of what
+  one shows no longer does; a new one counts itself there. Its window has no menu bar:
+  `LibraryFactsTests` checks that the library facts the menu commands read stay equal
+  through a change of the text.
 
 ## Things that break silently
 
