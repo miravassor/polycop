@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+// Every test of one subject, kept together.
+// swiftlint:disable file_length
 
 import AppKit
 import Testing
@@ -45,6 +47,12 @@ private enum Change: CaseIterable {
     case jobProgress
     /// That work ending.
     case jobEnds
+    /// The disk of the recording unmounted, as the system tells the app.
+    case recordingGone
+    /// The disk mounted again, the recording on it.
+    case recordingBack
+    /// The app made active again, every file where it was.
+    case filesUnchanged
 }
 
 /// What each change redraws of the structure. A change that reaches a piece
@@ -68,17 +76,27 @@ private let mayRedraw: [Change: Set<Redraws.Piece>] = [
     .jobStarts: [.page, .inspector],
     .jobProgress: [],
     .jobEnds: [.page, .inspector],
+    .recordingGone: [.page, .tools],
+    .recordingBack: [.page, .tools],
+    .filesUnchanged: [],
 ]
 
 /// Each change redraws exactly the pieces listed for it. Before any is
 /// counted, each piece redrawn alone redraws none of the pieces it holds.
 @MainActor
 @Test func eachChangeOnThePageRedrawsOnlyTheStructureListedForIt() async throws {
-    try await withHostedPage(lecture()) { page in
+    // A copy of the clip, which the disk changes below take away and bring back.
+    let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let recording = folder.appending(path: "cours.wav")
+    try FileManager.default.copyItem(at: HostedPage.clipFR, to: recording)
+    try await withHostedPage(lecture(of: recording)) { page in
         try await openCounting(page)
         try await settle(page)
         var redrew = try await corrections(on: page)
         redrew.merge(try await shownFacts(on: page)) { $1 }
+        redrew.merge(try await disks(on: page, holding: recording)) { $1 }
         redrew.merge(try await editing(on: page)) { $1 }
         redrew.merge(try await listening(on: page)) { $1 }
         redrew.merge(try await finding(on: page)) { $1 }
@@ -201,6 +219,24 @@ private func shownFacts(on page: HostedPage) async throws -> [Change: Set<Redraw
     redrew[.jobStarts] = try await redrawn(in: model) { model.stage = .transcribing(0.1) }
     redrew[.jobProgress] = try await redrawn(in: model) { model.stage = .transcribing(0.2) }
     redrew[.jobEnds] = try await redrawn(in: model) { model.stage = .waiting }
+    return redrew
+}
+
+/// The recording's disk unmounted and mounted again, then the app made active
+/// with nothing moved, each as the system tells the app.
+@MainActor
+private func disks(on page: HostedPage, holding recording: URL) async throws
+    -> [Change: Set<Redraws.Piece>]
+{
+    let model = page.model
+    var redrew: [Change: Set<Redraws.Piece>] = [:]
+    let kept = recording.deletingLastPathComponent().appending(path: "kept.wav")
+    try FileManager.default.copyItem(at: recording, to: kept)
+    try FileManager.default.removeItem(at: recording)
+    redrew[.recordingGone] = try await redrawn(in: model) { model.filesMayHaveChanged() }
+    try FileManager.default.copyItem(at: kept, to: recording)
+    redrew[.recordingBack] = try await redrawn(in: model) { model.filesMayHaveChanged() }
+    redrew[.filesUnchanged] = try await redrawn(in: model) { model.filesMayHaveChanged() }
     return redrew
 }
 
@@ -351,7 +387,7 @@ private func redrawn(
 /// A lecture of 300 paragraphs, of words short enough for the first ones to
 /// be inside the clip the player opens, resumed once, which the warnings say.
 @MainActor
-private func lecture() -> Entry {
+private func lecture(of recording: URL) -> Entry {
     let vocabulary = [
         "Le", "concept", "de", "psychopathologie", "désigne", "l'étude", "des", "troubles",
         "mentaux,", "de", "leurs", "causes", "et", "de", "leurs", "mécanismes.",
@@ -371,7 +407,7 @@ private func lecture() -> Entry {
         if index % 2 == 1 { time += 2 }
     }
     var entry = Entry(
-        recording: HostedPage.clipFR, modelFile: ModelCatalog.recommended.id, glossary: nil,
+        recording: recording, modelFile: ModelCatalog.recommended.id, glossary: nil,
         skipsSilence: false, subtitles: false)
     entry.publish(segments, partial: false)
     entry.state = .finished

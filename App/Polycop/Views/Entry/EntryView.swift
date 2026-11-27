@@ -37,23 +37,21 @@ private struct LoadedEntryView: View {
 
     var body: some View {
         segments.update(for: entry, model: model)
-        let hasRecording = entry.hasRecording
-        let lastExport = model.lastExport(of: entry)
         let inspectorFacts = EntryInspector.Facts(
             entry: entry, findings: segments.findings, textGaps: segments.textGaps,
-            canRebuild: segments.canRebuild, lastExport: lastExport, model: model)
+            canRebuild: segments.canRebuild, lastExport: segments.lastExport, model: model)
         let pageFacts = EntryPage.Facts(
-            entry: entry, hasRecording: hasRecording, hasTimedWords: segments.hasTimedWords,
-            inspector: inspectorFacts, model: model)
+            entry: entry, hasRecording: segments.hasRecording,
+            hasTimedWords: segments.hasTimedWords, inspector: inspectorFacts, model: model)
         return EntryPage(model: model, facts: pageFacts, segments: segments)
     }
 }
 
 /// What a transcript's segments yield for the page: grouped timed words,
 /// notices' findings, text gaps, whether any word is timed, and whether a
-/// warning's rebuild can run. Updated synchronously by `LoadedEntryView` as
-/// its inputs change and read by `LoadedEntryView` and `EntryText`, never by
-/// `EntryPage`.
+/// warning's rebuild can run; with whether its recording and its last export
+/// are on disk. Updated synchronously by `LoadedEntryView` as its inputs
+/// change and read by `LoadedEntryView` and `EntryText`, never by `EntryPage`.
 final class PageSegments {
     /// All fields of a record that `words`, `findings`, or `textGaps` depend on.
     struct Inputs: Equatable {
@@ -118,6 +116,23 @@ final class PageSegments {
         }
     }
 
+    /// All that whether the recording and the last export are on disk hangs on.
+    private struct Files: Equatable {
+        let id: Entry.ID
+        let recording: URL
+        let bookmark: Data?
+        let saved: [URL]
+        let changes: Int
+
+        init(_ entry: Entry, changes: Int) {
+            id = entry.id
+            recording = entry.recording
+            bookmark = entry.bookmark
+            saved = entry.saved
+            self.changes = changes
+        }
+    }
+
     private(set) var words: [[Segment.Word]] = []
     private(set) var findings = Entry.Findings(
         repetitionWarning: nil, repeats: [], hiddenCredits: [], shortenedLoops: [])
@@ -127,8 +142,16 @@ final class PageSegments {
     /// hangs on changes, since the answer can run the course corrections over
     /// the whole text, which neither hovering nor the warnings' two views repeat.
     private(set) var canRebuild = false
+    /// Whether the recording is where the record says, and the file the last
+    /// export wrote while it is still there. Looked for again when the record's
+    /// files change and when the system says a file may have come back
+    /// (`AppModel.fileChanges`), not at each draw: looking resolves the
+    /// recording's bookmark.
+    private(set) var hasRecording = false
+    private(set) var lastExport: URL?
     private var loadedInputs: Inputs?
     private var loadedRebuild: RebuildFacts?
+    private var loadedFiles: Files?
 
     func update(for entry: Entry, model: AppModel) {
         // Always read so `LoadedEntryView.body` observes `busyEntry` and `undoable`.
@@ -147,6 +170,13 @@ final class PageSegments {
             textGaps = entry.textGaps
         }
         loadedInputs = inputs
+
+        let files = Files(entry, changes: model.fileChanges)
+        if loadedFiles != files {
+            loadedFiles = files
+            hasRecording = entry.hasRecording
+            lastExport = model.lastExport(of: entry)
+        }
 
         let rebuild = RebuildFacts(
             entry: entry, canUndo: canUndo, isRunning: isRunning,

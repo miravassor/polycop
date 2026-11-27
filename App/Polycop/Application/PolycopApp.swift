@@ -200,6 +200,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// checks nothing.
     private var hasCheckedAtLaunch = false
 
+    /// A disk coming or going can bring back a recording the page says is
+    /// missing, or take it away.
+    private var diskObservers: [NSObjectProtocol] = []
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Late enough that the window is on screen before any question.
         Task {
@@ -207,9 +211,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             UpdatePrompt.checkAutomaticallyIfDue(atLaunch: true)
             hasCheckedAtLaunch = true
         }
+        let workspace = NSWorkspace.shared.notificationCenter
+        diskObservers = [NSWorkspace.didMountNotification, NSWorkspace.didUnmountNotification]
+            .map { name in
+                workspace.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                    MainActor.assumeIsolated { self?.model?.filesMayHaveChanged() }
+                }
+            }
     }
 
     func applicationDidBecomeActive(_ notification: Notification) {
+        // The reader may have moved a file in the Finder meanwhile.
+        model?.filesMayHaveChanged()
         guard hasCheckedAtLaunch else { return }
         UpdatePrompt.checkAutomaticallyIfDue(atLaunch: false)
     }

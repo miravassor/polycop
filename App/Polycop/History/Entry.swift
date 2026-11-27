@@ -217,9 +217,9 @@ nonisolated struct Entry: Identifiable, Equatable, Codable, Sendable {
 
     /// Whether the recording is still where the bookmark or the path says.
     /// Listening, transcribing again and repairing all need it. The page asks
-    /// as it draws, so a recording on a disk that is not mounted counts as
-    /// missing: mounting it there could wait on a network or ask for a
-    /// password while the user types.
+    /// without mounting, so a recording on a disk that is not mounted counts
+    /// as missing: mounting it there could wait on a network or ask for a
+    /// password while the user types. It asks again once a disk is mounted.
     var hasRecording: Bool {
         FileManager.default.fileExists(atPath: location.path(percentEncoded: false))
     }
