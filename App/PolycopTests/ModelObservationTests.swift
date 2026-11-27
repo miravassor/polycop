@@ -119,3 +119,45 @@ private func withLibrary(_ body: (AppModel, Entry.ID, URL) async throws -> Void)
         #expect(corrected)
     }
 }
+
+/// Removing a transcript takes it out of the queue only when it waits there:
+/// one that waits for nothing tells nothing to what shows the queue.
+@MainActor
+@Test func removingATranscriptTellsTheQueueOnlyWhenItWaitedThere() async throws {
+    try await withLibrary { model, id, _ in
+        let copy = try #require(model.duplicate(id))
+        @MainActor func read() {
+            _ = model.isScheduled(id)
+            _ = model.isScheduled(copy)
+        }
+
+        let unqueued = await tells(read) { model.removeEntry(copy) }
+        #expect(!unqueued)
+
+        // Put in the queue by hand, as Start leaves what waits its turn.
+        model.scheduled.insert(id)
+        let queued = await tells(read) { model.removeEntry(id) }
+        #expect(queued)
+        #expect(!model.isScheduled(id))
+    }
+}
+
+/// Revealing a folder opens it and the folder it is in: revealing it again,
+/// as a drop onto it does, tells nothing to the library, which shows them.
+@MainActor
+@Test func revealingAFolderTellsTheLibraryOnlyWhenItOpensOne() async throws {
+    try await withLibrary { model, _, _ in
+        let course = try model.createFolder(named: "Cours")
+        let seminar = try model.createFolder(named: "Séminaire", in: course)
+        @MainActor func read() {
+            _ = model.isFolderExpanded(course)
+            _ = model.isFolderExpanded(seminar)
+        }
+
+        let opened = await tells(read) { model.revealFolder(seminar) }
+        #expect(opened)
+        #expect(model.isFolderExpanded(course) && model.isFolderExpanded(seminar))
+        let again = await tells(read) { model.revealFolder(seminar) }
+        #expect(!again)
+    }
+}

@@ -28,10 +28,10 @@ extension AppModel {
 
     func revealFolder(_ id: UUID) {
         layout.showsFolders = true
-        layout.openFolders.insert(id)
-        if let parentID = folder(id)?.parentID {
-            layout.openFolders.insert(parentID)
-        }
+        var opened = layout.openFolders
+        opened.insert(id)
+        if let parentID = folder(id)?.parentID { opened.insert(parentID) }
+        if opened != layout.openFolders { layout.openFolders = opened }
     }
 
     func folderPath(of folderID: UUID?) -> String? {

@@ -53,7 +53,7 @@ extension AppModel {
             }
             entries.removeAll { $0.id == id }
             if unsavedHistory.contains(id) { unsavedHistory.remove(id) }
-            scheduled.remove(id)
+            if scheduled.contains(id) { scheduled.remove(id) }
             clearUndo(id)
             pendingSaves.remove(id)
             if !hasUnsavedHistory { storageFailure = nil }
