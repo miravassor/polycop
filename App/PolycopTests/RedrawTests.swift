@@ -20,6 +20,9 @@ private enum Change: CaseIterable {
     case wordHeard
     /// A click into another paragraph than the one being edited.
     case click
+    /// The transcript's first correction, which Undo and the library's edited
+    /// mark show.
+    case firstCorrection
     /// Typing handed to the model, after the first correction of the transcript.
     case handover
     /// Find's Replace All, with its write.
@@ -30,21 +33,41 @@ private enum Change: CaseIterable {
     case findKey
     /// Typing handed to the model while Find shows its results.
     case handoverWhileFinding
+    /// A paragraph flagged for review, which the tools count.
+    case flag
+    /// The transcript renamed, as its row and the window's title say.
+    case rename
+    /// A warning about the text dismissed, which the inspector lists.
+    case dismissWarning
+    /// Work starting on another recording, which the warnings' fixes wait for.
+    case jobStarts
+    /// That work going on.
+    case jobProgress
+    /// That work ending.
+    case jobEnds
 }
 
-/// What each change may redraw of the structure today. A change that reaches
-/// a piece not listed fails, and so does one that no longer reaches a piece
-/// listed: whatever keeps it from that piece takes the piece off this list.
+/// What each change redraws of the structure. A change that reaches a piece
+/// not listed fails, and so does one that no longer reaches a piece listed,
+/// which would leave that piece showing what was: a change of the text alone
+/// reaches none, a change of what the structure shows the pieces that show it.
 private let mayRedraw: [Change: Set<Redraws.Piece>] = [
     .key: [],
     .pointer: [],
     .wordHeard: [],
     .click: [],
+    .firstCorrection: [.library, .page, .tools],
     .handover: [],
     .replaceAll: [],
     .write: [],
     .findKey: [],
     .handoverWhileFinding: [],
+    .flag: [.page, .tools],
+    .rename: [.library, .page],
+    .dismissWarning: [.page, .inspector],
+    .jobStarts: [.page, .inspector],
+    .jobProgress: [],
+    .jobEnds: [.page, .inspector],
 ]
 
 /// Each change redraws exactly the pieces listed for it. Before any is
@@ -55,6 +78,7 @@ private let mayRedraw: [Change: Set<Redraws.Piece>] = [
         try await openCounting(page)
         try await settle(page)
         var redrew = try await corrections(on: page)
+        redrew.merge(try await shownFacts(on: page)) { $1 }
         redrew.merge(try await editing(on: page)) { $1 }
         redrew.merge(try await listening(on: page)) { $1 }
         redrew.merge(try await finding(on: page)) { $1 }
@@ -112,17 +136,20 @@ private func unsettledPieces(of page: HostedPage) async throws
     return unsettled
 }
 
-/// A handover, its write, then Replace All. The first correction changes what
-/// the tools show, Undo among them: those counted come after it, as most do.
+/// The first correction, a later one, its write, then Replace All.
 @MainActor
 private func corrections(on page: HostedPage) async throws -> [Change: Set<Redraws.Piece>] {
     let (model, id) = (page.model, page.id)
+    var redrew: [Change: Set<Redraws.Piece>] = [:]
     let first = try #require(model.entry(id)?.paragraphs[0].text)
-    model.edit(id, paragraphAt: 0, text: first + " ?")
+    redrew[.firstCorrection] = try await redrawn(
+        in: model, drawn: { page.shown.contains(first + " ?") }
+    ) {
+        model.edit(id, paragraphAt: 0, text: first + " ?")
+    }
     model.savePending()
     await model.finishWrites()
     await turns(2)
-    var redrew: [Change: Set<Redraws.Piece>] = [:]
 
     let third = try #require(model.entry(id)?.paragraphs[2].text)
     let corrected = String(third.dropLast()) + "?"
@@ -155,6 +182,25 @@ private func corrections(on page: HostedPage) async throws -> [Change: Set<Redra
         model.replace(id, matches: matches, with: "notion")
         await model.finishWrites()
     }
+    return redrew
+}
+
+/// Changes of what the page's structure shows: a flag, a new name, a warning
+/// dismissed, and work on another recording starting, going on and ending.
+@MainActor
+private func shownFacts(on page: HostedPage) async throws -> [Change: Set<Redraws.Piece>] {
+    let (model, id) = (page.model, page.id)
+    var redrew: [Change: Set<Redraws.Piece>] = [:]
+    redrew[.flag] = try await redrawn(in: model) { model.toggleReview(id, paragraphAt: 1) }
+    redrew[.rename] = try await redrawn(in: model) { model.rename(id, to: "Cours renommé") }
+    redrew[.dismissWarning] = try await redrawn(in: model) {
+        model.setDismissed([.resumed], true, on: id)
+    }
+    await model.finishWrites()
+    // The stage a job sets, with no recording to transcribe behind it.
+    redrew[.jobStarts] = try await redrawn(in: model) { model.stage = .transcribing(0.1) }
+    redrew[.jobProgress] = try await redrawn(in: model) { model.stage = .transcribing(0.2) }
+    redrew[.jobEnds] = try await redrawn(in: model) { model.stage = .waiting }
     return redrew
 }
 
@@ -303,7 +349,7 @@ private func redrawn(
 }
 
 /// A lecture of 300 paragraphs, of words short enough for the first ones to
-/// be inside the clip the player opens.
+/// be inside the clip the player opens, resumed once, which the warnings say.
 @MainActor
 private func lecture() -> Entry {
     let vocabulary = [
@@ -329,5 +375,6 @@ private func lecture() -> Entry {
         skipsSilence: false, subtitles: false)
     entry.publish(segments, partial: false)
     entry.state = .finished
+    entry.resumedAt = [1.0]
     return entry
 }
