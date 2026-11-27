@@ -56,8 +56,18 @@ struct TextChecks {
         /// Whether what a warning offers to rebuild can be, which the page works out.
         var canRebuild: Bool
         var isRunning: Bool
+        /// Whether other work is under way, which the repeats' fix waits for.
+        /// False where that fix does not show, so that work starting or ending
+        /// on another recording leaves these facts equal.
         var isBusy: Bool
         var engineSkipsSilence: Bool
+
+        /// Whether the repeats can be transcribed again: only the corrections
+        /// then decide whether they may be.
+        var offersRepeatsRepair: Bool {
+            findings.repetitionWarning != nil && !findings.repeats.isEmpty
+                && engineSkipsSilence
+        }
 
         func isDismissed(_ warning: Entry.Warning) -> Bool {
             dismissedWarnings?.contains(warning.rawValue) == true
@@ -160,11 +170,9 @@ struct TextChecks {
                 perform: { [model, id = facts.id] in model.putBackCredits(id) }))
     }
 
-    /// The repeats and the engine are checked here, so only the corrections
-    /// decide whether they can be transcribed again.
     private func repetition(_ warning: String) -> TextCheck {
         var action: TextCheck.Action?
-        if !facts.findings.repeats.isEmpty, facts.engineSkipsSilence {
+        if facts.offersRepeatsRepair {
             action = TextCheck.Action(
                 title: "Transcribe the Repeats Again",
                 help: facts.canRebuild
@@ -189,7 +197,8 @@ extension TextChecks.Facts {
             resumedAt: entry.resumedAt, textGaps: textGaps, leftOut: entry.leftOut,
             duration: entry.duration, skipsSilence: entry.skipsSilence,
             dismissedWarnings: entry.dismissedWarnings, canRebuild: canRebuild,
-            isRunning: isRunning, isBusy: model.isBusy,
+            isRunning: isRunning, isBusy: false,
             engineSkipsSilence: engine?.skipsSilence == true)
+        if offersRepeatsRepair { isBusy = model.isBusy }
     }
 }

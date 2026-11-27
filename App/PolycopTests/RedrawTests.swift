@@ -41,7 +41,8 @@ private enum Change: CaseIterable {
     case rename
     /// A warning about the text dismissed, which the inspector lists.
     case dismissWarning
-    /// Work starting on another recording, which the warnings' fixes wait for.
+    /// Work starting on another recording, which only a fix of the repeats
+    /// waits for, and this lecture has none.
     case jobStarts
     /// That work going on.
     case jobProgress
@@ -79,9 +80,9 @@ private let mayRedraw: [Change: Set<Redraws.Piece>] = [
     .flag: [.page, .tools],
     .rename: [.library, .page],
     .dismissWarning: [.page, .inspector],
-    .jobStarts: [.page, .inspector],
+    .jobStarts: [],
     .jobProgress: [],
-    .jobEnds: [.page, .inspector],
+    .jobEnds: [],
     .recordingGone: [.page, .tools],
     .recordingBack: [.page, .tools],
     .filesUnchanged: [],
@@ -113,6 +114,24 @@ private let mayRedraw: [Change: Set<Redraws.Piece>] = [
         for change in Change.allCases {
             #expect(redrew[change] == mayRedraw[change], "\(change)")
         }
+    }
+}
+
+/// Where Transcribe the Repeats Again shows, it waits for other work: work
+/// starting or ending reaches the page, which hands the warnings to the text,
+/// and the inspector, which lists them.
+@MainActor
+@Test func workStartingOrEndingReachesTheFixOfTheRepeatsWhereItShows() async throws {
+    try await withHostedPage(repeatedLecture()) { page in
+        let model = page.model
+        try await openCounting(page)
+        try await settle(page)
+        let checks = try #require(model.entry(page.id)).findings
+        try #require(checks.repetitionWarning != nil && !checks.repeats.isEmpty)
+        let starts = try await redrawn(in: model) { model.stage = .transcribing(0.1) }
+        let ends = try await redrawn(in: model) { model.stage = .waiting }
+        #expect(starts == [.page, .inspector])
+        #expect(ends == [.page, .inspector])
     }
 }
 
@@ -417,6 +436,23 @@ private func redrawn(
     await turns(2)
     let after = Redraws.counts(in: model)
     return Set(Redraws.Piece.allCases.filter { after[$0, default: 0] > before[$0, default: 0] })
+}
+
+/// A short lecture in which the engine said one phrase twelve times in a row.
+@MainActor
+private func repeatedLecture() -> Entry {
+    let segments = (0..<24).map { index in
+        Segment(
+            start: Double(index) * 2, end: Double(index) * 2 + 1.5,
+            text: (6..<18).contains(index)
+                ? " Le concept de psychopathologie." : " Une phrase \(index) du cours.")
+    }
+    var entry = Entry(
+        recording: HostedPage.clipFR, modelFile: ModelCatalog.recommended.id, glossary: nil,
+        skipsSilence: false, subtitles: false)
+    entry.publish(segments, partial: false)
+    entry.state = .finished
+    return entry
 }
 
 /// A lecture of 300 paragraphs, of words short enough for the first ones to

@@ -461,3 +461,35 @@ extension EntryFactsTests {
         }
     }
 }
+
+/// Only the fix of the repeats waits for other work: where it shows, its
+/// button follows the work; elsewhere the warnings' facts stay equal as
+/// work starts.
+@MainActor
+@Test func textCheckFactsFollowTheWorkOnlyWhereTheRepeatsFixShows() async throws {
+    try await withModel { model, _ in
+        var repeated = sampleEntry()
+        repeated.publish(
+            (0..<12).map {
+                Segment(start: Double($0) * 2, end: Double($0) * 2 + 1, text: "Le concept.")
+            }, partial: false)
+        let plain = sampleEntry()
+        @MainActor func facts(of entry: Entry) -> TextChecks.Facts {
+            TextChecks.Facts(
+                entry: entry, findings: entry.findings, textGaps: entry.textGaps,
+                canRebuild: true, isRunning: false, model: model)
+        }
+        @MainActor func repair() -> TextCheck.Action? {
+            TextChecks(facts: facts(of: repeated), model: model).all
+                .first { $0.warning == .repeats }?.action
+        }
+        let idle = facts(of: plain)
+        #expect(repair()?.isDisabled == false)
+
+        model.stage = .transcribing(0.1)
+        #expect(facts(of: plain) == idle)
+        #expect(repair()?.isDisabled == true)
+        model.stage = .waiting
+        #expect(repair()?.isDisabled == false)
+    }
+}
